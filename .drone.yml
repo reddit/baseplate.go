@@ -1,0 +1,23 @@
+pipeline:
+  test:
+    image: golang:1.12
+    commands:
+      - go test ./... -mod=vendor
+
+  check-go-modules:
+    image: golang:1.12
+    commands:
+      - go mod tidy
+      - go mod vendor
+      - git status
+      - test -z "$(git status --porcelain)"
+
+  # TODO: figure out a good salon for this repo
+  # notify-test:
+  #   image: plugins/slack
+  #   channel: ads-eng-salon
+  #   secrets: [ SLACK_WEBHOOK ]
+  #   when:
+  #     event: [ push ]
+  #     branch: master
+  #     status: [ success, failure ]
