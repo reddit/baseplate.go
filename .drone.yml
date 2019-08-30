@@ -2,7 +2,12 @@ pipeline:
   test:
     image: golang:1.12
     commands:
-      - go test ./... -mod=vendor
+      - go test -mod=vendor ./...
+
+  lint:
+    image: golang:1.12
+    commands:
+      - ./scripts/linters.sh
 
   check-go-modules:
     image: golang:1.12
