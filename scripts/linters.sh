@@ -6,17 +6,11 @@ cd $DIR
 FILES=`find . -name "*.go" | grep -v -e "^\.\/vendor\/"`
 FAILED=0
 
-if [ -z "`which golint`" ]; then
-  echo "WARNING: golint not found"
-fi
-
 for FILE in $FILES; do
-  if [ -n "`which golint`" ]; then
-    LINT=`golint $FILE`
-    if [ -n "$LINT" ]; then
-      echo "$FILE:\ngolint\n$LINT"
-      FAILED=1
-    fi
+  LINT=`golint $FILE`
+  if [ -n "$LINT" ]; then
+    echo "$FILE:\ngolint\n$LINT"
+    FAILED=1
   fi
 
   FMT=`gofmt -d $FILE`

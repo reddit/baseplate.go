@@ -1,28 +1,19 @@
 pipeline:
   test:
-    image: golang:1.12
+    image: 258875347723.dkr.ecr.us-east-1.amazonaws.com/go-base:1.13.0-gcc-golint
     commands:
       - go test -mod=vendor ./...
 
   lint:
-    image: golang:1.12
+    image: 258875347723.dkr.ecr.us-east-1.amazonaws.com/go-base:1.13.0-gcc-golint
     commands:
       - ./scripts/linters.sh
 
   check-go-modules:
-    image: golang:1.12
+    image: 258875347723.dkr.ecr.us-east-1.amazonaws.com/go-base:1.13.0-gcc-golint
     commands:
       - go mod tidy
       - go mod vendor
       - git status
+      - git diff
       - test -z "$(git status --porcelain)"
-
-  # TODO: figure out a good salon for this repo
-  # notify-test:
-  #   image: plugins/slack
-  #   channel: ads-eng-salon
-  #   secrets: [ SLACK_WEBHOOK ]
-  #   when:
-  #     event: [ push ]
-  #     branch: master
-  #     status: [ success, failure ]
