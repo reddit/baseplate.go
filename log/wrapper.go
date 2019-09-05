@@ -4,6 +4,7 @@ package log
 
 import (
 	stdlog "log"
+	"testing"
 )
 
 // Wrapper is a simple wrapper of a logging function.
@@ -24,5 +25,14 @@ func StdWrapper(logger *stdlog.Logger) Wrapper {
 	}
 	return func(msg string) {
 		logger.Print(msg)
+	}
+}
+
+// TestWrapper is a wrapper can be used in test codes.
+//
+// It fails the test when called.
+func TestWrapper(tb testing.TB) Wrapper {
+	return func(msg string) {
+		tb.Errorf("logger called with msg: %q", msg)
 	}
 }

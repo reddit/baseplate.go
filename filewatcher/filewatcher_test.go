@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.snooguts.net/reddit/baseplate.go/filewatcher"
+	"github.snooguts.net/reddit/baseplate.go/log"
 )
 
 func parser(f io.Reader) (interface{}, error) {
@@ -20,11 +21,13 @@ func compareBytesData(t *testing.T, data interface{}, expected []byte) {
 	t.Helper()
 
 	if data == nil {
-		t.Fatal("data is nil")
+		t.Error("data is nil")
+		return
 	}
 	b, ok := (data).([]byte)
 	if !ok {
 		t.Errorf("data is not of type *[]byte, actual value: %v", data)
+		return
 	}
 	if string(b) != string(expected) {
 		t.Errorf("*data expected to be %q, got %q", expected, b)
@@ -66,11 +69,12 @@ func TestFileWatcher(t *testing.T) {
 		ctx,
 		path,
 		parser,
-		nil, // logger
+		log.TestWrapper(t),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer data.Stop()
 	compareBytesData(t, data.Get(), payload1)
 
 	func() {
@@ -92,7 +96,7 @@ func TestFileWatcherTimeout(t *testing.T) {
 	interval := time.Millisecond
 	filewatcher.InitialReadInterval = interval
 	round := interval * 10
-	timeout := round * 5
+	timeout := round * 8
 
 	dir, err := ioutil.TempDir("", "filewatcher_test_")
 	if err != nil {
@@ -108,7 +112,7 @@ func TestFileWatcherTimeout(t *testing.T) {
 		ctx,
 		path,
 		parser,
-		nil, // logger
+		log.TestWrapper(t),
 	)
 	if err == nil {
 		t.Error("Expected context cancellation error, got nil.")
@@ -154,11 +158,12 @@ func TestFileWatcherRename(t *testing.T) {
 		ctx,
 		path,
 		parser,
-		nil, // logger
+		log.TestWrapper(t),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer data.Stop()
 	compareBytesData(t, data.Get(), payload1)
 
 	func() {
@@ -180,6 +185,6 @@ func TestFileWatcherRename(t *testing.T) {
 		}
 	}()
 	// Give it some time to handle the file content change
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(interval * 10)
 	compareBytesData(t, data.Get(), payload2)
 }
