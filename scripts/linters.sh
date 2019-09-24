@@ -20,7 +20,7 @@ for FILE in $FILES; do
   fi
 done
 
-VET=`go vet -mod=vendor ./...`
+VET=`go vet -mod=vendor ./... 2>&1`
 if [ -n "$VET" ]; then
   echo "go vet\n$VET"
   FAILED=1
