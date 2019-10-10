@@ -1,4 +1,4 @@
-# golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7
+# golang.org/x/sys v0.0.0-20191008105621-543471e840be
 golang.org/x/sys/unix
 # gopkg.in/fsnotify.v1 v1.4.7
 gopkg.in/fsnotify.v1
