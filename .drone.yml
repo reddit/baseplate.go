@@ -1,16 +1,16 @@
 pipeline:
   test:
-    image: 258875347723.dkr.ecr.us-east-1.amazonaws.com/go-base:1.13.0-gcc-golint
+    image: 258875347723.dkr.ecr.us-east-1.amazonaws.com/go-base:1.13.3
     commands:
       - go test -mod=vendor ./...
 
   lint:
-    image: 258875347723.dkr.ecr.us-east-1.amazonaws.com/go-base:1.13.0-gcc-golint
+    image: 258875347723.dkr.ecr.us-east-1.amazonaws.com/go-base:1.13.3
     commands:
       - ./scripts/linters.sh
 
   check-go-modules:
-    image: 258875347723.dkr.ecr.us-east-1.amazonaws.com/go-base:1.13.0-gcc-golint
+    image: 258875347723.dkr.ecr.us-east-1.amazonaws.com/go-base:1.13.3
     commands:
       - go mod tidy
       - go mod vendor
