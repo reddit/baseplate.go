@@ -21,7 +21,7 @@ To automatically run these tools on every change, use the `File Watchers` featur
 To enable `File Watchers`, go to `Preferences` (`⌘,` on OSX) `->` `Tools` `->` `File Watchers`.
 And click the `+` icon at the bottom of the dialog to add a watcher. Adding `go fmt`, `goimports` and `golangci-lint` will cover the aforementioned tools.
 
-Also mark the checkbox `[x] Enable Go Modules (vgo)` under `Preferences` `->` `Go` `->` `Go Modules (vgo)`.
+Also mark the checkbox `[x] Enable Go Modules (vgo)` and `[x] Vendoring mode` under `Preferences` `->` `Go` `->` `Go Modules (vgo)`.
 
 ## VSCode
 
