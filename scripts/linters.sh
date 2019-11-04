@@ -3,7 +3,7 @@
 DIR=$(dirname $0)/..
 cd $DIR
 
-FILES=`find . -name "*.go" | grep -v -e "^\.\/vendor\/"`
+FILES=`find . -name "*.go"`
 FAILED=0
 
 for FILE in $FILES; do
@@ -19,11 +19,5 @@ for FILE in $FILES; do
     FAILED=1
   fi
 done
-
-VET=`go vet -mod=vendor ./... 2>&1`
-if [ -n "$VET" ]; then
-  echo "go vet\n$VET"
-  FAILED=1
-fi
 
 exit $FAILED

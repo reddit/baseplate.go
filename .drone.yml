@@ -1,19 +1,48 @@
-pipeline:
-  test:
-    image: 258875347723.dkr.ecr.us-east-1.amazonaws.com/go-base:1.13.3
-    commands:
-      - go test -mod=vendor ./...
+kind: pipeline
+name: ci
 
-  lint:
-    image: 258875347723.dkr.ecr.us-east-1.amazonaws.com/go-base:1.13.3
-    commands:
-      - ./scripts/linters.sh
+platform:
+  os: linux
+  arch: amd64
 
-  check-go-modules:
-    image: 258875347723.dkr.ecr.us-east-1.amazonaws.com/go-base:1.13.3
-    commands:
-      - go mod tidy
-      - go mod vendor
-      - git status
-      - git diff
-      - test -z "$(git status --porcelain)"
+steps:
+- name: test
+  image: golang:1.13.4-buster
+  pull: if-not-exists
+  commands:
+  - go test ./...
+  - go vet ./...
+  when:
+    branch:
+    - master
+    event:
+    - pull_request
+    - push
+
+- name: lint
+  image: golang:1.13.4-buster
+  pull: if-not-exists
+  commands:
+  - go get -u golang.org/x/lint/golint
+  - sh ./scripts/linters.sh
+  when:
+    branch:
+    - master
+    event:
+    - pull_request
+    - push
+
+- name: check-go-modules
+  image: golang:1.13.4-buster
+  pull: if-not-exists
+  commands:
+  - go mod tidy
+  - git status
+  - git diff
+  - test -z "$(git status --porcelain)"
+  when:
+    branch:
+    - master
+    event:
+    - pull_request
+    - push
