@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.snooguts.net/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/log"
 )
 
 const specificationExample = `

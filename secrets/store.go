@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.snooguts.net/reddit/baseplate.go/filewatcher"
-	"github.snooguts.net/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/filewatcher"
+	"github.com/reddit/baseplate.go/log"
 )
 
 // Store gives access to secret tokens with automatic refresh on change.
