@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.snooguts.net/reddit/baseplate.go/filewatcher"
+	"github.com/reddit/baseplate.go/filewatcher"
 )
 
 // This example demonstrates how to use filewatcher.

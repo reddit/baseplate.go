@@ -1,4 +1,4 @@
-module github.snooguts.net/reddit/baseplate.go
+module github.com/reddit/baseplate.go
 
 go 1.13
 

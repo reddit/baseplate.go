@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.snooguts.net/reddit/baseplate.go/filewatcher"
-	"github.snooguts.net/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/filewatcher"
+	"github.com/reddit/baseplate.go/log"
 )
 
 func parser(f io.Reader) (interface{}, error) {

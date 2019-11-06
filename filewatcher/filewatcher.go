@@ -10,7 +10,7 @@ import (
 
 	"gopkg.in/fsnotify.v1"
 
-	"github.snooguts.net/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/log"
 )
 
 // InitialReadInterval is the interval to keep retrying to open the file when
