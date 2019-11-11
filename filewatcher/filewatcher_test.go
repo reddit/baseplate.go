@@ -2,10 +2,12 @@ package filewatcher_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -120,6 +122,8 @@ func TestFileWatcherTimeout(t *testing.T) {
 	duration := time.Since(before)
 	if duration.Round(round) > timeout.Round(round) {
 		t.Errorf("Timeout took %v instead of %v", duration, timeout)
+	} else {
+		t.Logf("Timeout took %v, set at %v", duration, timeout)
 	}
 }
 
@@ -187,4 +191,94 @@ func TestFileWatcherRename(t *testing.T) {
 	// Give it some time to handle the file content change
 	time.Sleep(interval * 10)
 	compareBytesData(t, data.Get(), payload2)
+}
+
+func TestParserFailure(t *testing.T) {
+	interval := time.Millisecond
+	errParser := errors.New("parser failed")
+	var n int64
+	parser := func(_ io.Reader) (interface{}, error) {
+		// This parser implementation fails every other call
+		value := atomic.AddInt64(&n, 1)
+		if value%2 == 0 {
+			return nil, errParser
+		}
+		return value, nil
+	}
+	var loggerCalled int64
+	logger := func(msg string) {
+		atomic.StoreInt64(&loggerCalled, 1)
+		t.Log(msg)
+	}
+
+	dir, err := ioutil.TempDir("", "filewatcher_test_")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+	path := filepath.Join(dir, "foo")
+
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	// Initial call to parser should return 1, nil
+	data, err := filewatcher.New(
+		context.Background(),
+		path,
+		parser,
+		logger,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer data.Stop()
+	expected := int64(1)
+	value := data.Get().(int64)
+	if value != expected {
+		t.Errorf("data.Get().(int64) expected %d, got %d", expected, value)
+	}
+
+	// Next call to parser should return nil, err
+	newpath := path + ".bar"
+	f, err = os.Create(newpath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(newpath, path); err != nil {
+		t.Fatal(err)
+	}
+	// Give it some time to handle the file content change
+	time.Sleep(interval * 10)
+	if atomic.LoadInt64(&loggerCalled) == 0 {
+		t.Error("Expected logger being called")
+	}
+	value = data.Get().(int64)
+	if value != expected {
+		t.Errorf("data.Get().(int64) expected %d, got %d", expected, value)
+	}
+
+	// Next call to parser should return 3, nil
+	f, err = os.Create(newpath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(newpath, path); err != nil {
+		t.Fatal(err)
+	}
+	// Give it some time to handle the file content change
+	time.Sleep(interval * 10)
+	expected = 3
+	value = data.Get().(int64)
+	if value != expected {
+		t.Errorf("data.Get().(int64) expected %d, got %d", expected, value)
+	}
 }

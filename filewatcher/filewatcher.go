@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"gopkg.in/fsnotify.v1"
@@ -22,13 +22,14 @@ var InitialReadInterval = time.Second / 2
 
 // A Parser is a callback function to be called when a watched file has its
 // content changed, or is read for the first time.
+//
+// Please note that Parser should always return the consistent type.
+// Inconsistent type will cause panic, as does returning nil data and nil error.
 type Parser func(f io.Reader) (data interface{}, err error)
 
 // Result is the return type of New. Use Get function to get the actual data.
 type Result struct {
-	data interface{}
-
-	lock sync.Mutex
+	data atomic.Value
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -39,7 +40,7 @@ type Result struct {
 // Although the type is interface{},
 // it's guaranteed to be whatever actual type is implemented inside Parser.
 func (r *Result) Get() interface{} {
-	return r.data
+	return r.data.Load()
 }
 
 // Stop stops the file watcher.
@@ -82,9 +83,6 @@ func (r *Result) watcherLoop(
 			case fsnotify.Create, fsnotify.Write:
 				// Wrap with an anonymous function to make sure that defer works.
 				func() {
-					r.lock.Lock()
-					defer r.lock.Unlock()
-
 					f, err := os.Open(path)
 					if err != nil {
 						if logger != nil {
@@ -97,8 +95,9 @@ func (r *Result) watcherLoop(
 						if logger != nil {
 							logger("parser error: " + err.Error())
 						}
+					} else {
+						r.data.Store(d)
 					}
-					r.data = d
 				}()
 			}
 		}
@@ -158,9 +157,8 @@ func New(ctx context.Context, path string, parser Parser, logger log.Wrapper) (*
 		watcher.Close()
 		return nil, err
 	}
-	res := &Result{
-		data: d,
-	}
+	res := &Result{}
+	res.data.Store(d)
 	res.ctx, res.cancel = context.WithCancel(context.Background())
 
 	go res.watcherLoop(watcher, path, parser, logger)
