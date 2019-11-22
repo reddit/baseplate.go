@@ -29,6 +29,32 @@ Visual Studio Code is a lightweight but powerful source code editor which runs o
 
 Using the Go extension for Visual Studio Code, you get language features like IntelliSense, code navigation, symbol search, bracket matching, snippets, and many more that will help you in Golang development.
 
+### Build, lint, and vet
+On save, the Go extension can run go build, go vet, and your choice of linting tool (golint or gometalinter) on the package of the current file.
+You can control these features via the settings below:
+```
+  go.buildOnSave
+  go.buildFlags
+  go.vetOnSave
+  go.vetFlags
+  go.lintOnSave
+  go.lintFlags
+  go.lintTool
+  go.testOnSave
+```
+
+### Formatting
+By default, formatting is run when you save your Go file, as shown below:
+```
+  "[go]": {
+      "editor.formatOnSave": true,
+  }
+```
+You can choose among three formatting tools: gofmt, goreturns, and goimports by changing the setting `go.formatTool`.
+```
+  "go.formatTool": "goimports",
+```
+
 ### Go Language Server
 
 The Go extension uses a host of Go tools to provide the various language features. An alternative is to use a single language server that provides the same features using the Language Server Protocol.
