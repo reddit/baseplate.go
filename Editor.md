@@ -33,26 +33,26 @@ Using the Go extension for Visual Studio Code, you get language features like In
 On save, the Go extension can run go build, go vet, and your choice of linting tool (golint or gometalinter) on the package of the current file.
 You can control these features via the settings below:
 ```
-  go.buildOnSave
-  go.buildFlags
-  go.vetOnSave
-  go.vetFlags
-  go.lintOnSave
-  go.lintFlags
-  go.lintTool
-  go.testOnSave
+go.buildOnSave
+go.buildFlags
+go.vetOnSave
+go.vetFlags
+go.lintOnSave
+go.lintFlags
+go.lintTool
+go.testOnSave
 ```
 
 ### Formatting
 By default, formatting is run when you save your Go file, as shown below:
 ```
-  "[go]": {
-      "editor.formatOnSave": true,
-  }
+"[go]": {
+  "editor.formatOnSave": true,
+}
 ```
 You can choose among three formatting tools: gofmt, goreturns, and goimports by changing the setting `go.formatTool`.
 ```
-  "go.formatTool": "goimports",
+"go.formatTool": "goimports",
 ```
 
 ### Go Language Server
@@ -61,7 +61,7 @@ The Go extension uses a host of Go tools to provide the various language feature
 
 > Get latest stable `gopls`
 ```
-  go get golang.org/x/tools/gopls@latest
+go get golang.org/x/tools/gopls@latest
 ```
 
 > Settings to control the use of the Go language server - `gopls`
@@ -70,31 +70,31 @@ Below are the settings you can use to control the use of the language server. Yo
 - Set `go.useLanguageServer` to `true` to enable the use of language server
 - Use the setting `go.languageServerExperimentalFeatures` to control which features do you want to be powered by the language server. Below are the various features you can control. By default, all are set to true.
 ```
-  "go.languageServerExperimentalFeatures": {
-    "format": true,
-    "autoComplete": true,
-    "rename": true,
-    "goToDefinition": true,
-    "hover": true,
-    "signatureHelp": true,
-    "goToTypeDefinition": true,
-    "goToImplementation": true,
-    "documentSymbols": true,
-    "workspaceSymbols": true,
-    "findReferences": true,
-    "diagnostics": true,
-    "documentLink": true
-  }
+"go.languageServerExperimentalFeatures": {
+  "format": true,
+  "autoComplete": true,
+  "rename": true,
+  "goToDefinition": true,
+  "hover": true,
+  "signatureHelp": true,
+  "goToTypeDefinition": true,
+  "goToImplementation": true,
+  "documentSymbols": true,
+  "workspaceSymbols": true,
+  "findReferences": true,
+  "diagnostics": true,
+  "documentLink": true
+}
 ```
 - Settings to `gopls`
 ```
-  "gopls": {
-    "usePlaceholders": true, // add parameter placeholders when completing a function
+"gopls": {
+  "usePlaceholders": true, // add parameter placeholders when completing a function
 
-    // Experimental settings
-    "completeUnimported": true, // autocomplete unimported packages
-    "watchFileChanges": true,  // watch file changes outside of the editor
-    "deepCompletion": true,     // enable deep completion
-  }
+  // Experimental settings
+  "completeUnimported": true, // autocomplete unimported packages
+  "watchFileChanges": true,  // watch file changes outside of the editor
+  "deepCompletion": true,     // enable deep completion
+}
 ```
 
