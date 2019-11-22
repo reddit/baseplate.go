@@ -25,4 +25,50 @@ Also mark the checkbox `[x] Enable Go Modules (vgo)` and `[x] Vendoring mode` un
 
 ## VSCode
 
-TODO
+Visual Studio Code is a lightweight but powerful source code editor which runs on your desktop and is available for Windows, macOS and Linux. It comes with built-in support for JavaScript, TypeScript and Node.js and has a rich ecosystem of extensions for other languages (such as C++, C#, Java, Python, PHP, Go) and runtimes (such as .NET and Unity).
+
+Using the Go extension for Visual Studio Code, you get language features like IntelliSense, code navigation, symbol search, bracket matching, snippets, and many more that will help you in Golang development.
+
+### Go Language Server
+
+The Go extension uses a host of Go tools to provide the various language features. An alternative is to use a single language server that provides the same features using the Language Server Protocol.
+
+> Get latest stable `gopls`
+```
+  go get golang.org/x/tools/gopls@latest
+```
+
+> Settings to control the use of the Go language server - `gopls`
+Below are the settings you can use to control the use of the language server. You need to reload the VS Code window for any changes in these settings to take effect.
+
+- Set `go.useLanguageServer` to `true` to enable the use of language server
+- Use the setting `go.languageServerExperimentalFeatures` to control which features do you want to be powered by the language server. Below are the various features you can control. By default, all are set to true.
+```
+  "go.languageServerExperimentalFeatures": {
+    "format": true,
+    "autoComplete": true,
+    "rename": true,
+    "goToDefinition": true,
+    "hover": true,
+    "signatureHelp": true,
+    "goToTypeDefinition": true,
+    "goToImplementation": true,
+    "documentSymbols": true,
+    "workspaceSymbols": true,
+    "findReferences": true,
+    "diagnostics": true,
+    "documentLink": true
+  }
+```
+- Settings to `gopls`
+```
+  "gopls": {
+    "usePlaceholders": true, // add parameter placeholders when completing a function
+
+    // Experimental settings
+    "completeUnimported": true, // autocomplete unimported packages
+    "watchFileChanges": true,  // watch file changes outside of the editor
+    "deepCompletion": true,     // enable deep completion
+  }
+```
+
