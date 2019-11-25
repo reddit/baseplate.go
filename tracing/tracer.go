@@ -2,13 +2,13 @@ package tracing
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/opentracing/opentracing-go"
 	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
 	zipkin "github.com/openzipkin/zipkin-go"
 	"github.com/openzipkin/zipkin-go/reporter"
 	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
+	"github.com/reddit/baseplate.go/log"
 )
 
 var zipkinReporter reporter.Reporter
@@ -17,22 +17,26 @@ var zipkinReporter reporter.Reporter
 var Tracer = opentracing.GlobalTracer()
 
 // InitTracer configure the global tracer
-func InitTracer(serviceName, addr string, sampleRate float64) {
+func InitTracer(
+	serviceName, addr string,
+	sampleRate float64,
+	logger log.Wrapper,
+) {
 	if addr == "" {
-		// TODO: log info level
+		logger("Endpoint to send spans to is undefined")
 		return
 	}
 
 	zipkinReporter := zipkinhttp.NewReporter(addr)
 
 	endpoint, err := zipkin.NewEndpoint(serviceName, "0.0.0.0:0")
-	if err != nil {
-		log.Fatalf("unable to create local endpoint: %+v\n", err)
+	if err != nil && logger != nil {
+		logger(fmt.Sprintf("Unable to create local endpoint: %+v\n", err))
 	}
 
 	sampler, err := zipkin.NewCountingSampler(sampleRate)
-	if err != nil {
-		log.Fatalf("unable to create sampler: %+v\n", err)
+	if err != nil && logger != nil {
+		logger(fmt.Sprintf("Unable to create sampler: %+v\n", err))
 	}
 
 	nativeTracer, err := zipkin.NewTracer(
@@ -44,7 +48,9 @@ func InitTracer(serviceName, addr string, sampleRate float64) {
 	tracer := zipkinot.Wrap(nativeTracer)
 	opentracing.SetGlobalTracer(tracer)
 
-	// TODO: log info level
+	if logger != nil {
+		logger("Global tracer created")
+	}
 }
 
 // CloseZipkinReporter close the reporter started in init trace stage
@@ -67,9 +73,12 @@ func StartSpanFromParent(optName string, parent opentracing.Span) opentracing.Sp
 }
 
 // EndSpan finish the span with option messages
-func EndSpan(span opentracing.Span, opts ...interface{}) {
-	if span == nil {
-		// TODO: log debug level - missing span to close
+func EndSpan(
+	span opentracing.Span,
+	logger log.Wrapper,
+	opts ...interface{}) {
+	if span == nil && logger != nil {
+		logger("Missing span to close")
 		return
 	}
 
