@@ -16,6 +16,7 @@ var zipkinReporter reporter.Reporter
 // Tracer is exported to support start tracible server etc
 var Tracer = opentracing.GlobalTracer()
 
+// InitTracer configure the global tracer
 func InitTracer(serviceName, addr string, sampleRate float64) {
 	if addr == "" {
 		// TODO: log info level
