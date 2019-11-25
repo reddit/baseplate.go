@@ -8,7 +8,7 @@ import (
 	zipkin "github.com/openzipkin/zipkin-go"
 	"github.com/openzipkin/zipkin-go/reporter"
 	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
-	"github.com/reddit/baseplate.go/log"
+	"github.com/pkg/errors"
 )
 
 var zipkinReporter reporter.Reporter
@@ -17,26 +17,22 @@ var zipkinReporter reporter.Reporter
 var Tracer = opentracing.GlobalTracer()
 
 // InitTracer configure the global tracer
-func InitTracer(
-	serviceName, addr string,
-	sampleRate float64,
-	logger log.Wrapper,
-) {
+func InitTracer(serviceName, addr string, sampleRate float64,
+) error {
 	if addr == "" {
-		logger("Endpoint to send spans to is undefined")
-		return
+		return errors.New("Endpoint to send spans to is undefined")
 	}
 
 	zipkinReporter := zipkinhttp.NewReporter(addr)
 
 	endpoint, err := zipkin.NewEndpoint(serviceName, "0.0.0.0:0")
-	if err != nil && logger != nil {
-		logger(fmt.Sprintf("Unable to create local endpoint: %+v\n", err))
+	if err != nil {
+		return errors.Wrap(err, "Unable to create local endpoint")
 	}
 
 	sampler, err := zipkin.NewCountingSampler(sampleRate)
-	if err != nil && logger != nil {
-		logger(fmt.Sprintf("Unable to create sampler: %+v\n", err))
+	if err != nil {
+		return errors.Wrap(err, "Unable to create sampler")
 	}
 
 	nativeTracer, err := zipkin.NewTracer(
@@ -48,9 +44,7 @@ func InitTracer(
 	tracer := zipkinot.Wrap(nativeTracer)
 	opentracing.SetGlobalTracer(tracer)
 
-	if logger != nil {
-		logger("Global tracer created")
-	}
+	return nil
 }
 
 // CloseZipkinReporter close the reporter started in init trace stage
@@ -73,12 +67,8 @@ func StartSpanFromParent(optName string, parent opentracing.Span) opentracing.Sp
 }
 
 // EndSpan finish the span with option messages
-func EndSpan(
-	span opentracing.Span,
-	logger log.Wrapper,
-	opts ...interface{}) {
-	if span == nil && logger != nil {
-		logger("Missing span to close")
+func EndSpan(span opentracing.Span, opts ...interface{}) {
+	if span == nil {
 		return
 	}
 
