@@ -23,7 +23,6 @@ steps:
   image: golang:1.13.4-buster
   pull: if-not-exists
   commands:
-  - go get -u golang.org/x/lint/golint
   - sh ./scripts/linters.sh
   when:
     branch:
