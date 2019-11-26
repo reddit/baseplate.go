@@ -19,18 +19,6 @@ steps:
     - pull_request
     - push
 
-- name: lint
-  image: golang:1.13.4-buster
-  pull: if-not-exists
-  commands:
-  - sh ./scripts/linters.sh
-  when:
-    branch:
-    - master
-    event:
-    - pull_request
-    - push
-
 - name: check-go-modules
   image: golang:1.13.4-buster
   pull: if-not-exists
@@ -39,6 +27,19 @@ steps:
   - git status
   - git diff
   - test -z "$(git status --porcelain)"
+  when:
+    branch:
+    - master
+    event:
+    - pull_request
+    - push
+    
+- name: lint
+  image: golang:1.13.4-buster
+  pull: if-not-exists
+  commands:
+  - go get -u golang.org/x/lint/golint
+  - sh ./scripts/linters.sh
   when:
     branch:
     - master
