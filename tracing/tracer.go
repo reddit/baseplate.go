@@ -17,8 +17,7 @@ var zipkinReporter reporter.Reporter
 var Tracer = opentracing.GlobalTracer()
 
 // InitTracer configure the global tracer
-func InitTracer(serviceName, addr string, sampleRate float64,
-) error {
+func InitTracer(serviceName, addr string, sampleRate float64) error {
 	if addr == "" {
 		return errors.New("Endpoint to send spans to is undefined")
 	}
