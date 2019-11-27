@@ -15,13 +15,17 @@ const (
 	HeaderTracingSpan = "Span"
 	// The Parent Span ID, a 64-bit integer encoded in decimal.
 	HeaderTracingParent = "Parent"
-	// The Sampled flag, an ASCII "1" if true, otherwise false.
+	// The Sampled flag, an ASCII "1" (HeaderTracingSampledTrue) if true, otherwise false.
 	// If not present, defaults to false.
 	HeaderTracingSampled = "Sampled"
 	// Trace flags, a 64-bit integer encoded in decimal.
 	// If not present, defaults to null.
 	HeaderTracingFlags = "Flags"
 )
+
+// HeaderTracingSampledTrue is the header value to indicate that this trace
+// should be sampled.
+const HeaderTracingSampledTrue = "1"
 
 // HeadersToForward are the headers that should always be forwarded to upstream
 // thrift servers, to be used in thrift.TSimpleServer.SetForwardHeaders.
