@@ -44,6 +44,36 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper) (*Store, err
 	}, nil
 }
 
+// NewStoreWithNotify returns a new instance of Store by configuring it
+// with a filewatcher to watch the file in path for changes ensuring secrets
+// store will always return up to date secrets.
+//
+// In addition to NewStore, a channel is passed in to allow updated secret
+// be picked up outside of the store. This is mainly used as a signal to trigger
+// subsequent actions with the secret.
+//
+// Context should come with a timeout otherwise this might block forever, i.e.
+// if the path never becomes available.
+func NewStoreWithNotify(ctx context.Context, path string, logger log.Wrapper, notify chan *Secrets) (*Store, error) {
+	parser := func(r io.Reader) (interface{}, error) {
+		secrets, err := NewSecrets(r)
+		if err != nil {
+			return nil, err
+		}
+		go func() {
+			notify <- secrets
+		}()
+		return secrets, nil
+	}
+	result, err := filewatcher.New(ctx, path, parser, logger)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{
+		watcher: result,
+	}, nil
+}
+
 // GetSimpleSecret fetches a simple secret or error if the key is not present.
 func (s *Store) GetSimpleSecret(path string) (SimpleSecret, error) {
 	var secret SimpleSecret

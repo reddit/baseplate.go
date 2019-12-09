@@ -95,6 +95,63 @@ func TestNewStore(t *testing.T) {
 	}
 }
 
+func TestNewStoreWithNotify(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected *Secrets
+	}{
+		{
+			name: "specification example",
+			input: `
+					{
+						"secrets": {
+							"secret/myservice/some-api-key": {
+								"type": "simple",
+								"value": "Y2RvVXhNMVdsTXJma3BDaHRGZ0dPYkVGSg==",
+								"encoding": ""
+							}
+						}
+					}
+			`,
+			expected: &Secrets{
+				simpleSecrets: map[string]SimpleSecret{
+					"secret/myservice/some-api-key": SimpleSecret{"Y2RvVXhNMVdsTXJma3BDaHRGZ0dPYkVGSg=="},
+				},
+				versionedSecrets:  map[string]VersionedSecret{},
+				credentialSecrets: map[string]CredentialSecret{},
+			},
+		},
+	}
+
+	dir, err := ioutil.TempDir("", "secret_test_")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tt := range tests {
+		tt := tt // capture range variable for parallel testing
+		t.Run(tt.name, func(t *testing.T) {
+			tmpFile, err := ioutil.TempFile(dir, "secrets.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			tmpFile.Write([]byte(tt.input))
+
+			notifyChannel := make(chan *Secrets)
+			_, err = NewStoreWithNotify(context.Background(), tmpFile.Name(), log.TestWrapper(t), notifyChannel)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			secret := <-notifyChannel
+			if !reflect.DeepEqual(secret, tt.expected) {
+				t.Fatalf("expected: %+v actual: %+v", tt.expected, secret)
+			}
+		})
+	}
+}
+
 func TestGetSimpleSecret(t *testing.T) {
 	dir, err := ioutil.TempDir("", "secret_test_")
 	if err != nil {
