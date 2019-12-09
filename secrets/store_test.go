@@ -71,10 +71,15 @@ func TestNewStore(t *testing.T) {
 		},
 	}
 
+	dir, err := ioutil.TempDir("", "secret_test_")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	for _, tt := range tests {
 		tt := tt // capture range variable for parallel testing
 		t.Run(tt.name, func(t *testing.T) {
-			tmpFile, err := ioutil.TempFile("", "secrets.json")
+			tmpFile, err := ioutil.TempFile(dir, "secrets.json")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -91,7 +96,12 @@ func TestNewStore(t *testing.T) {
 }
 
 func TestGetSimpleSecret(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "secrets.json")
+	dir, err := ioutil.TempDir("", "secret_test_")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +147,12 @@ func TestGetSimpleSecret(t *testing.T) {
 }
 
 func TestGetVersionedSecret(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "secrets.json")
+	dir, err := ioutil.TempDir("", "secret_test_")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +201,12 @@ func TestGetVersionedSecret(t *testing.T) {
 }
 
 func TestGetCredentialSecret(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "secrets.json")
+	dir, err := ioutil.TempDir("", "secret_test_")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +255,12 @@ func TestGetCredentialSecret(t *testing.T) {
 }
 
 func TestSecretFileIsUpdated(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "secrets.json")
+	dir, err := ioutil.TempDir("", "secret_test_")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
 	}
