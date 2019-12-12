@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/reddit/baseplate.go/filewatcher"
+	"github.com/reddit/baseplate.go/log"
 )
 
 func parser(f io.Reader) (interface{}, error) {
@@ -70,6 +71,7 @@ func TestFileWatcher(t *testing.T) {
 		ctx,
 		path,
 		parser,
+		log.TestWrapper(t),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -112,6 +114,7 @@ func TestFileWatcherTimeout(t *testing.T) {
 		ctx,
 		path,
 		parser,
+		log.TestWrapper(t),
 	)
 	if err == nil {
 		t.Error("Expected context cancellation error, got nil.")
@@ -159,6 +162,7 @@ func TestFileWatcherRename(t *testing.T) {
 		ctx,
 		path,
 		parser,
+		log.TestWrapper(t),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -201,6 +205,11 @@ func TestParserFailure(t *testing.T) {
 		}
 		return value, nil
 	}
+	var loggerCalled int64
+	logger := func(msg string) {
+		atomic.StoreInt64(&loggerCalled, 1)
+		t.Log(msg)
+	}
 
 	dir, err := ioutil.TempDir("", "filewatcher_test_")
 	if err != nil {
@@ -220,6 +229,7 @@ func TestParserFailure(t *testing.T) {
 		context.Background(),
 		path,
 		parser,
+		logger,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -245,6 +255,9 @@ func TestParserFailure(t *testing.T) {
 	}
 	// Give it some time to handle the file content change
 	time.Sleep(interval * 10)
+	if atomic.LoadInt64(&loggerCalled) == 0 {
+		t.Error("Expected logger being called")
+	}
 	value = data.Get().(int64)
 	if value != expected {
 		t.Errorf("data.Get().(int64) expected %d, got %d", expected, value)

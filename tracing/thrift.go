@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/reddit/baseplate.go/log"
@@ -27,13 +28,15 @@ import (
 //
 // If any of the tracing related thrift header is present but malformed,
 // it will be ignored.
-// The error will be logged.
+// The error will also logged if the given logger is non-nil.
 // Absent tracing related headers are always silently ignored.
-func StartSpanFromThriftContext(ctx context.Context, optName string) zipkin.Span {
+func StartSpanFromThriftContext(ctx context.Context, optName string, logger log.Wrapper) zipkin.Span {
 	var parentCtx model.SpanContext
 	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingTrace); ok {
 		if id, err := strconv.ParseUint(str, 10, 64); err != nil {
-			log.Errorf("Malformed trace id in thrift ctx: %q, %v", str, err)
+			if logger != nil {
+				logger(fmt.Sprintf("Malformed trace id in thrift ctx: %q, %v", str, err))
+			}
 		} else {
 			parentCtx.TraceID = model.TraceID{
 				Low: id,
@@ -42,7 +45,9 @@ func StartSpanFromThriftContext(ctx context.Context, optName string) zipkin.Span
 	}
 	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingSpan); ok {
 		if id, err := strconv.ParseUint(str, 10, 64); err != nil {
-			log.Errorf("Malformed span id in thrift ctx: %q, %v", str, err)
+			if logger != nil {
+				logger(fmt.Sprintf("Malformed span id in thrift ctx: %q, %v", str, err))
+			}
 		} else {
 			parentCtx.ID = model.ID(id)
 		}

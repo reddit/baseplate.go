@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/set"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
@@ -61,7 +62,7 @@ func TestStartSpanFromThriftContext(t *testing.T) {
 	t.Run(
 		"not-sampled",
 		func(t *testing.T) {
-			span := tracing.StartSpanFromThriftContext(ctx, optName)
+			span := tracing.StartSpanFromThriftContext(ctx, optName, log.TestWrapper(t))
 			zipkinCtx := span.Context()
 			t.Logf("span: %+v, context: %+v", span, zipkinCtx)
 
@@ -103,7 +104,7 @@ func TestStartSpanFromThriftContext(t *testing.T) {
 	t.Run(
 		"sampled",
 		func(t *testing.T) {
-			span := tracing.StartSpanFromThriftContext(ctx, optName)
+			span := tracing.StartSpanFromThriftContext(ctx, optName, log.TestWrapper(t))
 			zipkinCtx := span.Context()
 			t.Logf("span: %+v, context: %+v", span, zipkinCtx)
 
@@ -160,7 +161,7 @@ func TestCreateThriftContextFromSpan(t *testing.T) {
 	parentCtx := context.Background()
 	parentCtx = thrift.SetHeader(parentCtx, thriftbp.HeaderTracingTrace, traceID)
 	parentCtx = thrift.SetHeader(parentCtx, thriftbp.HeaderTracingSpan, spanID)
-	span := tracing.StartSpanFromThriftContext(parentCtx, optName)
+	span := tracing.StartSpanFromThriftContext(parentCtx, optName, log.TestWrapper(t))
 
 	t.Run(
 		"not-sampled-and-new",
@@ -211,7 +212,7 @@ func TestCreateThriftContextFromSpan(t *testing.T) {
 	)
 
 	parentCtx = thrift.SetHeader(parentCtx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
-	span = tracing.StartSpanFromThriftContext(parentCtx, optName)
+	span = tracing.StartSpanFromThriftContext(parentCtx, optName, log.TestWrapper(t))
 
 	t.Run(
 		"sampled-and-overwrite",

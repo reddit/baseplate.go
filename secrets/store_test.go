@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/reddit/baseplate.go/log"
 )
 
 const specificationExample = `
@@ -82,7 +84,7 @@ func TestNewStore(t *testing.T) {
 				t.Fatal(err)
 			}
 			tmpFile.Write([]byte(tt.input))
-			store, err := NewStore(context.Background(), tmpFile.Name())
+			store, err := NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -126,7 +128,7 @@ func TestGetSimpleSecret(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt // capture range variable for parallel testing
 		t.Run(tt.name, func(t *testing.T) {
-			store, err := NewStore(context.Background(), tmpFile.Name())
+			store, err := NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -180,7 +182,7 @@ func TestGetVersionedSecret(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt // capture range variable for parallel testing
 		t.Run(tt.name, func(t *testing.T) {
-			store, err := NewStore(context.Background(), tmpFile.Name())
+			store, err := NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -234,7 +236,7 @@ func TestGetCredentialSecret(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt // capture range variable for parallel testing
 		t.Run(tt.name, func(t *testing.T) {
-			store, err := NewStore(context.Background(), tmpFile.Name())
+			store, err := NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -264,7 +266,7 @@ func TestSecretFileIsUpdated(t *testing.T) {
 	}
 	tmpFile.Write([]byte(specificationExample))
 
-	store, err := NewStore(context.Background(), tmpFile.Name())
+	store, err := NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t))
 	if err != nil {
 		t.Fatal(err)
 	}

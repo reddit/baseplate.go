@@ -58,6 +58,7 @@ func (r *Result) watcherLoop(
 	watcher *fsnotify.Watcher,
 	path string,
 	parser Parser,
+	logger log.Wrapper,
 ) {
 	file := filepath.Base(path)
 	for {
@@ -67,7 +68,9 @@ func (r *Result) watcherLoop(
 			return
 
 		case err := <-watcher.Errors:
-			log.Errorw("watcher error", "err", err)
+			if logger != nil {
+				logger("watcher error: " + err.Error())
+			}
 
 		case ev := <-watcher.Events:
 			if filepath.Base(ev.Name) != file {
@@ -82,12 +85,16 @@ func (r *Result) watcherLoop(
 				func() {
 					f, err := os.Open(path)
 					if err != nil {
-						log.Errorw("parser error", "err", err)
+						if logger != nil {
+							logger("parser error: " + err.Error())
+						}
 					}
 					defer f.Close()
 					d, err := parser(f)
 					if err != nil {
-						log.Errorw("parser error", "err", err)
+						if logger != nil {
+							logger("parser error: " + err.Error())
+						}
 					} else {
 						r.data.Store(d)
 					}
@@ -103,10 +110,11 @@ func (r *Result) watcherLoop(
 // it blocks until the file becomes available, or context is cancelled,
 // whichever comes first.
 //
-// Errors either returned by parser or by the underlying file system watcher will be logged.
+// When logger is non-nil, it will be used to log errors,
+// either returned by parser or by the underlying file system watcher.
 // Please note that this does not include errors returned by the first parser
 // call, which will be returned directly.
-func New(ctx context.Context, path string, parser Parser) (*Result, error) {
+func New(ctx context.Context, path string, parser Parser, logger log.Wrapper) (*Result, error) {
 	var f *os.File
 
 	for {
@@ -153,7 +161,7 @@ func New(ctx context.Context, path string, parser Parser) (*Result, error) {
 	res.data.Store(d)
 	res.ctx, res.cancel = context.WithCancel(context.Background())
 
-	go res.watcherLoop(watcher, path, parser)
+	go res.watcherLoop(watcher, path, parser, logger)
 
 	return res, nil
 }
