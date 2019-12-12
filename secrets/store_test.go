@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -102,6 +103,61 @@ func TestNewStore(t *testing.T) {
 				}
 			},
 		)
+	}
+}
+
+func TestNewStoreMiddleware(t *testing.T) {
+	dir, err := ioutil.TempDir("", "secret_test_")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpFile.Write([]byte(specificationExample))
+
+	store, err := NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var (
+		expectedMiddlewareCalls = 2
+		middlewareCall          int
+		wg                      sync.WaitGroup
+	)
+
+	wg.Add(expectedMiddlewareCalls)
+	var middleware = func(next SecretHandlerFunc) SecretHandlerFunc {
+		return func(sec *Secrets) {
+			middlewareCall++
+			wg.Done()
+			next(sec)
+		}
+	}
+	store.SecretHandler(middleware, middleware)
+
+	var specificationModification = `
+{
+	"secrets": {
+		"secret/myservice/external-account-key": {
+			"type": "versioned",
+			"current": "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU=",
+			"previous": "aHVudGVyMg=="
+		}
+	},
+	"vault": {
+		"url": "vault.net",
+		"token": "17213328-36d4-11e7-8459-525400f56d04"
+	}
+}`
+	tmpFile.Write([]byte(specificationModification))
+	wg.Wait()
+
+	if middlewareCall != expectedMiddlewareCalls {
+		t.Errorf("expecting %d calls, got %d instead", expectedMiddlewareCalls, middlewareCall)
 	}
 }
 

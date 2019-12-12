@@ -9,6 +9,14 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
+// Middleware functions
+type (
+	SecretHandlerFunc func(sec *Secrets)
+	SecretMiddleware  func(next SecretHandlerFunc) SecretHandlerFunc
+)
+
+func noOpSecretHandlerFunc(sec *Secrets) {}
+
 // Store gives access to secret tokens with automatic refresh on change.
 //
 // This local vault allows access to the secrets cached on disk by the fetcher
@@ -19,6 +27,8 @@ import (
 // to always have the current version in the face of key rotation etc.
 type Store struct {
 	watcher *filewatcher.Result
+
+	secretHandlerFunc SecretHandlerFunc
 }
 
 // NewStore returns a new instance of Store by configuring it
@@ -27,21 +37,43 @@ type Store struct {
 //
 // Context should come with a timeout otherwise this might block forever, i.e.
 // if the path never becomes available.
-func NewStore(ctx context.Context, path string, logger log.Wrapper) (*Store, error) {
-	parser := func(r io.Reader) (interface{}, error) {
-		secrets, err := NewSecrets(r)
-		if err != nil {
-			return nil, err
-		}
-		return secrets, nil
+func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
+	store := &Store{}
+	if len(middlewares) > 0 {
+		store.SecretHandler(middlewares...)
 	}
-	result, err := filewatcher.New(ctx, path, parser, logger)
+
+	result, err := filewatcher.New(ctx, path, store.parser, logger)
 	if err != nil {
 		return nil, err
 	}
-	return &Store{
-		watcher: result,
-	}, nil
+
+	store.watcher = result
+	return store, nil
+}
+
+func (s *Store) parser(r io.Reader) (interface{}, error) {
+	secrets, err := NewSecrets(r)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.secretHandlerFunc != nil {
+		s.secretHandlerFunc(secrets)
+	}
+
+	return secrets, nil
+}
+
+// SecretHandler creates the middleware chain.
+func (s *Store) SecretHandler(middlewares ...SecretMiddleware) {
+	if s.secretHandlerFunc == nil {
+		s.secretHandlerFunc = noOpSecretHandlerFunc
+	}
+
+	for _, m := range middlewares {
+		s.secretHandlerFunc = m(s.secretHandlerFunc)
+	}
 }
 
 // GetSimpleSecret fetches a simple secret or error if the key is not present.
