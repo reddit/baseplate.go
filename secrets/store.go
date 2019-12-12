@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/reddit/baseplate.go/filewatcher"
-	"github.com/reddit/baseplate.go/log"
 )
 
 // Store gives access to secret tokens with automatic refresh on change.
@@ -27,7 +26,7 @@ type Store struct {
 //
 // Context should come with a timeout otherwise this might block forever, i.e.
 // if the path never becomes available.
-func NewStore(ctx context.Context, path string, logger log.Wrapper) (*Store, error) {
+func NewStore(ctx context.Context, path string) (*Store, error) {
 	parser := func(r io.Reader) (interface{}, error) {
 		secrets, err := NewSecrets(r)
 		if err != nil {
@@ -35,7 +34,7 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper) (*Store, err
 		}
 		return secrets, nil
 	}
-	result, err := filewatcher.New(ctx, path, parser, logger)
+	result, err := filewatcher.New(ctx, path, parser)
 	if err != nil {
 		return nil, err
 	}

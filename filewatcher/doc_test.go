@@ -35,7 +35,6 @@ func Example() {
 		ctx,
 		path,
 		parser,
-		nil, // logger
 	)
 	if err != nil {
 		log.Panic(err)
