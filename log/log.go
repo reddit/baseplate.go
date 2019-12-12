@@ -29,58 +29,59 @@ const (
 
 // InitLogger provides a quick way to start or replace a logger
 // Pass in debug as log level enables development mode (which makes DPanicLevel logs panic).
-// Optionally pass in a cfg will provide a logger with custom setting
-func InitLogger(logLevel Level, cfg ...zap.Config) {
+func InitLogger(logLevel Level) {
 	if logLevel == NopLevel {
 		logger = zap.NewNop().Sugar()
 		return
 	}
 
-	var config zap.Config
+	var config = zap.NewProductionConfig()
+	lvl := StringToAtomicLevel(logLevel)
+	config.Encoding = "console"
+	config.EncoderConfig.EncodeCaller = ShortCallerEncoder
+	config.EncoderConfig.EncodeTime = TimeEncoder
+	config.EncoderConfig.EncodeLevel = CapitalLevelEncoder
+	config.Level = zap.NewAtomicLevelAt(lvl)
 
-	if len(cfg) > 0 {
-		config = cfg[0]
-	} else {
-		config = zap.NewProductionConfig()
-		{
-			lvl := StringToAtomicLevel(logLevel)
-			config.Encoding = "console"
-			config.EncoderConfig.EncodeCaller = ShortCallerEncoder
-			config.EncoderConfig.EncodeTime = TimeEncoder
-			config.EncoderConfig.EncodeLevel = CapitalLevelEncoder
-			config.Level = zap.NewAtomicLevelAt(lvl)
-
-			if lvl == zap.DebugLevel {
-				config.Development = true
-			}
-		}
+	if lvl == zap.DebugLevel {
+		config.Development = true
 	}
-
 	// TODO: error handling
 	l, _ := config.Build(zap.AddCallerSkip(2))
 	logger = l.Sugar()
 }
 
+// InitLoggerWithConfig provides a quick way to start or replace a logger
+// Pass in debug as log level enables development mode (which makes DPanicLevel logs panic).
+// Pass in a cfg to provide a logger with custom setting
+func InitLoggerWithConfig(logLevel Level, cfg zap.Config) {
+	if logLevel == NopLevel {
+		logger = zap.NewNop().Sugar()
+		return
+	}
+	// TODO: error handling
+	l, _ := cfg.Build(zap.AddCallerSkip(2))
+	logger = l.Sugar()
+}
+
 // StringToAtomicLevel converts in to a zap acceptable atomic level struct
 func StringToAtomicLevel(loglevel Level) zapcore.Level {
-	lvl := ZapNopLevel
-
 	switch loglevel {
 	case DebugLevel:
-		lvl = zapcore.DebugLevel
+		return zapcore.DebugLevel
 	case InfoLevel:
-		lvl = zapcore.InfoLevel
+		return zapcore.InfoLevel
 	case WarnLevel:
-		lvl = zapcore.WarnLevel
+		return zapcore.WarnLevel
 	case ErrorLevel:
-		lvl = zapcore.ErrorLevel
+		return zapcore.ErrorLevel
 	case PanicLevel:
-		lvl = zapcore.PanicLevel
+		return zapcore.PanicLevel
 	case FatalLevel:
-		lvl = zapcore.FatalLevel
+		return zapcore.FatalLevel
+	default:
+		return ZapNopLevel
 	}
-
-	return lvl
 }
 
 // Debug uses fmt.Sprint to construct and log a message.

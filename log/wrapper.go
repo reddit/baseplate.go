@@ -1,8 +1,7 @@
-// Package log provides common logging interface used by other baseplate
-// packages.
 package log
 
 import (
+	"go.uber.org/zap/zapcore"
 	stdlog "log"
 	"testing"
 )
@@ -34,5 +33,30 @@ func StdWrapper(logger *stdlog.Logger) Wrapper {
 func TestWrapper(tb testing.TB) Wrapper {
 	return func(msg string) {
 		tb.Errorf("logger called with msg: %q", msg)
+	}
+}
+
+// ZapWrapper wraps zap log package into a Wrapper.
+func ZapWrapper(logLevel zapcore.Level) Wrapper {
+	return func(msg string) {
+		switch logLevel {
+		default:
+			// for unknown values, fallback to info level.
+			fallthrough
+		case zapcore.InfoLevel:
+			Info(msg)
+		case zapcore.DebugLevel:
+			Debug(msg)
+		case zapcore.WarnLevel:
+			Warn(msg)
+		case zapcore.ErrorLevel:
+			Error(msg)
+		case zapcore.PanicLevel:
+			Panic(msg)
+		case zapcore.FatalLevel:
+			Fatal(msg)
+		case ZapNopLevel:
+			// do nothing
+		}
 	}
 }

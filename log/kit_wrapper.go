@@ -34,8 +34,3 @@ func (w KitWrapper) Log(keyvals ...interface{}) error {
 func KitLogger(level Level) KitWrapper {
 	return KitWrapper(StringToAtomicLevel(level))
 }
-
-// SimpleLog is a baseplate.go and apache thrift compatible log wrapper.
-func SimpleLog(msg string) {
-	Error(msg)
-}
