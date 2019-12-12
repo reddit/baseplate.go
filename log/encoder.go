@@ -6,7 +6,8 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const AdsRFC3339Nano = "ts=2006-01-02T15:04:05.000000Z"
+// RFC3339Nano is a time format for TimeEncoder
+const RFC3339Nano = "ts=2006-01-02T15:04:05.000000Z"
 
 // FullCallerEncoder serializes a caller in /full/path/to/package/file:line format.
 func FullCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
@@ -23,9 +24,10 @@ func ShortCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEn
 
 // TimeEncoder is customized to add ts in the front
 func TimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(t.UTC().Format(AdsRFC3339Nano))
+	enc.AppendString(t.UTC().Format(RFC3339Nano))
 }
 
+// CapitalLevelEncoder adds logger level in uppercase
 func CapitalLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString("level=" + l.CapitalString())
 }
