@@ -9,10 +9,11 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
-// Middleware functions
 type (
+	// SecretHandlerFunc is the actuall function that works with the Secrets
 	SecretHandlerFunc func(sec *Secrets)
-	SecretMiddleware  func(next SecretHandlerFunc) SecretHandlerFunc
+	// SecretMiddleware creates chain of SecretHandlerFunc calls
+	SecretMiddleware func(next SecretHandlerFunc) SecretHandlerFunc
 )
 
 func noOpSecretHandlerFunc(sec *Secrets) {}
