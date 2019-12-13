@@ -79,11 +79,9 @@ func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
 
 // GetSimpleSecret loads secrets from watcher, and fetches a simple secret from secrets
 func (s *Store) GetSimpleSecret(path string) (SimpleSecret, error) {
-	var secret SimpleSecret
-
 	secrets, ok := s.watcher.Get().(*Secrets)
 	if !ok {
-		return secret, fmt.Errorf("unexpected type %T", secrets)
+		return SimpleSecret{}, fmt.Errorf("unexpected type %T", secrets)
 	}
 
 	return secrets.GetSimpleSecret(path)
@@ -91,11 +89,9 @@ func (s *Store) GetSimpleSecret(path string) (SimpleSecret, error) {
 
 // GetVersionedSecret loads secrets from watcher, and fetches a versioned secret from secrets
 func (s *Store) GetVersionedSecret(path string) (VersionedSecret, error) {
-	var secret VersionedSecret
-
 	secrets, ok := s.watcher.Get().(*Secrets)
 	if !ok {
-		return secret, fmt.Errorf("unexpected type %T", secrets)
+		return VersionedSecret{}, fmt.Errorf("unexpected type %T", secrets)
 	}
 
 	return secrets.GetVersionedSecret(path)
@@ -103,11 +99,9 @@ func (s *Store) GetVersionedSecret(path string) (VersionedSecret, error) {
 
 // GetCredentialSecret loads secrets from watcher, and fetches a credential secret from secrets
 func (s *Store) GetCredentialSecret(path string) (CredentialSecret, error) {
-	var secret CredentialSecret
-
 	secrets, ok := s.watcher.Get().(*Secrets)
 	if !ok {
-		return secret, fmt.Errorf("unexpected type %T", secrets)
+		return CredentialSecret{}, fmt.Errorf("unexpected type %T", secrets)
 	}
 
 	return secrets.GetCredentialSecret(path)
