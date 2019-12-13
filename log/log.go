@@ -30,7 +30,7 @@ const (
 // InitLogger provides a quick way to start or replace a logger
 // Pass in debug as log level enables development mode (which makes DPanicLevel logs panic).
 func InitLogger(logLevel Level) {
-	var config = zap.NewProductionConfig()
+	config := zap.NewProductionConfig()
 	lvl := StringToAtomicLevel(logLevel)
 	config.Encoding = "console"
 	config.EncoderConfig.EncodeCaller = ShortCallerEncoder
