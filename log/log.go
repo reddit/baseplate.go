@@ -30,11 +30,6 @@ const (
 // InitLogger provides a quick way to start or replace a logger
 // Pass in debug as log level enables development mode (which makes DPanicLevel logs panic).
 func InitLogger(logLevel Level) {
-	if logLevel == NopLevel {
-		logger = zap.NewNop().Sugar()
-		return
-	}
-
 	var config = zap.NewProductionConfig()
 	lvl := StringToAtomicLevel(logLevel)
 	config.Encoding = "console"
@@ -46,9 +41,7 @@ func InitLogger(logLevel Level) {
 	if lvl == zap.DebugLevel {
 		config.Development = true
 	}
-	// TODO: error handling
-	l, _ := config.Build(zap.AddCallerSkip(2))
-	logger = l.Sugar()
+	InitLoggerWithConfig(logLevel, config)
 }
 
 // InitLoggerWithConfig provides a quick way to start or replace a logger
@@ -67,6 +60,8 @@ func InitLoggerWithConfig(logLevel Level, cfg zap.Config) {
 // StringToAtomicLevel converts in to a zap acceptable atomic level struct
 func StringToAtomicLevel(loglevel Level) zapcore.Level {
 	switch loglevel {
+	default:
+		return ZapNopLevel
 	case DebugLevel:
 		return zapcore.DebugLevel
 	case InfoLevel:
@@ -79,8 +74,6 @@ func StringToAtomicLevel(loglevel Level) zapcore.Level {
 		return zapcore.PanicLevel
 	case FatalLevel:
 		return zapcore.FatalLevel
-	default:
-		return ZapNopLevel
 	}
 }
 

@@ -1,9 +1,10 @@
 package log
 
 import (
-	"go.uber.org/zap/zapcore"
 	stdlog "log"
 	"testing"
+
+	"go.uber.org/zap/zapcore"
 )
 
 // Wrapper is a simple wrapper of a logging function.
@@ -38,25 +39,23 @@ func TestWrapper(tb testing.TB) Wrapper {
 
 // ZapWrapper wraps zap log package into a Wrapper.
 func ZapWrapper(logLevel zapcore.Level) Wrapper {
+	// For unknown values, fallback to info level.
+	f := Info
+	switch logLevel {
+	case zapcore.DebugLevel:
+		f = Debug
+	case zapcore.WarnLevel:
+		f = Warn
+	case zapcore.ErrorLevel:
+		f = Error
+	case zapcore.PanicLevel:
+		f = Panic
+	case zapcore.FatalLevel:
+		f = Fatal
+	case ZapNopLevel:
+		return NopWrapper
+	}
 	return func(msg string) {
-		switch logLevel {
-		default:
-			// for unknown values, fallback to info level.
-			fallthrough
-		case zapcore.InfoLevel:
-			Info(msg)
-		case zapcore.DebugLevel:
-			Debug(msg)
-		case zapcore.WarnLevel:
-			Warn(msg)
-		case zapcore.ErrorLevel:
-			Error(msg)
-		case zapcore.PanicLevel:
-			Panic(msg)
-		case zapcore.FatalLevel:
-			Fatal(msg)
-		case ZapNopLevel:
-			// do nothing
-		}
+		f(msg)
 	}
 }
