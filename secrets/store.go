@@ -10,13 +10,13 @@ import (
 )
 
 type (
-	// SecretHandlerFunc is the actuall function that works with the Secrets
+	// SecretHandlerFunc is the actual function that works with the Secrets
 	SecretHandlerFunc func(sec *Secrets)
 	// SecretMiddleware creates chain of SecretHandlerFunc calls
 	SecretMiddleware func(next SecretHandlerFunc) SecretHandlerFunc
 )
 
-func noOpSecretHandlerFunc(sec *Secrets) {}
+func nopSecretHandlerFunc(sec *Secrets) {}
 
 // Store gives access to secret tokens with automatic refresh on change.
 //
@@ -69,7 +69,7 @@ func (s *Store) parser(r io.Reader) (interface{}, error) {
 // SecretHandler creates the middleware chain.
 func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
 	if s.secretHandlerFunc == nil {
-		s.secretHandlerFunc = noOpSecretHandlerFunc
+		s.secretHandlerFunc = nopSecretHandlerFunc
 	}
 
 	for _, m := range middlewares {
@@ -77,48 +77,40 @@ func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
 	}
 }
 
-// GetSimpleSecret fetches a simple secret or error if the key is not present.
+// GetSimpleSecret loads secrets from watcher, and fetches a simple secret from secrets
 func (s *Store) GetSimpleSecret(path string) (SimpleSecret, error) {
 	var secret SimpleSecret
-	data := s.watcher.Get()
-	secrets, ok := data.(*Secrets)
+
+	secrets, ok := s.watcher.Get().(*Secrets)
 	if !ok {
-		return secret, fmt.Errorf("unexpected type %T", data)
+		return secret, fmt.Errorf("unexpected type %T", secrets)
 	}
-	secret, ok = secrets.simpleSecrets[path]
-	if !ok {
-		return secret, ErrorSecretNotFound(path)
-	}
-	return secret, nil
+
+	return secrets.GetSimpleSecret(path)
 }
 
-// GetVersionedSecret fetches a versioned secret or error if the key is not present.
+// GetVersionedSecret loads secrets from watcher, and fetches a versioned secret from secrets
 func (s *Store) GetVersionedSecret(path string) (VersionedSecret, error) {
 	var secret VersionedSecret
+
 	secrets, ok := s.watcher.Get().(*Secrets)
 	if !ok {
 		return secret, fmt.Errorf("unexpected type %T", secrets)
 	}
-	secret, ok = secrets.versionedSecrets[path]
-	if !ok {
-		return secret, ErrorSecretNotFound(path)
-	}
-	return secret, nil
+
+	return secrets.GetVersionedSecret(path)
 }
 
-// GetCredentialSecret fetches a credential secret or error if the key is not
-// present.
+// GetCredentialSecret loads secrets from watcher, and fetches a credential secret from secrets
 func (s *Store) GetCredentialSecret(path string) (CredentialSecret, error) {
 	var secret CredentialSecret
+
 	secrets, ok := s.watcher.Get().(*Secrets)
 	if !ok {
 		return secret, fmt.Errorf("unexpected type %T", secrets)
 	}
-	secret, ok = secrets.credentialSecrets[path]
-	if !ok {
-		return secret, ErrorSecretNotFound(path)
-	}
-	return secret, nil
+
+	return secrets.GetCredentialSecret(path)
 }
 
 // GetVault returns a struct with a URL and token to access Vault directly. The
@@ -131,12 +123,4 @@ func (s *Store) GetVault() (Vault, error) {
 		return vault, fmt.Errorf("unexpected type %T", vault)
 	}
 	return secrets.vault, nil
-}
-
-// ErrorSecretNotFound is returned when the key for a secret is not present in
-// the secret store.
-type ErrorSecretNotFound string
-
-func (path ErrorSecretNotFound) Error() string {
-	return "no secret has been found for " + string(path)
 }
