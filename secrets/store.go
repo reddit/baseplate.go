@@ -41,7 +41,7 @@ type Store struct {
 func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
 	store := &Store{}
 	if len(middlewares) > 0 {
-		store.SecretHandler(middlewares...)
+		store.secretHandler(middlewares...)
 	}
 
 	result, err := filewatcher.New(ctx, path, store.parser, logger)
@@ -67,7 +67,7 @@ func (s *Store) parser(r io.Reader) (interface{}, error) {
 }
 
 // SecretHandler creates the middleware chain.
-func (s *Store) SecretHandler(middlewares ...SecretMiddleware) {
+func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
 	if s.secretHandlerFunc == nil {
 		s.secretHandlerFunc = noOpSecretHandlerFunc
 	}
