@@ -10,7 +10,7 @@ steps:
   image: golang:1.13.4-buster
   pull: if-not-exists
   commands:
-  - go test ./... -race
+  - go test ./... -race -v
   - go vet ./...
   when:
     branch:
