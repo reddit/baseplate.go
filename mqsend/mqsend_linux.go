@@ -29,8 +29,7 @@ type mqAttr struct {
 	_              int64
 }
 
-// OpenMessageQueue opens a named message queue.
-func OpenMessageQueue(cfg MessageQueueConfig) (MessageQueue, error) {
+func openMessageQueue(cfg MessageQueueConfig) (MessageQueue, error) {
 	name, err := unix.BytePtrFromString(cfg.Name)
 	if err != nil {
 		return nil, err
