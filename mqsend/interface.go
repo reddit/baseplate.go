@@ -30,3 +30,12 @@ type MessageQueueConfig struct {
 	// The max size in bytes per message.
 	MaxMessageSize int64
 }
+
+// OpenMessageQueue opens a named message queue.
+//
+// On Linux systems this returns the real thing.
+// On non-linux systems this just returns a mocked version,
+// see OpenMockMessageQueue.
+func OpenMessageQueue(cfg MessageQueueConfig) (MessageQueue, error) {
+	return openMessageQueue(cfg)
+}

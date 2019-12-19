@@ -7,9 +7,11 @@
 // It's never meant to be a complete implementation of message queue features.
 // It does NOT have supports for:
 //
-// - Non-linux systems (e.g. macOS)
-// - Non-64-bit systems (e.g. 32-bit Linux)
-// - Non-send operations (e.g. receive)
+// * Non-linux systems (e.g. macOS)
+//
+// * Non-64-bit systems (e.g. 32-bit Linux)
+//
+// * Non-send operations (e.g. receive)
 //
 // If you need those features, this is not the package for you.
 package mqsend
