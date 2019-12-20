@@ -2,6 +2,7 @@ package mqsend_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -24,8 +25,11 @@ func TestMockMessageQueue(t *testing.T) {
 		func(t *testing.T) {
 			data := make([]byte, max+1)
 			err := mq.Send(context.Background(), data)
-			if err == nil {
-				t.Error("Expected an error when message is larger than the max size, got nil")
+			if !errors.As(err, new(mqsend.MessageTooLargeError)) {
+				t.Errorf(
+					"Expected MessageTooLargeError when message is larger than the max size, got %v",
+					err,
+				)
 			}
 		},
 	)
@@ -48,8 +52,11 @@ func TestMockMessageQueue(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			err := mq.Send(ctx, []byte(msg))
-			if err == nil {
-				t.Error("Expected an timeout error when the queue is full, got nil")
+			if !errors.As(err, new(mqsend.TimedOutError)) {
+				t.Errorf("Expected TimedOutError when the queue is full, got %v", err)
+			}
+			if !errors.Is(err, context.DeadlineExceeded) {
+				t.Errorf("Expected DeadlineExceeded when the queue is full, got %v", err)
 			}
 		},
 	)

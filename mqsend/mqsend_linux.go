@@ -4,6 +4,7 @@ package mqsend
 
 import (
 	"context"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -82,8 +83,19 @@ func (mqd messageQueue) Send(ctx context.Context, data []byte) error {
 		absTimeout,                        // abs_timeout
 		0,                                 // unused
 	)
-	if errno == 0 {
+	switch errno {
+	default:
+		return errno
+	case 0:
 		return nil
+	case syscall.EMSGSIZE:
+		return MessageTooLargeError{
+			MessageSize: len(data),
+			Cause:       errno,
+		}
+	case syscall.ETIMEDOUT:
+		return TimedOutError{
+			Cause: errno,
+		}
 	}
-	return errno
 }
