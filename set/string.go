@@ -25,6 +25,17 @@ func (s String) Add(item string) {
 	s[item] = DummyValue
 }
 
+// Remove removes an item from the set.
+//
+// NOTE: Due to a go runtime bug[1],
+// Remove works functionally but does not free the memory held by removed
+// item(s).
+//
+// [1] https://github.com/golang/go/issues/20135
+func (s String) Remove(item string) {
+	delete(s, item)
+}
+
 // Contains returns true if item is in the set.
 func (s String) Contains(item string) bool {
 	_, ok := s[item]
