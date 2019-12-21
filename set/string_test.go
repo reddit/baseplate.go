@@ -111,6 +111,67 @@ func TestStringSet(t *testing.T) {
 	)
 
 	t.Run(
+		"Remove",
+		func(t *testing.T) {
+			s.Remove(key2)
+			if !s.Contains(key1) {
+				t.Errorf("%v should contain item %q", s, key1)
+			}
+			if s.Contains(key2) {
+				t.Errorf("%v should not contain item %q", s, key2)
+			}
+			expectedStr := `{"key1"}`
+			actualStr := s.String()
+			if actualStr != expectedStr {
+				t.Errorf("s.String() expected to be %q, got %q", expectedStr, actualStr)
+			}
+		},
+	)
+
+	t.Run(
+		"RemoveAgain",
+		func(t *testing.T) {
+			s.Remove(key2)
+			if !s.Contains(key1) {
+				t.Errorf("%v should contain item %q", s, key1)
+			}
+			if s.Contains(key2) {
+				t.Errorf("%v should not contain item %q", s, key2)
+			}
+			expectedStr := `{"key1"}`
+			actualStr := s.String()
+			if actualStr != expectedStr {
+				t.Errorf("s.String() expected to be %q, got %q", expectedStr, actualStr)
+			}
+		},
+	)
+
+	t.Run(
+		"SecondItemAgain",
+		func(t *testing.T) {
+			s.Add(key2)
+			if !s.Contains(key1) {
+				t.Errorf("%v should contain item %q", s, key1)
+			}
+			if !s.Contains(key2) {
+				t.Errorf("%v should contain item %q", s, key2)
+			}
+			// map iteration has no guaranteed order so we enumerate both cases.
+			expectedStr1 := `{"key2", "key1"}`
+			expectedStr2 := `{"key1", "key2"}`
+			actualStr := s.String()
+			if actualStr != expectedStr1 && actualStr != expectedStr2 {
+				t.Errorf(
+					"s.String() expected to be either %q or %q, got %q",
+					expectedStr1,
+					expectedStr2,
+					actualStr,
+				)
+			}
+		},
+	)
+
+	t.Run(
 		"ToSlice",
 		func(t *testing.T) {
 			compareSlices := func(s1, s2 []string) bool {
