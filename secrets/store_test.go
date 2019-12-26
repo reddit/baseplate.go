@@ -3,6 +3,7 @@ package secrets
 import (
 	"context"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -75,23 +76,32 @@ func TestNewStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(dir)
 
 	for _, tt := range tests {
-		tt := tt // capture range variable for parallel testing
-		t.Run(tt.name, func(t *testing.T) {
-			tmpFile, err := ioutil.TempFile(dir, "secrets.json")
-			if err != nil {
-				t.Fatal(err)
-			}
-			tmpFile.Write([]byte(tt.input))
-			store, err := NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if store.watcher.Get() == nil {
-				t.Fatal("expected secret store watcher to return secrets")
-			}
-		})
+		t.Run(
+			tt.name,
+			func(t *testing.T) {
+				tmpFile, err := ioutil.TempFile(dir, "secrets.json")
+				if err != nil {
+					t.Fatal(err)
+				}
+				tmpPath := tmpFile.Name()
+				tmpFile.Write([]byte(tt.input))
+				if err := tmpFile.Close(); err != nil {
+					t.Fatal(err)
+				}
+
+				store, err := NewStore(context.Background(), tmpPath, log.TestWrapper(t))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer store.watcher.Stop()
+				if store.watcher.Get() == nil {
+					t.Fatal("expected secret store watcher to return secrets")
+				}
+			},
+		)
 	}
 }
 
@@ -100,12 +110,17 @@ func TestGetSimpleSecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(dir)
 
 	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
 	}
+	tmpPath := tmpFile.Name()
 	tmpFile.Write([]byte(specificationExample))
+	if err := tmpFile.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		name          string
@@ -116,7 +131,7 @@ func TestGetSimpleSecret(t *testing.T) {
 		{
 			name:     "specification example",
 			key:      "secret/myservice/some-api-key",
-			expected: SimpleSecret{Value: "cdoUxM1WlMrfkpChtFgGObEFJ"},
+			expected: SimpleSecret{Value: Secret("cdoUxM1WlMrfkpChtFgGObEFJ")},
 		},
 		{
 			name:          "missing key",
@@ -126,23 +141,26 @@ func TestGetSimpleSecret(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt // capture range variable for parallel testing
-		t.Run(tt.name, func(t *testing.T) {
-			store, err := NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t))
-			if err != nil {
-				t.Fatal(err)
-			}
-			secret, err := store.GetSimpleSecret(tt.key)
-			if tt.expectedError == nil && err != nil {
-				t.Fatal(err)
-			}
-			if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
-				t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
-			}
-			if !reflect.DeepEqual(secret, tt.expected) {
-				t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
-			}
-		})
+		t.Run(
+			tt.name,
+			func(t *testing.T) {
+				store, err := NewStore(context.Background(), tmpPath, log.TestWrapper(t))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer store.watcher.Stop()
+				secret, err := store.GetSimpleSecret(tt.key)
+				if tt.expectedError == nil && err != nil {
+					t.Fatal(err)
+				}
+				if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
+					t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
+				}
+				if !reflect.DeepEqual(secret, tt.expected) {
+					t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
+				}
+			},
+		)
 	}
 }
 
@@ -151,12 +169,17 @@ func TestGetVersionedSecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(dir)
 
 	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
 	}
+	tmpPath := tmpFile.Name()
 	tmpFile.Write([]byte(specificationExample))
+	if err := tmpFile.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		name          string
@@ -168,8 +191,8 @@ func TestGetVersionedSecret(t *testing.T) {
 			name: "specification example",
 			key:  "secret/myservice/external-account-key",
 			expected: VersionedSecret{
-				Current:  "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU=",
-				Previous: "aHVudGVyMg==",
+				Current:  Secret("YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU="),
+				Previous: Secret("aHVudGVyMg=="),
 			},
 		},
 		{
@@ -180,23 +203,26 @@ func TestGetVersionedSecret(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt // capture range variable for parallel testing
-		t.Run(tt.name, func(t *testing.T) {
-			store, err := NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t))
-			if err != nil {
-				t.Fatal(err)
-			}
-			secret, err := store.GetVersionedSecret(tt.key)
-			if tt.expectedError == nil && err != nil {
-				t.Fatal(err)
-			}
-			if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
-				t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
-			}
-			if !reflect.DeepEqual(secret, tt.expected) {
-				t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
-			}
-		})
+		t.Run(
+			tt.name,
+			func(t *testing.T) {
+				store, err := NewStore(context.Background(), tmpPath, log.TestWrapper(t))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer store.watcher.Stop()
+				secret, err := store.GetVersionedSecret(tt.key)
+				if tt.expectedError == nil && err != nil {
+					t.Fatal(err)
+				}
+				if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
+					t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
+				}
+				if !reflect.DeepEqual(secret, tt.expected) {
+					t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
+				}
+			},
+		)
 	}
 }
 
@@ -205,12 +231,17 @@ func TestGetCredentialSecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(dir)
 
 	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
 	}
+	tmpPath := tmpFile.Name()
 	tmpFile.Write([]byte(specificationExample))
+	if err := tmpFile.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		name          string
@@ -234,23 +265,26 @@ func TestGetCredentialSecret(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt // capture range variable for parallel testing
-		t.Run(tt.name, func(t *testing.T) {
-			store, err := NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t))
-			if err != nil {
-				t.Fatal(err)
-			}
-			secret, err := store.GetCredentialSecret(tt.key)
-			if tt.expectedError == nil && err != nil {
-				t.Fatal(err)
-			}
-			if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
-				t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
-			}
-			if !reflect.DeepEqual(secret, tt.expected) {
-				t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
-			}
-		})
+		t.Run(
+			tt.name,
+			func(t *testing.T) {
+				store, err := NewStore(context.Background(), tmpPath, log.TestWrapper(t))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer store.watcher.Stop()
+				secret, err := store.GetCredentialSecret(tt.key)
+				if tt.expectedError == nil && err != nil {
+					t.Fatal(err)
+				}
+				if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
+					t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
+				}
+				if !reflect.DeepEqual(secret, tt.expected) {
+					t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
+				}
+			},
+		)
 	}
 }
 
@@ -259,23 +293,29 @@ func TestSecretFileIsUpdated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(dir)
 
 	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
 	}
+	tmpPath := tmpFile.Name()
 	tmpFile.Write([]byte(specificationExample))
+	if err := tmpFile.Close(); err != nil {
+		t.Fatal(err)
+	}
 
-	store, err := NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t))
+	store, err := NewStore(context.Background(), tmpPath, log.TestWrapper(t))
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer store.watcher.Stop()
 	secret, err := store.GetSimpleSecret("secret/myservice/some-api-key")
 	if err != nil {
 		t.Fatal(err)
 	}
 	expected := "cdoUxM1WlMrfkpChtFgGObEFJ"
-	if secret.Value != expected {
+	if string(secret.Value) != expected {
 		t.Fatalf("expected secret to be %s, actual: %s", expected, secret.Value)
 	}
 
@@ -289,16 +329,26 @@ func TestSecretFileIsUpdated(t *testing.T) {
 		}
 	}`
 
-	tmpFile.Truncate(0)
-	tmpFile.WriteAt([]byte(updated), 0)
-	time.Sleep(time.Millisecond * 1000)
+	tmpFile, err = ioutil.TempFile(dir, "secrets2.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpPath2 := tmpFile.Name()
+	tmpFile.Write([]byte(updated))
+	if err := tmpFile.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(tmpPath2, tmpPath); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Millisecond * 10)
 
 	secret, err = store.GetSimpleSecret("secret/myservice/some-api-key")
 	if err != nil {
 		t.Fatal(err)
 	}
 	expected = "updated secret"
-	if secret.Value != expected {
+	if string(secret.Value) != expected {
 		t.Fatalf("expected secret to be %s, actual: %s", expected, secret.Value)
 	}
 }

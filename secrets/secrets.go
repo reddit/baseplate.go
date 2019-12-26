@@ -15,6 +15,14 @@ const (
 	credentialSecret = "credential"
 )
 
+// A Secret is the base type of secrets.
+type Secret []byte
+
+// IsEmpty returns true if the secret is empty.
+func (s Secret) IsEmpty() bool {
+	return len(s) == 0
+}
+
 // Secrets allows to access secrets based on their different type.
 type Secrets struct {
 	simpleSecrets     map[string]SimpleSecret
@@ -23,9 +31,9 @@ type Secrets struct {
 	vault             Vault
 }
 
-// SimpleSecret represent basic string secrets.
+// SimpleSecret represent basic secrets.
 type SimpleSecret struct {
-	Value string
+	Value Secret
 }
 
 // Returns a new instance of SimpleSecret based on a
@@ -33,8 +41,7 @@ type SimpleSecret struct {
 // raw secret will be decoded prior.
 func newSimpleSecret(secret *GenericSecret) (SimpleSecret, error) {
 	var result SimpleSecret
-	value := secret.Value
-	value, err := secret.Encoding.decodeValue(value)
+	value, err := secret.Encoding.decodeValue(secret.Value)
 	if err != nil {
 		return result, err
 	}
@@ -55,9 +62,9 @@ func newSimpleSecret(secret *GenericSecret) (SimpleSecret, error) {
 // period for cryptographic tokens generated during a rotation, but SHOULD NOT
 // be used to generate new cryptographic tokens.
 type VersionedSecret struct {
-	Current  string
-	Previous string
-	Next     string
+	Current  Secret
+	Previous Secret
+	Next     Secret
 }
 
 // Returns a new instance of VersionedSecret based on a
@@ -91,12 +98,12 @@ func newVersionedSecret(secret *GenericSecret) (VersionedSecret, error) {
 
 // GetAll returns all versions that are not empty in the following order:
 // current, previous, next.
-func (v *VersionedSecret) GetAll() []string {
-	allVersions := []string{v.Current}
-	if v.Previous != "" {
+func (v *VersionedSecret) GetAll() []Secret {
+	allVersions := []Secret{v.Current}
+	if !v.Previous.IsEmpty() {
 		allVersions = append(allVersions, v.Previous)
 	}
-	if v.Next != "" {
+	if !v.Next.IsEmpty() {
 		allVersions = append(allVersions, v.Next)
 	}
 	return allVersions
@@ -266,15 +273,18 @@ func (e *encoding) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (e encoding) decodeValue(value string) (string, error) {
+func (e encoding) decodeValue(value string) (Secret, error) {
+	if value == "" {
+		return nil, nil
+	}
 	switch e {
 	case identityEncoding:
-		return value, nil
+		return Secret(value), nil
 	default:
 		data, err := base64.StdEncoding.DecodeString(value)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		return string(data), nil
+		return Secret(data), nil
 	}
 }
