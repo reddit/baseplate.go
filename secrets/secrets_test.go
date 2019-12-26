@@ -42,18 +42,18 @@ func TestNewSecrets(t *testing.T) {
 			`,
 			expected: &Secrets{
 				simpleSecrets: map[string]SimpleSecret{
-					"secret/myservice/some-api-key": SimpleSecret{
-						Value: "cdoUxM1WlMrfkpChtFgGObEFJ",
+					"secret/myservice/some-api-key": {
+						Value: Secret("cdoUxM1WlMrfkpChtFgGObEFJ"),
 					},
 				},
 				versionedSecrets: map[string]VersionedSecret{
-					"secret/myservice/external-account-key": VersionedSecret{
-						Current:  "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU=",
-						Previous: "aHVudGVyMg==",
+					"secret/myservice/external-account-key": {
+						Current:  Secret("YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU="),
+						Previous: Secret("aHVudGVyMg=="),
 					},
 				},
 				credentialSecrets: map[string]CredentialSecret{
-					"secret/myservice/some-database-credentials": CredentialSecret{
+					"secret/myservice/some-database-credentials": {
 						Username: "spez",
 						Password: "hunter2",
 					},
