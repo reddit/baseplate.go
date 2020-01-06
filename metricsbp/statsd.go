@@ -9,21 +9,22 @@ import (
 	"github.com/reddit/baseplate.go/log"
 
 	"github.com/go-kit/kit/metrics"
-	"github.com/go-kit/kit/metrics/statsd"
+	"github.com/go-kit/kit/metrics/influxstatsd"
 )
 
 // ReporterTickerInterval is the interval the reporter sends data to statsd
 // server. Default is one minute.
 var ReporterTickerInterval = time.Minute
 
-// Statsd defines a statsd reporter and the root of the metrics.
+// Statsd defines a statsd reporter (with influx extension) and the root of the
+// metrics.
 //
 // It can be used to create metrics,
 // and also maintains the background reporting goroutine,
 //
 // Please use NewStatsd to initialize it.
 type Statsd struct {
-	Statsd *statsd.Statsd
+	Statsd *influxstatsd.Influxstatsd
 
 	sampleRate float64
 
@@ -59,16 +60,27 @@ type StatsdConfig struct {
 
 	// The log level used by the reporting goroutine.
 	LogLevel log.Level
+
+	// Labels are the labels/tags to be attached to every metrics created
+	// from this Statsd object. For labels/tags only needed by some metrics,
+	// use Counter/Gauge/Timing.With() instead.
+	Labels map[string]string
 }
 
 // NewStatsd creates a Statsd object.
+//
+// It also starts the background reporting goroutine.
 func NewStatsd(ctx context.Context, cfg StatsdConfig) Statsd {
 	prefix := cfg.Prefix
 	if prefix != "" && !strings.HasSuffix(prefix, ".") {
 		prefix = prefix + "."
 	}
+	labels := make([]string, 0, len(cfg.Labels)*2)
+	for k, v := range cfg.Labels {
+		labels = append(labels, k, v)
+	}
 	st := Statsd{
-		Statsd:     statsd.New(prefix, log.KitLogger(cfg.LogLevel)),
+		Statsd:     influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), labels...),
 		sampleRate: cfg.DefaultSampleRate,
 	}
 
@@ -89,7 +101,7 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) Statsd {
 
 // StopReporting stops the background reporting goroutine.
 //
-// Note that cancelling the context passed into New would also stop the
+// Note that cancelling the context passed into NewStatsd would also stop the
 // background reporting goroutine,
 // but that won't stop the ticker and will cause resource leak.
 //
