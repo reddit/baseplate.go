@@ -35,7 +35,7 @@ type Secrets struct {
 func (s *Secrets) GetSimpleSecret(path string) (SimpleSecret, error) {
 	secret, ok := s.simpleSecrets[path]
 	if !ok {
-		return secret, ErrorSecretNotFound(path)
+		return secret, SecretNotFoundError(path)
 	}
 
 	return secret, nil
@@ -45,7 +45,7 @@ func (s *Secrets) GetSimpleSecret(path string) (SimpleSecret, error) {
 func (s *Secrets) GetVersionedSecret(path string) (VersionedSecret, error) {
 	secret, ok := s.versionedSecrets[path]
 	if !ok {
-		return secret, ErrorSecretNotFound(path)
+		return secret, SecretNotFoundError(path)
 	}
 
 	return secret, nil
@@ -56,7 +56,7 @@ func (s *Secrets) GetVersionedSecret(path string) (VersionedSecret, error) {
 func (s *Secrets) GetCredentialSecret(path string) (CredentialSecret, error) {
 	secret, ok := s.credentialSecrets[path]
 	if !ok {
-		return secret, ErrorSecretNotFound(path)
+		return secret, SecretNotFoundError(path)
 	}
 
 	return secret, nil
@@ -320,10 +320,10 @@ func (e encoding) decodeValue(value string) (Secret, error) {
 	}
 }
 
-// ErrorSecretNotFound is returned when the key for a secret is not present in
+// SecretNotFoundError is returned when the key for a secret is not present in
 // the secret store.
-type ErrorSecretNotFound string
+type SecretNotFoundError string
 
-func (path ErrorSecretNotFound) Error() string {
+func (path SecretNotFoundError) Error() string {
 	return "no secret has been found for " + string(path)
 }

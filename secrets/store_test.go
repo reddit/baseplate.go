@@ -169,7 +169,7 @@ func TestGetSimpleSecret(t *testing.T) {
 		{
 			name:          "missing key",
 			key:           "spez",
-			expectedError: ErrorSecretNotFound("spez"),
+			expectedError: SecretNotFoundError("spez"),
 		},
 	}
 
@@ -231,7 +231,7 @@ func TestGetVersionedSecret(t *testing.T) {
 		{
 			name:          "missing key",
 			key:           "spez",
-			expectedError: ErrorSecretNotFound("spez"),
+			expectedError: SecretNotFoundError("spez"),
 		},
 	}
 
@@ -293,7 +293,7 @@ func TestGetCredentialSecret(t *testing.T) {
 		{
 			name:          "missing key",
 			key:           "spez",
-			expectedError: ErrorSecretNotFound("spez"),
+			expectedError: SecretNotFoundError("spez"),
 		},
 	}
 
