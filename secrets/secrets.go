@@ -31,6 +31,37 @@ type Secrets struct {
 	vault             Vault
 }
 
+// GetSimpleSecret fetches a simple secret or error if the key is not present.
+func (s *Secrets) GetSimpleSecret(path string) (SimpleSecret, error) {
+	secret, ok := s.simpleSecrets[path]
+	if !ok {
+		return secret, SecretNotFoundError(path)
+	}
+
+	return secret, nil
+}
+
+// GetVersionedSecret fetches a versioned secret or error if the key is not present.
+func (s *Secrets) GetVersionedSecret(path string) (VersionedSecret, error) {
+	secret, ok := s.versionedSecrets[path]
+	if !ok {
+		return secret, SecretNotFoundError(path)
+	}
+
+	return secret, nil
+}
+
+// GetCredentialSecret fetches a credential secret or error if the key is not
+// present.
+func (s *Secrets) GetCredentialSecret(path string) (CredentialSecret, error) {
+	secret, ok := s.credentialSecrets[path]
+	if !ok {
+		return secret, SecretNotFoundError(path)
+	}
+
+	return secret, nil
+}
+
 // SimpleSecret represent basic secrets.
 type SimpleSecret struct {
 	Value Secret
@@ -287,4 +318,12 @@ func (e encoding) decodeValue(value string) (Secret, error) {
 		}
 		return Secret(data), nil
 	}
+}
+
+// SecretNotFoundError is returned when the key for a secret is not present in
+// the secret store.
+type SecretNotFoundError string
+
+func (path SecretNotFoundError) Error() string {
+	return "no secret has been found for " + string(path)
 }

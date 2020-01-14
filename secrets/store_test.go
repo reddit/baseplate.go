@@ -105,6 +105,39 @@ func TestNewStore(t *testing.T) {
 	}
 }
 
+func TestNewStoreMiddleware(t *testing.T) {
+	dir, err := ioutil.TempDir("", "secret_test_")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpFile.Write([]byte(specificationExample))
+
+	var (
+		expectedMiddlewareCalls = 2
+		middlewareCall          int
+
+		middleware = func(next SecretHandlerFunc) SecretHandlerFunc {
+			return func(sec *Secrets) {
+				middlewareCall++
+				next(sec)
+			}
+		}
+	)
+	_, err = NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t), middleware, middleware)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if middlewareCall != expectedMiddlewareCalls {
+		t.Errorf("expecting %d calls, got %d instead", expectedMiddlewareCalls, middlewareCall)
+	}
+}
+
 func TestGetSimpleSecret(t *testing.T) {
 	dir, err := ioutil.TempDir("", "secret_test_")
 	if err != nil {
@@ -136,7 +169,7 @@ func TestGetSimpleSecret(t *testing.T) {
 		{
 			name:          "missing key",
 			key:           "spez",
-			expectedError: ErrorSecretNotFound("spez"),
+			expectedError: SecretNotFoundError("spez"),
 		},
 	}
 
@@ -198,7 +231,7 @@ func TestGetVersionedSecret(t *testing.T) {
 		{
 			name:          "missing key",
 			key:           "spez",
-			expectedError: ErrorSecretNotFound("spez"),
+			expectedError: SecretNotFoundError("spez"),
 		},
 	}
 
@@ -260,7 +293,7 @@ func TestGetCredentialSecret(t *testing.T) {
 		{
 			name:          "missing key",
 			key:           "spez",
-			expectedError: ErrorSecretNotFound("spez"),
+			expectedError: SecretNotFoundError("spez"),
 		},
 	}
 
