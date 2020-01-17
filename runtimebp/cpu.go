@@ -86,14 +86,16 @@ func defaultMaxProcsFormula(n float64) int {
 // in bound of [min, max].
 //
 // Currently the default formula is NumCPU()*2-1 rounding up.
-func GOMAXPROCS(min, max int) int {
+func GOMAXPROCS(min, max int) (oldVal, newVal int) {
 	return GOMAXPROCSwithFormula(min, max, defaultMaxProcsFormula)
 }
 
 // GOMAXPROCSwithFormula sets runtime.GOMAXPROCS with the given formula,
 // in bound of [min, max].
-func GOMAXPROCSwithFormula(min, max int, formula MaxProcsFormula) int {
-	return runtime.GOMAXPROCS(boundNtoMinMax(formula(NumCPU()), min, max))
+func GOMAXPROCSwithFormula(min, max int, formula MaxProcsFormula) (oldVal, newVal int) {
+	newVal = boundNtoMinMax(formula(NumCPU()), min, max)
+	oldVal = runtime.GOMAXPROCS(newVal)
+	return
 }
 
 func boundNtoMinMax(n, min, max int) int {
