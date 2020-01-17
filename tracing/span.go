@@ -16,6 +16,13 @@ const (
 	SpanTypeServer
 )
 
+type contextKey int
+
+const (
+	serverSpanKey contextKey = iota
+	childSpanKey
+)
+
 // FlagMask values.
 //
 // Reference: https://github.com/reddit/baseplate.py/blob/1ca8488bcd42c8786e6a3db35b2a99517fd07a99/baseplate/observers/tracing.py#L60-L64
@@ -213,6 +220,21 @@ func (s *Span) CreateLocalChild(name string, component string) *Span {
 	return s.createChild(name, SpanTypeLocal, component)
 }
 
+// CreateLocalChildForContext creates a local child-span with given name and
+// component and a context that can be used by the client you are creating the
+// span for.
+//
+// component is optional local component name and could be empty string.
+//
+// Timestamps, counters, and tags won't be inherited.
+// Parent id will be inherited from the span id,
+// and span id will be randomly generated.
+// Trace id, sampled, and flags will be copied over.
+func (s *Span) CreateLocalChildForContext(ctx context.Context, name string, component string) (context.Context, *Span) {
+	child := s.CreateLocalChild(name, component)
+	return context.WithValue(ctx, childSpanKey, child), child
+}
+
 // CreateClientChild creates a client child-span with given name.
 //
 // A client child-span should be used to make requests to other upstream
@@ -224,6 +246,21 @@ func (s *Span) CreateLocalChild(name string, component string) *Span {
 // Trace id, sampled, and flags will be copied over.
 func (s *Span) CreateClientChild(name string) *Span {
 	return s.createChild(name, SpanTypeClient, "")
+}
+
+// CreateClientChildForContext creates a client child-span with given name and a
+// context that can be used by the client you are creating the span for.
+//
+// A client child-span should be used to make requests to other upstream
+// servers.
+//
+// Timestamps, counters, and tags won't be inherited.
+// Parent id will be inherited from the span id,
+// and span id will be randomly generated.
+// Trace id, sampled, and flags will be copied over.
+func (s *Span) CreateClientChildForContext(ctx context.Context, name string) (context.Context, *Span) {
+	child := s.CreateClientChild(name)
+	return context.WithValue(ctx, childSpanKey, child), child
 }
 
 func (s *Span) createChild(name string, spanType SpanType, component string) *Span {
@@ -249,7 +286,34 @@ func (s *Span) createChild(name string, spanType SpanType, component string) *Sp
 //     result, err := client.MyCall(clientCtx, arg1, arg2)
 //     span.End(ctx, err)
 func (s *Span) ChildAndThriftContext(ctx context.Context, name string) (context.Context, *Span) {
-	span := s.CreateClientChild(name)
+	ctx, span := s.CreateClientChildForContext(ctx, name)
 	ctx = CreateThriftContextFromSpan(ctx, span)
 	return ctx, span
+}
+
+// SetServerSpan sets the span as the ServerSpan on the given context
+func (s *Span) SetServerSpan(ctx context.Context) (context.Context, error) {
+	if s.spanType != SpanTypeServer {
+		return nil, &InvalidSpanTypeError{SpanTypeServer, s.spanType}
+	}
+	return context.WithValue(ctx, serverSpanKey, s), nil
+}
+
+func getSpanFromContext(ctx context.Context, key contextKey) *Span {
+	if s := ctx.Value(key); s != nil {
+		if span, ok := s.(*Span); ok {
+			return span
+		}
+	}
+	return nil
+}
+
+// GetServerSpan gets the ServerSpan from the given context
+func GetServerSpan(ctx context.Context) *Span {
+	return getSpanFromContext(ctx, serverSpanKey)
+}
+
+// GetChildSpan gets the ChildSpan from the given context
+func GetChildSpan(ctx context.Context) *Span {
+	return getSpanFromContext(ctx, childSpanKey)
 }
