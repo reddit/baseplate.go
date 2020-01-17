@@ -3,7 +3,7 @@
 DIR=$(dirname $0)/..
 cd $DIR
 
-FILES=`find . -name "*.go"`
+FILES=`find . -name "*.go" | grep -v -e "\/gen-go\/"`
 FAILED=0
 
 for FILE in $FILES; do

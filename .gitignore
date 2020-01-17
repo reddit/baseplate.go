@@ -1,0 +1,2 @@
+# thrift compiled go files that we don't use
+**/gen-go/**/*-remote/
