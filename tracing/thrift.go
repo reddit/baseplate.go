@@ -36,9 +36,7 @@ func StartSpanFromThriftContext(ctx context.Context, name string) *Span {
 // StartSpanFromThriftContext, except that it uses the passed in tracer instead
 // of GlobalTracer.
 func StartSpanFromThriftContextWithTracer(ctx context.Context, name string, tracer *Tracer) *Span {
-	span := newSpan(tracer, SpanTypeServer)
-	tracer = span.tracer
-	span.spanType = SpanTypeServer
+	span := CreateServerSpan(tracer, name)
 	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingTrace); ok {
 		if id, err := strconv.ParseUint(str, 10, 64); err != nil {
 			if tracer.Logger != nil {

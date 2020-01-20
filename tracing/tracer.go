@@ -111,10 +111,10 @@ func (t *Tracer) Close() error {
 
 // NewTrace creates a new trace (top level local span).
 func (t Tracer) NewTrace(name string) *Span {
-	span := newSpan(&t, SpanTypeLocal)
-	span.name = name
+	span := newSpan(&t, name, SpanTypeLocal)
 	span.traceID = rand.Uint64()
 	span.sampled = randbp.ShouldSampleWithRate(t.SampleRate)
+	span.startSpan()
 	return span
 }
 

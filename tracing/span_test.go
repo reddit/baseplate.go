@@ -238,3 +238,25 @@ func TestChildSpan(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestCreateServerSpan(t *testing.T) {
+	ip, err := getFirstIPv4()
+	if err != nil {
+		t.Logf("Unable to get local ip address: %v", err)
+	}
+	tracer := Tracer{
+		SampleRate: 0.2,
+		Endpoint: ZipkinEndpointInfo{
+			ServiceName: "test-service",
+			IPv4:        ip,
+		},
+	}
+
+	span := CreateServerSpan(&tracer, "foo")
+	if span.spanType != SpanTypeServer {
+		t.Errorf("Expected span to be a ServerSpan")
+	}
+	if span.start.IsZero() {
+		t.Errorf("Expected span to be started")
+	}
+}
