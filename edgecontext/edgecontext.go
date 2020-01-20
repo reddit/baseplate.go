@@ -9,6 +9,7 @@ import (
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/thriftbp"
+	"github.com/reddit/baseplate.go/timebp"
 
 	"github.com/apache/thrift/lib/go/thrift"
 )
@@ -89,7 +90,7 @@ func New(ctx context.Context, args NewArgs) (*EdgeRequestContext, error) {
 		}
 		request.Loid = &baseplate.Loid{
 			ID:        args.LoID,
-			CreatedMs: TimeToMilliseconds(args.LoIDCreatedAt),
+			CreatedMs: timebp.TimeToMilliseconds(args.LoIDCreatedAt),
 		}
 	}
 	if args.SessionID != "" {
@@ -129,7 +130,7 @@ func FromThriftContext(ctx context.Context) (*EdgeRequestContext, error) {
 	}
 	if request.Loid != nil {
 		raw.LoID = request.Loid.ID
-		raw.LoIDCreatedAt = MillisecondsToTime(request.Loid.CreatedMs)
+		raw.LoIDCreatedAt = timebp.MillisecondsToTime(request.Loid.CreatedMs)
 	}
 	return &EdgeRequestContext{
 		header: header,

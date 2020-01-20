@@ -1,6 +1,8 @@
 package edgecontext
 
 import (
+	"github.com/reddit/baseplate.go/timebp"
+
 	jwt "gopkg.in/dgrijalva/jwt-go.v3"
 )
 
@@ -17,8 +19,8 @@ type AuthenticationToken struct {
 	Scopes          []string `json:"scopes,omitempty"`
 
 	LoID struct {
-		ID        string               `json:"id,omitempty"`
-		CreatedAt TimestampMillisecond `json:"created_ms,omitempty"`
+		ID        string                      `json:"id,omitempty"`
+		CreatedAt timebp.TimestampMillisecond `json:"created_ms,omitempty"`
 	} `json:"loid,omitempty"`
 }
 

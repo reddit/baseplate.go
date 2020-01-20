@@ -4,6 +4,8 @@ import (
 	"context"
 	"math/rand"
 	"time"
+
+	"github.com/reddit/baseplate.go/timebp"
 )
 
 // SpanType enum.
@@ -111,14 +113,14 @@ func (s *Span) ToZipkinSpan() ZipkinSpan {
 		TraceID:  s.traceID,
 		Name:     s.Name,
 		SpanID:   s.spanID,
-		Start:    ZipkinTimestamp(s.start),
+		Start:    timebp.TimestampMicrosecond(s.start),
 		ParentID: s.parentID,
 	}
 	end := s.end
 	if end.IsZero() {
 		end = time.Now()
 	}
-	zs.Duration = ZipkinDuration(end.Sub(s.start))
+	zs.Duration = timebp.DurationMicrosecond(end.Sub(s.start))
 
 	var endpoint ZipkinEndpointInfo
 	if s.tracer != nil {
@@ -131,12 +133,12 @@ func (s *Span) ToZipkinSpan() ZipkinSpan {
 			{
 				Endpoint:  endpoint,
 				Key:       ZipkinTimeAnnotationKeyServerReceive,
-				Timestamp: ZipkinTimestamp(s.start),
+				Timestamp: timebp.TimestampMicrosecond(s.start),
 			},
 			{
 				Endpoint:  endpoint,
 				Key:       ZipkinTimeAnnotationKeyServerSend,
-				Timestamp: ZipkinTimestamp(end),
+				Timestamp: timebp.TimestampMicrosecond(end),
 			},
 		}
 	case SpanTypeClient:
@@ -144,12 +146,12 @@ func (s *Span) ToZipkinSpan() ZipkinSpan {
 			{
 				Endpoint:  endpoint,
 				Key:       ZipkinTimeAnnotationKeyClientSend,
-				Timestamp: ZipkinTimestamp(s.start),
+				Timestamp: timebp.TimestampMicrosecond(s.start),
 			},
 			{
 				Endpoint:  endpoint,
 				Key:       ZipkinTimeAnnotationKeyClientReceive,
-				Timestamp: ZipkinTimestamp(end),
+				Timestamp: timebp.TimestampMicrosecond(end),
 			},
 		}
 	}
