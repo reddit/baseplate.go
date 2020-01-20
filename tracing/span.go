@@ -38,9 +38,10 @@ const (
 
 // Span defines a tracing span.
 type Span struct {
+	Name string
+
 	tracer *Tracer
 
-	name     string
 	traceID  uint64
 	spanID   uint64
 	parentID uint64
@@ -55,13 +56,16 @@ type Span struct {
 
 	counters map[string]float64
 	tags     map[string]interface{}
+	hooks    []SpanHook
 }
 
-func newSpan(tracer *Tracer, spanType SpanType) *Span {
+func newSpan(tracer *Tracer, name string, spanType SpanType) *Span {
 	if tracer == nil {
 		tracer = &GlobalTracer
 	}
-	return &Span{
+	span := &Span{
+		Name: name,
+
 		tracer:   tracer,
 		traceID:  rand.Uint64(),
 		spanID:   rand.Uint64(),
@@ -73,6 +77,29 @@ func newSpan(tracer *Tracer, spanType SpanType) *Span {
 			ZipkinBinaryAnnotationKeyComponent: baseplateComponent,
 		},
 	}
+	return span
+}
+
+// CreateServerSpan creates a new Server Span, calls any registered
+// BaseplateHooks, and starts the Span.
+func CreateServerSpan(tracer *Tracer, name string) *Span {
+	span := newSpan(tracer, name, SpanTypeServer)
+	onServerSpanCreate(span)
+	span.startSpan()
+	return span
+}
+
+func (s *Span) startSpan() {
+	for _, hook := range s.hooks {
+		if err := hook.OnStart(s); err != nil && s.tracer.Logger != nil {
+			s.tracer.Logger("OnStart hook error: " + err.Error())
+		}
+	}
+}
+
+// RegisterHook adds a SpanHook into the spans registry of hooks to run.
+func (s *Span) RegisterHook(hook SpanHook) {
+	s.hooks = append(s.hooks, hook)
 }
 
 // ToZipkinSpan returns a ZipkinSpan with data copied from this span.
@@ -82,7 +109,7 @@ func newSpan(tracer *Tracer, spanType SpanType) *Span {
 func (s *Span) ToZipkinSpan() ZipkinSpan {
 	zs := ZipkinSpan{
 		TraceID:  s.traceID,
-		Name:     s.name,
+		Name:     s.Name,
 		SpanID:   s.spanID,
 		Start:    ZipkinTimestamp(s.start),
 		ParentID: s.parentID,
@@ -182,7 +209,11 @@ func (s *Span) End(ctx context.Context, err error) error {
 	if s.spanType == SpanTypeLocal && s.component != "" {
 		s.SetTag(ZipkinBinaryAnnotationKeyLocalComponent, s.component)
 	}
-
+	for _, hook := range s.hooks {
+		if hookErr := hook.OnEnd(s, err); hookErr != nil && s.tracer.Logger != nil {
+			s.tracer.Logger("OnEnd hook error: " + hookErr.Error())
+		}
+	}
 	if s.tracer != nil {
 		return s.tracer.Record(ctx, s)
 	}
@@ -264,8 +295,7 @@ func (s *Span) CreateClientChildForContext(ctx context.Context, name string) (co
 }
 
 func (s *Span) createChild(name string, spanType SpanType, component string) *Span {
-	span := newSpan(s.tracer, spanType)
-	span.name = name
+	span := newSpan(s.tracer, name, spanType)
 	span.spanType = spanType
 	span.component = component
 
@@ -274,6 +304,12 @@ func (s *Span) createChild(name string, spanType SpanType, component string) *Sp
 	span.sampled = s.sampled
 	span.flags = s.flags
 
+	for _, hook := range s.hooks {
+		if err := hook.OnCreateChild(span); err != nil && s.tracer.Logger != nil {
+			s.tracer.Logger("OnCreateChild hook error: " + err.Error())
+		}
+	}
+	span.startSpan()
 	return span
 }
 
