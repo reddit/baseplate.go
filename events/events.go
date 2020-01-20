@@ -2,7 +2,6 @@ package events
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/reddit/baseplate.go/mqsend"
@@ -28,11 +27,21 @@ const (
 	DefaultV2Name = "v2"
 )
 
+var serializerPool = thrift.NewTSerializerPool(
+	func() *thrift.TSerializer {
+		trans := thrift.NewTMemoryBufferLen(MaxEventSize)
+		proto := thrift.NewTJSONProtocol(trans)
+		return &thrift.TSerializer{
+			Transport: trans,
+			Protocol:  proto,
+		}
+	},
+)
+
 // A Queue is an event queue.
 type Queue struct {
-	queue          mqsend.MessageQueue
-	maxTimeout     time.Duration
-	serializerPool sync.Pool
+	queue      mqsend.MessageQueue
+	maxTimeout time.Duration
 }
 
 // The Config used to initialize an event queue.
@@ -82,11 +91,6 @@ func v2WithConfig(cfg Config, queue mqsend.MessageQueue) *Queue {
 	return &Queue{
 		queue:      queue,
 		maxTimeout: maxTimeout,
-		serializerPool: sync.Pool{
-			New: func() interface{} {
-				return newSerializer()
-			},
-		},
 	}
 }
 
@@ -102,22 +106,10 @@ func (q *Queue) Put(ctx context.Context, event thrift.TStruct) error {
 	ctx, cancel := context.WithTimeout(ctx, q.maxTimeout)
 	defer cancel()
 
-	serializer := q.serializerPool.Get().(*thrift.TSerializer)
-	defer q.serializerPool.Put(serializer)
-
-	data, err := serializer.Write(ctx, event)
+	data, err := serializerPool.Write(ctx, event)
 	if err != nil {
 		return err
 	}
 
 	return q.queue.Send(ctx, data)
-}
-
-func newSerializer() *thrift.TSerializer {
-	trans := thrift.NewTMemoryBufferLen(MaxEventSize)
-	proto := thrift.NewTJSONProtocol(trans)
-	return &thrift.TSerializer{
-		Transport: trans,
-		Protocol:  proto,
-	}
 }

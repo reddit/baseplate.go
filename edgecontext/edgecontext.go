@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
@@ -27,8 +26,8 @@ var (
 	store *secrets.Store
 )
 
-var serializerPool = sync.Pool{
-	New: func() interface{} {
+var serializerPool = thrift.NewTSerializerPool(
+	func() *thrift.TSerializer {
 		trans := thrift.NewTMemoryBufferLen(1024)
 		proto := thrift.NewTBinaryProtocolFactoryDefault().GetProtocol(trans)
 
@@ -37,10 +36,10 @@ var serializerPool = sync.Pool{
 			Protocol:  proto,
 		}
 	},
-}
+)
 
-var deserializerPool = sync.Pool{
-	New: func() interface{} {
+var deserializerPool = thrift.NewTDeserializerPool(
+	func() *thrift.TDeserializer {
 		trans := thrift.NewTMemoryBufferLen(1024)
 		proto := thrift.NewTBinaryProtocolFactoryDefault().GetProtocol(trans)
 
@@ -49,7 +48,7 @@ var deserializerPool = sync.Pool{
 			Protocol:  proto,
 		}
 	},
-}
+)
 
 // Config for Init function.
 type Config struct {
@@ -100,9 +99,7 @@ func New(ctx context.Context, args NewArgs) (*EdgeRequestContext, error) {
 	}
 	request.AuthenticationToken = baseplate.AuthenticationToken(args.AuthToken)
 
-	serializer := serializerPool.Get().(*thrift.TSerializer)
-	defer serializerPool.Put(serializer)
-	header, err := serializer.WriteString(ctx, request)
+	header, err := serializerPool.WriteString(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -120,13 +117,7 @@ func FromThriftContext(ctx context.Context) (*EdgeRequestContext, error) {
 	}
 
 	request := baseplate.NewRequest()
-	deserializer := deserializerPool.Get().(*thrift.TDeserializer)
-	defer func() {
-		// See also: https://github.com/apache/thrift/pull/1987
-		deserializer.Transport.(*thrift.TMemoryBuffer).Reset()
-		deserializerPool.Put(deserializer)
-	}()
-	if err := deserializer.ReadString(request, header); err != nil {
+	if err := deserializerPool.ReadString(request, header); err != nil {
 		return nil, err
 	}
 
