@@ -2,11 +2,11 @@ package tracing_test
 
 import (
 	"encoding/json"
-	"errors"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/reddit/baseplate.go/timebp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -26,21 +26,21 @@ func TestZipkinSpan(t *testing.T) {
 			TraceID:  1234,
 			Name:     "foo",
 			SpanID:   4321,
-			Start:    tracing.ZipkinTimestamp(now),
-			Duration: tracing.ZipkinDuration(duration),
+			Start:    timebp.TimestampMicrosecond(now),
+			Duration: timebp.DurationMicrosecond(duration),
 		},
 		"optional-filled": {
 			TraceID:  1234,
 			Name:     "foo",
 			SpanID:   4321,
-			Start:    tracing.ZipkinTimestamp(now),
-			Duration: tracing.ZipkinDuration(duration),
+			Start:    timebp.TimestampMicrosecond(now),
+			Duration: timebp.DurationMicrosecond(duration),
 			ParentID: 54321,
 			TimeAnnotations: []tracing.ZipkinTimeAnnotation{
 				{
 					Endpoint:  endpoint,
 					Key:       tracing.ZipkinTimeAnnotationKeyClientReceive,
-					Timestamp: tracing.ZipkinTimestamp(cr),
+					Timestamp: timebp.TimestampMicrosecond(cr),
 				},
 			},
 			BinaryAnnotations: []tracing.ZipkinBinaryAnnotation{
@@ -79,15 +79,4 @@ func TestZipkinSpan(t *testing.T) {
 			},
 		)
 	}
-
-	t.Run(
-		"zero-timestamp",
-		func(t *testing.T) {
-			span := tracing.ZipkinSpan{}
-			_, err := json.Marshal(span)
-			if !errors.Is(err, tracing.ErrZeroZipkinTimestamp) {
-				t.Errorf("Expected ErrZeroZipkinTimestamp, got %v", err)
-			}
-		},
-	)
 }

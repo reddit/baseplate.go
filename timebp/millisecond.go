@@ -1,4 +1,4 @@
-package edgecontext
+package timebp
 
 import (
 	"encoding/json"
@@ -6,16 +6,16 @@ import (
 	"time"
 )
 
+var (
+	_ json.Unmarshaler = (*TimestampMillisecond)(nil)
+	_ json.Marshaler   = TimestampMillisecond{}
+)
+
 const millisecondsPerSecond = int64(time.Second / time.Millisecond)
 
 // TimestampMillisecond implements json encoding/decoding using milliseconds
 // since EPOCH.
 type TimestampMillisecond time.Time
-
-var (
-	_ json.Unmarshaler = (*TimestampMillisecond)(nil)
-	_ json.Marshaler   = TimestampMillisecond{}
-)
 
 func (ts TimestampMillisecond) String() string {
 	return ts.ToTime().String()
@@ -47,6 +47,8 @@ func MillisecondsToTime(ms int64) time.Time {
 	if ms == 0 {
 		return time.Time{}
 	}
+	// NOTE: A timestamp before the year 1678 or after 2262 would overflow this,
+	// but that's OK.
 	return time.Unix(
 		ms/millisecondsPerSecond,                         // sec
 		ms%millisecondsPerSecond*int64(time.Millisecond), // nanosec
@@ -55,7 +57,7 @@ func MillisecondsToTime(ms int64) time.Time {
 
 // MarshalJSON implements json.Marshaler.
 func (ts TimestampMillisecond) MarshalJSON() ([]byte, error) {
-	t := time.Time(ts)
+	t := ts.ToTime()
 	if t.IsZero() {
 		return []byte("null"), nil
 	}
