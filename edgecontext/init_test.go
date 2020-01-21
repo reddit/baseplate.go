@@ -24,8 +24,6 @@ const secretStore = `
 }`
 
 func TestMain(m *testing.M) {
-	log.InitLogger(log.DebugLevel)
-
 	dir, err := ioutil.TempDir("", "edge_context_test_")
 	if err != nil {
 		log.Panic(err)

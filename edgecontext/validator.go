@@ -70,7 +70,7 @@ func ValidateToken(token string) (*AuthenticationToken, error) {
 			continue
 		}
 
-		if claims, ok := token.Claims.(*AuthenticationToken); ok && token.Valid {
+		if claims, ok := token.Claims.(*AuthenticationToken); ok && token.Valid && token.Method.Alg() == jwtAlg {
 			return claims, nil
 		}
 
