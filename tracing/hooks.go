@@ -19,11 +19,15 @@ var (
 )
 
 // RegisterBaseplateHook registers a Hook into the Baseplate request lifecycle.
+//
+// This function and ResetHooks are not safe to call concurrently.
 func RegisterBaseplateHook(hook BaseplateHook) {
 	hooks = append(hooks, hook)
 }
 
 // ResetHooks removes all global hooks and resets back to initial state.
+//
+// This function and RegisterBaseplateHook are not safe to call concurrently.
 func ResetHooks() {
 	hooks = nil
 }

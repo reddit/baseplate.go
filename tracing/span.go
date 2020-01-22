@@ -125,6 +125,8 @@ func (s *Span) startSpan() {
 }
 
 // RegisterHook adds a SpanHook into the spans registry of hooks to run.
+//
+// This function is not safe to call concurrently.
 func (s *Span) RegisterHook(hook SpanHook) {
 	s.hooks = append(s.hooks, hook)
 }
