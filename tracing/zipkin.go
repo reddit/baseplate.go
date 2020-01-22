@@ -65,6 +65,7 @@ const (
 	ZipkinBinaryAnnotationKeyLocalComponent = "lc"
 
 	// Boolean values
-	ZipkinBinaryAnnotationKeyDebug = "debug"
-	ZipkinBinaryAnnotationKeyError = "error"
+	ZipkinBinaryAnnotationKeyDebug   = "debug"
+	ZipkinBinaryAnnotationKeyError   = "error"
+	ZipkinBinaryAnnotationKeyTimeOut = "timed_out"
 )

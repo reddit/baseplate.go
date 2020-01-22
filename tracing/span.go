@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"context"
+	"errors"
 	"math/rand"
 	"time"
 
@@ -229,6 +230,9 @@ func (s *Span) End(ctx context.Context, err error) error {
 
 	if err != nil {
 		s.SetTag(ZipkinBinaryAnnotationKeyError, true)
+		if s.spanType == SpanTypeServer && errors.Is(err, context.DeadlineExceeded) {
+			s.SetTag(ZipkinBinaryAnnotationKeyTimeOut, true)
+		}
 	}
 	if s.isDebugSet() {
 		s.SetTag(ZipkinBinaryAnnotationKeyDebug, true)
