@@ -25,7 +25,6 @@ const (
 	unknown = "unknown"
 )
 
-// String returns a string representing the SpanType.
 func (st SpanType) String() string {
 	switch st {
 	default:

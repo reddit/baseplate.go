@@ -261,7 +261,7 @@ func TestCreateServerSpan(t *testing.T) {
 	}
 }
 
-func TestSpanTypes(t *testing.T) {
+func TestSpanTypeStrings(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -288,15 +288,14 @@ func TestSpanTypes(t *testing.T) {
 	for _, _c := range cases {
 		c := _c
 		t.Run(
-			c.name,
+			c.expected,
 			func(t *testing.T) {
 				t.Parallel()
-				span := Span{Name: "test", spanType: c.spanType}
-				if span.SpanType().String() != c.expected {
+				if c.spanType.String() != c.expected {
 					t.Errorf(
-						"Expected span type %s, got %s",
+						"Expected SpanType.String to be %s, got %v",
 						c.expected,
-						span.SpanType().String(),
+						c.spanType,
 					)
 				}
 			},
