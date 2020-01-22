@@ -1,6 +1,8 @@
 package tracing
 
-import "github.com/getsentry/raven-go"
+import (
+	"github.com/getsentry/raven-go"
+)
 
 // ErrorReporterBaseplateHook registers each Server Span with an
 // ErrorReporterSpanHook that will publish errors sent to OnEnd to Sentry.
