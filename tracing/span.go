@@ -18,6 +18,13 @@ const (
 	SpanTypeServer
 )
 
+const (
+	client  = "client"
+	local   = "local"
+	server  = "server"
+	unknown = "unknown"
+)
+
 // String returns a string representing the SpanType.
 func (st SpanType) String() string {
 	switch st {
@@ -50,10 +57,6 @@ const (
 const (
 	counterKeyPrefix   = "counter."
 	baseplateComponent = "baseplate"
-	client             = "client"
-	local              = "local"
-	server             = "server"
-	unknown            = "unknown"
 )
 
 // Span defines a tracing span.
