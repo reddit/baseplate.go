@@ -35,7 +35,7 @@ type SpanHook struct {
 }
 
 func newSpanHook(prefix string, metrics Statsd, span *tracing.Span) SpanHook {
-	name := fmt.Sprintf("%s.%s.%s", prefix, span.Type(), span.Name)
+	name := fmt.Sprintf("%s.%s.%s", prefix, span.Type().String(), span.Name)
 	return SpanHook{
 		Name:    name,
 		Metrics: metrics,
