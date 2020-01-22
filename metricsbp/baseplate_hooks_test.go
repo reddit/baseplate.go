@@ -56,7 +56,7 @@ func TestOnServerSpanCreate(t *testing.T) {
 	tracing.RegisterBaseplateHook(hook)
 	defer tracing.ResetHooks()
 
-	histogramRegex := regexp.MustCompile(`^service\.testing\.foo:\d\.\d+\|ms$`)
+	histogramRegex := regexp.MustCompile(`^service\.testing\.server\.foo:\d\.\d+\|ms$`)
 
 	t.Run(
 		"success",
@@ -66,7 +66,7 @@ func TestOnServerSpanCreate(t *testing.T) {
 				t.Fatalf("Got error: %s", err)
 			}
 
-			expectedCounter := "service.testing.foo.success:1.000000|c"
+			expectedCounter := "service.testing.server.foo.success:1.000000|c"
 			if counter != expectedCounter {
 				t.Errorf(
 					"Expected counter: %s\nGot counter: %s",
@@ -92,7 +92,7 @@ func TestOnServerSpanCreate(t *testing.T) {
 				t.Fatalf("Got error: %s", err)
 			}
 
-			expectedCounter := "service.testing.foo.fail:1.000000|c"
+			expectedCounter := "service.testing.server.foo.fail:1.000000|c"
 			if counter != expectedCounter {
 				t.Errorf(
 					"Expected counter: %s\nGot counter: %s",

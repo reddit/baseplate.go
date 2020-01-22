@@ -260,3 +260,42 @@ func TestCreateServerSpan(t *testing.T) {
 		t.Errorf("Expected span to be started")
 	}
 }
+
+func TestSpanTypes(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		spanType SpanType
+		expected string
+	}{
+		{
+			name:     server,
+			spanType: SpanTypeServer,
+			expected: server,
+		},
+		{
+			name:     local,
+			spanType: SpanTypeLocal,
+			expected: local,
+		},
+		{
+			name:     client,
+			spanType: SpanTypeClient,
+			expected: client,
+		},
+	}
+	for _, _c := range cases {
+		c := _c
+		t.Run(
+			c.name,
+			func(t *testing.T) {
+				t.Parallel()
+				span := Span{Name: "test", spanType: c.spanType}
+				if span.Type() != c.expected {
+					t.Errorf("Expected span type %s, got %s", c.expected, span.Type())
+				}
+			},
+		)
+	}
+}

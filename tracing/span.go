@@ -36,6 +36,10 @@ const (
 const (
 	counterKeyPrefix   = "counter."
 	baseplateComponent = "baseplate"
+	client             = "client"
+	local              = "local"
+	server             = "server"
+	unknown            = "unknown"
 )
 
 // Span defines a tracing span.
@@ -80,6 +84,20 @@ func newSpan(tracer *Tracer, name string, spanType SpanType) *Span {
 		},
 	}
 	return span
+}
+
+// Type returns a string representing the SpanType.
+func (s *Span) Type() string {
+	switch s.spanType {
+	default:
+		return unknown
+	case SpanTypeServer:
+		return server
+	case SpanTypeClient:
+		return client
+	case SpanTypeLocal:
+		return local
+	}
 }
 
 // CreateServerSpan creates a new Server Span, calls any registered

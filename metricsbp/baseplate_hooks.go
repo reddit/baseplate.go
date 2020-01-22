@@ -19,12 +19,7 @@ type BaseplateHook struct {
 
 // OnServerSpanCreate registers MetricSpanHooks on a Server Span.
 func (h BaseplateHook) OnServerSpanCreate(span *tracing.Span) error {
-	name := fmt.Sprintf("%s.%s", h.Prefix, span.Name)
-	serverSpanHook := SpanHook{
-		Name:    name,
-		Metrics: h.Metrics,
-		timer:   NewTimer(h.Metrics.Histogram(name)),
-	}
+	serverSpanHook := newSpanHook(h.Prefix, h.Metrics, span)
 	span.RegisterHook(serverSpanHook)
 	return nil
 }
@@ -39,14 +34,19 @@ type SpanHook struct {
 	timer *Timer
 }
 
+func newSpanHook(prefix string, metrics Statsd, span *tracing.Span) SpanHook {
+	name := fmt.Sprintf("%s.%s.%s", prefix, span.Type(), span.Name)
+	return SpanHook{
+		Name:    name,
+		Metrics: metrics,
+		timer:   NewTimer(metrics.Histogram(name)),
+	}
+}
+
 // OnCreateChild registers a child MetricsSpanHook on the child Span and starts
 // a new Timer around the Span.
 func (h SpanHook) OnCreateChild(child *tracing.Span) error {
-	childHook := SpanHook{
-		Name:    fmt.Sprintf("%s.%s", h.Name, child.Name),
-		Metrics: h.Metrics,
-		timer:   NewTimer(h.Metrics.Histogram(h.Name)),
-	}
+	childHook := newSpanHook(h.Name, h.Metrics, child)
 	child.RegisterHook(childHook)
 	return nil
 }
