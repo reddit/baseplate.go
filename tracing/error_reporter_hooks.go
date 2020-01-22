@@ -1,11 +1,6 @@
 package tracing
 
-import "github.com/reddit/baseplate.go/log"
-
-const (
-	success = "success"
-	fail    = "fail"
-)
+import "github.com/getsentry/raven-go"
 
 // ErrorReporterBaseplateHook registers each Server Span with an
 // ErrorReporterSpanHook that will publish errors sent to OnEnd to Sentry.
@@ -33,7 +28,7 @@ func (h ErrorReporterSpanHook) OnStart(span *Span) error {
 // OnEnd logs a message and sends err to Sentry if err is non-nil.
 func (h ErrorReporterSpanHook) OnEnd(span *Span, err error) error {
 	if err != nil {
-		log.ErrorWithRaven("Span ended with an error", err)
+		raven.CaptureError(err, nil)
 	}
 	return nil
 }
