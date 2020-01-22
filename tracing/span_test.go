@@ -292,8 +292,12 @@ func TestSpanTypes(t *testing.T) {
 			func(t *testing.T) {
 				t.Parallel()
 				span := Span{Name: "test", spanType: c.spanType}
-				if span.Type().String() != c.expected {
-					t.Errorf("Expected span type %s, got %s", c.expected, span.Type())
+				if span.SpanType().String() != c.expected {
+					t.Errorf(
+						"Expected span type %s, got %s",
+						c.expected,
+						span.SpanType().String(),
+					)
 				}
 			},
 		)

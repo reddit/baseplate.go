@@ -103,8 +103,8 @@ func newSpan(tracer *Tracer, name string, spanType SpanType) *Span {
 	return span
 }
 
-// Type returns the SpanType of the Span.
-func (s *Span) Type() SpanType {
+// SpanType returns the SpanType of the Span.
+func (s *Span) SpanType() SpanType {
 	return s.spanType
 }
 
