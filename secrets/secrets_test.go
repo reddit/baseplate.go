@@ -94,7 +94,10 @@ func TestNewSecrets(t *testing.T) {
 						}
 					}
 			`,
-			expectedError: tooManyFieldsError(simpleSecret, "secret/myservice/some-api-key"),
+			expectedError: TooManyFieldsError{
+				SecretType: simpleSecret,
+				Key:        "secret/myservice/some-api-key",
+			},
 		},
 	}
 	for _, tt := range tests {
