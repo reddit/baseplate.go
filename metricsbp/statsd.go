@@ -30,7 +30,9 @@ type Statsd struct {
 
 	reporter *time.Ticker
 	wg       *sync.WaitGroup
-	cancel   context.CancelFunc
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // StatsdConfig is the configs used in NewStatsd.
@@ -86,13 +88,12 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) Statsd {
 
 	if cfg.Address != "" {
 		st.reporter = time.NewTicker(ReporterTickerInterval)
-		ctx, cancel := context.WithCancel(ctx)
-		st.cancel = cancel
+		st.ctx, st.cancel = context.WithCancel(ctx)
 		st.wg = new(sync.WaitGroup)
 		st.wg.Add(1)
 		go func() {
 			defer st.wg.Done()
-			st.Statsd.SendLoop(ctx, st.reporter.C, "udp", cfg.Address)
+			st.Statsd.SendLoop(st.ctx, st.reporter.C, "udp", cfg.Address)
 		}()
 	}
 
