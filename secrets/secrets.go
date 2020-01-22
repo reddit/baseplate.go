@@ -3,10 +3,10 @@ package secrets
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"strings"
+
+	"github.com/reddit/baseplate.go/batcherror"
 )
 
 const (
@@ -164,41 +164,34 @@ type Document struct {
 	Vault   Vault                    `json:"vault"`
 }
 
-// ValidationErrors is a set of errors found while parsing the Secrets JSON.
-type ValidationErrors []error
-
-// Error implements the error interface.
-func (v ValidationErrors) Error() string {
-	errorStrings := make([]string, len(v))
-	for i, err := range v {
-		errorStrings[i] = err.Error()
-	}
-	return strings.Join(errorStrings, "\n")
-}
-
-// Validate checks the Document for any errors that violate the
-// Baseplate specification.
+// Validate checks the Document for any errors that violate the Baseplate
+// specification.
+//
+// When this function returns a non-nil error, the error is either a
+// TooManyFieldsError, or a BatchError containing multiple TooManyFieldsError.
 func (s *Document) Validate() error {
-	var errs ValidationErrors
+	var batch batcherror.BatchError
 	for key, value := range s.Secrets {
 		if value.Type == simpleSecret && notOnlySimpleSecret(value) {
-			errs = append(errs, tooManyFieldsError(simpleSecret, key))
+			batch.Add(TooManyFieldsError{
+				SecretType: simpleSecret,
+				Key:        key,
+			})
 		}
 		if value.Type == versionedSecret && notOnlyVersionedSecret(value) {
-			errs = append(errs, tooManyFieldsError(versionedSecret, key))
+			batch.Add(TooManyFieldsError{
+				SecretType: versionedSecret,
+				Key:        key,
+			})
 		}
 		if value.Type == credentialSecret && notOnlyCredentialSecret(value) {
-			errs = append(errs, tooManyFieldsError(credentialSecret, key))
+			batch.Add(TooManyFieldsError{
+				SecretType: credentialSecret,
+				Key:        key,
+			})
 		}
 	}
-	if len(errs) == 0 {
-		return nil
-	}
-	return errs
-}
-
-func tooManyFieldsError(secretType, key string) error {
-	return fmt.Errorf("expected %s secret but other fields were present for %s", secretType, key)
+	return batch.Compile()
 }
 
 func notOnlySimpleSecret(secret GenericSecret) bool {
@@ -299,7 +292,7 @@ func (e *encoding) UnmarshalJSON(data []byte) error {
 	case "base64":
 		*e = base64Encoding
 	default:
-		return errors.New("invalid encoding, expected identity, base64 or empty")
+		return ErrInvalidEncoding
 	}
 	return nil
 }
@@ -318,12 +311,4 @@ func (e encoding) decodeValue(value string) (Secret, error) {
 		}
 		return Secret(data), nil
 	}
-}
-
-// SecretNotFoundError is returned when the key for a secret is not present in
-// the secret store.
-type SecretNotFoundError string
-
-func (path SecretNotFoundError) Error() string {
-	return "no secret has been found for " + string(path)
 }
