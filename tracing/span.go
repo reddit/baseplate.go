@@ -18,6 +18,26 @@ const (
 	SpanTypeServer
 )
 
+const (
+	client  = "client"
+	local   = "local"
+	server  = "server"
+	unknown = "unknown"
+)
+
+func (st SpanType) String() string {
+	switch st {
+	default:
+		return unknown
+	case SpanTypeServer:
+		return server
+	case SpanTypeClient:
+		return client
+	case SpanTypeLocal:
+		return local
+	}
+}
+
 type contextKey int
 
 const (
@@ -80,6 +100,11 @@ func newSpan(tracer *Tracer, name string, spanType SpanType) *Span {
 		},
 	}
 	return span
+}
+
+// SpanType returns the SpanType of the Span.
+func (s *Span) SpanType() SpanType {
+	return s.spanType
 }
 
 // CreateServerSpan creates a new Server Span, calls any registered
