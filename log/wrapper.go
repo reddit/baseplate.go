@@ -3,8 +3,6 @@ package log
 import (
 	stdlog "log"
 	"testing"
-
-	"go.uber.org/zap/zapcore"
 )
 
 // Wrapper is a simple wrapper of a logging function.
@@ -13,6 +11,9 @@ import (
 // services, and they are not always compatible with each other.
 // Wrapper is a simple common ground that it's easy to wrap whatever logging
 // library we use into.
+//
+// This is also the same type as thrift.Logger and can be used interchangeably
+// (sometimes with a typecast).
 type Wrapper func(msg string)
 
 // NopWrapper is a Wrapper implementation that does nothing.
@@ -38,21 +39,21 @@ func TestWrapper(tb testing.TB) Wrapper {
 }
 
 // ZapWrapper wraps zap log package into a Wrapper.
-func ZapWrapper(logLevel zapcore.Level) Wrapper {
+func ZapWrapper(level Level) Wrapper {
 	// For unknown values, fallback to info level.
 	f := Info
-	switch logLevel {
-	case zapcore.DebugLevel:
+	switch level {
+	case DebugLevel:
 		f = Debug
-	case zapcore.WarnLevel:
+	case WarnLevel:
 		f = Warn
-	case zapcore.ErrorLevel:
+	case ErrorLevel:
 		f = Error
-	case zapcore.PanicLevel:
+	case PanicLevel:
 		f = Panic
-	case zapcore.FatalLevel:
+	case FatalLevel:
 		f = Fatal
-	case ZapNopLevel:
+	case NopLevel:
 		return NopWrapper
 	}
 	return func(msg string) {
