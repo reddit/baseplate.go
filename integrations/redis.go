@@ -3,27 +3,12 @@ package integrations
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/go-redis/redis/v7"
 
 	"github.com/reddit/baseplate.go/batcherror"
 	"github.com/reddit/baseplate.go/tracing"
 )
-
-// PipelineErrors is a set of errors from the commands that run in a Pipeline.
-type PipelineErrors []error
-
-// Error implements the error interface.
-func (v PipelineErrors) Error() string {
-	errorStrings := make([]string, len(v))
-	for i, err := range v {
-		errorStrings[i] = err.Error()
-	}
-	return strings.Join(errorStrings, "\n")
-}
-
-var _ error = (*PipelineErrors)(nil)
 
 // RedisSpanHook is a redis.Hook for wrapping Redis commands and pipelines
 // in Client Spans and metrics.
