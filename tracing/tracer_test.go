@@ -44,7 +44,7 @@ func TestTracer(t *testing.T) {
 			logger, called := loggerFunc(t)
 			tracer.Logger = logger
 			span := tracer.NewTrace("span")
-			err := span.End(context.Background(), nil)
+			err := span.Stop(context.Background(), nil)
 			var e mqsend.MessageTooLargeError
 			if !errors.As(err, &e) {
 				t.Errorf("Expected MessageTooLargeError, got %v", err)
@@ -66,7 +66,7 @@ func TestTracer(t *testing.T) {
 			logger, called := loggerFunc(t)
 			tracer.Logger = logger
 			span := tracer.NewTrace("span")
-			err := span.End(context.Background(), nil)
+			err := span.Stop(context.Background(), nil)
 			if err != nil {
 				t.Errorf("End returned error: %v", err)
 			}
@@ -84,8 +84,8 @@ func TestTracer(t *testing.T) {
 			span := tracer.NewTrace("span")
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			start := time.Now()
-			err := span.End(ctx, nil)
+			start := span.trace.start
+			err := span.Stop(ctx, nil)
 			duration := time.Since(start)
 			if duration > DefaultMaxRecordTimeout*2 {
 				t.Errorf(

@@ -11,9 +11,7 @@ import (
 )
 
 func TestRedisSpanHook(t *testing.T) {
-	ctx := context.Background()
-	span := tracing.StartSpanFromThriftContext(ctx, "foo")
-	ctx, _ = span.SetServerSpan(ctx)
+	ctx, _ := tracing.StartSpanFromThriftContext(context.Background(), "foo")
 	hooks := integrations.RedisSpanHook{ClientName: "redis"}
 	cmd := redis.NewStatusCmd("ping")
 
@@ -24,12 +22,12 @@ func TestRedisSpanHook(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Unexpected error: %s", err)
 			}
-			childSpan := tracing.GetChildSpan(ctx)
-			if childSpan == nil {
-				t.Fatalf("'childSpan' is 'nil'")
+			activeSpan := tracing.GetActiveSpan(ctx)
+			if activeSpan == nil {
+				t.Fatalf("'activeSpan' is 'nil'")
 			}
-			if childSpan.Name != "redis.ping" {
-				t.Fatalf("Incorrect span name '%s'", childSpan.Name)
+			if activeSpan.Name() != "redis.ping" {
+				t.Fatalf("Incorrect span name %q", activeSpan.Name())
 			}
 
 			if err = hooks.AfterProcess(ctx, cmd); err != nil {
@@ -46,12 +44,12 @@ func TestRedisSpanHook(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Unexpected error: %s", err)
 			}
-			childSpan := tracing.GetChildSpan(ctx)
-			if childSpan == nil {
-				t.Fatalf("'childSpan' is 'nil'")
+			activeSpan := tracing.GetActiveSpan(ctx)
+			if activeSpan == nil {
+				t.Fatalf("'activeSpan' is 'nil'")
 			}
-			if childSpan.Name != "redis.pipeline" {
-				t.Fatalf("Incorrect span name '%s'", childSpan.Name)
+			if activeSpan.Name() != "redis.pipeline" {
+				t.Fatalf("Incorrect span name %q", activeSpan.Name())
 			}
 
 			if err = hooks.AfterProcessPipeline(ctx, cmds); err != nil {

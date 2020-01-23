@@ -7,20 +7,23 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-// This example demonstrates how to use ErrorReporterBaseplateHook.
-func ExampleErrorReporterBaseplateHook() {
+// This example demonstrates how to use ErrorReporterCreateServerSpanHook.
+func ExampleErrorReporterCreateServerSpanHook() {
 	// variables should be properly initialized in production code
-	var tracer *tracing.Tracer
+	var (
+		tracer *tracing.Tracer
+		ctx    context.Context
+	)
 
-	// initialize the ErrorReporterBaseplateHook
-	hook := tracing.ErrorReporterBaseplateHook{}
+	// initialize the ErrorReporterCreateServerSpanHook
+	hook := tracing.ErrorReporterCreateServerSpanHook{}
 
 	// register the hook with Baseplate
-	tracing.RegisterBaseplateHook(hook)
+	tracing.RegisterCreateServerSpanHook(hook)
 
-	// Create a Span
+	// Create a ServerSpan
 	span := tracing.CreateServerSpan(tracer, "test")
 
 	// Errors given to span.End will be sent to Sentry
-	span.End(context.Background(), errors.New("test error"))
+	span.Stop(ctx, errors.New("test error"))
 }

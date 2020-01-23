@@ -3,10 +3,8 @@ package tracing
 import (
 	"context"
 	"errors"
-	"math/rand"
+	"fmt"
 	"time"
-
-	"github.com/reddit/baseplate.go/timebp"
 )
 
 // SpanType enum.
@@ -43,319 +41,189 @@ type contextKey int
 
 const (
 	serverSpanKey contextKey = iota
-	childSpanKey
+	activeSpanKey
 )
 
-// FlagMask values.
-//
-// Reference: https://github.com/reddit/baseplate.py/blob/1ca8488bcd42c8786e6a3db35b2a99517fd07a99/baseplate/observers/tracing.py#L60-L64
-const (
-	// When set, this trace passes all samplers.
-	FlagMaskDebug int64 = 1
-)
-
-const (
-	counterKeyPrefix   = "counter."
-	baseplateComponent = "baseplate"
-)
-
-// Span defines a tracing span.
-type Span struct {
-	Name string
-
-	tracer *Tracer
-
-	traceID  uint64
-	spanID   uint64
-	parentID uint64
-	sampled  bool
-
-	component string
-
-	start    time.Time
-	end      time.Time
-	spanType SpanType
-	flags    int64
-
-	counters map[string]float64
-	tags     map[string]interface{}
-	hooks    []SpanHook
-}
-
-func newSpan(tracer *Tracer, name string, spanType SpanType) *Span {
-	if tracer == nil {
-		tracer = &GlobalTracer
-	}
-	span := &Span{
-		Name: name,
-
-		tracer:   tracer,
-		traceID:  rand.Uint64(),
-		spanID:   rand.Uint64(),
-		start:    time.Now(),
-		spanType: spanType,
-
-		counters: make(map[string]float64),
-		tags: map[string]interface{}{
-			ZipkinBinaryAnnotationKeyComponent: baseplateComponent,
-		},
-	}
-	return span
-}
-
-// SpanType returns the SpanType of the Span.
-func (s *Span) SpanType() SpanType {
-	return s.spanType
-}
-
-// CreateServerSpan creates a new Server Span, calls any registered
-// BaseplateHooks, and starts the Span.
+// CreateServerSpan creates a new server Span, calls any registered
+// CreateServerSpanHooks, and starts the Span.
 func CreateServerSpan(tracer *Tracer, name string) *Span {
 	span := newSpan(tracer, name, SpanTypeServer)
-	onServerSpanCreate(span)
-	span.startSpan()
+	onCreateServerSpan(span)
+	span.onStart()
 	return span
 }
 
-func (s *Span) startSpan() {
-	for _, hook := range s.hooks {
-		if err := hook.OnStart(s); err != nil && s.tracer.Logger != nil {
-			s.tracer.Logger("OnStart hook error: " + err.Error())
-		}
-	}
+// CreateServerSpanForContext creates a new server Span, calls any registered
+// CreateServerSpanHooks, and starts the Span as well as a Context with the span set as
+// the server Span.
+func CreateServerSpanForContext(ctx context.Context, tracer *Tracer, name string) (context.Context, *Span) {
+	span := CreateServerSpan(tracer, name)
+	// It's safe to ignore the error returned by span.SetServerSpan because it
+	// only returns an error if span.SpanType != SpanTypeServer which we know it
+	// does.
+	ctx, _ = span.SetServerSpan(ctx)
+	return ctx, span
 }
 
-// RegisterHook adds a SpanHook into the spans registry of hooks to run.
-//
-// This function is not safe to call concurrently.
-func (s *Span) RegisterHook(hook SpanHook) {
-	s.hooks = append(s.hooks, hook)
-}
-
-// ToZipkinSpan returns a ZipkinSpan with data copied from this span.
-//
-// If it's called before End is called,
-// Duration and some annotations might be incorrect/incomplete.
-func (s *Span) ToZipkinSpan() ZipkinSpan {
-	zs := ZipkinSpan{
-		TraceID:  s.traceID,
-		Name:     s.Name,
-		SpanID:   s.spanID,
-		Start:    timebp.TimestampMicrosecond(s.start),
-		ParentID: s.parentID,
-	}
-	end := s.end
-	if end.IsZero() {
-		end = time.Now()
-	}
-	zs.Duration = timebp.DurationMicrosecond(end.Sub(s.start))
-
-	var endpoint ZipkinEndpointInfo
-	if s.tracer != nil {
-		endpoint = s.tracer.Endpoint
-	}
-
-	switch s.spanType {
-	case SpanTypeServer:
-		zs.TimeAnnotations = []ZipkinTimeAnnotation{
-			{
-				Endpoint:  endpoint,
-				Key:       ZipkinTimeAnnotationKeyServerReceive,
-				Timestamp: timebp.TimestampMicrosecond(s.start),
-			},
-			{
-				Endpoint:  endpoint,
-				Key:       ZipkinTimeAnnotationKeyServerSend,
-				Timestamp: timebp.TimestampMicrosecond(end),
-			},
-		}
-	case SpanTypeClient:
-		zs.TimeAnnotations = []ZipkinTimeAnnotation{
-			{
-				Endpoint:  endpoint,
-				Key:       ZipkinTimeAnnotationKeyClientSend,
-				Timestamp: timebp.TimestampMicrosecond(s.start),
-			},
-			{
-				Endpoint:  endpoint,
-				Key:       ZipkinTimeAnnotationKeyClientReceive,
-				Timestamp: timebp.TimestampMicrosecond(end),
-			},
-		}
-	}
-
-	zs.BinaryAnnotations = make([]ZipkinBinaryAnnotation, 0, len(s.counters)+len(s.tags))
-	for key, value := range s.counters {
-		zs.BinaryAnnotations = append(
-			zs.BinaryAnnotations,
-			ZipkinBinaryAnnotation{
-				Endpoint: endpoint,
-				Key:      counterKeyPrefix + key,
-				Value:    value,
-			},
-		)
-	}
-	for key, value := range s.tags {
-		zs.BinaryAnnotations = append(
-			zs.BinaryAnnotations,
-			ZipkinBinaryAnnotation{
-				Endpoint: endpoint,
-				Key:      key,
-				Value:    value,
-			},
-		)
-	}
-
-	return zs
-}
-
-func (s *Span) isDebugSet() bool {
-	return s.flags&FlagMaskDebug != 0
-}
-
-// ShouldSample returns true if this span should be sampled.
-//
-// If the span's debug flag was set, then this function will always return true.
-func (s *Span) ShouldSample() bool {
-	return s.sampled || s.isDebugSet()
-}
-
-// End ends a span.
-//
-// If err is non-nil, the error tag will also be set to true.
-//
-// It also sends the span into tracer, if the span should be sampled.
-// The context object passed in is used to control the timeout of the sending,
-// see Tracer.MaxRecordTimeout for more info.
-func (s *Span) End(ctx context.Context, err error) error {
-	s.end = time.Now()
-
-	if err != nil {
-		s.SetTag(ZipkinBinaryAnnotationKeyError, true)
-		if s.spanType == SpanTypeServer && errors.Is(err, context.DeadlineExceeded) {
-			s.SetTag(ZipkinBinaryAnnotationKeyTimeOut, true)
-		}
-	}
-	if s.isDebugSet() {
-		s.SetTag(ZipkinBinaryAnnotationKeyDebug, true)
-	}
-	if s.spanType == SpanTypeLocal && s.component != "" {
-		s.SetTag(ZipkinBinaryAnnotationKeyLocalComponent, s.component)
-	}
-	for _, hook := range s.hooks {
-		if hookErr := hook.OnEnd(s, err); hookErr != nil && s.tracer.Logger != nil {
-			s.tracer.Logger("OnEnd hook error: " + hookErr.Error())
-		}
-	}
-	if s.tracer != nil {
-		return s.tracer.Record(ctx, s)
+// GetServerSpan gets the server Span from the given context.
+func GetServerSpan(ctx context.Context) *Span {
+	if span, ok := ctx.Value(serverSpanKey).(*Span); ok {
+		return span
 	}
 	return nil
 }
 
-// AddCounter adds delta to a counter annotation.
-func (s *Span) AddCounter(key string, delta float64) {
-	s.counters[key] += delta
-
-	for _, hook := range s.hooks {
-		if err := hook.OnAddCounter(s, key, delta); err != nil && s.tracer.Logger != nil {
-			s.tracer.Logger("OnAddCounter hook error: " + err.Error())
-		}
+// GetActiveSpan gets the currenty active Span from the given context.
+func GetActiveSpan(ctx context.Context) *Span {
+	if span, ok := ctx.Value(activeSpanKey).(*Span); ok {
+		return span
 	}
+	return nil
 }
 
-// SetTag sets a binary tag annotation.
-func (s *Span) SetTag(key string, value interface{}) {
-	s.tags[key] = value
-
-	for _, hook := range s.hooks {
-		if err := hook.OnSetTag(s, key, value); err != nil && s.tracer.Logger != nil {
-			s.tracer.Logger("OnSetTag hook error: " + err.Error())
-		}
+func newSpan(tracer *Tracer, name string, spanType SpanType) *Span {
+	span := &Span{
+		trace:    newTrace(tracer, name),
+		spanType: spanType,
 	}
-}
-
-// SetDebug sets or unsets the debug flag of this span.
-func (s *Span) SetDebug(v bool) {
-	if v {
-		s.flags |= FlagMaskDebug
-	} else {
-		s.flags &= ^FlagMaskDebug
+	switch spanType {
+	case SpanTypeServer:
+		span.trace.timeAnnotationReceiveKey = ZipkinTimeAnnotationKeyServerReceive
+		span.trace.timeAnnotationSendKey = ZipkinTimeAnnotationKeyServerSend
+	case SpanTypeClient:
+		span.trace.timeAnnotationReceiveKey = ZipkinTimeAnnotationKeyClientReceive
+		span.trace.timeAnnotationSendKey = ZipkinTimeAnnotationKeyClientSend
 	}
-}
-
-// CreateLocalChild creates a local child-span with given name and component.
-//
-// component is optional local component name and could be empty string.
-//
-// Timestamps, counters, and tags won't be inherited.
-// Parent id will be inherited from the span id,
-// and span id will be randomly generated.
-// Trace id, sampled, and flags will be copied over.
-func (s *Span) CreateLocalChild(name string, component string) *Span {
-	return s.createChild(name, SpanTypeLocal, component)
-}
-
-// CreateLocalChildForContext creates a local child-span with given name and
-// component and a context that can be used by the client you are creating the
-// span for.
-//
-// component is optional local component name and could be empty string.
-//
-// Timestamps, counters, and tags won't be inherited.
-// Parent id will be inherited from the span id,
-// and span id will be randomly generated.
-// Trace id, sampled, and flags will be copied over.
-func (s *Span) CreateLocalChildForContext(ctx context.Context, name string, component string) (context.Context, *Span) {
-	child := s.CreateLocalChild(name, component)
-	return context.WithValue(ctx, childSpanKey, child), child
-}
-
-// CreateClientChild creates a client child-span with given name.
-//
-// A client child-span should be used to make requests to other upstream
-// servers.
-//
-// Timestamps, counters, and tags won't be inherited.
-// Parent id will be inherited from the span id,
-// and span id will be randomly generated.
-// Trace id, sampled, and flags will be copied over.
-func (s *Span) CreateClientChild(name string) *Span {
-	return s.createChild(name, SpanTypeClient, "")
-}
-
-// CreateClientChildForContext creates a client child-span with given name and a
-// context that can be used by the client you are creating the span for.
-//
-// A client child-span should be used to make requests to other upstream
-// servers.
-//
-// Timestamps, counters, and tags won't be inherited.
-// Parent id will be inherited from the span id,
-// and span id will be randomly generated.
-// Trace id, sampled, and flags will be copied over.
-func (s *Span) CreateClientChildForContext(ctx context.Context, name string) (context.Context, *Span) {
-	child := s.CreateClientChild(name)
-	return context.WithValue(ctx, childSpanKey, child), child
-}
-
-func (s *Span) createChild(name string, spanType SpanType, component string) *Span {
-	span := newSpan(s.tracer, name, spanType)
-	span.spanType = spanType
-	span.component = component
-
-	span.parentID = s.spanID
-	span.traceID = s.traceID
-	span.sampled = s.sampled
-	span.flags = s.flags
-
-	for _, hook := range s.hooks {
-		if err := hook.OnCreateChild(span); err != nil && s.tracer.Logger != nil {
-			s.tracer.Logger("OnCreateChild hook error: " + err.Error())
-		}
-	}
-	span.startSpan()
 	return span
+}
+
+// Span defines a tracing span.
+type Span struct {
+	trace *trace
+
+	component string
+	hooks     []interface{}
+	spanType  SpanType
+}
+
+func (s *Span) onStart() {
+	for _, h := range s.hooks {
+		if hook, ok := h.(StartStopSpanHook); ok {
+			if err := hook.OnPostStart(s); err != nil {
+				s.LogError("OnPostStart hook error: ", err)
+			}
+		}
+	}
+}
+
+// Name returns the name of the Span.
+func (s Span) Name() string {
+	return s.trace.name
+}
+
+// SpanType returns the SpanType for the Span.
+func (s Span) SpanType() SpanType {
+	return s.spanType
+}
+
+// LogError is a helper method to log an error plus a message.
+//
+// This uses the the Logger provided by the underlying tracing.Tracer used to
+// publish the Span.
+func (s Span) LogError(msg string, err error) {
+	if s.trace.tracer.Logger != nil {
+		s.trace.tracer.Logger(msg + err.Error())
+	}
+}
+
+// AddHooks adds hooks into the Span.
+//
+// Any hooks that do not conform to at least one of the span hook interfaces
+// will be discarded and an error will be logged.
+//
+// It is recommended that you only call AddHooks on a Span within an
+// OnCreate Hook so the Span is set up with all of it's Hooks as a part of
+// it's creation.
+func (s *Span) AddHooks(hooks ...interface{}) {
+	for _, hook := range hooks {
+		if IsSpanHook(hook) {
+			s.hooks = append(s.hooks, hook)
+		} else {
+			s.LogError(
+				"AddHooks error: ",
+				fmt.Errorf(
+					"attempting to add non-SpanHook object %T into span's hook registry: %#v",
+					hook,
+					hook,
+				),
+			)
+		}
+	}
+}
+
+// SetDebug sets or unsets the debug flag of this Span.
+func (s *Span) SetDebug(v bool) {
+	s.trace.setDebug(v)
+}
+
+// SetTag sets a binary tag annotation and calls all OnSetTag Hooks
+// registered to the Span.
+func (s *Span) SetTag(key string, value interface{}) {
+	s.trace.setTag(key, value)
+	for _, h := range s.hooks {
+		if hook, ok := h.(SetSpanTagHook); ok {
+			if err := hook.OnSetTag(s, key, value); err != nil {
+				s.LogError("OnSetTag hook error: ", err)
+			}
+		}
+	}
+}
+
+// AddCounter adds delta to a counter annotation and calls all OnAddCounter
+// Hooks registered to the Span.
+func (s *Span) AddCounter(key string, delta float64) {
+	s.trace.addCounter(key, delta)
+	for _, h := range s.hooks {
+		if hook, ok := h.(AddSpanCounterHook); ok {
+			if err := hook.OnAddCounter(s, key, delta); err != nil {
+				s.LogError("OnAddCounter hook error: ", err)
+			}
+		}
+	}
+}
+
+// CreateClientChild creates a SpanTypeClient Span with given name that is a
+// child of the Span, starts it, and calls all OnCreateChildHooks registered to
+// the parent Span.
+//
+// A client child-span should be used to make requests to other upstream
+// servers.
+//
+// Timestamps, counters, and tags won't be inherited.
+// Parent id will be inherited from the span id,
+// and span id will be randomly generated.
+// Trace id, sampled, and flags will be copied over.
+func (s Span) CreateClientChild(name string) *Span {
+	child := newSpan(s.trace.tracer, name, SpanTypeClient)
+	s.initChildSpan(child)
+	return child
+}
+
+// CreateClientChildForContext creates a client Span with given name that is a
+// child of the Span, starts it, and calls all OnCreateChildHooks registered to
+// the parent Span as well as a Context that can be used by the client you
+// are creating the span for.
+//
+// A client child-span should be used to make requests to other upstream
+// servers.
+//
+// Timestamps, counters, and tags won't be inherited.
+// Parent id will be inherited from the span id,
+// and span id will be randomly generated.
+// Trace id, sampled, and flags will be copied over.
+func (s Span) CreateClientChildForContext(ctx context.Context, name string) (context.Context, *Span) {
+	child := s.CreateClientChild(name)
+	return context.WithValue(ctx, activeSpanKey, child), child
 }
 
 // ChildAndThriftContext creates both a client child span and a context can be
@@ -366,35 +234,103 @@ func (s *Span) createChild(name string, spanType SpanType, component string) *Sp
 //     clientCtx, span := parentSpan.ChildAndThriftContext(ctx, "myCall")
 //     result, err := client.MyCall(clientCtx, arg1, arg2)
 //     span.End(ctx, err)
-func (s *Span) ChildAndThriftContext(ctx context.Context, name string) (context.Context, *Span) {
-	ctx, span := s.CreateClientChildForContext(ctx, name)
-	ctx = CreateThriftContextFromSpan(ctx, span)
-	return ctx, span
+func (s Span) ChildAndThriftContext(ctx context.Context, name string) (context.Context, *Span) {
+	ctx, child := s.CreateClientChildForContext(ctx, name)
+	ctx = CreateThriftContextFromSpan(ctx, child)
+	return ctx, child
 }
 
-// SetServerSpan sets the span as the ServerSpan on the given context
+// CreateLocalChild creates a SpanTypeLocal Span with given name and component
+// that is a child of the Span, starts it, and calls all OnCreateChildHooks
+// registered to the parent Span.
+//
+// component is an optional, local component name and may be empty string.
+//
+// Timestamps, counters, and tags won't be inherited.
+// Parent id will be inherited from the span id,
+// and span id will be randomly generated.
+// Trace id, sampled, and flags will be copied over.
+func (s Span) CreateLocalChild(name, component string) *Span {
+	child := newSpan(s.trace.tracer, name, SpanTypeLocal)
+	child.component = component
+	s.initChildSpan(child)
+	return child
+}
+
+// CreateLocalChildForContext creates a local Span with given name and component
+// that is a child of the Span, starts it, and calls all OnCreateChildHooks
+// registered to the parent Span as well as a Context that can be used by
+// the client you are creating the span for.
+//
+// component is an optional, local component name and may be empty string.
+//
+// Timestamps, counters, and tags won't be inherited.
+// Parent id will be inherited from the span id,
+// and span id will be randomly generated.
+// Trace id, sampled, and flags will be copied over.
+func (s Span) CreateLocalChildForContext(ctx context.Context, name, component string) (context.Context, *Span) {
+	child := s.CreateLocalChild(name, component)
+	return context.WithValue(ctx, activeSpanKey, child), child
+}
+
+func (s Span) initChildSpan(child *Span) {
+	child.trace.parentID = s.trace.spanID
+	child.trace.traceID = s.trace.traceID
+	child.trace.sampled = s.trace.sampled
+	child.trace.flags = s.trace.flags
+	for _, h := range s.hooks {
+		if hook, ok := h.(CreateChildSpanHook); ok {
+			if err := hook.OnCreateChild(&s, child); err != nil {
+				s.LogError("OnCreateChild hook error: ", err)
+			}
+		}
+	}
+	child.onStart()
+}
+
+// SetServerSpan sets the Span as the ServerSpan on the given context
 func (s *Span) SetServerSpan(ctx context.Context) (context.Context, error) {
-	if s.spanType != SpanTypeServer {
-		return nil, &InvalidSpanTypeError{SpanTypeServer, s.spanType}
+	if s.SpanType() != SpanTypeServer {
+		return ctx, &InvalidSpanTypeError{
+			ExpectedSpanType: SpanTypeServer,
+			ActualSpanType:   s.SpanType(),
+		}
 	}
 	return context.WithValue(ctx, serverSpanKey, s), nil
 }
 
-func getSpanFromContext(ctx context.Context, key contextKey) *Span {
-	if s := ctx.Value(key); s != nil {
-		if span, ok := s.(*Span); ok {
-			return span
+// Stop stops the Span, calls all registered OnPreStop Hooks, serializes the Span,
+// and sends the serialized Span to a back-end that records the Span.
+func (s *Span) Stop(ctx context.Context, err error) error {
+	s.preStop(err)
+	for _, h := range s.hooks {
+		if hook, ok := h.(StartStopSpanHook); ok {
+			if hookErr := hook.OnPreStop(s, err); hookErr != nil {
+				s.LogError("OnPreStop hook error: ", hookErr)
+			}
 		}
 	}
-	return nil
+	s.trace.stop = time.Now()
+	return s.trace.publish(ctx)
 }
 
-// GetServerSpan gets the ServerSpan from the given context
-func GetServerSpan(ctx context.Context) *Span {
-	return getSpanFromContext(ctx, serverSpanKey)
-}
-
-// GetChildSpan gets the ChildSpan from the given context
-func GetChildSpan(ctx context.Context) *Span {
-	return getSpanFromContext(ctx, childSpanKey)
+func (s *Span) preStop(err error) {
+	// We intentionally don't use the top level span.SetTag function
+	// because we don't want to trigger any OnSetTag Hooks in this case.
+	switch s.spanType {
+	case SpanTypeServer:
+		if err != nil && errors.Is(err, context.DeadlineExceeded) {
+			s.trace.setTag(ZipkinBinaryAnnotationKeyTimeOut, true)
+		}
+	case SpanTypeLocal:
+		if s.component != "" {
+			s.trace.setTag(ZipkinBinaryAnnotationKeyLocalComponent, s.component)
+		}
+	}
+	if err != nil {
+		s.trace.setTag(ZipkinBinaryAnnotationKeyError, true)
+	}
+	if s.trace.isDebugSet() {
+		s.trace.setTag(ZipkinBinaryAnnotationKeyDebug, true)
+	}
 }

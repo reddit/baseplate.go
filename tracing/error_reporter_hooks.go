@@ -4,23 +4,28 @@ import (
 	"github.com/getsentry/raven-go"
 )
 
-// ErrorReporterBaseplateHook registers each Server Span with an
-// ErrorReporterSpanHook that will publish errors sent to OnEnd to Sentry.
-type ErrorReporterBaseplateHook struct{}
+// ErrorReporterCreateServerSpanHook registers each Server Span with an
+// ErrorReporterSpanHook that will publish errors sent to OnPreStop to Sentry.
+type ErrorReporterCreateServerSpanHook struct{}
 
-// OnServerSpanCreate registers SentrySpanHook on a Server Span.
-func (h ErrorReporterBaseplateHook) OnServerSpanCreate(span *Span) error {
-	span.RegisterHook(ErrorReporterSpanHook{})
+// OnCreateServerSpan registers SentrySpanHook on a Server Span.
+func (h ErrorReporterCreateServerSpanHook) OnCreateServerSpan(span *Span) error {
+	span.AddHooks(errorReporterSpanHook{})
 	return nil
 }
 
-// ErrorReporterSpanHook publishes errors sent to OnEnd to Sentry.
-type ErrorReporterSpanHook struct {
-	NopSpanHook
+// errorReporterSpanHook publishes errors sent to OnPreStop to Sentry.
+//
+// This Hook is only registered to ServerSpans.
+type errorReporterSpanHook struct{}
+
+// OnPostStart is a no-op
+func (h errorReporterSpanHook) OnPostStart(span *Span) error {
+	return nil
 }
 
-// OnEnd logs a message and sends err to Sentry if err is non-nil.
-func (h ErrorReporterSpanHook) OnEnd(span *Span, err error) error {
+// OnPreStop logs a message and sends err to Sentry if err is non-nil.
+func (h errorReporterSpanHook) OnPreStop(span *Span, err error) error {
 	if err != nil {
 		raven.CaptureError(err, nil)
 	}
@@ -28,6 +33,6 @@ func (h ErrorReporterSpanHook) OnEnd(span *Span, err error) error {
 }
 
 var (
-	_ BaseplateHook = ErrorReporterBaseplateHook{}
-	_ SpanHook      = ErrorReporterSpanHook{}
+	_ CreateServerSpanHook = ErrorReporterCreateServerSpanHook{}
+	_ StartStopSpanHook    = errorReporterSpanHook{}
 )

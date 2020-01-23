@@ -5,13 +5,13 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-// This example demonstrates how to use BaseplateHook.
-func ExampleBaseplateHook() {
+// This example demonstrates how to use CreateServerSpanHook.
+func ExampleCreateServerSpanHook() {
 	const prefix = "service.server"
 
-	// initialize the BaseplateHook
-	hook := metricsbp.BaseplateHook{}
+	// initialize the CreateServerSpanHook
+	hook := metricsbp.CreateServerSpanHook{}
 
 	// register the hook with Baseplate
-	tracing.RegisterBaseplateHook(hook)
+	tracing.RegisterCreateServerSpanHook(hook)
 }

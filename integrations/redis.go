@@ -49,7 +49,16 @@ func (h RedisSpanHook) AfterProcessPipeline(ctx context.Context, cmds []redis.Cm
 }
 
 func (h RedisSpanHook) startChildSpan(ctx context.Context, cmdName string) context.Context {
-	span := tracing.GetServerSpan(ctx)
+	// Get the current span tracing the work being done by ctx.  Try to get a
+	// sub-span first and fall back to the server span if we are not currently
+	// in a sub-span.
+	//
+	// We are going to use this span to create a child span that is attached to
+	// a new context and used by go-redis to trace the command/pipeline.
+	span := tracing.GetActiveSpan(ctx)
+	if span == nil {
+		span = tracing.GetServerSpan(ctx)
+	}
 	if span == nil {
 		return ctx
 	}
@@ -59,8 +68,8 @@ func (h RedisSpanHook) startChildSpan(ctx context.Context, cmdName string) conte
 }
 
 func (h RedisSpanHook) endChildSpan(ctx context.Context, err error) error {
-	if span := tracing.GetChildSpan(ctx); span != nil {
-		return span.End(ctx, err)
+	if span := tracing.GetActiveSpan(ctx); span != nil {
+		return span.Stop(ctx, err)
 	}
 	return nil
 }
