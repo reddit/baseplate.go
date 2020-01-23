@@ -7,6 +7,7 @@ import (
 	"testing/quick"
 
 	"github.com/reddit/baseplate.go/randbp"
+	"github.com/reddit/baseplate.go/runtimebp"
 )
 
 func TestDebugFlag(t *testing.T) {
@@ -178,7 +179,7 @@ var (
 )
 
 func TestChildSpan(t *testing.T) {
-	ip, err := getFirstIPv4()
+	ip, err := runtimebp.GetFirstIPv4()
 	if err != nil {
 		t.Logf("Unable to get local ip address: %v", err)
 	}
@@ -240,7 +241,7 @@ func TestChildSpan(t *testing.T) {
 }
 
 func TestCreateServerSpan(t *testing.T) {
-	ip, err := getFirstIPv4()
+	ip, err := runtimebp.GetFirstIPv4()
 	if err != nil {
 		t.Logf("Unable to get local ip address: %v", err)
 	}

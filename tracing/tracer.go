@@ -11,6 +11,7 @@ import (
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/randbp"
+	"github.com/reddit/baseplate.go/runtimebp"
 )
 
 // Configuration values for the message queue.
@@ -82,7 +83,7 @@ func InitGlobalTracer(
 	}
 	GlobalTracer.Recorder = recorder
 
-	ip, err := getFirstIPv4()
+	ip, err := runtimebp.GetFirstIPv4()
 	if err != nil && logger != nil {
 		logger(`Unable to get local ip address: ` + err.Error())
 	}
