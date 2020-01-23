@@ -8,6 +8,7 @@ import (
 
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
+	"github.com/reddit/baseplate.go/runtimebp"
 )
 
 func TestTracer(t *testing.T) {
@@ -20,7 +21,7 @@ func TestTracer(t *testing.T) {
 		return
 	}
 
-	ip, err := getFirstIPv4()
+	ip, err := runtimebp.GetFirstIPv4()
 	if err != nil {
 		t.Logf("Unable to get local ip address: %v", err)
 	}

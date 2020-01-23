@@ -1,4 +1,4 @@
-package tracing
+package runtimebp
 
 import (
 	"errors"
@@ -9,10 +9,12 @@ import (
 // UndefinedIP is used when we fail to get the ip address of this machine.
 const UndefinedIP = "undefined"
 
-var errNoIPv4Found = errors.New("no IPv4 ip found")
+// ErrNoIPv4Found is an error could be returned by GetFirstIPv4 when we can't
+// find any non-loopback IPv4 addresses on this machine.
+var ErrNoIPv4Found = errors.New("runtimebp: no IPv4 ip found")
 
-// get the first IPv4 address that's not loopback.
-func getFirstIPv4() (string, error) {
+// GetFirstIPv4 returns the first local IPv4 address that's not a loopback.
+func GetFirstIPv4() (string, error) {
 	host, err := os.Hostname()
 	if err != nil {
 		return UndefinedIP, err
@@ -32,5 +34,5 @@ func getFirstIPv4() (string, error) {
 		}
 		return ip.String(), nil
 	}
-	return UndefinedIP, errNoIPv4Found
+	return UndefinedIP, ErrNoIPv4Found
 }

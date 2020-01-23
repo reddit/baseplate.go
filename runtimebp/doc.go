@@ -1,3 +1,2 @@
-// Package runtimebp provides some container aware extensions to the stdlib
-// runtime package.
+// Package runtimebp provides extensions to the stdlib runtime package.
 package runtimebp
