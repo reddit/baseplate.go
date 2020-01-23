@@ -12,6 +12,8 @@ type SpanHook interface {
 	OnCreateChild(child *Span) error
 	OnStart(span *Span) error
 	OnEnd(span *Span, err error) error
+	OnSetTag(span *Span, key string, value interface{}) error
+	OnAddCounter(span *Span, key string, delta float64) error
 }
 
 var (
@@ -39,3 +41,34 @@ func onServerSpanCreate(span *Span) {
 		}
 	}
 }
+
+// NopSpanHook can be embedded in a SpanHook implementation to provide default,
+// no-op implementations for all methods in the SpanHook interface.
+type NopSpanHook struct{}
+
+// OnCreateChild is a nop
+func (h NopSpanHook) OnCreateChild(child *Span) error {
+	return nil
+}
+
+// OnStart is a nop
+func (h NopSpanHook) OnStart(span *Span) error {
+	return nil
+}
+
+// OnEnd is a nop
+func (h NopSpanHook) OnEnd(span *Span, err error) error {
+	return nil
+}
+
+// OnSetTag is a nop
+func (h NopSpanHook) OnSetTag(span *Span, key string, value interface{}) error {
+	return nil
+}
+
+// OnAddCounter is a nop
+func (h NopSpanHook) OnAddCounter(span *Span, key string, delta float64) error {
+	return nil
+}
+
+var _ SpanHook = NopSpanHook{}

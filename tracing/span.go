@@ -256,11 +256,23 @@ func (s *Span) End(ctx context.Context, err error) error {
 // AddCounter adds delta to a counter annotation.
 func (s *Span) AddCounter(key string, delta float64) {
 	s.counters[key] += delta
+
+	for _, hook := range s.hooks {
+		if err := hook.OnAddCounter(s, key, delta); err != nil && s.tracer.Logger != nil {
+			s.tracer.Logger("OnAddCounter hook error: " + err.Error())
+		}
+	}
 }
 
 // SetTag sets a binary tag annotation.
 func (s *Span) SetTag(key string, value interface{}) {
 	s.tags[key] = value
+
+	for _, hook := range s.hooks {
+		if err := hook.OnSetTag(s, key, value); err != nil && s.tracer.Logger != nil {
+			s.tracer.Logger("OnSetTag hook error: " + err.Error())
+		}
+	}
 }
 
 // SetDebug sets or unsets the debug flag of this span.

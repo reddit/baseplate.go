@@ -15,16 +15,8 @@ func (h ErrorReporterBaseplateHook) OnServerSpanCreate(span *Span) error {
 }
 
 // ErrorReporterSpanHook publishes errors sent to OnEnd to Sentry.
-type ErrorReporterSpanHook struct{}
-
-// OnCreateChild is a nop.
-func (h ErrorReporterSpanHook) OnCreateChild(child *Span) error {
-	return nil
-}
-
-// OnStart is a nop
-func (h ErrorReporterSpanHook) OnStart(span *Span) error {
-	return nil
+type ErrorReporterSpanHook struct {
+	NopSpanHook
 }
 
 // OnEnd logs a message and sends err to Sentry if err is non-nil.

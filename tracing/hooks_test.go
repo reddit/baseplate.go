@@ -13,8 +13,12 @@ type CallContainer struct {
 	Calls []string
 }
 
-func (c *CallContainer) AddCall(call string) {
+func (c *CallContainer) AddCall(call string, fail bool) error {
 	c.Calls = append(c.Calls, call)
+	if fail {
+		return fmt.Errorf(call)
+	}
+	return nil
 }
 
 func (c *CallContainer) Reset() {
@@ -27,13 +31,8 @@ type TestBaseplateHook struct {
 }
 
 func (h TestBaseplateHook) OnServerSpanCreate(span *tracing.Span) error {
-	label := "on-server-span-create"
-	h.Calls.AddCall(label)
 	span.RegisterHook(TestSpanHook{Calls: h.Calls, Fail: h.Fail})
-	if h.Fail {
-		return fmt.Errorf(label)
-	}
-	return nil
+	return h.Calls.AddCall("on-server-span-create", h.Fail)
 }
 
 type TestSpanHook struct {
@@ -42,30 +41,23 @@ type TestSpanHook struct {
 }
 
 func (h TestSpanHook) OnCreateChild(child *tracing.Span) error {
-	label := "on-create-child"
-	h.Calls.AddCall(label)
-	if h.Fail {
-		return fmt.Errorf(label)
-	}
-	return nil
+	return h.Calls.AddCall("on-create-child", h.Fail)
 }
 
 func (h TestSpanHook) OnStart(child *tracing.Span) error {
-	label := "on-start"
-	h.Calls.AddCall(label)
-	if h.Fail {
-		return fmt.Errorf(label)
-	}
-	return nil
+	return h.Calls.AddCall("on-start", h.Fail)
 }
 
 func (h TestSpanHook) OnEnd(child *tracing.Span, err error) error {
-	label := "on-end"
-	h.Calls.AddCall(label)
-	if h.Fail {
-		return fmt.Errorf(label)
-	}
-	return nil
+	return h.Calls.AddCall("on-end", h.Fail)
+}
+
+func (h TestSpanHook) OnSetTag(span *tracing.Span, key string, value interface{}) error {
+	return h.Calls.AddCall("on-set-tag", h.Fail)
+}
+
+func (h TestSpanHook) OnAddCounter(span *tracing.Span, key string, delta float64) error {
+	return h.Calls.AddCall("on-add-counter", h.Fail)
 }
 
 var (
@@ -80,12 +72,16 @@ func TestHooks(t *testing.T) {
 
 	ctx := context.Background()
 	span := tracing.StartSpanFromThriftContext(ctx, "foo")
+	span.SetTag("foo", "bar")
 	span.CreateClientChild("bar")
+	span.AddCounter("foo", 1.0)
 	span.End(ctx, nil)
 	expected := []string{
 		"on-server-span-create",
 		"on-start",
+		"on-set-tag",
 		"on-create-child",
+		"on-add-counter",
 		"on-end",
 	}
 	if !reflect.DeepEqual(hook.Calls.Calls, expected) {
@@ -100,12 +96,16 @@ func TestHookFailures(t *testing.T) {
 
 	ctx := context.Background()
 	span := tracing.StartSpanFromThriftContext(ctx, "foo")
+	span.SetTag("foo", "bar")
 	span.CreateClientChild("bar")
+	span.AddCounter("foo", 1.0)
 	span.End(ctx, nil)
 	expected := []string{
 		"on-server-span-create",
 		"on-start",
+		"on-set-tag",
 		"on-create-child",
+		"on-add-counter",
 		"on-end",
 	}
 	if !reflect.DeepEqual(hook.Calls.Calls, expected) {

@@ -12,10 +12,7 @@ func ExampleBaseplateHook() {
 	const prefix = "service.server"
 
 	// initialize the BaseplateHook
-	hook := metricsbp.BaseplateHook{
-		Prefix:  prefix,
-		Metrics: statsd,
-	}
+	hook := metricsbp.BaseplateHook{Metrics: statsd}
 
 	// register the hook with Baseplate
 	tracing.RegisterBaseplateHook(hook)
