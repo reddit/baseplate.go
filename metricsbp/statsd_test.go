@@ -29,7 +29,6 @@ func BenchmarkStatsd(b *testing.B) {
 			Labels:            initialLabels,
 		},
 	)
-	defer st.StopReporting()
 
 	b.Run(
 		"pre-create",

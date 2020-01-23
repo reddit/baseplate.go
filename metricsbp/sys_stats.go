@@ -23,7 +23,7 @@ func pullRuntimeStats() (cpu cpuStats, mem runtime.MemStats) {
 
 // RunSysStats starts a goroutine to periodically pull and report sys stats.
 //
-// StopReporting will also stop this goroutine.
+// Canceling the context passed into NewStatsd will stop this goroutine.
 func (st Statsd) RunSysStats() {
 	// init the gauges
 	// cpu
@@ -60,10 +60,7 @@ func (st Statsd) RunSysStats() {
 	// other
 	memOther := st.Gauge("mem.othersys")
 
-	st.wg.Add(1)
 	go func() {
-		defer st.wg.Done()
-
 		ticker := time.NewTicker(SysStatsTickerInterval)
 		defer ticker.Stop()
 
