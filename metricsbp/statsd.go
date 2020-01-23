@@ -3,7 +3,6 @@ package metricsbp
 import (
 	"context"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/reddit/baseplate.go/log"
@@ -26,13 +25,8 @@ var ReporterTickerInterval = time.Minute
 type Statsd struct {
 	Statsd *influxstatsd.Influxstatsd
 
+	ctx        context.Context
 	sampleRate float64
-
-	reporter *time.Ticker
-	wg       *sync.WaitGroup
-
-	ctx    context.Context
-	cancel context.CancelFunc
 }
 
 // StatsdConfig is the configs used in NewStatsd.
@@ -71,7 +65,8 @@ type StatsdConfig struct {
 
 // NewStatsd creates a Statsd object.
 //
-// It also starts the background reporting goroutine.
+// It also starts a background reporting goroutine when Address is not empty.
+// The goroutine will be stopped when the passed in context is canceled.
 func NewStatsd(ctx context.Context, cfg StatsdConfig) Statsd {
 	prefix := cfg.Prefix
 	if prefix != "" && !strings.HasSuffix(prefix, ".") {
@@ -83,39 +78,20 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) Statsd {
 	}
 	st := Statsd{
 		Statsd:     influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), labels...),
+		ctx:        ctx,
 		sampleRate: cfg.DefaultSampleRate,
 	}
 
 	if cfg.Address != "" {
-		st.reporter = time.NewTicker(ReporterTickerInterval)
-		st.ctx, st.cancel = context.WithCancel(ctx)
-		st.wg = new(sync.WaitGroup)
-		st.wg.Add(1)
 		go func() {
-			defer st.wg.Done()
-			st.Statsd.SendLoop(st.ctx, st.reporter.C, "udp", cfg.Address)
+			ticker := time.NewTicker(ReporterTickerInterval)
+			defer ticker.Stop()
+
+			st.Statsd.SendLoop(ctx, ticker.C, "udp", cfg.Address)
 		}()
 	}
 
 	return st
-}
-
-// StopReporting stops the background reporting goroutine.
-//
-// Note that cancelling the context passed into NewStatsd would also stop the
-// background reporting goroutine,
-// but that won't stop the ticker and will cause resource leak.
-//
-// It's OK to call StopReporting multiple times,
-// or after cancelling the context passed into NewStatsd.
-func (st Statsd) StopReporting() {
-	if st.reporter == nil {
-		return
-	}
-
-	st.cancel()
-	st.reporter.Stop()
-	st.wg.Wait()
 }
 
 // Counter returns a counter metrics to the name.

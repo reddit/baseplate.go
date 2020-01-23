@@ -49,7 +49,6 @@ func TestOnServerSpanCreate(t *testing.T) {
 			DefaultSampleRate: sampleRate,
 		},
 	)
-	defer st.StopReporting()
 
 	hook := metricsbp.BaseplateHook{Metrics: st}
 	tracing.RegisterBaseplateHook(hook)

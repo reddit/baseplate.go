@@ -29,15 +29,16 @@ func ExampleCheckNilFields() {
 		sampleRate = 1
 	)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	st := metricsbp.NewStatsd(
-		context.Background(),
+		ctx,
 		metricsbp.StatsdConfig{
 			Prefix:            prefix,
 			Address:           statsdAddr,
 			DefaultSampleRate: sampleRate,
 		},
 	)
-	defer st.StopReporting()
 
 	// Initialize metrics
 	m := PreCreatedMetrics{
