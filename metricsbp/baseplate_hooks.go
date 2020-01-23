@@ -13,13 +13,12 @@ const (
 
 // BaseplateHook registers each Server Span with a MetricsSpanHook.
 type BaseplateHook struct {
-	Prefix  string
 	Metrics Statsd
 }
 
 // OnServerSpanCreate registers MetricSpanHooks on a Server Span.
 func (h BaseplateHook) OnServerSpanCreate(span *tracing.Span) error {
-	serverSpanHook := newSpanHook(h.Prefix, h.Metrics, span)
+	serverSpanHook := newSpanHook("", h.Metrics, span)
 	span.RegisterHook(serverSpanHook)
 	return nil
 }
@@ -35,7 +34,10 @@ type SpanHook struct {
 }
 
 func newSpanHook(prefix string, metrics Statsd, span *tracing.Span) SpanHook {
-	name := fmt.Sprintf("%s.%v.%s", prefix, span.SpanType(), span.Name)
+	if prefix != "" {
+		prefix = prefix + "."
+	}
+	name := fmt.Sprintf("%s%v.%s", prefix, span.SpanType(), span.Name)
 	return SpanHook{
 		Name:    name,
 		Metrics: metrics,
@@ -70,6 +72,18 @@ func (h SpanHook) OnEnd(span *tracing.Span, err error) error {
 		statusMetricPath = fmt.Sprintf("%s.%s", h.Name, success)
 	}
 	h.Metrics.Counter(statusMetricPath).Add(1)
+	return nil
+}
+
+// OnSetTag is a nop
+func (h SpanHook) OnSetTag(span *tracing.Span, key string, value interface{}) error {
+	return nil
+}
+
+// OnAddCounter will increment a metric by "delta" using "key" as the metric
+// "name"
+func (h SpanHook) OnAddCounter(span *tracing.Span, key string, delta float64) error {
+	h.Metrics.Counter(key).Add(delta)
 	return nil
 }
 

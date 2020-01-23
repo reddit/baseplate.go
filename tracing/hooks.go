@@ -12,6 +12,8 @@ type SpanHook interface {
 	OnCreateChild(child *Span) error
 	OnStart(span *Span) error
 	OnEnd(span *Span, err error) error
+	OnSetTag(span *Span, key string, value interface{}) error
+	OnAddCounter(span *Span, key string, delta float64) error
 }
 
 var (

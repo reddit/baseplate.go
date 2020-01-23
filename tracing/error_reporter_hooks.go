@@ -35,6 +35,16 @@ func (h ErrorReporterSpanHook) OnEnd(span *Span, err error) error {
 	return nil
 }
 
+// OnSetTag is a nop
+func (h ErrorReporterSpanHook) OnSetTag(span *Span, key string, value interface{}) error {
+	return nil
+}
+
+// OnAddCounter is a nop
+func (h ErrorReporterSpanHook) OnAddCounter(span *Span, key string, delta float64) error {
+	return nil
+}
+
 var (
 	_ BaseplateHook = ErrorReporterBaseplateHook{}
 	_ SpanHook      = ErrorReporterSpanHook{}
