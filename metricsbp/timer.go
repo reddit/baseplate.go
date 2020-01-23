@@ -17,16 +17,21 @@ const timerUnit = float64(time.Millisecond)
 // 2. It's nil-safe (zero values of *Timer or Timer will be safe to call, but
 // they are no-ops)
 type Timer struct {
-	histogram metrics.Histogram
-	start     time.Time
+	Histogram metrics.Histogram
+
+	start time.Time
 }
 
 // NewTimer creates a new Timer and records its start time.
 func NewTimer(h metrics.Histogram) *Timer {
-	return &Timer{
-		histogram: h,
-		start:     time.Now(),
-	}
+	timer := &Timer{Histogram: h}
+	timer.Start()
+	return timer
+}
+
+// Start records the start time for the Timer.
+func (t *Timer) Start() {
+	t.start = time.Now()
 }
 
 // ObserveDuration reports the time elapsed via the wrapped histogram.
@@ -35,12 +40,12 @@ func NewTimer(h metrics.Histogram) *Timer {
 //
 // The reporting unit is millisecond.
 func (t *Timer) ObserveDuration() {
-	if t == nil || t.histogram == nil || t.start.IsZero() {
+	if t == nil || t.Histogram == nil || t.start.IsZero() {
 		return
 	}
 	d := float64(time.Since(t.start)) / timerUnit
 	if d < 0 {
 		d = 0
 	}
-	t.histogram.Observe(d)
+	t.Histogram.Observe(d)
 }

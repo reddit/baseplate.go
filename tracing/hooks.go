@@ -1,74 +1,105 @@
 package tracing
 
-// BaseplateHook allows you to inject functionality into the lifecycle of a
+// CreateServerSpanHook allows you to inject functionality into the lifecycle of a
 // Baseplate request.
-type BaseplateHook interface {
-	OnServerSpanCreate(span *Span) error
+type CreateServerSpanHook interface {
+	// OnCreateServerSpan is called after a server Span is first created by
+	// tracing.CreateServerSpan, before any OnPostStart Hooks are called.
+	//
+	// OnCreateServerSpan is the recommended place to register Hooks onto the
+	// server Span.
+	OnCreateServerSpan(span *Span) error
 }
 
-// SpanHook allows you to inject functionality into the lifecycle of Baseplate
-// Spans.
-type SpanHook interface {
-	OnCreateChild(child *Span) error
-	OnStart(span *Span) error
-	OnEnd(span *Span, err error) error
+// CreateChildSpanHook allows you to inject functionality into the creation of a
+// Baseplate span.
+type CreateChildSpanHook interface {
+	// OnCreateChild is called after a child Span is first created, before any
+	// OnPostStart Hooks are called.
+	//
+	// OnCreateChild is the recommended place to register Hooks onto the
+	// child Span.
+	OnCreateChild(parent, child *Span) error
+}
+
+// StartStopSpanHook allows you to inject functionality immediately after
+// starting a span and immediately before stopping a span.
+type StartStopSpanHook interface {
+	// OnPostStart is called after a child Span is created and the OnCreateChild
+	// Hooks on the parent Span are called.
+	OnPostStart(span *Span) error
+
+	// OnPreStop is called by Span.Stop, after setting any custom tags, but
+	// before the span is stopped, serialized, or published.
+	OnPreStop(span *Span, err error) error
+}
+
+// SetSpanTagHook allows you to inject functionality after setting a tag on a
+// span.
+type SetSpanTagHook interface {
+	// OnSetTag is called by Span.SetTag, after the tag is set on the Span.
 	OnSetTag(span *Span, key string, value interface{}) error
+}
+
+// AddSpanCounterHook allows you to inject functionality after adding a counter
+// on a span.
+type AddSpanCounterHook interface {
+	// OnAddCounter is called by Span.AddCounter, after the counter is updated
+	// on the Span.
 	OnAddCounter(span *Span, key string, delta float64) error
 }
 
 var (
-	hooks []BaseplateHook
+	hooks []CreateServerSpanHook
 )
 
-// RegisterBaseplateHook registers a Hook into the Baseplate request lifecycle.
+// IsSpanHook returns true if hook implements at least one of the span Hook
+// interfaces and false if it implements none.
+func IsSpanHook(hook interface{}) bool {
+	if _, ok := hook.(CreateChildSpanHook); ok {
+		return ok
+	}
+	if _, ok := hook.(StartStopSpanHook); ok {
+		return ok
+	}
+	if _, ok := hook.(SetSpanTagHook); ok {
+		return ok
+	}
+	if _, ok := hook.(AddSpanCounterHook); ok {
+		return ok
+	}
+	return false
+}
+
+// RegisterCreateServerSpanHook registers a Hook into the Baseplate request lifecycle.
 //
 // This function and ResetHooks are not safe to call concurrently.
-func RegisterBaseplateHook(hook BaseplateHook) {
+func RegisterCreateServerSpanHook(hook CreateServerSpanHook) {
 	hooks = append(hooks, hook)
 }
 
 // ResetHooks removes all global hooks and resets back to initial state.
 //
-// This function and RegisterBaseplateHook are not safe to call concurrently.
+// This function and RegisterCreateServerSpanHook are not safe to call concurrently.
 func ResetHooks() {
 	hooks = nil
 }
 
-func onServerSpanCreate(span *Span) {
+func onCreateServerSpan(span *Span) {
+	if span.SpanType() != SpanTypeServer {
+		span.LogError(
+			"OnCreateServerSpan called on non-server Span: ",
+			&InvalidSpanTypeError{
+				ExpectedSpanType: SpanTypeServer,
+				ActualSpanType:   span.SpanType(),
+			},
+		)
+		return
+	}
+
 	for _, hook := range hooks {
-		if err := hook.OnServerSpanCreate(span); err != nil && span.tracer.Logger != nil {
-			span.tracer.Logger("OnCreateServerSpan hook error: " + err.Error())
+		if err := hook.OnCreateServerSpan(span); err != nil {
+			span.LogError("OnCreateServerSpan hook error: ", err)
 		}
 	}
 }
-
-// NopSpanHook can be embedded in a SpanHook implementation to provide default,
-// no-op implementations for all methods in the SpanHook interface.
-type NopSpanHook struct{}
-
-// OnCreateChild is a nop
-func (h NopSpanHook) OnCreateChild(child *Span) error {
-	return nil
-}
-
-// OnStart is a nop
-func (h NopSpanHook) OnStart(span *Span) error {
-	return nil
-}
-
-// OnEnd is a nop
-func (h NopSpanHook) OnEnd(span *Span, err error) error {
-	return nil
-}
-
-// OnSetTag is a nop
-func (h NopSpanHook) OnSetTag(span *Span, key string, value interface{}) error {
-	return nil
-}
-
-// OnAddCounter is a nop
-func (h NopSpanHook) OnAddCounter(span *Span, key string, delta float64) error {
-	return nil
-}
-
-var _ SpanHook = NopSpanHook{}

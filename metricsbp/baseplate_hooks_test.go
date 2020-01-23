@@ -13,11 +13,10 @@ import (
 )
 
 func runSpan(st *metricsbp.Statsd, spanErr error) (counter string, successCounter string, histogram string, err error) {
-	ctx := context.Background()
-	span := tracing.StartSpanFromThriftContext(ctx, "foo")
+	ctx, span := tracing.StartSpanFromThriftContext(context.Background(), "foo")
 	time.Sleep(time.Millisecond)
 	span.AddCounter("bar.count", 1.0)
-	span.End(ctx, spanErr)
+	span.Stop(ctx, spanErr)
 
 	var sb strings.Builder
 	if _, err = st.Statsd.WriteTo(&sb); err != nil {
@@ -25,7 +24,7 @@ func runSpan(st *metricsbp.Statsd, spanErr error) (counter string, successCounte
 	}
 	stats := strings.Split(sb.String(), "\n")
 	if len(stats) != 4 {
-		err = fmt.Errorf("Expected 3 stats, got %d", len(stats)-1)
+		err = fmt.Errorf("Expected 3 stats, got %d\n%v", len(stats)-1, stats)
 		return
 	}
 
@@ -34,14 +33,14 @@ func runSpan(st *metricsbp.Statsd, spanErr error) (counter string, successCounte
 			counter = stat
 		} else if strings.HasSuffix(stat, "|c") {
 			successCounter = stat
-		} else if strings.HasSuffix(stat, "|h") {
+		} else if strings.HasSuffix(stat, "|ms") {
 			histogram = stat
 		}
 	}
 	return
 }
 
-func TestOnServerSpanCreate(t *testing.T) {
+func TestOnCreateServerSpan(t *testing.T) {
 	sampleRate := 1.0
 	st := metricsbp.NewStatsd(
 		context.Background(),
@@ -50,11 +49,11 @@ func TestOnServerSpanCreate(t *testing.T) {
 		},
 	)
 
-	hook := metricsbp.BaseplateHook{Metrics: st}
-	tracing.RegisterBaseplateHook(hook)
+	hook := metricsbp.CreateServerSpanHook{Metrics: st}
+	tracing.RegisterCreateServerSpanHook(hook)
 	defer tracing.ResetHooks()
 
-	histogramRegex, err := regexp.Compile(`^server\.foo:\d\.\d+\|h$`)
+	histogramRegex, err := regexp.Compile(`^server\.foo:\d\.\d+\|ms$`)
 	if err != nil {
 		t.Fatal(err)
 	}

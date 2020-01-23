@@ -25,13 +25,13 @@ func (c *CallContainer) Reset() {
 	c.Calls = nil
 }
 
-type TestBaseplateHook struct {
+type TestCreateServerSpanHook struct {
 	Calls *CallContainer
 	Fail  bool
 }
 
-func (h TestBaseplateHook) OnServerSpanCreate(span *tracing.Span) error {
-	span.RegisterHook(TestSpanHook{Calls: h.Calls, Fail: h.Fail})
+func (h TestCreateServerSpanHook) OnCreateServerSpan(span *tracing.Span) error {
+	span.AddHooks(TestSpanHook{Calls: h.Calls, Fail: h.Fail})
 	return h.Calls.AddCall("on-server-span-create", h.Fail)
 }
 
@@ -40,15 +40,15 @@ type TestSpanHook struct {
 	Fail  bool
 }
 
-func (h TestSpanHook) OnCreateChild(child *tracing.Span) error {
+func (h TestSpanHook) OnCreateChild(parent, child *tracing.Span) error {
 	return h.Calls.AddCall("on-create-child", h.Fail)
 }
 
-func (h TestSpanHook) OnStart(child *tracing.Span) error {
+func (h TestSpanHook) OnPostStart(span *tracing.Span) error {
 	return h.Calls.AddCall("on-start", h.Fail)
 }
 
-func (h TestSpanHook) OnEnd(child *tracing.Span, err error) error {
+func (h TestSpanHook) OnPreStop(span *tracing.Span, err error) error {
 	return h.Calls.AddCall("on-end", h.Fail)
 }
 
@@ -61,21 +61,26 @@ func (h TestSpanHook) OnAddCounter(span *tracing.Span, key string, delta float64
 }
 
 var (
-	_ tracing.BaseplateHook = TestBaseplateHook{}
-	_ tracing.SpanHook      = TestSpanHook{}
+	_ tracing.CreateServerSpanHook = TestCreateServerSpanHook{}
+	_ tracing.CreateChildSpanHook  = TestSpanHook{}
+	_ tracing.StartStopSpanHook    = TestSpanHook{}
+	_ tracing.SetSpanTagHook       = TestSpanHook{}
+	_ tracing.AddSpanCounterHook   = TestSpanHook{}
 )
 
 func TestHooks(t *testing.T) {
-	hook := TestBaseplateHook{Calls: &CallContainer{}, Fail: false}
-	tracing.RegisterBaseplateHook(hook)
+	hook := TestCreateServerSpanHook{
+		Calls: &CallContainer{},
+		Fail:  false,
+	}
+	tracing.RegisterCreateServerSpanHook(hook)
 	defer tracing.ResetHooks()
 
-	ctx := context.Background()
-	span := tracing.StartSpanFromThriftContext(ctx, "foo")
+	ctx, span := tracing.StartSpanFromThriftContext(context.Background(), "foo")
 	span.SetTag("foo", "bar")
 	span.CreateClientChild("bar")
 	span.AddCounter("foo", 1.0)
-	span.End(ctx, nil)
+	span.Stop(ctx, nil)
 	expected := []string{
 		"on-server-span-create",
 		"on-start",
@@ -90,16 +95,18 @@ func TestHooks(t *testing.T) {
 }
 
 func TestHookFailures(t *testing.T) {
-	hook := TestBaseplateHook{Calls: &CallContainer{}, Fail: true}
-	tracing.RegisterBaseplateHook(hook)
+	hook := TestCreateServerSpanHook{
+		Calls: &CallContainer{},
+		Fail:  true,
+	}
+	tracing.RegisterCreateServerSpanHook(hook)
 	defer tracing.ResetHooks()
 
-	ctx := context.Background()
-	span := tracing.StartSpanFromThriftContext(ctx, "foo")
+	ctx, span := tracing.StartSpanFromThriftContext(context.Background(), "foo")
 	span.SetTag("foo", "bar")
 	span.CreateClientChild("bar")
 	span.AddCounter("foo", 1.0)
-	span.End(ctx, nil)
+	span.Stop(ctx, nil)
 	expected := []string{
 		"on-server-span-create",
 		"on-start",

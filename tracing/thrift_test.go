@@ -1,4 +1,4 @@
-package tracing_test
+package tracing
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/set"
 	"github.com/reddit/baseplate.go/thriftbp"
-	"github.com/reddit/baseplate.go/tracing"
 
 	"github.com/apache/thrift/lib/go/thrift"
 )
@@ -24,7 +23,7 @@ func TestStartSpanFromThriftContext(t *testing.T) {
 		spanStr = "54321"
 	)
 
-	tracer := tracing.Tracer{
+	tracer := Tracer{
 		Logger: log.TestWrapper(t),
 	}
 
@@ -32,25 +31,22 @@ func TestStartSpanFromThriftContext(t *testing.T) {
 	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingTrace, traceStr)
 	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSpan, spanStr)
 
-	span := tracing.StartSpanFromThriftContextWithTracer(
-		ctx,
-		name,
-		&tracer,
-	).ToZipkinSpan()
+	ctx, span := StartSpanFromThriftContextWithTracer(ctx, name, &tracer)
+	zs := span.trace.toZipkinSpan()
 
-	if span.TraceID != traceInt {
+	if zs.TraceID != traceInt {
 		t.Errorf(
 			"span's traceID expected %d, got %d",
 			traceInt,
-			span.TraceID,
+			zs.TraceID,
 		)
 	}
 
-	if span.ParentID != spanInt {
+	if zs.ParentID != spanInt {
 		t.Errorf(
 			"span's parent id expected %d, got %d",
 			spanInt,
-			span.ParentID,
+			zs.ParentID,
 		)
 	}
 }
@@ -75,16 +71,17 @@ func TestCreateThriftContextFromSpan(t *testing.T) {
 	parentCtx = thrift.SetHeader(parentCtx, thriftbp.HeaderTracingTrace, traceID)
 	parentCtx = thrift.SetHeader(parentCtx, thriftbp.HeaderTracingSpan, spanID)
 
-	tracer := tracing.Tracer{
+	tracer := Tracer{
 		Logger: log.TestWrapper(t),
 	}
-	span := tracing.StartSpanFromThriftContextWithTracer(parentCtx, name, &tracer)
+	_, span := StartSpanFromThriftContextWithTracer(parentCtx, name, &tracer)
 
 	t.Run(
 		"not-sampled-and-new",
 		func(t *testing.T) {
 			ctx := context.Background()
-			ctx = tracing.CreateThriftContextFromSpan(ctx, span)
+			child := span.CreateClientChild("test")
+			ctx = CreateThriftContextFromSpan(ctx, child)
 			checkContextKey(t, ctx, thriftbp.HeaderTracingTrace)
 			if v, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingTrace); !ok || v != traceID {
 				t.Errorf(
@@ -96,17 +93,18 @@ func TestCreateThriftContextFromSpan(t *testing.T) {
 			}
 
 			checkContextKey(t, ctx, thriftbp.HeaderTracingParent)
-			if v, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingParent); !ok || v != spanID {
+			expectedParentID := fmt.Sprintf("%v", child.trace.parentID)
+			if v, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingParent); !ok || v != expectedParentID {
 				t.Errorf(
 					"parent in the context expected to be %q, got %q & %v",
-					spanID,
+					expectedParentID,
 					v,
 					ok,
 				)
 			}
 
 			checkContextKey(t, ctx, thriftbp.HeaderTracingSpan)
-			expectedSpanID := fmt.Sprintf("%d", span.ToZipkinSpan().SpanID)
+			expectedSpanID := fmt.Sprintf("%d", child.trace.toZipkinSpan().SpanID)
 			if v, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingSpan); !ok || v != expectedSpanID {
 				t.Errorf(
 					"span in the context expected to be %q, got %q & %v",
@@ -127,14 +125,15 @@ func TestCreateThriftContextFromSpan(t *testing.T) {
 	)
 
 	parentCtx = thrift.SetHeader(parentCtx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
-	span = tracing.StartSpanFromThriftContextWithTracer(parentCtx, name, &tracer)
+	_, span = StartSpanFromThriftContextWithTracer(parentCtx, name, &tracer)
 
 	t.Run(
 		"sampled-and-overwrite",
 		func(t *testing.T) {
 			ctx := context.Background()
 			ctx = thrift.SetWriteHeaderList(ctx, thriftbp.HeadersToForward)
-			ctx = tracing.CreateThriftContextFromSpan(ctx, span)
+			child := span.CreateClientChild("test")
+			ctx = CreateThriftContextFromSpan(ctx, child)
 
 			headers := thrift.GetWriteHeaderList(ctx)
 			headersSet := set.StringSliceToSet(headers)
@@ -156,17 +155,18 @@ func TestCreateThriftContextFromSpan(t *testing.T) {
 			}
 
 			checkContextKey(t, ctx, thriftbp.HeaderTracingParent)
-			if v, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingParent); !ok || v != spanID {
+			expectedParentID := fmt.Sprintf("%v", child.trace.parentID)
+			if v, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingParent); !ok || v != expectedParentID {
 				t.Errorf(
 					"parent in the context expected to be %q, got %q & %v",
-					spanID,
+					expectedParentID,
 					v,
 					ok,
 				)
 			}
 
 			checkContextKey(t, ctx, thriftbp.HeaderTracingSpan)
-			expectedSpanID := fmt.Sprintf("%d", span.ToZipkinSpan().SpanID)
+			expectedSpanID := fmt.Sprintf("%d", child.trace.toZipkinSpan().SpanID)
 			if v, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingSpan); !ok || v != expectedSpanID {
 				t.Errorf(
 					"span in the context expected to be %q, got %q & %v",

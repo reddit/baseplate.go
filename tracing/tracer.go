@@ -113,9 +113,9 @@ func (t *Tracer) Close() error {
 // NewTrace creates a new trace (top level local span).
 func (t Tracer) NewTrace(name string) *Span {
 	span := newSpan(&t, name, SpanTypeLocal)
-	span.traceID = rand.Uint64()
-	span.sampled = randbp.ShouldSampleWithRate(t.SampleRate)
-	span.startSpan()
+	span.trace.traceID = rand.Uint64()
+	span.trace.sampled = randbp.ShouldSampleWithRate(t.SampleRate)
+	span.onStart()
 	return span
 }
 
@@ -124,14 +124,11 @@ func (t Tracer) NewTrace(name string) *Span {
 // Span.End() calls this function automatically.
 // In most cases that should be enough and you should not call this function
 // directly.
-func (t Tracer) Record(ctx context.Context, span *Span) error {
-	if !span.ShouldSample() {
-		return nil
-	}
+func (t Tracer) Record(ctx context.Context, zs ZipkinSpan) error {
 	if t.Recorder == nil {
 		return nil
 	}
-	data, err := json.Marshal(span.ToZipkinSpan())
+	data, err := json.Marshal(zs)
 	if err != nil {
 		return err
 	}

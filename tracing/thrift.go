@@ -28,15 +28,15 @@ import (
 // it will be ignored.
 // The error will also logged if the global tracer's logger is non-nil.
 // Absent tracing related headers are always silently ignored.
-func StartSpanFromThriftContext(ctx context.Context, name string) *Span {
+func StartSpanFromThriftContext(ctx context.Context, name string) (context.Context, *Span) {
 	return StartSpanFromThriftContextWithTracer(ctx, name, nil)
 }
 
 // StartSpanFromThriftContextWithTracer is the same as
 // StartSpanFromThriftContext, except that it uses the passed in tracer instead
 // of GlobalTracer.
-func StartSpanFromThriftContextWithTracer(ctx context.Context, name string, tracer *Tracer) *Span {
-	span := CreateServerSpan(tracer, name)
+func StartSpanFromThriftContextWithTracer(ctx context.Context, name string, tracer *Tracer) (context.Context, *Span) {
+	ctx, span := CreateServerSpanForContext(ctx, tracer, name)
 	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingTrace); ok {
 		if id, err := strconv.ParseUint(str, 10, 64); err != nil {
 			if tracer.Logger != nil {
@@ -47,7 +47,7 @@ func StartSpanFromThriftContextWithTracer(ctx context.Context, name string, trac
 				))
 			}
 		} else {
-			span.traceID = id
+			span.trace.traceID = id
 		}
 	}
 	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingSpan); ok {
@@ -60,7 +60,7 @@ func StartSpanFromThriftContextWithTracer(ctx context.Context, name string, trac
 				))
 			}
 		} else {
-			span.parentID = id
+			span.trace.parentID = id
 		}
 	}
 	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingFlags); ok {
@@ -73,14 +73,14 @@ func StartSpanFromThriftContextWithTracer(ctx context.Context, name string, trac
 				))
 			}
 		} else {
-			span.flags = flags
+			span.trace.flags = flags
 		}
 	}
 	str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingSampled)
 	sampled := ok && str == thriftbp.HeaderTracingSampledTrue
-	span.sampled = sampled
+	span.trace.sampled = sampled
 
-	return span
+	return ctx, span
 }
 
 // CreateThriftContextFromSpan injects span info into a context object that can
@@ -103,36 +103,36 @@ func CreateThriftContextFromSpan(ctx context.Context, span *Span) context.Contex
 	ctx = thrift.SetHeader(
 		ctx,
 		thriftbp.HeaderTracingTrace,
-		strconv.FormatUint(span.traceID, 10),
+		strconv.FormatUint(span.trace.traceID, 10),
 	)
 	headers.Add(thriftbp.HeaderTracingTrace)
 
 	ctx = thrift.SetHeader(
 		ctx,
 		thriftbp.HeaderTracingSpan,
-		strconv.FormatUint(span.spanID, 10),
+		strconv.FormatUint(span.trace.spanID, 10),
 	)
 	headers.Add(thriftbp.HeaderTracingSpan)
 
 	ctx = thrift.SetHeader(
 		ctx,
 		thriftbp.HeaderTracingFlags,
-		strconv.FormatInt(span.flags, 10),
+		strconv.FormatInt(span.trace.flags, 10),
 	)
 	headers.Add(thriftbp.HeaderTracingFlags)
 
-	if span.parentID != 0 {
+	if span.trace.parentID != 0 {
 		ctx = thrift.SetHeader(
 			ctx,
 			thriftbp.HeaderTracingParent,
-			strconv.FormatUint(span.parentID, 10),
+			strconv.FormatUint(span.trace.parentID, 10),
 		)
 		headers.Add(thriftbp.HeaderTracingParent)
 	} else {
 		headers.Remove(thriftbp.HeaderTracingParent)
 	}
 
-	if span.sampled {
+	if span.trace.sampled {
 		ctx = thrift.SetHeader(
 			ctx,
 			thriftbp.HeaderTracingSampled,
