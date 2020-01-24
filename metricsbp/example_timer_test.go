@@ -11,7 +11,6 @@ func ExampleTimer() {
 	type timerContextKeyType struct{}
 	// variables should be properly initialized in production code
 	var (
-		statsd          metricsbp.Statsd
 		ctx             context.Context
 		timerContextKey timerContextKeyType
 	)
@@ -21,7 +20,7 @@ func ExampleTimer() {
 	ctx = context.WithValue(
 		ctx,
 		timerContextKey,
-		metricsbp.NewTimer(statsd.Histogram(metricsPath)),
+		metricsbp.NewTimer(metricsbp.M.Histogram(metricsPath)),
 	)
 	// do the work
 	dummyCall(ctx)
