@@ -31,7 +31,7 @@ func ExampleCheckNilFields() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	st := metricsbp.NewStatsd(
+	metricsbp.M = metricsbp.NewStatsd(
 		ctx,
 		metricsbp.StatsdConfig{
 			Prefix:            prefix,
@@ -42,9 +42,9 @@ func ExampleCheckNilFields() {
 
 	// Initialize metrics
 	m := PreCreatedMetrics{
-		MyCounter: st.Counter("my.counter"),
+		MyCounter: metricsbp.M.Counter("my.counter"),
 		MySubMetrics: SubMetrics{
-			MyHistogram: st.Histogram("my.histogram"),
+			MyHistogram: metricsbp.M.Histogram("my.histogram"),
 			// Forgot to initialize MyGauge here
 		},
 	}
