@@ -15,6 +15,38 @@ import (
 // server. Default is one minute.
 var ReporterTickerInterval = time.Minute
 
+// M is short for "Metrics".
+//
+// This is the global Statsd to use.
+// It's pre-initialized with one that does not send metrics anywhere,
+// so it won't cause panic even if you don't initialize it before using it
+// (for example, it's safe to be used in test code).
+//
+// But in production code you should still properly initialize it to actually
+// send your metrics to your statsd collector,
+// usually early in your main function:
+//
+//     func main() {
+//       flag.Parse()
+//       ctx, cancel := context.WithCancel(context.Background())
+//       defer cancel()
+//       metricsbp.M = metricsbp.NewStatsd{
+//         ctx,
+//         metricsbp.StatsdConfig{
+//           ...
+//         },
+//       }
+//       metricsbp.M.RunSysStats()
+//       ...
+//     }
+//
+//     func someOtherFunction() {
+//       ...
+//       metricsbp.M.Counter("my-counter").Add(1)
+//       ...
+//     }
+var M = NewStatsd(context.Background(), StatsdConfig{})
+
 // Statsd defines a statsd reporter (with influx extension) and the root of the
 // metrics.
 //

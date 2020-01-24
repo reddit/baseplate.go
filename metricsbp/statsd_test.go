@@ -7,6 +7,15 @@ import (
 	"github.com/reddit/baseplate.go/metricsbp"
 )
 
+func TestGlobalStatsd(t *testing.T) {
+	// Make sure global statsd is safe to use and won't cause panics, no real
+	// tests here:
+	metricsbp.M.RunSysStats()
+	metricsbp.M.Counter("counter").Add(1)
+	metricsbp.M.Histogram("hitogram").Observe(1)
+	metricsbp.M.Gauge("gauge").Set(1)
+}
+
 func BenchmarkStatsd(b *testing.B) {
 	const (
 		label      = "label"
