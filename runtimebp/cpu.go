@@ -27,14 +27,15 @@ func NumCPU() (n float64) {
 
 	var err error
 	defer func() {
-		if err != nil {
+		if err != nil || n <= 0 {
 			// Fallback and log to stderr.
-			n = float64(runtime.NumCPU())
 			fmt.Fprintf(
 				os.Stderr,
-				"NumCPU: falling back to use runtime.NumCPU(): %v\n",
+				"NumCPU: falling back to use shares: %v, %v\n",
+				n,
 				err,
 			)
+			n = numCPUSharesFallback()
 		}
 	}()
 
@@ -53,6 +54,40 @@ func NumCPU() (n float64) {
 	}
 
 	return quota / period
+}
+
+// On some really old docker version the quota file will be -1, in which case we
+// should use this one instead.
+func numCPUSharesFallback() (n float64) {
+	const (
+		sharesPath  = "/sys/fs/cgroup/cpu/cpu.shares"
+		denominator = 1024
+	)
+
+	var err error
+	defer func() {
+		if err != nil || n <= 0 {
+			// Fallback and log to stderr.
+			fmt.Fprintf(
+				os.Stderr,
+				"NumCPU: falling back to use runtime.NumCPU(): %v, %v\n",
+				n,
+				err,
+			)
+			n = float64(runtime.NumCPU())
+		}
+	}()
+
+	// Big enough buffer to read the number in the file wholly into memory.
+	buf := make([]byte, 1024)
+	var shares float64
+
+	shares, err = readNumberFromFile(sharesPath, buf)
+	if err != nil {
+		return
+	}
+
+	return float64(shares) / denominator
 }
 
 func readNumberFromFile(path string, buf []byte) (float64, error) {
