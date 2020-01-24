@@ -14,7 +14,6 @@ func Example() {
 	var (
 		store      *secrets.Store
 		secretPath string
-		metrics    metricsbp.Statsd
 	)
 
 	secret, _ := store.GetVersionedSecret(secretPath)
@@ -31,12 +30,12 @@ func Example() {
 	// Verify
 	err := signing.Verify([]byte(msg), signature, secret.GetAll()...)
 	if err != nil {
-		metrics.Counter("invalid-signature").Add(1)
+		metricsbp.M.Counter("invalid-signature").Add(1)
 		var e signing.VerifyError
 		if errors.As(err, &e) {
 			switch e.Reason {
 			case signing.VerifyErrorReasonExpired:
-				metrics.Counter("signature-expired").Add(1)
+				metricsbp.M.Counter("signature-expired").Add(1)
 			}
 		}
 	}
