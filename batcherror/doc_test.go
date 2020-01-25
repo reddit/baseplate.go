@@ -1,8 +1,11 @@
 package batcherror_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/reddit/baseplate.go/batcherror"
 )
@@ -39,4 +42,48 @@ func Example() {
 	// Nil errors are skipped: foo
 	// 2: batcherror: total 2 error(s) in this batch: foo; bar
 	// 3: batcherror: total 3 error(s) in this batch: foobar; foo; bar
+}
+
+// This example demonstrates how a BatchError can be inspected with errors.Is.
+func ExampleBatchError_Is() {
+	var batch batcherror.BatchError
+
+	batch.Add(context.Canceled)
+	err := batch.Compile()
+	fmt.Println(errors.Is(err, context.Canceled)) // true
+	fmt.Println(errors.Is(err, io.EOF))           // false
+
+	batch.Add(fmt.Errorf("wrapped: %w", io.EOF))
+	err = batch.Compile()
+	fmt.Println(errors.Is(err, context.Canceled)) // true
+	fmt.Println(errors.Is(err, io.EOF))           // true
+
+	// Output:
+	// true
+	// false
+	// true
+	// true
+}
+
+// This example demonstrates how a BatchError can be inspected with errors.As.
+func ExampleBatchError_As() {
+	var batch batcherror.BatchError
+	var target *os.PathError
+
+	batch.Add(context.Canceled)
+	err := batch.Compile()
+	fmt.Println(errors.As(err, &target)) // false
+
+	batch.Add(fmt.Errorf("wrapped: %w", &os.PathError{}))
+	err = batch.Compile()
+	fmt.Println(errors.As(err, &target)) // true
+
+	batch.Add(fmt.Errorf("wrapped: %w", &os.LinkError{}))
+	err = batch.Compile()
+	fmt.Println(errors.As(err, &target)) // true
+
+	// Output:
+	// false
+	// true
+	// true
 }

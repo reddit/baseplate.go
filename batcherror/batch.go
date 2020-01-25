@@ -42,28 +42,47 @@ func (be BatchError) Error() string {
 
 // As implements helper interface for errors.As.
 //
-// It supports pointers to both BatchError and *BatchError.
+// If v is pointer to either BatchError or *BatchError,
+// *v will be set into this error.
+// Otherwise, As will try errors.As against all errors in this batch,
+// returning the first match.
+//
+// See Is for the discussion of possiblity of infinite loop.
 func (be BatchError) As(v interface{}) bool {
 	if target, ok := v.(*BatchError); ok {
-		target.errors = be.errors
+		*target = be
 		return true
 	}
 	if target, ok := v.(**BatchError); ok {
 		*target = &be
 		return true
 	}
+	for _, err := range be.errors {
+		if errors.As(err, v) {
+			return true
+		}
+	}
 	return false
 }
 
-// Unwrap implements the hidden errors interface.
+// Is implements helper interface for errors.Is.
 //
-// When the batch contains exactly one error, that error is returned.
-// It returns nil otherwise.
-func (be BatchError) Unwrap() error {
-	if len(be.errors) == 1 {
-		return be.errors[0]
+// It calls errors.Is against all errors in this batch,
+// until a match is found.
+//
+// If an error in the batch is the BatchError itself,
+// calling its Is (and As) could cause an infinite loop.
+// But there's a special handling in Add function,
+// that if you try to add a BatchError into the batch,
+// we add the underlying errors instead the BatchError itself.
+// As a result it should be impossible to cause infinite loops in Is and As.
+func (be BatchError) Is(target error) bool {
+	for _, err := range be.errors {
+		if errors.Is(err, target) {
+			return true
+		}
 	}
-	return nil
+	return false
 }
 
 func (be *BatchError) addBatch(batch BatchError) {
