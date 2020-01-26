@@ -15,6 +15,7 @@ func TestGlobalStatsd(t *testing.T) {
 	metricsbp.M.RunSysStats()
 	metricsbp.M.Counter("counter").Add(1)
 	metricsbp.M.Histogram("hitogram").Observe(1)
+	metricsbp.M.Timing("timing").Observe(1)
 	metricsbp.M.Gauge("gauge").Set(1)
 }
 
@@ -25,6 +26,7 @@ func TestNilStatsd(t *testing.T) {
 	st.RunSysStats()
 	st.Counter("counter").Add(1)
 	st.Histogram("hitogram").Observe(1)
+	st.Timing("timing").Observe(1)
 	st.Gauge("gauge").Set(1)
 }
 
@@ -56,6 +58,22 @@ func TestNoFallback(t *testing.T) {
 		},
 	)
 	st.Histogram("foo").Observe(1)
+	buf.Reset()
+	st.Statsd.WriteTo(&buf)
+	str = buf.String()
+	if !strings.HasPrefix(str, prefix) {
+		t.Errorf("Expected prefix %q, got %q", prefix, str)
+	}
+
+	prefix = "timing"
+	st = metricsbp.NewStatsd(
+		context.Background(),
+		metricsbp.StatsdConfig{
+			Prefix:            prefix,
+			DefaultSampleRate: 1,
+		},
+	)
+	st.Timing("foo").Observe(1)
 	buf.Reset()
 	st.Statsd.WriteTo(&buf)
 	str = buf.String()
@@ -118,6 +136,17 @@ func BenchmarkStatsd(b *testing.B) {
 			)
 
 			b.Run(
+				"timing",
+				func(b *testing.B) {
+					m := st.Timing(label)
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						m.Observe(1)
+					}
+				},
+			)
+
+			b.Run(
 				"counter",
 				func(b *testing.B) {
 					m := st.Counter(label)
@@ -154,6 +183,15 @@ func BenchmarkStatsd(b *testing.B) {
 			)
 
 			b.Run(
+				"timing",
+				func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						st.Timing(label).Observe(1)
+					}
+				},
+			)
+
+			b.Run(
 				"counter",
 				func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
@@ -181,6 +219,15 @@ func BenchmarkStatsd(b *testing.B) {
 				func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
 						st.Histogram(label).With(labels...).Observe(1)
+					}
+				},
+			)
+
+			b.Run(
+				"timing",
+				func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						st.Timing(label).With(labels...).Observe(1)
 					}
 				},
 			)
