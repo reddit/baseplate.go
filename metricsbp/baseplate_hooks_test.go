@@ -34,7 +34,7 @@ func runSpan(st *metricsbp.Statsd, spanErr error) (counter string, successCounte
 			counter = stat
 		} else if strings.HasSuffix(stat, "|c") {
 			successCounter = stat
-		} else if strings.HasSuffix(stat, "|ms") {
+		} else if strings.HasSuffix(stat, "|h") {
 			histogram = stat
 		}
 	}
@@ -54,7 +54,10 @@ func TestOnServerSpanCreate(t *testing.T) {
 	tracing.RegisterBaseplateHook(hook)
 	defer tracing.ResetHooks()
 
-	histogramRegex := regexp.MustCompile(`^server\.foo:\d\.\d+\|ms$`)
+	histogramRegex, err := regexp.Compile(`^server\.foo:\d\.\d+\|h$`)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run(
 		"success",

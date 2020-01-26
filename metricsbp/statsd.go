@@ -148,12 +148,22 @@ func (st *Statsd) Counter(name string) metrics.Counter {
 	return st.Statsd.NewCounter(name, st.sampleRate)
 }
 
-// Histogram returns a histogram metrics to the name.
+// Histogram returns a histogram metrics to the name with no specific unit.
+//
+// It uses the DefaultSampleRate used to create Statsd object.
+// If you need a different sample rate,
+// you could use st.Statsd.NewHistogram instead.
+func (st *Statsd) Histogram(name string) metrics.Histogram {
+	st = st.fallback()
+	return st.Statsd.NewHistogram(name, st.sampleRate)
+}
+
+// Timing returns a histogram metrics to the name with milliseconds as the unit.
 //
 // It uses the DefaultSampleRate used to create Statsd object.
 // If you need a different sample rate,
 // you could use st.Statsd.NewTiming instead.
-func (st *Statsd) Histogram(name string) metrics.Histogram {
+func (st *Statsd) Timing(name string) metrics.Histogram {
 	st = st.fallback()
 	return st.Statsd.NewTiming(name, st.sampleRate)
 }

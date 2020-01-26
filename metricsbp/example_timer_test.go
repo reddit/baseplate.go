@@ -20,7 +20,7 @@ func ExampleTimer() {
 	ctx = context.WithValue(
 		ctx,
 		timerContextKey,
-		metricsbp.NewTimer(metricsbp.M.Histogram(metricsPath)),
+		metricsbp.NewTimer(metricsbp.M.Timing(metricsPath)),
 	)
 	// do the work
 	dummyCall(ctx)
