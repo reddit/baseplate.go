@@ -1,7 +1,9 @@
 package metricsbp_test
 
 import (
+	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/reddit/baseplate.go/metricsbp"
@@ -14,6 +16,68 @@ func TestGlobalStatsd(t *testing.T) {
 	metricsbp.M.Counter("counter").Add(1)
 	metricsbp.M.Histogram("hitogram").Observe(1)
 	metricsbp.M.Gauge("gauge").Set(1)
+}
+
+func TestNilStatsd(t *testing.T) {
+	var st *metricsbp.Statsd
+	// Make sure nil *Statsd is safe to use and won't cause panics, no real
+	// tests here:
+	st.RunSysStats()
+	st.Counter("counter").Add(1)
+	st.Histogram("hitogram").Observe(1)
+	st.Gauge("gauge").Set(1)
+}
+
+func TestNoFallback(t *testing.T) {
+	var buf bytes.Buffer
+
+	prefix := "counter"
+	st := metricsbp.NewStatsd(
+		context.Background(),
+		metricsbp.StatsdConfig{
+			Prefix:            prefix,
+			DefaultSampleRate: 1,
+		},
+	)
+	st.Counter("foo").Add(1)
+	buf.Reset()
+	st.Statsd.WriteTo(&buf)
+	str := buf.String()
+	if !strings.HasPrefix(str, prefix) {
+		t.Errorf("Expected prefix %q, got %q", prefix, str)
+	}
+
+	prefix = "histogram"
+	st = metricsbp.NewStatsd(
+		context.Background(),
+		metricsbp.StatsdConfig{
+			Prefix:            prefix,
+			DefaultSampleRate: 1,
+		},
+	)
+	st.Histogram("foo").Observe(1)
+	buf.Reset()
+	st.Statsd.WriteTo(&buf)
+	str = buf.String()
+	if !strings.HasPrefix(str, prefix) {
+		t.Errorf("Expected prefix %q, got %q", prefix, str)
+	}
+
+	prefix = "gauge"
+	st = metricsbp.NewStatsd(
+		context.Background(),
+		metricsbp.StatsdConfig{
+			Prefix:            prefix,
+			DefaultSampleRate: 1,
+		},
+	)
+	st.Gauge("foo").Set(1)
+	buf.Reset()
+	st.Statsd.WriteTo(&buf)
+	str = buf.String()
+	if !strings.HasPrefix(str, prefix) {
+		t.Errorf("Expected prefix %q, got %q", prefix, str)
+	}
 }
 
 func BenchmarkStatsd(b *testing.B) {
