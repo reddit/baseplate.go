@@ -7,12 +7,10 @@ import (
 
 // This example demonstrates how to use BaseplateHook.
 func ExampleBaseplateHook() {
-	// variables should be properly initialized in production code
-	var statsd metricsbp.Statsd
 	const prefix = "service.server"
 
 	// initialize the BaseplateHook
-	hook := metricsbp.BaseplateHook{Metrics: statsd}
+	hook := metricsbp.BaseplateHook{}
 
 	// register the hook with Baseplate
 	tracing.RegisterBaseplateHook(hook)

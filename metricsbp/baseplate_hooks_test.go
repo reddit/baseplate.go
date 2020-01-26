@@ -12,7 +12,7 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-func runSpan(st metricsbp.Statsd, spanErr error) (counter string, successCounter string, histogram string, err error) {
+func runSpan(st *metricsbp.Statsd, spanErr error) (counter string, successCounter string, histogram string, err error) {
 	ctx := context.Background()
 	span := tracing.StartSpanFromThriftContext(ctx, "foo")
 	time.Sleep(time.Millisecond)

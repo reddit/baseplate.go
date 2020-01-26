@@ -13,7 +13,7 @@ const (
 
 // BaseplateHook registers each Server Span with a MetricsSpanHook.
 type BaseplateHook struct {
-	Metrics Statsd
+	Metrics *Statsd
 }
 
 // OnServerSpanCreate registers MetricSpanHooks on a Server Span.
@@ -30,12 +30,12 @@ type SpanHook struct {
 	tracing.NopSpanHook
 
 	Name    string
-	Metrics Statsd
+	Metrics *Statsd
 
 	timer *Timer
 }
 
-func newSpanHook(metrics Statsd, span *tracing.Span) SpanHook {
+func newSpanHook(metrics *Statsd, span *tracing.Span) SpanHook {
 	name := fmt.Sprintf("%v.%s", span.SpanType(), span.Name)
 	return SpanHook{
 		Name:    name,

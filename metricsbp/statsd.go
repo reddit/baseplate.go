@@ -54,6 +54,16 @@ var M = NewStatsd(context.Background(), StatsdConfig{})
 // and also maintains the background reporting goroutine,
 //
 // Please use NewStatsd to initialize it.
+//
+// When a *Statsd is nil,
+// any function calls to it will fallback to use M instead,
+// so they are safe to use (unless M was explicitly overridden as nil),
+// but accessing the fields will still cause panic.
+// For example:
+//
+//     st := (*metricsbp.Statsd)(nil)
+//     st.Counter("my-counter").Add(1) // does not panic unless metricsbp.M is nil
+//     st.Statsd.NewCounter("my-counter", 0.5).Add(1) // panics
 type Statsd struct {
 	Statsd *influxstatsd.Influxstatsd
 
@@ -99,7 +109,9 @@ type StatsdConfig struct {
 //
 // It also starts a background reporting goroutine when Address is not empty.
 // The goroutine will be stopped when the passed in context is canceled.
-func NewStatsd(ctx context.Context, cfg StatsdConfig) Statsd {
+//
+// NewStatsd never returns nil.
+func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 	prefix := cfg.Prefix
 	if prefix != "" && !strings.HasSuffix(prefix, ".") {
 		prefix = prefix + "."
@@ -108,7 +120,7 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) Statsd {
 	for k, v := range cfg.Labels {
 		labels = append(labels, k, v)
 	}
-	st := Statsd{
+	st := &Statsd{
 		Statsd:     influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), labels...),
 		ctx:        ctx,
 		sampleRate: cfg.DefaultSampleRate,
@@ -131,7 +143,8 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) Statsd {
 // It uses the DefaultSampleRate used to create Statsd object.
 // If you need a different sample rate,
 // you could use st.Statsd.NewCounter instead.
-func (st Statsd) Counter(name string) metrics.Counter {
+func (st *Statsd) Counter(name string) metrics.Counter {
+	st = st.fallback()
 	return st.Statsd.NewCounter(name, st.sampleRate)
 }
 
@@ -140,13 +153,22 @@ func (st Statsd) Counter(name string) metrics.Counter {
 // It uses the DefaultSampleRate used to create Statsd object.
 // If you need a different sample rate,
 // you could use st.Statsd.NewTiming instead.
-func (st Statsd) Histogram(name string) metrics.Histogram {
+func (st *Statsd) Histogram(name string) metrics.Histogram {
+	st = st.fallback()
 	return st.Statsd.NewTiming(name, st.sampleRate)
 }
 
 // Gauge returns a gauge metrics to the name.
 //
 // It's a shortcut to st.Statsd.NewGauge(name).
-func (st Statsd) Gauge(name string) metrics.Gauge {
+func (st *Statsd) Gauge(name string) metrics.Gauge {
+	st = st.fallback()
 	return st.Statsd.NewGauge(name)
+}
+
+func (st *Statsd) fallback() *Statsd {
+	if st == nil {
+		return M
+	}
+	return st
 }
