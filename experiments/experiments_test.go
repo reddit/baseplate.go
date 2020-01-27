@@ -108,7 +108,7 @@ func TestCalculateBucket(t *testing.T) {
 		names = append(names, fmt.Sprintf("t2_%d", i))
 	}
 
-	counter := make(map[int]int, 0)
+	counter := make(map[int]int)
 	for _, name := range names {
 		bucket := experiment.calculateBucket(name)
 		counter[bucket] += 1
@@ -164,7 +164,7 @@ func TestCalculateBucketWithSeed(t *testing.T) {
 		names = append(names, fmt.Sprintf("t2_%d", i))
 	}
 
-	counter := make(map[int]int, 0)
+	counter := make(map[int]int)
 	bucketingChanged := false
 	for _, name := range names {
 		if experiment.seed != "some new seed" {
