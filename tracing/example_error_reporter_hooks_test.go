@@ -19,7 +19,7 @@ func ExampleErrorReporterCreateServerSpanHook() {
 	hook := tracing.ErrorReporterCreateServerSpanHook{}
 
 	// register the hook with Baseplate
-	tracing.RegisterCreateServerSpanHook(hook)
+	tracing.RegisterCreateServerSpanHooks(hook)
 
 	// Create a ServerSpan
 	span := tracing.CreateServerSpan(tracer, "test")

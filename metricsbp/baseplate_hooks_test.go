@@ -50,7 +50,7 @@ func TestOnCreateServerSpan(t *testing.T) {
 	)
 
 	hook := metricsbp.CreateServerSpanHook{Metrics: st}
-	tracing.RegisterCreateServerSpanHook(hook)
+	tracing.RegisterCreateServerSpanHooks(hook)
 	defer tracing.ResetHooks()
 
 	histogramRegex, err := regexp.Compile(`^server\.foo:\d\.\d+\|ms$`)
