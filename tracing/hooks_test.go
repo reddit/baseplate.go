@@ -73,7 +73,7 @@ func TestHooks(t *testing.T) {
 		Calls: &CallContainer{},
 		Fail:  false,
 	}
-	tracing.RegisterCreateServerSpanHook(hook)
+	tracing.RegisterCreateServerSpanHooks(hook)
 	defer tracing.ResetHooks()
 
 	ctx, span := tracing.StartSpanFromThriftContext(context.Background(), "foo")
@@ -99,7 +99,7 @@ func TestHookFailures(t *testing.T) {
 		Calls: &CallContainer{},
 		Fail:  true,
 	}
-	tracing.RegisterCreateServerSpanHook(hook)
+	tracing.RegisterCreateServerSpanHooks(hook)
 	defer tracing.ResetHooks()
 
 	ctx, span := tracing.StartSpanFromThriftContext(context.Background(), "foo")

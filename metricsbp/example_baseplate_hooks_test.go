@@ -13,5 +13,5 @@ func ExampleCreateServerSpanHook() {
 	hook := metricsbp.CreateServerSpanHook{}
 
 	// register the hook with Baseplate
-	tracing.RegisterCreateServerSpanHook(hook)
+	tracing.RegisterCreateServerSpanHooks(hook)
 }

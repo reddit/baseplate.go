@@ -50,7 +50,7 @@ type AddSpanCounterHook interface {
 }
 
 var (
-	hooks []CreateServerSpanHook
+	createServerSpanHooks []CreateServerSpanHook
 )
 
 // IsSpanHook returns true if hook implements at least one of the span Hook
@@ -71,18 +71,19 @@ func IsSpanHook(hook interface{}) bool {
 	return false
 }
 
-// RegisterCreateServerSpanHook registers a Hook into the Baseplate request lifecycle.
+// RegisterCreateServerSpanHooks registers Hooks into the Baseplate request
+// lifecycle.
 //
 // This function and ResetHooks are not safe to call concurrently.
-func RegisterCreateServerSpanHook(hook CreateServerSpanHook) {
-	hooks = append(hooks, hook)
+func RegisterCreateServerSpanHooks(hooks ...CreateServerSpanHook) {
+	createServerSpanHooks = append(createServerSpanHooks, hooks...)
 }
 
 // ResetHooks removes all global hooks and resets back to initial state.
 //
-// This function and RegisterCreateServerSpanHook are not safe to call concurrently.
+// This function and RegisterCreateServerSpanHooks are not safe to call concurrently.
 func ResetHooks() {
-	hooks = nil
+	createServerSpanHooks = nil
 }
 
 func onCreateServerSpan(span *Span) {
@@ -97,7 +98,7 @@ func onCreateServerSpan(span *Span) {
 		return
 	}
 
-	for _, hook := range hooks {
+	for _, hook := range createServerSpanHooks {
 		if err := hook.OnCreateServerSpan(span); err != nil {
 			span.LogError("OnCreateServerSpan hook error: ", err)
 		}
