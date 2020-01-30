@@ -12,7 +12,7 @@ import (
 func TestGlobalStatsd(t *testing.T) {
 	// Make sure global statsd is safe to use and won't cause panics, no real
 	// tests here:
-	metricsbp.M.RunSysStats()
+	metricsbp.M.RunSysStats(nil)
 	metricsbp.M.Counter("counter").Add(1)
 	metricsbp.M.Histogram("hitogram").Observe(1)
 	metricsbp.M.Timing("timing").Observe(1)
@@ -23,7 +23,7 @@ func TestNilStatsd(t *testing.T) {
 	var st *metricsbp.Statsd
 	// Make sure nil *Statsd is safe to use and won't cause panics, no real
 	// tests here:
-	st.RunSysStats()
+	st.RunSysStats(nil)
 	st.Counter("counter").Add(1)
 	st.Histogram("hitogram").Observe(1)
 	st.Timing("timing").Observe(1)
