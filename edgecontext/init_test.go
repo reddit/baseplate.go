@@ -46,6 +46,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Panic(err)
 	}
+	defer store.Close()
 
 	edgecontext.Init(edgecontext.Config{Store: store})
 	os.Exit(m.Run())

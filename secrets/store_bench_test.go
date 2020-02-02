@@ -1,4 +1,4 @@
-package secrets
+package secrets_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/secrets"
 )
 
 func BenchmarkStoreMiddlewares(b *testing.B) {
@@ -21,8 +22,8 @@ func BenchmarkStoreMiddlewares(b *testing.B) {
 	}
 	tmpFile.Write([]byte(specificationExample))
 
-	var middleware = func(next SecretHandlerFunc) SecretHandlerFunc {
-		return func(sec *Secrets) {
+	var middleware = func(next secrets.SecretHandlerFunc) secrets.SecretHandlerFunc {
+		return func(sec *secrets.Secrets) {
 			next(sec)
 		}
 	}
@@ -30,7 +31,7 @@ func BenchmarkStoreMiddlewares(b *testing.B) {
 	for i := 0; i < 10; i++ {
 		numOfMiddlewares := 1 << i
 
-		middlewares := make([]SecretMiddleware, 0, numOfMiddlewares)
+		middlewares := make([]secrets.SecretMiddleware, 0, numOfMiddlewares)
 
 		for j := 0; j < numOfMiddlewares; j++ {
 			middlewares = append(middlewares, middleware)
@@ -40,7 +41,7 @@ func BenchmarkStoreMiddlewares(b *testing.B) {
 			fmt.Sprintf("number of middlewares %d", numOfMiddlewares),
 			func(b *testing.B) {
 				for n := 0; n < b.N; n++ {
-					NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(b), middlewares...)
+					secrets.NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(b), middlewares...)
 				}
 			},
 		)
