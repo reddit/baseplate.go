@@ -1,10 +1,16 @@
 package edgecontext
 
 import (
+	"crypto/rsa"
 	"errors"
+	"fmt"
 
 	jwt "gopkg.in/dgrijalva/jwt-go.v3"
+
+	"github.com/reddit/baseplate.go/secrets"
 )
+
+type keysType []*rsa.PublicKey
 
 const (
 	authenticationPubKeySecretPath = "secret/authentication/public-key"
@@ -43,22 +49,21 @@ func shouldShortCircutError(err error) bool {
 // ValidateToken parses and validates a jwt token, and return the decoded
 // AuthenticationToken.
 func ValidateToken(token string) (*AuthenticationToken, error) {
-	sec, err := store.GetVersionedSecret(authenticationPubKeySecretPath)
-	if err != nil {
-		return nil, err
+	keys, ok := keysValue.Load().(keysType)
+	if !ok {
+		// This would only happen when all previous middleware parsing failed.
+		return nil, errors.New("no public keys loaded")
 	}
 
-	// TODO 1: Patch upstream to support key rotation natively:
+	// TODO: Patch upstream to support key rotation natively:
 	// https://github.com/dgrijalva/jwt-go/pull/372
-	//
-	// TODO 2: Use secrets middleware to cache parsed pubkeys.
 	var lastErr error
-	for _, key := range sec.GetAll() {
+	for _, key := range keys {
 		token, err := jwt.ParseWithClaims(
 			token,
 			&AuthenticationToken{},
 			func(_ *jwt.Token) (interface{}, error) {
-				return jwt.ParseRSAPublicKeyFromPEM([]byte(key))
+				return key, nil
 			},
 		)
 		if err != nil {
@@ -77,4 +82,42 @@ func ValidateToken(token string) (*AuthenticationToken, error) {
 		lastErr = jwt.NewValidationError("", 0)
 	}
 	return nil, lastErr
+}
+
+func validatorMiddleware(next secrets.SecretHandlerFunc) secrets.SecretHandlerFunc {
+	return func(sec *secrets.Secrets) {
+		defer next(sec)
+
+		versioned, err := sec.GetVersionedSecret(authenticationPubKeySecretPath)
+		if err != nil {
+			logger(fmt.Sprintf(
+				"Failed to get secrets %q: %v",
+				authenticationPubKeySecretPath,
+				err,
+			))
+			return
+		}
+
+		all := versioned.GetAll()
+		keys := make(keysType, 0, len(all))
+		for i, v := range all {
+			key, err := jwt.ParseRSAPublicKeyFromPEM([]byte(v))
+			if err != nil {
+				logger(fmt.Sprintf(
+					"Failed to parse key #%d: %v",
+					i,
+					err,
+				))
+			} else {
+				keys = append(keys, key)
+			}
+		}
+
+		if len(keys) == 0 {
+			logger("No valid keys in secrets store.")
+			return
+		}
+
+		keysValue.Store(keys)
+	}
 }

@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/timebp"
@@ -24,7 +26,9 @@ var ErrNoHeader = errors.New("edgecontext: no Edge-Request header found")
 
 // global vars that will be initialized in Init function.
 var (
-	store *secrets.Store
+	store     *secrets.Store
+	logger    log.Wrapper
+	keysValue atomic.Value
 )
 
 var serializerPool = thrift.NewTSerializerPool(
@@ -53,7 +57,10 @@ var deserializerPool = thrift.NewTDeserializerPool(
 
 // Config for Init function.
 type Config struct {
+	// The secret store to get the keys for jwt validation
 	Store *secrets.Store
+	// The logger to log key decoding errors
+	Logger log.Wrapper
 }
 
 // Init the global state.
@@ -62,6 +69,11 @@ type Config struct {
 // otherwise they might panic.
 func Init(cfg Config) error {
 	store = cfg.Store
+	logger = cfg.Logger
+	if logger == nil {
+		logger = log.NopWrapper
+	}
+	store.AddMiddlewares(validatorMiddleware)
 	return nil
 }
 
