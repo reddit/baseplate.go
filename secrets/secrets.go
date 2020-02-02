@@ -273,7 +273,7 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 	return secrets, nil
 }
 
-// Encoding represents the encoding used to encode the secrets.
+// encoding represents the encoding used to encode the secrets.
 type encoding int
 
 const (

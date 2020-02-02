@@ -126,6 +126,7 @@ func TestTrustHeaderSignatureSignAndVerify(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer store.Close()
 
 	t.Run(
 		"edge context",
@@ -207,6 +208,7 @@ func TestTrustHeaderSignature(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer store.Close()
 
 	t.Run(
 		"no signature",

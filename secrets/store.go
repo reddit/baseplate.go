@@ -2,7 +2,6 @@ package secrets
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/reddit/baseplate.go/filewatcher"
@@ -39,10 +38,10 @@ type Store struct {
 // Context should come with a timeout otherwise this might block forever, i.e.
 // if the path never becomes available.
 func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
-	store := &Store{}
-	if len(middlewares) > 0 {
-		store.secretHandler(middlewares...)
+	store := &Store{
+		secretHandlerFunc: nopSecretHandlerFunc,
 	}
+	store.secretHandler(middlewares...)
 
 	result, err := filewatcher.New(ctx, path, store.parser, logger)
 	if err != nil {
@@ -59,62 +58,63 @@ func (s *Store) parser(r io.Reader) (interface{}, error) {
 		return nil, err
 	}
 
-	if s.secretHandlerFunc != nil {
-		s.secretHandlerFunc(secrets)
-	}
+	s.secretHandlerFunc(secrets)
 
 	return secrets, nil
 }
 
-// SecretHandler creates the middleware chain.
+// secretHandler creates the middleware chain.
 func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
-	if s.secretHandlerFunc == nil {
-		s.secretHandlerFunc = nopSecretHandlerFunc
-	}
-
 	for _, m := range middlewares {
 		s.secretHandlerFunc = m(s.secretHandlerFunc)
 	}
 }
 
-// GetSimpleSecret loads secrets from watcher, and fetches a simple secret from secrets
-func (s *Store) GetSimpleSecret(path string) (SimpleSecret, error) {
-	secrets, ok := s.watcher.Get().(*Secrets)
-	if !ok {
-		return SimpleSecret{}, fmt.Errorf("unexpected type %T", secrets)
-	}
+func (s *Store) getSecrets() *Secrets {
+	return s.watcher.Get().(*Secrets)
+}
 
-	return secrets.GetSimpleSecret(path)
+// Close closes the underlying filewatcher and release associated resources.
+//
+// After Close is called, you won't get any updates to the secret file,
+// but can still access the secrets as they were before Close is called.
+//
+// It's OK to call Close multiple times. Calls after the first one are no-ops.
+func (s *Store) Close() {
+	s.watcher.Stop()
+}
+
+// AddMiddlewares registers new middlewares to the store.
+//
+// Every AddMiddlewares call will cause all already registered middlewares to be
+// called again with the latest data.
+//
+// AddMiddlewares call is not thread-safe, it should not be called concurrently.
+func (s *Store) AddMiddlewares(middlewares ...SecretMiddleware) {
+	s.secretHandler(middlewares...)
+	s.secretHandlerFunc(s.getSecrets())
+}
+
+// GetSimpleSecret loads secrets from watcher, and fetches a simple secret from secrets
+func (s Store) GetSimpleSecret(path string) (SimpleSecret, error) {
+	return s.getSecrets().GetSimpleSecret(path)
 }
 
 // GetVersionedSecret loads secrets from watcher, and fetches a versioned secret from secrets
-func (s *Store) GetVersionedSecret(path string) (VersionedSecret, error) {
-	secrets, ok := s.watcher.Get().(*Secrets)
-	if !ok {
-		return VersionedSecret{}, fmt.Errorf("unexpected type %T", secrets)
-	}
-
-	return secrets.GetVersionedSecret(path)
+func (s Store) GetVersionedSecret(path string) (VersionedSecret, error) {
+	return s.getSecrets().GetVersionedSecret(path)
 }
 
 // GetCredentialSecret loads secrets from watcher, and fetches a credential secret from secrets
-func (s *Store) GetCredentialSecret(path string) (CredentialSecret, error) {
-	secrets, ok := s.watcher.Get().(*Secrets)
-	if !ok {
-		return CredentialSecret{}, fmt.Errorf("unexpected type %T", secrets)
-	}
-
-	return secrets.GetCredentialSecret(path)
+func (s Store) GetCredentialSecret(path string) (CredentialSecret, error) {
+	return s.getSecrets().GetCredentialSecret(path)
 }
 
 // GetVault returns a struct with a URL and token to access Vault directly. The
 // token will have policies attached based on the current EC2 server's Vault
 // role. This is only necessary if talking directly to Vault.
-func (s *Store) GetVault() (Vault, error) {
-	var vault Vault
-	secrets, ok := s.watcher.Get().(*Secrets)
-	if !ok {
-		return vault, fmt.Errorf("unexpected type %T", vault)
-	}
-	return secrets.vault, nil
+//
+// This function always returns nil error.
+func (s Store) GetVault() (Vault, error) {
+	return s.getSecrets().vault, nil
 }
