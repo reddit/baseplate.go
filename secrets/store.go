@@ -66,7 +66,7 @@ func (s *Store) parser(r io.Reader) (interface{}, error) {
 	return secrets, nil
 }
 
-// SecretHandler creates the middleware chain.
+// secretHandler creates the middleware chain.
 func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
 	if s.secretHandlerFunc == nil {
 		s.secretHandlerFunc = nopSecretHandlerFunc
@@ -75,6 +75,27 @@ func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
 	for _, m := range middlewares {
 		s.secretHandlerFunc = m(s.secretHandlerFunc)
 	}
+}
+
+// AddSecretHandler triggers a handler function and register it as callback function.
+// The handler function is registered with the store regardless the success of its initial call
+func (s *Store) AddSecretHandler(handlerFunc SecretHandlerFunc) error {
+	secrets, ok := s.watcher.Get().(*Secrets)
+	if !ok {
+		return fmt.Errorf("unexpected type %T", secrets)
+	}
+
+	handlerFunc(secrets)
+
+	middleware := func(next SecretHandlerFunc) SecretHandlerFunc {
+		return func(sec *Secrets) {
+			handlerFunc(sec)
+			next(sec)
+		}
+	}
+
+	s.secretHandler(middleware)
+	return nil
 }
 
 // GetSimpleSecret loads secrets from watcher, and fetches a simple secret from secrets

@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"testing/quick"
 	"time"
 
 	"github.com/reddit/baseplate.go/log"
@@ -135,6 +136,45 @@ func TestNewStoreMiddleware(t *testing.T) {
 
 	if middlewareCall != expectedMiddlewareCalls {
 		t.Errorf("expecting %d calls, got %d instead", expectedMiddlewareCalls, middlewareCall)
+	}
+}
+
+func TestAddStoreMiddleware(t *testing.T) {
+	dir, err := ioutil.TempDir("", "secret_test_")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpFile.Write([]byte(specificationExample))
+
+	s, err := NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var (
+		middlewareCall uint8
+		secretHandler  = func(sec *Secrets) {
+			middlewareCall++
+		}
+	)
+
+	f := func(expectedMiddlewareCalls uint8) bool {
+		middlewareCall = 0
+
+		for i := 0; uint8(i) < expectedMiddlewareCalls; i++ {
+			s.AddSecretHandler(secretHandler)
+		}
+
+		return middlewareCall == expectedMiddlewareCalls
+	}
+
+	if err := quick.Check(f, nil); err != nil {
+		t.Error(err)
 	}
 }
 
