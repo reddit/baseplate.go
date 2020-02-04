@@ -56,17 +56,14 @@ const (
 	SpanSampledContextKey
 )
 
-type headerContextKey HeaderContextKey
-
-func setHeader(ctx context.Context, key HeaderContextKey, value string) context.Context {
-	return context.WithValue(ctx, headerContextKey(key), value)
+// SetHeader sets the value on the context at key.
+func SetHeader(ctx context.Context, key HeaderContextKey, value string) context.Context {
+	return context.WithValue(ctx, key, value)
 }
 
 // GetHeader returns the HTTP header stored on the context at key.
-func GetHeader(ctx context.Context, key HeaderContextKey) (header string) {
-	if h, ok := ctx.Value(headerContextKey(key)).(string); ok {
-		header = h
-	}
+func GetHeader(ctx context.Context, key HeaderContextKey) (header string, ok bool) {
+	header, ok = ctx.Value(key).(string)
 	return
 }
 
@@ -153,7 +150,7 @@ var (
 // implement the http.RequestFunc interface.
 func InjectTrustedContext(ctx context.Context, t HeaderTrustHandler, r *http.Request) context.Context {
 	if t.TrustEdgeContext(r) {
-		ctx = setHeader(ctx, EdgeContextContextKey, r.Header.Get(EdgeContextHeader))
+		ctx = SetHeader(ctx, EdgeContextContextKey, r.Header.Get(EdgeContextHeader))
 	}
 
 	if t.TrustSpan(r) {
@@ -164,7 +161,7 @@ func InjectTrustedContext(ctx context.Context, t HeaderTrustHandler, r *http.Req
 			SpanFlagsContextKey:   r.Header.Get(SpanFlagsHeader),
 			SpanSampledContextKey: r.Header.Get(SpanSampledHeader),
 		} {
-			ctx = setHeader(ctx, k, v)
+			ctx = SetHeader(ctx, k, v)
 		}
 	}
 

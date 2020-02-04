@@ -82,7 +82,7 @@ func TestSetAndGetHeaders(t *testing.T) {
 			c.name,
 			func(t *testing.T) {
 				t.Parallel()
-				header := httpbp.GetHeader(ctx, c.key)
+				header, _ := httpbp.GetHeader(ctx, c.key)
 				if header != c.expected {
 					t.Errorf(
 						"Expected %s to be %v, got %v",
