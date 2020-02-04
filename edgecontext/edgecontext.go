@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
@@ -54,6 +55,27 @@ var deserializerPool = thrift.NewTDeserializerPool(
 		}
 	},
 )
+
+type contextKey int
+
+const (
+	edgeContextKey contextKey = iota
+)
+
+// SetEdgeContext sets the given EdgeRequestContext on the context object.
+func SetEdgeContext(ctx context.Context, ec *EdgeRequestContext) context.Context {
+	return context.WithValue(ctx, edgeContextKey, ec)
+}
+
+// GetEdgeContext gets the current EdgeRequestContext from the context object,
+// if set.
+func GetEdgeContext(ctx context.Context) (ec *EdgeRequestContext, ok bool) {
+	if e, success := ctx.Value(edgeContextKey).(*EdgeRequestContext); success {
+		ec = e
+		ok = success
+	}
+	return
+}
 
 // Config for Init function.
 type Config struct {
@@ -122,13 +144,7 @@ func New(ctx context.Context, args NewArgs) (*EdgeRequestContext, error) {
 	}, nil
 }
 
-// FromThriftContext extracts EdgeRequestContext from a thrift context object.
-func FromThriftContext(ctx context.Context) (*EdgeRequestContext, error) {
-	header, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
-	if !ok {
-		return nil, ErrNoHeader
-	}
-
+func fromHeader(header string) (*EdgeRequestContext, error) {
 	request := baseplate.NewRequest()
 	if err := deserializerPool.ReadString(request, header); err != nil {
 		return nil, err
@@ -149,3 +165,33 @@ func FromThriftContext(ctx context.Context) (*EdgeRequestContext, error) {
 		raw:    raw,
 	}, nil
 }
+
+// ContextFactory builds an *EdgeRequestContext from a context object.
+type ContextFactory func(ctx context.Context) (*EdgeRequestContext, error)
+
+// FromThriftContext implements the ContextFactory interface and extracts
+// EdgeRequestContext from a thrift context object.
+func FromThriftContext(ctx context.Context) (*EdgeRequestContext, error) {
+	header, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
+	if !ok {
+		return nil, ErrNoHeader
+	}
+
+	return fromHeader(header)
+}
+
+// FromHTTPContext implements the ContextFactory interface and extracts
+// EdgeRequestContext from an http context object.
+func FromHTTPContext(ctx context.Context) (*EdgeRequestContext, error) {
+	header, ok := httpbp.GetHeader(ctx, httpbp.EdgeContextContextKey)
+	if !ok {
+		return nil, ErrNoHeader
+	}
+
+	return fromHeader(header)
+}
+
+var (
+	_ ContextFactory = FromThriftContext
+	_ ContextFactory = FromHTTPContext
+)
