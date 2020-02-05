@@ -2,6 +2,7 @@ package metricsbp
 
 import (
 	"context"
+	"math"
 	"strings"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/influxstatsd"
 )
+
+const epsilon = 1e-9
 
 // ReporterTickerInterval is the interval the reporter sends data to statsd
 // server. Default is one minute.
@@ -67,8 +70,9 @@ var M = NewStatsd(context.Background(), StatsdConfig{})
 type Statsd struct {
 	Statsd *influxstatsd.Influxstatsd
 
-	ctx        context.Context
-	sampleRate float64
+	ctx                 context.Context
+	counterSampleRate   float64
+	histogramSampleRate float64
 }
 
 // StatsdConfig is the configs used in NewStatsd.
@@ -79,9 +83,14 @@ type StatsdConfig struct {
 	// If it's not ending with a period ("."), a period will be added.
 	Prefix string
 
-	// DefaultSampleRate is the default reporting sample rate used when creating
-	// metrics.
-	DefaultSampleRate float64
+	// The default reporting sample rate used when creating counters and
+	// timings/histograms.
+	//
+	// For user convenience,
+	// we actually treat zero values (within 1e-9 since it's float) as 1 (100%),
+	// and <-1e-9 as 0 (0%).
+	DefaultCounterSampleRate   float64
+	DefaultHistogramSampleRate float64
 
 	// Address is the UDP address (in "host:port" format) of the statsd service.
 	//
@@ -105,6 +114,17 @@ type StatsdConfig struct {
 	Labels map[string]string
 }
 
+// counterSampleRate treats 0 (abs(rate) < epsilon) as 1, and <-epsilon as 0.
+func convertSampleRate(rate float64) float64 {
+	if math.Abs(rate) < epsilon {
+		return 1
+	}
+	if rate < 0 {
+		return 0
+	}
+	return rate
+}
+
 // NewStatsd creates a Statsd object.
 //
 // It also starts a background reporting goroutine when Address is not empty.
@@ -121,9 +141,10 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 		labels = append(labels, k, v)
 	}
 	st := &Statsd{
-		Statsd:     influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), labels...),
-		ctx:        ctx,
-		sampleRate: cfg.DefaultSampleRate,
+		Statsd:              influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), labels...),
+		ctx:                 ctx,
+		counterSampleRate:   convertSampleRate(cfg.DefaultCounterSampleRate),
+		histogramSampleRate: convertSampleRate(cfg.DefaultHistogramSampleRate),
 	}
 
 	if cfg.Address != "" {
@@ -140,32 +161,32 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 
 // Counter returns a counter metrics to the name.
 //
-// It uses the DefaultSampleRate used to create Statsd object.
+// It uses the DefaultCounterSampleRate used to create Statsd object.
 // If you need a different sample rate,
 // you could use st.Statsd.NewCounter instead.
 func (st *Statsd) Counter(name string) metrics.Counter {
 	st = st.fallback()
-	return st.Statsd.NewCounter(name, st.sampleRate)
+	return st.Statsd.NewCounter(name, st.counterSampleRate)
 }
 
 // Histogram returns a histogram metrics to the name with no specific unit.
 //
-// It uses the DefaultSampleRate used to create Statsd object.
+// It uses the DefaultHistogramSampleRate used to create Statsd object.
 // If you need a different sample rate,
 // you could use st.Statsd.NewHistogram instead.
 func (st *Statsd) Histogram(name string) metrics.Histogram {
 	st = st.fallback()
-	return st.Statsd.NewHistogram(name, st.sampleRate)
+	return st.Statsd.NewHistogram(name, st.histogramSampleRate)
 }
 
 // Timing returns a histogram metrics to the name with milliseconds as the unit.
 //
-// It uses the DefaultSampleRate used to create Statsd object.
+// It uses the DefaultHistogramSampleRate used to create Statsd object.
 // If you need a different sample rate,
 // you could use st.Statsd.NewTiming instead.
 func (st *Statsd) Timing(name string) metrics.Histogram {
 	st = st.fallback()
-	return st.Statsd.NewTiming(name, st.sampleRate)
+	return st.Statsd.NewTiming(name, st.histogramSampleRate)
 }
 
 // Gauge returns a gauge metrics to the name.

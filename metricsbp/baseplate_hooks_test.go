@@ -41,12 +41,9 @@ func runSpan(st *metricsbp.Statsd, spanErr error) (counter string, successCounte
 }
 
 func TestOnCreateServerSpan(t *testing.T) {
-	sampleRate := 1.0
 	st := metricsbp.NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
-			DefaultSampleRate: sampleRate,
-		},
+		metricsbp.StatsdConfig{},
 	)
 
 	hook := metricsbp.CreateServerSpanHook{Metrics: st}

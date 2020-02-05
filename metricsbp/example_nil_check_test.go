@@ -34,9 +34,10 @@ func ExampleCheckNilFields() {
 	metricsbp.M = metricsbp.NewStatsd(
 		ctx,
 		metricsbp.StatsdConfig{
-			Prefix:            prefix,
-			Address:           statsdAddr,
-			DefaultSampleRate: sampleRate,
+			Prefix:                     prefix,
+			Address:                    statsdAddr,
+			DefaultCounterSampleRate:   sampleRate,
+			DefaultHistogramSampleRate: sampleRate,
 		},
 	)
 
