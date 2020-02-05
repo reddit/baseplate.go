@@ -83,14 +83,14 @@ type StatsdConfig struct {
 	// If it's not ending with a period ("."), a period will be added.
 	Prefix string
 
-	// The default reporting sample rate used when creating counters and
-	// timings/histograms.
+	// The reporting sample rate used when creating counters and
+	// timings/histograms, respectively.
 	//
 	// For user convenience,
 	// we actually treat zero values (within 1e-9 since it's float) as 1 (100%),
 	// and <-1e-9 as 0 (0%).
-	DefaultCounterSampleRate   float64
-	DefaultHistogramSampleRate float64
+	CounterSampleRate   float64
+	HistogramSampleRate float64
 
 	// Address is the UDP address (in "host:port" format) of the statsd service.
 	//
@@ -143,8 +143,8 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 	st := &Statsd{
 		Statsd:              influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), labels...),
 		ctx:                 ctx,
-		counterSampleRate:   convertSampleRate(cfg.DefaultCounterSampleRate),
-		histogramSampleRate: convertSampleRate(cfg.DefaultHistogramSampleRate),
+		counterSampleRate:   convertSampleRate(cfg.CounterSampleRate),
+		histogramSampleRate: convertSampleRate(cfg.HistogramSampleRate),
 	}
 
 	if cfg.Address != "" {
@@ -159,34 +159,46 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 	return st
 }
 
-// Counter returns a counter metrics to the name.
-//
-// It uses the DefaultCounterSampleRate used to create Statsd object.
-// If you need a different sample rate,
-// you could use st.Statsd.NewCounter instead.
+// Counter returns a counter metrics to the name,
+// with sample rate inherited from StatsdConfig.
 func (st *Statsd) Counter(name string) metrics.Counter {
 	st = st.fallback()
-	return st.Statsd.NewCounter(name, st.counterSampleRate)
+	counter := st.Statsd.NewCounter(name, st.counterSampleRate)
+	if st.counterSampleRate >= 1 {
+		return counter
+	}
+	return SampledCounter{
+		Counter: counter,
+		Rate:    st.counterSampleRate,
+	}
 }
 
-// Histogram returns a histogram metrics to the name with no specific unit.
-//
-// It uses the DefaultHistogramSampleRate used to create Statsd object.
-// If you need a different sample rate,
-// you could use st.Statsd.NewHistogram instead.
+// Histogram returns a histogram metrics to the name with no specific unit,
+// with sample rate inherited from StatsdConfig.
 func (st *Statsd) Histogram(name string) metrics.Histogram {
 	st = st.fallback()
-	return st.Statsd.NewHistogram(name, st.histogramSampleRate)
+	histogram := st.Statsd.NewHistogram(name, st.histogramSampleRate)
+	if st.histogramSampleRate >= 1 {
+		return histogram
+	}
+	return SampledHistogram{
+		Histogram: histogram,
+		Rate:      st.histogramSampleRate,
+	}
 }
 
-// Timing returns a histogram metrics to the name with milliseconds as the unit.
-//
-// It uses the DefaultHistogramSampleRate used to create Statsd object.
-// If you need a different sample rate,
-// you could use st.Statsd.NewTiming instead.
+// Timing returns a histogram metrics to the name with milliseconds as the unit,
+// with sample rate inherited from StatsdConfig.
 func (st *Statsd) Timing(name string) metrics.Histogram {
 	st = st.fallback()
-	return st.Statsd.NewTiming(name, st.histogramSampleRate)
+	histogram := st.Statsd.NewTiming(name, st.histogramSampleRate)
+	if st.histogramSampleRate >= 1 {
+		return histogram
+	}
+	return SampledHistogram{
+		Histogram: histogram,
+		Rate:      st.histogramSampleRate,
+	}
 }
 
 // Gauge returns a gauge metrics to the name.
