@@ -14,9 +14,13 @@ import (
 // a ServerBefore option when setting up the request handler for an endpoint.
 func InjectHTTPServerSpan(name string) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
-		return func(ctx context.Context, request interface{}) (interface{}, error) {
-			ctx, _ = StartSpanFromHTTPContext(ctx, name)
-			return next(ctx, request)
+		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+			ctx, span := StartSpanFromHTTPContext(ctx, name)
+			defer func() {
+				span.Stop(ctx, err)
+			}
+			response, err = next(ctx, request)
+			return
 		}
 	}
 }
@@ -26,9 +30,17 @@ func InjectHTTPServerSpan(name string) endpoint.Middleware {
 // than StartSpanFromHTTPContext.
 func InjectHTTPServerSpanWithTracer(tracer *Tracer, name string) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
-		return func(ctx context.Context, request interface{}) (interface{}, error) {
+		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 			ctx, _ = StartSpanFromHTTPContextWithTracer(ctx, name, tracer)
-			return next(ctx, request)
+			defer func() {
+				span.Stop(ctx, err)
+			}
+			response, err = next(ctx, request)
+			return
 		}
 	}
 }
+
+var (
+	_ httpgk.ServerFinalizerFunc = FinalizeHTTPServerSpan
+)
