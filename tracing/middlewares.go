@@ -19,21 +19,13 @@ import (
 // the context object.  This can be done by adding httpbp.PopulateRequestContext
 // as a ServerBefore option when setting up the request handler for an endpoint.
 func InjectHTTPServerSpan(name string) endpoint.Middleware {
-	return func(next endpoint.Endpoint) endpoint.Endpoint {
-		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-			ctx, span := StartSpanFromHTTPContext(ctx, name)
-			defer span.Stop(ctx, err)
-
-			response, err = next(ctx, request)
-			return
-		}
-	}
+	return InjectHTTPServerSpanWithTracer(name, nil)
 }
 
 // InjectHTTPServerSpanWithTracer is the same as InjectHTTPServerSpan except it
 // uses StartSpanFromHTTPContextWithTracer to initialize the server span rather
 // than StartSpanFromHTTPContext.
-func InjectHTTPServerSpanWithTracer(tracer *Tracer, name string) endpoint.Middleware {
+func InjectHTTPServerSpanWithTracer(name string, tracer *Tracer) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 			ctx, span := StartSpanFromHTTPContextWithTracer(ctx, name, tracer)
