@@ -21,7 +21,8 @@ func InjectHTTPServerSpan(name string) endpoint.Middleware {
 			ctx, span := StartSpanFromHTTPContext(ctx, name)
 			defer func() {
 				span.Stop(ctx, err)
-			}
+			}()
+
 			response, err = next(ctx, request)
 			return
 		}
@@ -34,10 +35,11 @@ func InjectHTTPServerSpan(name string) endpoint.Middleware {
 func InjectHTTPServerSpanWithTracer(tracer *Tracer, name string) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-			ctx, _ = StartSpanFromHTTPContextWithTracer(ctx, name, tracer)
+			ctx, span := StartSpanFromHTTPContextWithTracer(ctx, name, tracer)
 			defer func() {
 				span.Stop(ctx, err)
-			}
+			}()
+
 			response, err = next(ctx, request)
 			return
 		}
