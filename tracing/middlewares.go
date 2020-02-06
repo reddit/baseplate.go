@@ -43,7 +43,3 @@ func InjectHTTPServerSpanWithTracer(tracer *Tracer, name string) endpoint.Middle
 		}
 	}
 }
-
-var (
-	_ httpgk.ServerFinalizerFunc = FinalizeHTTPServerSpan
-)
