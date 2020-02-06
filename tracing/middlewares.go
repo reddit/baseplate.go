@@ -29,7 +29,9 @@ func InjectHTTPServerSpanWithTracer(name string, tracer *Tracer) endpoint.Middle
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 			ctx, span := StartSpanFromHTTPContextWithTracer(ctx, name, tracer)
-			defer span.Stop(ctx, err)
+			defer func() {
+				span.Stop(ctx, err)
+			}()
 
 			response, err = next(ctx, request)
 			return
