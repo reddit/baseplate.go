@@ -215,3 +215,30 @@ func (st *Statsd) fallback() *Statsd {
 	}
 	return st
 }
+
+// Ctx provides a read-only access to the context object this Statsd holds.
+//
+// It's useful when you need to implement your own goroutine to report some
+// metrics (usually gauges) periodically,
+// and be able to stop that goroutine gracefully.
+// For example:
+//
+//     func reportGauges() {
+//       gauge := metricsbp.M.Gauge("my-gauge")
+//       go func() {
+//         ticker := time.NewTicker(time.Minute)
+//         defer ticker.Stop()
+//
+//         for {
+//           select {
+//           case <- metricsbp.M.Ctx().Done():
+//             return
+//           case <- ticker.C:
+//             gauge.Set(getValue())
+//           }
+//         }
+//       }
+//     }
+func (st *Statsd) Ctx() context.Context {
+	return st.ctx
+}
