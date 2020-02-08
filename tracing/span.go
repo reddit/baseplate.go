@@ -73,7 +73,7 @@ func GetServerSpan(ctx context.Context) *Span {
 	return nil
 }
 
-// GetActiveSpan gets the currenty active Span from the given context.
+// GetActiveSpan gets the currently active Span from the given context.
 func GetActiveSpan(ctx context.Context) *Span {
 	if span, ok := ctx.Value(activeSpanKey).(*Span); ok {
 		return span

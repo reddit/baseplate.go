@@ -171,7 +171,7 @@ func encodeResponse(w http.ResponseWriter, response interface{}, args encodeArgs
 // If the response implements go-kit's http.StatusCoder interface, then the
 // status code returned will be used rather than 200.  If a response implements
 // this but returns the default integer value of 0, then the code will still be
-// set to 200.  If the response alse implements the ErrorResponse interface,
+// set to 200.  If the response also implements the ErrorResponse interface,
 // then this status code is ignored in favor of the error status code.
 func EncodeJSONResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
 	return encodeResponse(w, response, encodeArgs{
@@ -203,7 +203,7 @@ func EncodeJSONResponse(_ context.Context, w http.ResponseWriter, response inter
 // If the response implements go-kit's http.StatusCoder interface, then the
 // status code returned will be used rather than 200.  If a response implements
 // this but returns the default integer value of 0, then the code will still be
-// set to 200.  If the response alse implements the ErrorResponse interface,
+// set to 200.  If the response also implements the ErrorResponse interface,
 // then this status code is ignored in favor of the error status code.
 func EncodeTemplatedResponse(_ context.Context, w http.ResponseWriter, response interface{}, t *template.Template) error {
 	return encodeResponse(w, response, encodeArgs{
