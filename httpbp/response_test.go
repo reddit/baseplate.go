@@ -104,32 +104,13 @@ func TestHTTPError(t *testing.T) {
 }
 
 type testResponse struct {
-	Message string `json:"message,omitempty"`
+	httpbp.BaseResponse
 
-	code    int
-	err     error
-	cookies []*http.Cookie
-	headers http.Header
+	Message string `json:"message,omitempty"`
 }
 
 func (r *testResponse) AddCookie(name, value string) {
-	r.cookies = append(r.cookies, &http.Cookie{Name: name, Value: value})
-}
-
-func (r testResponse) Cookies() []*http.Cookie {
-	return r.cookies
-}
-
-func (r testResponse) Headers() http.Header {
-	return r.headers
-}
-
-func (r testResponse) StatusCode() int {
-	return r.code
-}
-
-func (r testResponse) Err() error {
-	return r.err
+	r.SetCookie(&http.Cookie{Name: name, Value: value})
 }
 
 var (
@@ -191,10 +172,10 @@ func TestEncodeJSONResponse(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			resp := &testResponse{
-				Message: "test-message",
-				code:    http.StatusAccepted,
-				headers: make(http.Header),
+				BaseResponse: httpbp.NewBaseResponse(),
+				Message:      "test-message",
 			}
+			resp.SetCode(http.StatusAccepted)
 			resp.AddCookie("test-cookie", "foo")
 			resp.Headers().Add("test-header", "bar")
 			httpbp.EncodeJSONResponse(context.Background(), w, resp)
@@ -233,13 +214,13 @@ func TestEncodeJSONResponse(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			resp := &testResponse{
-				Message: "test-message",
-				code:    http.StatusAccepted,
-				headers: make(http.Header),
-				err: httpbp.HTTPError{
-					Code: http.StatusForbidden,
-				},
+				BaseResponse: httpbp.NewBaseResponse(),
+				Message:      "test-message",
 			}
+			resp.SetCode(http.StatusAccepted)
+			resp.SetError(httpbp.HTTPError{
+				Code: http.StatusForbidden,
+			})
 			resp.AddCookie("test-cookie", "foo")
 			resp.Headers().Add("test-header", "bar")
 			httpbp.EncodeJSONResponse(context.Background(), w, resp)
@@ -267,6 +248,26 @@ func TestEncodeJSONResponse(t *testing.T) {
 			}
 		},
 	)
+
+	t.Run(
+		"clear cookies",
+		func(t *testing.T) {
+			t.Parallel()
+
+			resp := &testResponse{
+				BaseResponse: httpbp.NewBaseResponse(),
+			}
+			resp.AddCookie("test", "cookie")
+			if len(resp.Cookies()) != 1 {
+				t.Fatalf("Expected 1 cookie. %#v", resp.Cookies())
+			}
+
+			resp.ClearCookies()
+			if len(resp.Cookies()) != 0 {
+				t.Fatalf("Expected 0 cookies. %#v", resp.Cookies())
+			}
+		},
+	)
 }
 
 func TestEncodeTemplatedResponse(t *testing.T) {
@@ -274,10 +275,10 @@ func TestEncodeTemplatedResponse(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	resp := &testResponse{
-		Message: "test-message",
-		code:    http.StatusAccepted,
-		headers: make(http.Header),
+		BaseResponse: httpbp.NewBaseResponse(),
+		Message:      "test-message",
 	}
+	resp.SetCode(http.StatusAccepted)
 	resp.AddCookie("test-cookie", "foo")
 	resp.Headers().Add("test-header", "bar")
 	temp, err := template.New("test").Parse(`{{.Message}}`)

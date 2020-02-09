@@ -107,6 +107,91 @@ type ErrorResponse interface {
 	Err() error
 }
 
+// BaseResponse can be embedded into other response structs to allow them to
+// implement the go-kit Headerer and StatusCoder interfaces as well as the
+// baseplate.go ResponseCookies and ErrorResponse interfaces.
+//
+// BaseResponse must be initalized using NewBaseResponse before use, if it is
+// not, some methods will panic.
+//
+// 		type Response struct {
+//			httpbp.BaseResponse
+// 		}
+//
+//		func NewResponse() *Response {
+//			return &Response{
+//				BaseResponse: httpbp.NewBaseResponse(),
+//			}
+//		}
+type BaseResponse struct {
+	code    int
+	headers http.Header
+	cookies []*http.Cookie
+	err     error
+}
+
+// NewBaseResponse returns an initialized BaseResponse.
+//
+// Intended to be used by the constructor methods for Response structs that
+// embed BaseResponse.
+func NewBaseResponse() BaseResponse {
+	return BaseResponse{headers: make(http.Header)}
+}
+
+// SetCode sets the status code for this response.
+func (r *BaseResponse) SetCode(code int) {
+	r.code = code
+}
+
+// StatusCode returns the current status code set for this response.
+func (r BaseResponse) StatusCode() int {
+	return r.code
+}
+
+// Headers returns the http.Header collection of headers to set on the response.
+func (r BaseResponse) Headers() http.Header {
+	return r.headers
+}
+
+// Cookies returns the a copy of the current list of cookies to set on the response.
+func (r BaseResponse) Cookies() []*http.Cookie {
+	cookies := make([]*http.Cookie, len(r.cookies))
+	copy(cookies, r.cookies)
+	return cookies
+}
+
+// SetCookie adds a cookie to set on the response.
+func (r *BaseResponse) SetCookie(cookie *http.Cookie) {
+	r.cookies = append(r.cookies, cookie)
+}
+
+// ClearCookies clears all cookies set on the response.
+func (r *BaseResponse) ClearCookies() {
+	r.cookies = nil
+}
+
+// SetError sets the error to return as an error response.
+func (r *BaseResponse) SetError(e error) {
+	r.err = e
+}
+
+// Err returns the error to send back to the client.
+func (r BaseResponse) Err() error {
+	return r.err
+}
+
+// Verify that BaseResponse implements all the interfaces it intends to.
+var (
+	_ httpgk.Headerer    = BaseResponse{}
+	_ httpgk.Headerer    = (*BaseResponse)(nil)
+	_ httpgk.StatusCoder = BaseResponse{}
+	_ httpgk.StatusCoder = (*BaseResponse)(nil)
+	_ ResponseCookies    = BaseResponse{}
+	_ ResponseCookies    = (*BaseResponse)(nil)
+	_ ErrorResponse      = BaseResponse{}
+	_ ErrorResponse      = (*BaseResponse)(nil)
+)
+
 type responseEncoder func(w http.ResponseWriter, r interface{}) error
 
 type encodeArgs struct {
