@@ -134,7 +134,9 @@ func TestEncodeJSONResponse(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			resp := &testResponse{}
-			httpbp.EncodeJSONResponse(context.Background(), w, resp)
+			if err := httpbp.EncodeJSONResponse(context.Background(), w, resp); err != nil {
+				t.Fatalf("Unexpected error: %s", err)
+			}
 			result := w.Result()
 
 			if result.StatusCode != http.StatusOK {
@@ -178,7 +180,9 @@ func TestEncodeJSONResponse(t *testing.T) {
 			resp.SetCode(http.StatusAccepted)
 			resp.AddCookie("test-cookie", "foo")
 			resp.Headers().Add("test-header", "bar")
-			httpbp.EncodeJSONResponse(context.Background(), w, resp)
+			if err := httpbp.EncodeJSONResponse(context.Background(), w, resp); err != nil {
+				t.Fatalf("Unexpected error: %s", err)
+			}
 			result := w.Result()
 
 			if result.StatusCode != http.StatusAccepted {
@@ -223,7 +227,9 @@ func TestEncodeJSONResponse(t *testing.T) {
 			})
 			resp.AddCookie("test-cookie", "foo")
 			resp.Headers().Add("test-header", "bar")
-			httpbp.EncodeJSONResponse(context.Background(), w, resp)
+			if err := httpbp.EncodeJSONResponse(context.Background(), w, resp); err != nil {
+				t.Fatalf("Unexpected error: %s", err)
+			}
 			result := w.Result()
 
 			if result.StatusCode != resp.Err().(httpbp.HTTPError).StatusCode() {
@@ -286,7 +292,9 @@ func TestEncodeTemplatedResponse(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	httpbp.EncodeTemplatedResponse(context.Background(), w, resp, temp)
+	if err = httpbp.EncodeTemplatedResponse(context.Background(), w, resp, temp); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	result := w.Result()
 
 	if result.StatusCode != http.StatusAccepted {

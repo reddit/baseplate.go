@@ -117,7 +117,9 @@ func TestTrustHeaderSignatureSignAndVerify(t *testing.T) {
 		t.Fatal(err)
 	}
 	tmpPath := tmpFile.Name()
-	tmpFile.Write([]byte(secretsFile))
+	if _, err = tmpFile.Write([]byte(secretsFile)); err != nil {
+		t.Fatal(err)
+	}
 	if err := tmpFile.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -199,8 +201,10 @@ func TestTrustHeaderSignature(t *testing.T) {
 		t.Fatal(err)
 	}
 	tmpPath := tmpFile.Name()
-	tmpFile.Write([]byte(secretsFile))
-	if err := tmpFile.Close(); err != nil {
+	if _, err = tmpFile.Write([]byte(secretsFile)); err != nil {
+		t.Fatal(err)
+	}
+	if err = tmpFile.Close(); err != nil {
 		t.Fatal(err)
 	}
 

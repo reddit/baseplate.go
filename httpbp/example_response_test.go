@@ -56,7 +56,9 @@ type ExampleRequest struct {
 // DecodeExampleRequest decodes the request body into an ExampleRequest.
 func DecodeExampleRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	var req ExampleRequest
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return req, err
+	}
 	return req, nil
 }
 
