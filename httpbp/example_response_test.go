@@ -15,33 +15,16 @@ import (
 // ExampleResponse is an example response that implements the ErrorResponse
 // interface.
 type ExampleResponse struct {
+	httpbp.BaseResponse
+
 	Message string `json:"message,omitempty"`
-
-	err     httpbp.HTTPError
-	cookies []*http.Cookie
-	headers http.Header
-	code    int
 }
 
-func (r *ExampleResponse) AddCookie(name, value string) {
-	r.cookies = append(r.cookies, &http.Cookie{Name: name, Value: value})
-}
-
-func (r ExampleResponse) Cookies() []*http.Cookie {
-	return r.cookies
-}
-
-func (r ExampleResponse) Headers() http.Header {
-	return r.headers
-}
-
-func (r ExampleResponse) StatusCode() int {
-	return r.code
-}
-
-// Err returns the internal HTTPError set on r.
-func (r ExampleResponse) Err() error {
-	return r.err
+// NewExampleResponse returns a pointer to a new, initialized ExampleResponse.
+func NewExampleResponse() *ExampleResponse {
+	return &ExampleResponse{
+		BaseResponse: httpbp.NewBaseResponse(),
+	}
 }
 
 var (
@@ -81,15 +64,15 @@ func DecodeExampleRequest(_ context.Context, r *http.Request) (interface{}, erro
 // returns an ExampleResponse with an error set.
 func MakeExampleEndpoint() endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
-		var resp ExampleResponse
+		resp := NewExampleResponse()
 		req := request.(ExampleRequest)
 		if req.Error {
 			// Return a response that returns a non-nil error when
 			// httpbp.EncodeJSONResponse checks response.Err() which will signal it
 			// to send an error response rather than a normal one.
-			resp = ExampleResponse{
-				Message: "you'll never see this",
-				err: httpbp.HTTPError{
+			resp.Message = "you'll never see this"
+			resp.SetError(
+				httpbp.HTTPError{
 					// Code sets the status code to return, defaults to
 					// http.InternalServerError (500).
 					Code: http.StatusBadGateway,
@@ -103,10 +86,10 @@ func MakeExampleEndpoint() endpoint.Endpoint {
 					// your service.
 					Cause: errors.New("database offline"),
 				},
-			}
+			)
 		} else {
 			// Return a non-error response.
-			resp = ExampleResponse{Message: "hello world!"}
+			resp.Message = "hello world!"
 		}
 		return resp, nil
 	}
