@@ -17,6 +17,9 @@ type (
 
 func nopSecretHandlerFunc(sec *Secrets) {}
 
+// GlobalStore can be initialized with your application's secrets for easy access.
+var GlobalStore *Store
+
 // Store gives access to secret tokens with automatic refresh on change.
 //
 // This local vault allows access to the secrets cached on disk by the fetcher
