@@ -66,7 +66,10 @@ func TestCalculateBucketValue(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		experiment := NewSimpleExperiment(tt.config)
+		experiment, err := NewSimpleExperiment(tt.config)
+		if err != nil {
+			t.Fatal(err)
+		}
 		experiment.numBuckets = 1000
 		bucket := experiment.calculateBucket("t2_1")
 		if bucket != tt.expectedBucket {
@@ -100,7 +103,10 @@ func TestCalculateBucket(t *testing.T) {
 			ExperimentVersion: 1,
 		},
 	}
-	experiment := NewSimpleExperiment(config)
+	experiment, err := NewSimpleExperiment(config)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	users := experiment.numBuckets * 2000
 	var names []string
@@ -156,7 +162,10 @@ func TestCalculateBucketWithSeed(t *testing.T) {
 			ExperimentVersion: 1,
 		},
 	}
-	experiment := NewSimpleExperiment(config)
+	experiment, err := NewSimpleExperiment(config)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	users := experiment.numBuckets * 2000
 	var names []string
@@ -207,12 +216,19 @@ func TestCalculateBucketWithSeed(t *testing.T) {
 }
 
 func TestVariantReturnsNilIfOutOfTimeWindow(t *testing.T) {
-	validExperiment := NewSimpleExperiment(simpleConfig)
-
-	expiredExperiment := NewSimpleExperiment(simpleConfig)
+	validExperiment, err := NewSimpleExperiment(simpleConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expiredExperiment, err := NewSimpleExperiment(simpleConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expiredExperiment.endTime = time.Now().Add(-5 * 24 * time.Hour)
-
-	unstartedExperiment := NewSimpleExperiment(simpleConfig)
+	unstartedExperiment, err := NewSimpleExperiment(simpleConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
 	unstartedExperiment.startTime = time.Now().Add(5 * 24 * time.Hour)
 
 	validVariant, err := validExperiment.Variant(map[string]string{"user_id": "t2_1"})
@@ -240,7 +256,10 @@ func TestVariantReturnsNilIfOutOfTimeWindow(t *testing.T) {
 }
 
 func TestNoBucketVal(t *testing.T) {
-	experiment := NewSimpleExperiment(simpleConfig)
+	experiment, err := NewSimpleExperiment(simpleConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
 	result, err := experiment.Variant(map[string]string{"not_user_id": "t2_1"})
 	expectedErr := "must specify user_id in call to variant for experiment test_experiment"
 	if err != nil && err.Error() != expectedErr {
@@ -250,7 +269,10 @@ func TestNoBucketVal(t *testing.T) {
 		t.Errorf("expected result to be empty but was %s", result)
 	}
 
-	experiment = NewSimpleExperiment(simpleConfig)
+	experiment, err = NewSimpleExperiment(simpleConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
 	result, err = experiment.Variant(map[string]string{"not_user_id": ""})
 	expectedErr = "must specify user_id in call to variant for experiment test_experiment"
 	if err != nil && err.Error() != expectedErr {
@@ -265,7 +287,10 @@ func TestExperimentDisabled(t *testing.T) {
 	config := *simpleConfig
 	b := false
 	config.Enabled = &b
-	experiment := NewSimpleExperiment(&config)
+	experiment, err := NewSimpleExperiment(&config)
+	if err != nil {
+		t.Fatal(err)
+	}
 	variant, err := experiment.Variant(map[string]string{"user_id": "t2_2"})
 	if err != nil {
 		t.Error(err)
@@ -280,8 +305,14 @@ func TestChangeShuffleVersionChangesBucketing(t *testing.T) {
 	shuffleConfig.Experiment.BucketSeed = ""
 	shuffleConfig.Experiment.ShuffleVersion = "2"
 
-	experiment1 := NewSimpleExperiment(simpleConfig)
-	experiment2 := NewSimpleExperiment(&shuffleConfig)
+	experiment1, err := NewSimpleExperiment(simpleConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	experiment2, err := NewSimpleExperiment(&shuffleConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	users := experiment1.numBuckets * 1000
 	var names []string

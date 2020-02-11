@@ -2,7 +2,6 @@ package experiments
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 )
 
@@ -605,7 +604,6 @@ func TestComparisonNodeBadInput(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := NewTargeting(tt.targetConfig)
-			fmt.Println(string(tt.targetConfig))
 			var expectedError TargetingNodeError
 			if !errors.As(err, &expectedError) {
 				t.Fatalf("expected error %T, actual: %T (%v)", expectedError, err, err)

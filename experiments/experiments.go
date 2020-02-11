@@ -66,7 +66,7 @@ func (e *Experiments) experiment(name string) (Experiment, error) {
 		return nil, ErrorUnknownExperiment(name)
 	}
 	if isSimpleExperiment(experiment.Type) {
-		return NewSimpleExperiment(experiment), nil
+		return NewSimpleExperiment(experiment)
 	}
 	return nil, nil
 }
@@ -108,7 +108,7 @@ type SimpleExperiment struct {
 }
 
 // bucketVal == bucketing key, used to get the data
-func NewSimpleExperiment(experiment *ExperimentConfig) *SimpleExperiment {
+func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error) {
 	shuffleVersion := experiment.Experiment.ShuffleVersion
 	if shuffleVersion == "" {
 		shuffleVersion = "None"
@@ -125,6 +125,10 @@ func NewSimpleExperiment(experiment *ExperimentConfig) *SimpleExperiment {
 	if experiment.Experiment.BucketSeed == "" {
 		bucketSeed = fmt.Sprintf("%d.%s.%s", experiment.ID, experiment.Name, shuffleVersion)
 	}
+	variantSet, err := FromExperimentType(experiment.Type, experiment.Experiment.Variants, 0)
+	if err != nil {
+		return nil, err
+	}
 	return &SimpleExperiment{
 		id:         experiment.ID,
 		name:       experiment.Name,
@@ -134,8 +138,8 @@ func NewSimpleExperiment(experiment *ExperimentConfig) *SimpleExperiment {
 		startTime:  time.Unix(experiment.StartTimestamp, 0),
 		endTime:    time.Unix(experiment.StopTimestamp, 0),
 		numBuckets: 1000,
-		variantSet: FromExperimentType(experiment.Type, experiment.Experiment.Variants, 0),
-	}
+		variantSet: variantSet,
+	}, nil
 }
 
 func (e *SimpleExperiment) Variant(args map[string]string) (string, error) {
