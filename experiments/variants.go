@@ -1,8 +1,10 @@
 package experiments
 
+import "errors"
+
 type VariantSet interface {
 	ChooseVariant(bucket int) string
-	validateVariants() error
+	validate(variants []Variant) error
 }
 
 type SingleVariantSet struct {
@@ -15,22 +17,22 @@ func NewSingleVariantSet(variants []Variant, buckets int) (*SingleVariantSet, er
 		variants: variants,
 		buckets:  buckets,
 	}
-	err := variantSet.validateVariants()
+	err := variantSet.validate(variants)
 	if err != nil {
 		return nil, err
 	}
 	return variantSet, nil
 }
 
-func (v *SingleVariantSet) validateVariants() error {
-	if v.variants == nil {
+func (v *SingleVariantSet) validate(variants []Variant) error {
+	if variants == nil {
 		return VariantValidationError("no variants provided")
 	}
-	if len(v.variants) != 2 {
+	if len(variants) != 2 {
 		return VariantValidationError("Single Variant experiments expects only one variant and one control")
 	}
 	// TODO figure out if parsing of null float should be allowed
-	totalSize := v.variants[0].Size + v.variants[1].Size
+	totalSize := variants[0].Size + variants[1].Size
 	if totalSize < 0.0 || totalSize > 1.0 {
 		return VariantValidationError("sum of all variants must be between 0 and 1")
 	}
@@ -55,8 +57,10 @@ func FromExperimentType(experimentType string, variants []Variant, buckets int) 
 		return NewSingleVariantSet(variants, buckets)
 	case "multi_variant":
 		return NewMultiVariantSet(variants, buckets)
+	case "feature_rollout":
+		return NewRolloutVariantSet(variants, buckets)
 	}
-	return nil, nil
+	return nil, errors.New("TODO")
 }
 
 type MultiVariantSet struct {
@@ -69,22 +73,22 @@ func NewMultiVariantSet(variants []Variant, buckets int) (*MultiVariantSet, erro
 		variants: variants,
 		buckets:  buckets,
 	}
-	err := variantSet.validateVariants()
+	err := variantSet.validate(variants)
 	if err != nil {
 		return nil, err
 	}
 	return variantSet, nil
 }
 
-func (v *MultiVariantSet) validateVariants() error {
-	if v.variants == nil {
+func (v *MultiVariantSet) validate(variants []Variant) error {
+	if variants == nil {
 		return VariantValidationError("no variants provided")
 	}
-	if len(v.variants) < 3 {
+	if len(variants) < 3 {
 		return VariantValidationError("Multi Variant experiments expects three or more variants")
 	}
 	totalSize := 0.0
-	for _, variant := range v.variants {
+	for _, variant := range variants {
 		totalSize += variant.Size * float64(v.buckets)
 	}
 	if totalSize > float64(v.buckets) {
@@ -100,6 +104,44 @@ func (v *MultiVariantSet) ChooseVariant(bucket int) string {
 		if bucket < currentOffset {
 			return variant.Name
 		}
+	}
+	return ""
+}
+
+type RolloutVariantSet struct {
+	variant Variant
+	buckets int
+}
+
+func NewRolloutVariantSet(variants []Variant, buckets int) (*RolloutVariantSet, error) {
+	variantSet := &RolloutVariantSet{
+		buckets: buckets,
+	}
+	err := variantSet.validate(variants)
+	if err != nil {
+		return nil, err
+	}
+	variantSet.variant = variants[0]
+	return variantSet, nil
+}
+
+func (v *RolloutVariantSet) validate(variants []Variant) error {
+	if variants == nil {
+		return VariantValidationError("no variants provided")
+	}
+	if len(variants) != 1 {
+		return VariantValidationError("Rollout Variant experiments only supports one variant")
+	}
+	size := variants[0].Size
+	if size < 0.0 || size > 1.0 {
+		return VariantValidationError("variant size must be between 0 and 1")
+	}
+	return nil
+}
+
+func (v *RolloutVariantSet) ChooseVariant(bucket int) string {
+	if bucket < int(v.variant.Size*float64(v.buckets)) {
+		return v.variant.Name
 	}
 	return ""
 }

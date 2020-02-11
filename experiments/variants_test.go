@@ -325,3 +325,128 @@ func multiVariantConfig() []Variant {
 		},
 	}
 }
+
+func TestRolloutVariantSetValidation(t *testing.T) {
+	_, err := NewRolloutVariantSet(rolloutVariantConfig(), 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRolloutVariantSetValidationFailure(t *testing.T) {
+	tests := []struct {
+		name     string
+		variants []Variant
+	}{
+		{
+			name:     "nil",
+			variants: nil,
+		},
+		{
+			name:     "empty",
+			variants: []Variant{},
+		},
+		{
+			name: "two variants",
+			variants: []Variant{
+				Variant{Name: "variant_1", Size: 0.25},
+				Variant{Name: "variant_2", Size: 0.25}},
+		},
+		{
+			name: "size too big",
+			variants: []Variant{
+				Variant{Name: "variant_1", Size: 1.05},
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := NewRolloutVariantSet(tt.variants, 1000)
+			var expectedError VariantValidationError
+			if !errors.As(err, &expectedError) {
+				t.Errorf("expected error %T, actual: %v (%T)", expectedError, err, err)
+			}
+		})
+	}
+}
+
+func TestRolloutVariantSetDistribution(t *testing.T) {
+	tests := []struct {
+		name          string
+		variantConfig []Variant
+		numBuckets    int
+		variantCount  int
+		emptyCount    int
+	}{
+		{
+			name:          "default buckets",
+			variantConfig: rolloutVariantConfig(),
+			numBuckets:    1000,
+			variantCount:  250,
+			emptyCount:    750,
+		},
+		{
+			name: "single bucket",
+			variantConfig: []Variant{
+				Variant{
+					Name: "variant_1",
+					Size: 0.001,
+				},
+			},
+			numBuckets:   1000,
+			variantCount: 1,
+			emptyCount:   999,
+		},
+		{
+			name: "default odd",
+			variantConfig: []Variant{
+				Variant{
+					Name: "variant_1",
+					Size: 1.0,
+				},
+			},
+			numBuckets:   1037,
+			variantCount: 1037,
+			emptyCount:   0,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			variantSet, err := NewRolloutVariantSet(tt.variantConfig, tt.numBuckets)
+			if err != nil {
+				t.Fatal(err)
+			}
+			variantCounts := map[string]int{
+				"variant_1": 0,
+				"variant_2": 0,
+				"":          0,
+			}
+			for i := 0; i < tt.numBuckets; i++ {
+				variant := variantSet.ChooseVariant(i)
+				variantCounts[variant] += 1
+			}
+			if len(variantCounts) != 3 {
+				t.Errorf("expected %d variants, actual %d: %v", 3, len(variantCounts), variantCounts)
+			}
+			if variantCounts["variant_1"] != tt.variantCount {
+				t.Errorf("expected variant_1 to have count %d, actual: %d", tt.variantCount, variantCounts["variant_1"])
+			}
+			if variantCounts[""] != tt.emptyCount {
+				t.Errorf("expected empty variant to have count %d, actual: %d", tt.emptyCount, variantCounts[""])
+			}
+		})
+	}
+}
+
+func rolloutVariantConfig() []Variant {
+	return []Variant{
+		Variant{
+			Name: "variant_1",
+			Size: 0.25,
+		},
+	}
+}
