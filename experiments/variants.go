@@ -2,6 +2,7 @@ package experiments
 
 type VariantSet interface {
 	ChooseVariant(bucket int) string
+	validateVariants() error
 }
 
 type SingleVariantSet struct {
@@ -52,6 +53,8 @@ func FromExperimentType(experimentType string, variants []Variant, buckets int) 
 	switch experimentType {
 	case "single_variant":
 		return NewSingleVariantSet(variants, buckets)
+	case "multi_variant":
+		return NewMultiVariantSet(variants, buckets)
 	}
 	return nil, nil
 }
@@ -61,18 +64,40 @@ type MultiVariantSet struct {
 	buckets  int
 }
 
-func NewMultiVariantSet(variants []Variant, buckets int) *MultiVariantSet {
-	return &MultiVariantSet{
+func NewMultiVariantSet(variants []Variant, buckets int) (*MultiVariantSet, error) {
+	variantSet := &MultiVariantSet{
 		variants: variants,
 		buckets:  buckets,
 	}
+	err := variantSet.validateVariants()
+	if err != nil {
+		return nil, err
+	}
+	return variantSet, nil
+}
+
+func (v *MultiVariantSet) validateVariants() error {
+	if v.variants == nil {
+		return VariantValidationError("no variants provided")
+	}
+	if len(v.variants) < 3 {
+		return VariantValidationError("Multi Variant experiments expects three or more variants")
+	}
+	totalSize := 0.0
+	for _, variant := range v.variants {
+		totalSize += variant.Size * float64(v.buckets)
+	}
+	if totalSize > float64(v.buckets) {
+		return VariantValidationError("sum of all variants is greater than 100%")
+	}
+	return nil
 }
 
 func (v *MultiVariantSet) ChooseVariant(bucket int) string {
-	currentOffset := 0.0
+	currentOffset := 0
 	for _, variant := range v.variants {
-		currentOffset += variant.Size * float64(v.buckets)
-		if float64(bucket) < currentOffset {
+		currentOffset += int(variant.Size * float64(v.buckets))
+		if bucket < currentOffset {
 			return variant.Name
 		}
 	}
