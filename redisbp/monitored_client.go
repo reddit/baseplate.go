@@ -54,6 +54,10 @@ func (c *monitoredRing) WithMonitoredContext(ctx context.Context) MonitoredCmdab
 // MonitoredCmdableFactory is used to create Redis clients that are monitored by
 // a SpanHook.
 //
+// This is intended for use by a top-level Service interface where you use it on
+// each new request to build a monitored client to inject into the actual
+// request handler.
+//
 // A MonitoredCmdableFactory should be created using one of the New methods
 // provided in this package.
 type MonitoredCmdableFactory struct {
