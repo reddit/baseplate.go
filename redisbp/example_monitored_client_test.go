@@ -10,23 +10,23 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-// ExampleService is an example go-kit service to help demonstrate how to use
+// Service is an example go-kit service to help demonstrate how to use
 // redisbp.type MonitoredCmdableFactory in a service.
-type ExampleService struct {
+type Service struct {
 	RedisFactory redisbp.MonitoredCmdableFactory
 }
 
-// ExampleEndpoint is an example endpoint that will use redis.
-func (s ExampleService) ExampleEndpoint(ctx context.Context) error {
+// Endpoint is an example endpoint that will use redis.
+func (s Service) Endpoint(ctx context.Context) error {
 	// Use the factory to create a new, monitored redis client that can be
 	// injected into your endpoint handler
 	redis := s.RedisFactory.BuildClient(ctx)
-	return ExampleEndpoint(ctx, redis)
+	return EndpointHandler(ctx, redis)
 }
 
-// ExampleEndpoint is the actual handler function for
-// ExampleService.ExampleEndpoint.
-func ExampleEndpoint(ctx context.Context, client redisbp.MonitoredCmdable) error {
+// EndpointHandler is the actual handler function for
+// Service.Endpoint.
+func EndpointHandler(ctx context.Context, client redisbp.MonitoredCmdable) error {
 	if span := tracing.GetServerSpan(ctx); span != nil {
 		log.Debug("Span: %s", span.Name())
 	}
@@ -41,7 +41,7 @@ func ExampleMonitoredCmdableFactory_client() {
 	// variables should be properly initialized in production code
 	var tracer *tracing.Tracer
 	// Create a service with a factory
-	svc := ExampleService{
+	svc := Service{
 		RedisFactory: redisbp.NewMonitoredClientFactory(
 			"redis",
 			redis.NewClient(&redis.Options{Addr: ":6379"}),
@@ -58,7 +58,7 @@ func ExampleMonitoredCmdableFactory_client() {
 	//
 	// In production, the service framework will call these endpoints in
 	// response to requests from clients rather than you calling it manually.
-	svc.ExampleEndpoint(ctx)
+	svc.Endpoint(ctx)
 }
 
 // This example demonstrates how to use a MonitoredCmdableFactory to create
@@ -67,7 +67,7 @@ func ExampleMonitoredCmdableFactory_cluster() {
 	// variables should be properly initialized in production code
 	var tracer *tracing.Tracer
 	// Create service with a factory
-	svc := ExampleService{
+	svc := Service{
 		RedisFactory: redisbp.NewMonitoredClusterFactory(
 			"redis",
 			redis.NewClusterClient(&redis.ClusterOptions{
@@ -86,7 +86,7 @@ func ExampleMonitoredCmdableFactory_cluster() {
 	//
 	// In production, the service framework will call these endpoints in
 	// response to requests from clients rather than you calling it manually.
-	svc.ExampleEndpoint(ctx)
+	svc.Endpoint(ctx)
 }
 
 // This example demonstrates how to use a MonitoredCmdableFactory to create
@@ -95,7 +95,7 @@ func ExampleMonitoredCmdableFactory_sentinel() {
 	// variables should be properly initialized in production code
 	var tracer *tracing.Tracer
 	// Create service with a factory
-	svc := ExampleService{
+	svc := Service{
 		RedisFactory: redisbp.NewMonitoredClientFactory(
 			"redis",
 			redis.NewFailoverClient(&redis.FailoverOptions{
@@ -115,7 +115,7 @@ func ExampleMonitoredCmdableFactory_sentinel() {
 	//
 	// In production, the service framework will call these endpoints in
 	// response to requests from clients rather than you calling it manually.
-	svc.ExampleEndpoint(ctx)
+	svc.Endpoint(ctx)
 }
 
 // This example demonstrates how to use a MonitoredCmdableFactory to create
@@ -124,7 +124,7 @@ func ExampleMonitoredCmdableFactory_ring() {
 	// variables should be properly initialized in production code
 	var tracer *tracing.Tracer
 	// Create service with a factory
-	svc := ExampleService{
+	svc := Service{
 		RedisFactory: redisbp.NewMonitoredRingFactory(
 			"redis",
 			redis.NewRing(&redis.RingOptions{
@@ -147,5 +147,5 @@ func ExampleMonitoredCmdableFactory_ring() {
 	//
 	// In production, the service framework will call these endpoints in
 	// response to requests from clients rather than you calling it manually.
-	svc.ExampleEndpoint(ctx)
+	svc.Endpoint(ctx)
 }
