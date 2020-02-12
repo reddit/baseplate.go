@@ -66,7 +66,7 @@ func (t *trace) addCounter(key string, delta float64) {
 
 func (t *trace) setTag(key string, value interface{}) {
 	if v, ok := value.(bool); ok {
-		value = interface{}(strconv.FormatBool(v))
+		value = strconv.FormatBool(v)
 	}
 	t.tags[key] = value
 }
