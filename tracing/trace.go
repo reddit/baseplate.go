@@ -2,8 +2,8 @@ package tracing
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
-	"strconv"
 	"time"
 
 	"github.com/reddit/baseplate.go/timebp"
@@ -38,7 +38,7 @@ type trace struct {
 	stop                     time.Time
 
 	counters map[string]float64
-	tags     map[string]interface{}
+	tags     map[string]string
 }
 
 func newTrace(tracer *Tracer, name string) *trace {
@@ -54,7 +54,7 @@ func newTrace(tracer *Tracer, name string) *trace {
 		start:   time.Now(),
 
 		counters: make(map[string]float64),
-		tags: map[string]interface{}{
+		tags: map[string]string{
 			ZipkinBinaryAnnotationKeyComponent: baseplateComponent,
 		},
 	}
@@ -65,10 +65,13 @@ func (t *trace) addCounter(key string, delta float64) {
 }
 
 func (t *trace) setTag(key string, value interface{}) {
-	if v, ok := value.(bool); ok {
-		value = strconv.FormatBool(v)
+	var valStr string
+	if v, ok := value.(string); !ok {
+		valStr = fmt.Sprintf("%v", value)
+	} else {
+		valStr = v
 	}
-	t.tags[key] = value
+	t.tags[key] = valStr
 }
 
 func (t *trace) toZipkinSpan() ZipkinSpan {
