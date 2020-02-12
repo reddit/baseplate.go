@@ -65,13 +65,7 @@ func (t *trace) addCounter(key string, delta float64) {
 }
 
 func (t *trace) setTag(key string, value interface{}) {
-	var valStr string
-	if v, ok := value.(string); !ok {
-		valStr = fmt.Sprintf("%v", value)
-	} else {
-		valStr = v
-	}
-	t.tags[key] = valStr
+	t.tags[key] = fmt.Sprintf("%v", value)
 }
 
 func (t *trace) toZipkinSpan() ZipkinSpan {
