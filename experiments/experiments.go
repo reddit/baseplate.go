@@ -195,8 +195,10 @@ func (e *SimpleExperiment) isEnabled() bool {
 }
 
 type Variant struct {
-	Name string  `json:"name"`
-	Size float64 `json:"size"`
+	Name       string  `json:"name"`
+	Size       float64 `json:"size"`
+	RangeStart float64 `json:"range_start"`
+	RangeEnd   float64 `json:"range_end"`
 }
 
 type ErrorUnknownExperiment string

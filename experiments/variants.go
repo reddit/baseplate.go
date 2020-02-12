@@ -1,6 +1,6 @@
 package experiments
 
-import "errors"
+import "fmt"
 
 type VariantSet interface {
 	ChooseVariant(bucket int) string
@@ -59,8 +59,10 @@ func FromExperimentType(experimentType string, variants []Variant, buckets int) 
 		return NewMultiVariantSet(variants, buckets)
 	case "feature_rollout":
 		return NewRolloutVariantSet(variants, buckets)
+	case "range_variant":
+		return NewRangeVariantSet(variants, buckets)
 	}
-	return nil, errors.New("TODO")
+	return nil, fmt.Errorf("experiment type %s unknown", experimentType)
 }
 
 type MultiVariantSet struct {
@@ -142,6 +144,49 @@ func (v *RolloutVariantSet) validate(variants []Variant) error {
 func (v *RolloutVariantSet) ChooseVariant(bucket int) string {
 	if bucket < int(v.variant.Size*float64(v.buckets)) {
 		return v.variant.Name
+	}
+	return ""
+}
+
+type RangeVariantSet struct {
+	variants []Variant
+	buckets  int
+}
+
+func NewRangeVariantSet(variants []Variant, buckets int) (*RangeVariantSet, error) {
+	variantSet := &RangeVariantSet{
+		variants: variants,
+		buckets:  buckets,
+	}
+	err := variantSet.validate(variants)
+	if err != nil {
+		return nil, err
+	}
+	return variantSet, nil
+}
+
+func (v *RangeVariantSet) validate(variants []Variant) error {
+	if len(variants) == 0 {
+		return VariantValidationError("no variants provided")
+	}
+	totalSize := 0
+	for _, variant := range v.variants {
+		rangeSize := variant.RangeEnd - variant.RangeStart
+		totalSize += int(rangeSize * float64(v.buckets))
+	}
+	if totalSize > v.buckets {
+		return VariantValidationError("sum of all variants is greater than 100%")
+	}
+	return nil
+}
+
+func (v *RangeVariantSet) ChooseVariant(bucket int) string {
+	for _, variant := range v.variants {
+		lowerBucket := int(variant.RangeStart * float64(v.buckets))
+		upperBucket := int(variant.RangeEnd * float64(v.buckets))
+		if lowerBucket <= bucket && bucket < upperBucket {
+			return variant.Name
+		}
 	}
 	return ""
 }
