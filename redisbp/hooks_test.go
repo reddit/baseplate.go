@@ -1,4 +1,4 @@
-package integrations_test
+package redisbp_test
 
 import (
 	"context"
@@ -6,13 +6,13 @@ import (
 
 	"github.com/go-redis/redis/v7"
 
-	"github.com/reddit/baseplate.go/integrations"
+	"github.com/reddit/baseplate.go/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-func TestRedisSpanHook(t *testing.T) {
+func TestSpanHook(t *testing.T) {
 	ctx, _ := tracing.StartSpanFromThriftContext(context.Background(), "foo")
-	hooks := integrations.RedisSpanHook{ClientName: "redis"}
+	hooks := redisbp.SpanHook{ClientName: "redis"}
 	cmd := redis.NewStatusCmd("ping")
 
 	t.Run(
