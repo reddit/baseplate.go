@@ -30,7 +30,9 @@ func InjectHTTPServerSpanWithTracer(name string, tracer *Tracer) endpoint.Middle
 		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 			ctx, span := StartSpanFromHTTPContextWithTracer(ctx, name, tracer)
 			defer func() {
-				span.Stop(ctx, err)
+				if err = span.Stop(ctx, err); err != nil && tracer.Logger != nil {
+					tracer.Logger("Error while trying to stop span: " + err.Error())
+				}
 			}()
 
 			response, err = next(ctx, request)
