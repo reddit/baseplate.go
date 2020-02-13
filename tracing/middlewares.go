@@ -47,8 +47,8 @@ func InjectHTTPServerSpanWithTracer(name string, tracer *Tracer) endpoint.Middle
 // If the endpoint returns an error, that will be passed to span.Stop.
 //
 // Note, this depends on the edge context headers already being set on the
-// context object.  You can configure the thrift server to do this by passing
-// thriftbp.HeadersToForward to the server's SetForwardHeaders method.
+// context object.  These should be automatically injected by your
+// thrift.TSimpleServer.
 func InjectThriftServerSpan(name string) endpoint.Middleware {
 	return InjectThriftServerSpanWithTracer(name, nil)
 }
@@ -61,7 +61,9 @@ func InjectThriftServerSpanWithTracer(name string, tracer *Tracer) endpoint.Midd
 		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 			ctx, span := StartSpanFromThriftContextWithTracer(ctx, name, tracer)
 			defer func() {
-				span.Stop(ctx, err)
+				if err = span.Stop(ctx, err); err != nil && tracer.Logger != nil {
+					tracer.Logger("Error while trying to stop span: " + err.Error())
+				}
 			}()
 
 			response, err = next(ctx, request)

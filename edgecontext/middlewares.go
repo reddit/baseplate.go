@@ -52,8 +52,8 @@ func InitializeThriftEdgeContext(ctx context.Context, logger log.Wrapper) contex
 // the `next` endpoint.Endpoint.
 //
 // Note, this depends on the edge context headers already being set on the
-// context object.  You can configure the thrift server to do this by passing
-// thriftbp.HeadersToForward to the server's SetForwardHeaders method.
+// context object.  These should be automatically injected by your
+// thrift.TSimpleServer.
 func InjectThriftEdgeContext(logger log.Wrapper) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (interface{}, error) {
