@@ -38,3 +38,32 @@ func InjectHTTPServerSpanWithTracer(name string, tracer *Tracer) endpoint.Middle
 		}
 	}
 }
+
+// InjectThriftServerSpan returns a go-kit endpoint.Middleware that injects a server
+// span into the `next` context.
+//
+// Starts the server span before calling the `next` endpoint and stops the span
+// after the endpoint finishes.
+// If the endpoint returns an error, that will be passed to span.Stop. If the
+// response implements ErrorResponse, the error returned by Err() will not be
+// passed to span.Stop.
+func InjectThriftServerSpan(name string) endpoint.Middleware {
+	return InjectThriftServerSpanWithTracer(name, nil)
+}
+
+// InjectThriftServerSpanWithTracer is the same as InjectThriftServerSpan except it
+// uses StartSpanFromThriftContextWithTracer to initialize the server span rather
+// than StartSpanFromThriftContext.
+func InjectThriftServerSpanWithTracer(name string, tracer *Tracer) endpoint.Middleware {
+	return func(next endpoint.Endpoint) endpoint.Endpoint {
+		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+			ctx, span := StartSpanFromThriftContextWithTracer(ctx, name, tracer)
+			defer func() {
+				span.Stop(ctx, err)
+			}()
+
+			response, err = next(ctx, request)
+			return
+		}
+	}
+}
