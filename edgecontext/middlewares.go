@@ -26,12 +26,6 @@ func InitializeHTTPEdgeContext(ctx context.Context, logger log.Wrapper) context.
 	return InitializeEdgeContext(ctx, logger, FromHTTPContext)
 }
 
-// InitializeThriftEdgeContext sets an edge request context created from the
-// Thrift headers set on the context onto the context.
-func InitializeThriftEdgeContext(ctx context.Context, logger log.Wrapper) context.Context {
-	return InitializeEdgeContext(ctx, logger, FromThriftContext)
-}
-
 // InjectHTTPEdgeContext returns a go-kit endpoint.Middleware that injects an
 // edge request context created from the HTTP headers set on the context into
 // the `next` endpoint.Endpoint.
@@ -43,6 +37,27 @@ func InjectHTTPEdgeContext(logger log.Wrapper) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (interface{}, error) {
 			return next(InitializeHTTPEdgeContext(ctx, logger), request)
+		}
+	}
+}
+
+// InitializeThriftEdgeContext sets an edge request context created from the
+// Thrift headers set on the context onto the context.
+func InitializeThriftEdgeContext(ctx context.Context, logger log.Wrapper) context.Context {
+	return InitializeEdgeContext(ctx, logger, FromThriftContext)
+}
+
+// InjectThriftEdgeContext returns a go-kit endpoint.Middleware that injects an
+// edge request context created from the Thrift headers set on the context into
+// the `next` endpoint.Endpoint.
+//
+// Note, this depends on the edge context headers already being set on the
+// context object.  These should be automatically injected by your
+// thrift.TSimpleServer.
+func InjectThriftEdgeContext(logger log.Wrapper) endpoint.Middleware {
+	return func(next endpoint.Endpoint) endpoint.Endpoint {
+		return func(ctx context.Context, request interface{}) (interface{}, error) {
+			return next(InitializeThriftEdgeContext(ctx, logger), request)
 		}
 	}
 }
