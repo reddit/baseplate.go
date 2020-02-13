@@ -44,9 +44,7 @@ func InjectHTTPServerSpanWithTracer(name string, tracer *Tracer) endpoint.Middle
 //
 // Starts the server span before calling the `next` endpoint and stops the span
 // after the endpoint finishes.
-// If the endpoint returns an error, that will be passed to span.Stop. If the
-// response implements ErrorResponse, the error returned by Err() will not be
-// passed to span.Stop.
+// If the endpoint returns an error, that will be passed to span.Stop.
 func InjectThriftServerSpan(name string) endpoint.Middleware {
 	return InjectThriftServerSpanWithTracer(name, nil)
 }
