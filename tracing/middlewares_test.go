@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	"github.com/reddit/baseplate.go/thriftbp"
 
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/runtimebp"
+	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
