@@ -234,7 +234,7 @@ func testPool(t *testing.T, pool thriftpool.Pool, openerCalled *int32, min, max 
 				t.Errorf("pool.Release returned error: %v", err)
 			}
 
-			checkActiveAndAllocated(t, pool, 0, max)
+			checkActiveAndAllocated(t, pool, -1, max)
 
 			if !c.closed {
 				t.Error("pool.Release did not close extra released client")

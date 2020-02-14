@@ -74,6 +74,10 @@ func (cp *channelPool) Release(c Client) error {
 		return nil
 	}
 
+	// As long as c is not nil, we always need to decrease numActive by 1,
+	// even if we encounter errors here, either due to close or opener.
+	defer atomic.AddInt32(&cp.numActive, -1)
+
 	if !c.IsOpen() {
 		newC, err := cp.opener()
 		if err != nil {
@@ -84,7 +88,6 @@ func (cp *channelPool) Release(c Client) error {
 
 	select {
 	case cp.pool <- c:
-		atomic.AddInt32(&cp.numActive, -1)
 		return nil
 	default:
 		// Pool is full, just close it instead.
