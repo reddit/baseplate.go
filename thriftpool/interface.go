@@ -9,6 +9,7 @@ import (
 // TTransport interface in thrift satisfies Client interface,
 // so embedding the TTransport used by the actual client is a common way to
 // implement the ClientOpener.
+// TTLClient also implements it, with an additional TTL to the transport.
 type Client interface {
 	io.Closer
 
