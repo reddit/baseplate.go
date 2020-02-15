@@ -350,6 +350,6 @@ func almostEqual(a, b, delta float64) (float64, bool) {
 }
 
 func roundTo(num float64, digits int) float64 {
-	shift := math.Pow(10, float64(7)) // round to 7 digits
+	shift := math.Pow(10, float64(digits)) // round to 7 digits
 	return math.Round(num*shift) / shift
 }

@@ -14,10 +14,6 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
-// Document represents a set of experiments configurations. It is mapped by the
-// experiment name as the key.
-type Document map[string]*ExperimentConfig
-
 // Experiments offers access to the experiment framework with automatic refresh
 // when they are changes.
 //
@@ -32,7 +28,7 @@ type Experiments struct {
 // points to the experiments file that will be parsed.
 func NewExperiments(ctx context.Context, path string, logger log.Wrapper) (*Experiments, error) {
 	parser := func(r io.Reader) (interface{}, error) {
-		var doc Document
+		var doc document
 		err := json.NewDecoder(r).Decode(&doc)
 		if err != nil {
 			return nil, err
@@ -72,14 +68,10 @@ func (e *Experiments) Variant(name string, args map[string]string, bucketingEven
 }
 
 func (e *Experiments) experiment(name string) (Experiment, error) {
-	result := e.watcher.Get()
-	doc, ok := result.(Document)
-	if !ok {
-		return nil, fmt.Errorf("unexpected type %T", doc)
-	}
+	doc := e.watcher.Get().(document)
 	experiment, ok := doc[name]
 	if !ok {
-		return nil, ErrorUnknownExperiment(name)
+		return nil, UnknownExperimentError(name)
 	}
 	if isSimpleExperiment(experiment.Type) {
 		return NewSimpleExperiment(experiment)
@@ -97,6 +89,8 @@ type ParsedExperiment struct {
 	Variants          []Variant `json:"variants"`
 	BucketSeed        string    `json:"bucket_seed"`
 }
+
+type document map[string]*ExperimentConfig
 
 // ExperimentConfig holds the information for the experiment plus additional
 // data around the experiment.
@@ -259,11 +253,11 @@ type Variant struct {
 	RangeEnd   float64 `json:"range_end"`
 }
 
-// ErrorUnknownExperiment is returned if the configured experiment is not
+// UnknownExperimentError is returned if the configured experiment is not
 // known.
-type ErrorUnknownExperiment string
+type UnknownExperimentError string
 
-func (name ErrorUnknownExperiment) Error() string {
+func (name UnknownExperimentError) Error() string {
 	return fmt.Sprintf("experiment with name %s unknown", name)
 }
 

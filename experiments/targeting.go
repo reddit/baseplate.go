@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+type Targeting interface {
+	Evaluate(inputs map[string]interface{}) bool
+}
+
 type AnyNode struct {
 	children []Targeting
 }
@@ -90,11 +94,10 @@ func NewEqualNode(inputNodes map[string]interface{}) (Targeting, error) {
 	}
 
 	var acceptedValues []interface{}
-	if valueOK {
-		acceptedValues = []interface{}{value}
-	}
 	if valuesOK {
 		acceptedValues = values.([]interface{})
+	} else if valueOK {
+		acceptedValues = []interface{}{value}
 	}
 	return &EqualNode{
 		field:  strings.ToLower(acceptedKey.(string)),
@@ -198,10 +201,6 @@ func (n *ComparisonNode) Evaluate(inputs map[string]interface{}) bool {
 	return false
 }
 
-type Targeting interface {
-	Evaluate(inputs map[string]interface{}) bool
-}
-
 func NewTargeting(targetingConfig []byte) (Targeting, error) {
 	// TODO handle empty input
 	var config map[string]interface{}
@@ -231,10 +230,8 @@ func parseNode(node interface{}) (Targeting, error) {
 	case map[string]interface{}:
 		key := firstKeyStr(n)
 		return mapOperatorNode(strings.ToLower(key), n[key])
-	default:
-		panic(n)
 	}
-	return nil, nil
+	return nil, TargetingNodeError(fmt.Sprintf("node type %T unknown", node))
 }
 
 func firstKeyStr(m map[string]interface{}) string {
