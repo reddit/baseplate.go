@@ -14,12 +14,22 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
+// Document represents a set of experiments configurations. It is mapped by the
+// experiment name as the key.
 type Document map[string]*ExperimentConfig
 
+// Experiments offers access to the experiment framework with automatic refresh
+// when they are changes.
+//
+// This experiments client allows access to the experiments cached on disk by
+// the experiment configuration fetcher daemon.  It will automatically reload
+// the cache when changed.
 type Experiments struct {
 	watcher *filewatcher.Result
 }
 
+// NewExperiments returns a new instance of the experiments clients. The path
+// points to the experiments file that will be parsed.
 func NewExperiments(ctx context.Context, path string, logger log.Wrapper) (*Experiments, error) {
 	parser := func(r io.Reader) (interface{}, error) {
 		var doc Document
@@ -38,15 +48,21 @@ func NewExperiments(ctx context.Context, path string, logger log.Wrapper) (*Expe
 	}, nil
 }
 
-type Bucket struct {
-}
-
+// Experiment is the interface for experiments.
 type Experiment interface {
 	UniqueID(map[string]string) string
 	Variant(args map[string]string) (string, error)
 	LogBucketing() bool
 }
 
+// Variant determines the variant, if any, of this experiment is active.
+//
+// All arguments needed for bucketing, targeting, and variant overrides should
+// be passed in as arguments. The parameter names are determined by the
+// specific implementation of the Experiment interface.
+//
+// Returns the name of the enabled variant as a string if any variant is
+// enabled. If no variant is enabled returns an empty string.
 func (e *Experiments) Variant(name string, args map[string]string, bucketingEventOverride bool) (string, error) {
 	experiment, err := e.experiment(name)
 	if err != nil {
@@ -68,9 +84,11 @@ func (e *Experiments) experiment(name string) (Experiment, error) {
 	if isSimpleExperiment(experiment.Type) {
 		return NewSimpleExperiment(experiment)
 	}
-	return nil, nil
+	return nil, fmt.Errorf("unknown experiment %s", experiment.Type)
 }
 
+// ParsedExperiment represents the experiment and configures the available
+// variants.
 type ParsedExperiment struct {
 	ExperimentVersion int       `json:"experiment_version"`
 	ShuffleVersion    string    `json:"shuffle_version"`
@@ -80,34 +98,74 @@ type ParsedExperiment struct {
 	BucketSeed        string    `json:"bucket_seed"`
 }
 
+// ExperimentConfig holds the information for the experiment plus additional
+// data around the experiment.
 type ExperimentConfig struct {
 	// ID is the experiment identifier and should be unique for each experiment.
 	ID int `json:"id"`
 	// Name is the experiment name and should be unique for each experiment.
-	Name           string           `json:"name"`
-	Owner          string           `json:"owner"`
-	Enabled        *bool            `json:"enabled"`
-	Version        string           `json:"version"`
-	Type           string           `json:"type"`
-	StartTimestamp int64            `json:"start_ts"`
-	StopTimestamp  int64            `json:"stop_ts"`
-	Experiment     ParsedExperiment `json:"experiment"`
+	Name string `json:"name"`
+	// Owner is the group or individual that owns this experiment.
+	Owner string `json:"owner"`
+	// Enabled if set to false will disable the experiment and calls to Variant
+	// will always returns an empty string.
+	Enabled *bool `json:"enabled"`
+	// Version is the string to identify the specific version of the
+	// experiment.
+	Version string `json:"version"`
+	// Type specifies the type of experiment to run. If this value is not
+	// recognized, the experiment will be considered disabled.
+	Type string `json:"type"`
+	// StartTimestamp is a float of seconds since the epoch of date and time
+	// when you want the experiment to start. If an experiment has not been
+	// started yet, it is considered disabled.
+	StartTimestamp int64 `json:"start_ts"`
+	// StopTimestamp is a float of seconds since the epoch of date and time when
+	// you want the experiment to stop. Once an experiment is stopped, it is
+	// considered disabled.
+	StopTimestamp int64 `json:"stop_ts"`
+	// Experiment is the specific experiment.
+	Experiment ParsedExperiment `json:"experiment"`
 }
 
+// SimpleExperiment is a basic experiment choosing from a set of variants.
 type SimpleExperiment struct {
-	id           int
-	name         string
-	seed         string
-	numBuckets   int
-	enabled      bool
-	startTime    time.Time
-	endTime      time.Time
+	// id is the experiment identifier and should be unique.
+	id int
+	// name is a human-readable name of the experiment.
+	name string
+	// bucketSeed if provided, this provides the bucketSeed for determining which bucket a
+	// variant request lands in. Providing a consistent bucket bucketSeed will ensure
+	// a user is bucketed consistently. Calls to the variant method will return
+	// consistent results for any given bucketSeed.
+	bucketSeed string // TODO rename to bucketSeed?
+	// numBuckets determines how many available buckets there are for bucketing
+	// requests. This should match the numBuckets in the provided VariantSet.
+	// The default value is 1000, which provides a potential variant
+	// granularity of 0.1%.
+	numBuckets int
+	// enabled sets whether or not this experiment is enabled. disabling an
+	// experiment means all variant calls will return an empty string.
+	enabled bool
+	// startTime determines when this experiment is due to start. Variant
+	// requests prior to this time will return an empty string.
+	startTime time.Time
+	// endTime determines when this experiment is due to end. Variant requests
+	// after this time will return an empty string.
+	endTime time.Time
+	// logBucketing determines whether bucketing events should be logged.
 	logBucketing bool
-	bucketVal    string
-	variantSet   VariantSet
+	// bucketVal is a string used for shifting the deterministic bucketing
+	// algorithm.  In most cases, this will be an Account's fullname.
+	bucketVal string
+	// variantSet contains a set of experimental variants as well as their
+	// distributions. It is used by experiments to track which bucket a variant
+	// is assigned to.
+	variantSet VariantSet
 }
 
-// bucketVal == bucketing key, used to get the data
+// NewSimpleExperiment returns a new instance of SimpleExperiment. Default
+// values if not otherwise provided by the ExperimentConfig will be assumed.
 func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error) {
 	shuffleVersion := experiment.Experiment.ShuffleVersion
 	if shuffleVersion == "" {
@@ -132,7 +190,7 @@ func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error
 	return &SimpleExperiment{
 		id:         experiment.ID,
 		name:       experiment.Name,
-		seed:       bucketSeed,
+		bucketSeed: bucketSeed,
 		bucketVal:  bucketVal,
 		enabled:    enabled,
 		startTime:  time.Unix(experiment.StartTimestamp, 0),
@@ -142,20 +200,16 @@ func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error
 	}, nil
 }
 
+// Variant determines the variant, if any, is active. Bucket calculation is
+// determined based on the bucketVal.
 func (e *SimpleExperiment) Variant(args map[string]string) (string, error) {
 	if !e.isEnabled() {
 		return "", nil
 	}
-
 	args = lowerArguments(args)
 	if value, ok := args[e.bucketVal]; !ok || value == "" {
 		return "", fmt.Errorf("must specify %s in call to variant for experiment %s", e.bucketVal, e.name)
 	}
-
-	// TODO: implement overrides
-
-	// TODO: implement tareting
-
 	bucket := e.calculateBucket(args[e.bucketVal])
 	return e.variantSet.ChooseVariant(bucket), nil
 }
@@ -171,12 +225,13 @@ func lowerArguments(args map[string]string) map[string]string {
 func (e *SimpleExperiment) calculateBucket(bucketKey string) int {
 	target := new(big.Int)
 	bucket := new(big.Int)
-	hashed := sha1.Sum([]byte(fmt.Sprintf("%s%s", e.seed, bucketKey)))
+	hashed := sha1.Sum([]byte(fmt.Sprintf("%s%s", e.bucketSeed, bucketKey)))
 	target.SetBytes(hashed[:])
 	bucket.Mod(target, big.NewInt(int64(e.numBuckets)))
 	return int(bucket.Int64())
 }
 
+// UniqueID returns a unique ID for the experiment.
 func (e *SimpleExperiment) UniqueID(bucketVals map[string]string) string {
 	bucketVal, ok := bucketVals[e.bucketVal]
 	if !ok {
@@ -185,6 +240,7 @@ func (e *SimpleExperiment) UniqueID(bucketVals map[string]string) string {
 	return fmt.Sprintf("%s:%s:%s", e.name, e.bucketVal, bucketVal)
 }
 
+// LogBucketing returns whether or not this experiment should log bucketing events.
 func (e *SimpleExperiment) LogBucketing() bool {
 	return e.logBucketing
 }
@@ -194,6 +250,8 @@ func (e *SimpleExperiment) isEnabled() bool {
 	return e.enabled && !now.Before(e.startTime) && now.Before(e.endTime)
 }
 
+// Variant is a single variant that belongs to a set of variants and determines
+// a bucket by name and size. Either size is set or range start and range end.
 type Variant struct {
 	Name       string  `json:"name"`
 	Size       float64 `json:"size"`
@@ -201,6 +259,8 @@ type Variant struct {
 	RangeEnd   float64 `json:"range_end"`
 }
 
+// ErrorUnknownExperiment is returned if the configured experiment is not
+// known.
 type ErrorUnknownExperiment string
 
 func (name ErrorUnknownExperiment) Error() string {

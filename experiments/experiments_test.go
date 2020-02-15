@@ -176,8 +176,8 @@ func TestCalculateBucketWithSeed(t *testing.T) {
 	counter := make(map[int]int)
 	bucketingChanged := false
 	for _, name := range names {
-		if experiment.seed != "some new seed" {
-			t.Fatalf("expected seed %s, actual: %s", "some new seed", experiment.seed)
+		if experiment.bucketSeed != "some new seed" {
+			t.Fatalf("expected seed %s, actual: %s", "some new seed", experiment.bucketSeed)
 		}
 		bucket1 := experiment.calculateBucket(name)
 		counter[bucket1] += 1
@@ -187,10 +187,10 @@ func TestCalculateBucketWithSeed(t *testing.T) {
 			t.Errorf("expected %d, actual: %d", bucket1, bucketCheck)
 		}
 
-		currentSeed := experiment.seed
-		experiment.seed = "newstring"
+		currentSeed := experiment.bucketSeed
+		experiment.bucketSeed = "newstring"
 		bucket2 := experiment.calculateBucket(name)
-		experiment.seed = currentSeed
+		experiment.bucketSeed = currentSeed
 
 		// Check that the bucketing changed at some point. Can't compare
 		// bucket1 to bucket2 inline because sometimes the user will fall into
