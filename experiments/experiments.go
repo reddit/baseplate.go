@@ -15,7 +15,7 @@ import (
 )
 
 // Experiments offers access to the experiment framework with automatic refresh
-// when they are changes.
+// when there change.
 //
 // This experiments client allows access to the experiments cached on disk by
 // the experiment configuration fetcher daemon.  It will automatically reload
@@ -26,6 +26,9 @@ type Experiments struct {
 
 // NewExperiments returns a new instance of the experiments clients. The path
 // points to the experiments file that will be parsed.
+//
+// Context should come with a timeout otherwise this might block forever, i.e.
+// if the path never becomes available.
 func NewExperiments(ctx context.Context, path string, logger log.Wrapper) (*Experiments, error) {
 	parser := func(r io.Reader) (interface{}, error) {
 		var doc document
@@ -132,7 +135,7 @@ type SimpleExperiment struct {
 	// variant request lands in. Providing a consistent bucket bucketSeed will ensure
 	// a user is bucketed consistently. Calls to the variant method will return
 	// consistent results for any given bucketSeed.
-	bucketSeed string // TODO rename to bucketSeed?
+	bucketSeed string
 	// numBuckets determines how many available buckets there are for bucketing
 	// requests. This should match the numBuckets in the provided VariantSet.
 	// The default value is 1000, which provides a potential variant
@@ -219,7 +222,7 @@ func lowerArguments(args map[string]string) map[string]string {
 func (e *SimpleExperiment) calculateBucket(bucketKey string) int {
 	target := new(big.Int)
 	bucket := new(big.Int)
-	hashed := sha1.Sum([]byte(fmt.Sprintf("%s%s", e.bucketSeed, bucketKey)))
+	hashed := sha1.Sum([]byte(e.bucketSeed + bucketKey))
 	target.SetBytes(hashed[:])
 	bucket.Mod(target, big.NewInt(int64(e.numBuckets)))
 	return int(bucket.Int64())
