@@ -27,23 +27,23 @@ func NewTargeting(targetingConfig []byte) (Targeting, error) {
 	if len(config) != 1 {
 		return nil, TargetingNodeError("call to create targeting tree expects single input key")
 	}
-	return parseNodes(config)
-}
-
-func parseNodes(config map[string]interface{}) (Targeting, error) {
-	key := firstKeyStr(config)
-	return mapOperatorNode(strings.ToLower(key), config[key])
+	return parseNode(config)
 }
 
 func parseNode(node interface{}) (Targeting, error) {
 	switch n := node.(type) {
-	case []interface{}:
 	case map[interface{}]interface{}:
-		key := firstKey(n)
-		return mapOperatorNode(strings.ToLower(key), n[key])
+		key, err := firstKey(n)
+		if err != nil {
+			return nil, err
+		}
+		return mapOperatorNode(key, n[key])
 	case map[string]interface{}:
-		key := firstKeyStr(n)
-		return mapOperatorNode(strings.ToLower(key), n[key])
+		key, err := firstKey(n)
+		if err != nil {
+			return nil, err
+		}
+		return mapOperatorNode(key, n[key])
 	}
 	return nil, TargetingNodeError(fmt.Sprintf("node type %T unknown", node))
 }
@@ -55,11 +55,22 @@ func firstKeyStr(m map[string]interface{}) string {
 	return ""
 }
 
-func firstKey(m map[interface{}]interface{}) string {
-	for key := range m {
-		return key.(string)
+func firstKey(m interface{}) (string, error) {
+	switch n := m.(type) {
+	case map[string]interface{}:
+		for key := range n {
+			return key, nil
+		}
+	case map[interface{}]interface{}:
+		for key := range n {
+			k, ok := key.(string)
+			if !ok {
+				return "", TargetingNodeError(fmt.Sprintf("unknown key type %T", key))
+			}
+			return k, nil
+		}
 	}
-	return ""
+	return "", TargetingNodeError(fmt.Sprintf("unknown parsed node type %T", m))
 }
 
 // AnyNode evaluates to true if at least one child node returns true.
@@ -302,6 +313,7 @@ func lessEquals(i, j float64) bool    { return i <= j }
 func notEqual(i, j float64) bool      { return i != j }
 
 func mapOperatorNode(name string, value interface{}) (Targeting, error) {
+	name = strings.ToLower(name)
 	switch name {
 	case "any":
 		return NewAnyNode(value)
