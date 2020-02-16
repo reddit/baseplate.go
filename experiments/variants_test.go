@@ -130,7 +130,7 @@ func TestSingleVariantSetDistribution(t *testing.T) {
 			}
 			for i := 0; i < tt.numBuckets; i++ {
 				variant := variantSet.ChooseVariant(i)
-				variantCounts[variant] += 1
+				variantCounts[variant]++
 			}
 			if len(variantCounts) != 3 {
 				t.Errorf("expected %d variants, actual %d: %v", 3, len(variantCounts), variantCounts)
@@ -285,7 +285,7 @@ func TestMultiVariantSetDistribution(t *testing.T) {
 			}
 			for i := 0; i < tt.numBuckets; i++ {
 				variant := variantSet.ChooseVariant(i)
-				variantCounts[variant] += 1
+				variantCounts[variant]++
 			}
 			if len(variantCounts) != tt.expectedVariants {
 				t.Errorf("expected %d variants, actual %d: %v", tt.expectedVariants, len(variantCounts), variantCounts)
@@ -427,7 +427,7 @@ func TestRolloutVariantSetDistribution(t *testing.T) {
 			}
 			for i := 0; i < tt.numBuckets; i++ {
 				variant := variantSet.ChooseVariant(i)
-				variantCounts[variant] += 1
+				variantCounts[variant]++
 			}
 			if len(variantCounts) != 3 {
 				t.Errorf("expected %d variants, actual %d: %v", 3, len(variantCounts), variantCounts)
@@ -632,7 +632,7 @@ func TestRangeVariantSetDistribution(t *testing.T) {
 			}
 			for i := 0; i < tt.numBuckets; i++ {
 				variant := variantSet.ChooseVariant(i)
-				variantCounts[variant] += 1
+				variantCounts[variant]++
 			}
 			if len(variantCounts) != 5 {
 				t.Errorf("expected %d variants, actual %d: %v", 3, len(variantCounts), variantCounts)

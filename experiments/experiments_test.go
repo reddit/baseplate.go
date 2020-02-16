@@ -117,7 +117,7 @@ func TestCalculateBucket(t *testing.T) {
 	counter := make(map[int]int)
 	for _, name := range names {
 		bucket := experiment.calculateBucket(name)
-		counter[bucket] += 1
+		counter[bucket]++
 		// ensure bucketing is deterministic
 		bucketCheck := experiment.calculateBucket(name)
 		if bucket != bucketCheck {
@@ -180,7 +180,7 @@ func TestCalculateBucketWithSeed(t *testing.T) {
 			t.Fatalf("expected seed %s, actual: %s", "some new seed", experiment.bucketSeed)
 		}
 		bucket1 := experiment.calculateBucket(name)
-		counter[bucket1] += 1
+		counter[bucket1]++
 		// ensure bucketing is deterministic
 		bucketCheck := experiment.calculateBucket(name)
 		if bucket1 != bucketCheck {
