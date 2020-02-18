@@ -15,7 +15,7 @@ import (
 )
 
 // Experiments offers access to the experiment framework with automatic refresh
-// when there change.
+// when there are change.
 //
 // This experiments client allows access to the experiments cached on disk by
 // the experiment configuration fetcher daemon.  It will automatically reload

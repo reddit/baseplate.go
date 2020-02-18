@@ -12,7 +12,6 @@ require (
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-redis/redis/v7 v7.0.0-beta.5
 	github.com/go-stack/stack v1.8.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	go.uber.org/zap v1.13.0
 	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449
 	gopkg.in/dgrijalva/jwt-go.v3 v3.2.0

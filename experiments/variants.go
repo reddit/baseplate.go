@@ -3,7 +3,7 @@ package experiments
 import "fmt"
 
 // VariantSet is the base interface for variant sets. A variant set contains a
-// set of experimental variants, as well aas their distributions. It is used by
+// set of experimental variants, as well as their distributions. It is used by
 // experiments to track which bucket a variant is assigned to.
 type VariantSet interface {
 	ChooseVariant(bucket int) string

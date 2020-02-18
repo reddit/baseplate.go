@@ -334,12 +334,12 @@ func TestChangeShuffleVersionChangesBucketing(t *testing.T) {
 	}
 }
 
-func almostEqual(a, b, delta float64) (float64, bool) {
+func almostEqual(a, b, epsilon float64) (float64, bool) {
 	if a == b {
 		return 0.0, true
 	}
 	diff := math.Abs(a - b)
-	if diff <= delta {
+	if diff <= epsilon {
 		return diff, true
 	}
 	round := roundTo(diff, 7)
@@ -350,6 +350,6 @@ func almostEqual(a, b, delta float64) (float64, bool) {
 }
 
 func roundTo(num float64, digits int) float64 {
-	shift := math.Pow(10, float64(digits)) // round to 7 digits
+	shift := math.Pow(10, float64(digits))
 	return math.Round(num*shift) / shift
 }
