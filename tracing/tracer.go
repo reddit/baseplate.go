@@ -12,6 +12,12 @@ import (
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/randbp"
 	"github.com/reddit/baseplate.go/runtimebp"
+
+	opentracing "github.com/opentracing/opentracing-go"
+)
+
+var (
+	_ opentracing.Tracer = (*Tracer)(nil)
 )
 
 // Configuration values for the message queue.
@@ -25,6 +31,11 @@ const (
 	// The default MaxRecordTimeout used in Tracers.
 	DefaultMaxRecordTimeout = time.Millisecond * 50
 )
+
+// Register our GlobalTracer as opentracing's global tracer.
+func init() {
+	opentracing.SetGlobalTracer(&GlobalTracer)
+}
 
 // GlobalTracer is the default Tracer to be used.
 var GlobalTracer Tracer
@@ -94,6 +105,7 @@ func InitGlobalTracer(
 
 	GlobalTracer.SampleRate = sampleRate
 	GlobalTracer.Logger = logger
+	opentracing.SetGlobalTracer(&GlobalTracer)
 	return nil
 }
 
@@ -111,8 +123,8 @@ func (t *Tracer) Close() error {
 }
 
 // NewTrace creates a new trace (top level local span).
-func (t Tracer) NewTrace(name string) *Span {
-	span := newSpan(&t, name, SpanTypeLocal)
+func (t *Tracer) NewTrace(name string) *Span {
+	span := newSpan(t, name, SpanTypeLocal)
 	span.trace.traceID = rand.Uint64()
 	span.trace.sampled = randbp.ShouldSampleWithRate(t.SampleRate)
 	span.onStart()
@@ -121,10 +133,11 @@ func (t Tracer) NewTrace(name string) *Span {
 
 // Record records a span with the Recorder.
 //
-// Span.End() calls this function automatically.
+// Span.Stop(), Span.Finish(), and Span.FinishWithOptions() call this function
+// automatically.
 // In most cases that should be enough and you should not call this function
 // directly.
-func (t Tracer) Record(ctx context.Context, zs ZipkinSpan) error {
+func (t *Tracer) Record(ctx context.Context, zs ZipkinSpan) error {
 	if t.Recorder == nil {
 		return nil
 	}
@@ -155,4 +168,66 @@ func (t Tracer) Record(ctx context.Context, zs ZipkinSpan) error {
 		}
 	}
 	return err
+}
+
+// StartSpan implements opentracing.Tracer.
+//
+// For opentracing.StartSpanOptions,
+// it only support the following options and will ignore all others:
+//
+// - ChildOfRef (in which case the parent span must be of type *Span)
+//
+// - StartTime
+//
+// - Tags
+//
+// It supports additional StartSpanOptions defined in this package.
+//
+// Please note that trying to set span type via opentracing-go/ext package won't
+// work, please use SpanTypeOption defined in this package instead.
+func (t *Tracer) StartSpan(operationName string, opts ...opentracing.StartSpanOption) opentracing.Span {
+	var sso StartSpanOptions
+	for _, opt := range opts {
+		sso.Apply(opt)
+	}
+
+	span := newSpan(t, operationName, sso.Type)
+	span.component = sso.ComponentName
+	if !sso.OpenTracingOptions.StartTime.IsZero() {
+		span.trace.start = sso.OpenTracingOptions.StartTime
+	}
+	if parent := findFirstParentReference(sso.OpenTracingOptions.References); parent != nil {
+		parent.initChildSpan(span)
+	}
+	for key, value := range sso.OpenTracingOptions.Tags {
+		span.SetTag(key, value)
+	}
+
+	return span
+}
+
+// Inject implements opentracing.Tracer.
+//
+// Currently it always return opentracing.ErrInvalidCarrier as the error.
+func (t *Tracer) Inject(sm opentracing.SpanContext, format interface{}, carrier interface{}) error {
+	return opentracing.ErrInvalidCarrier
+}
+
+// Extract implements opentracing.Tracer.
+//
+// Currently it always return opentracing.ErrInvalidCarrier as the error.
+func (t *Tracer) Extract(format interface{}, carrier interface{}) (opentracing.SpanContext, error) {
+	return nil, opentracing.ErrInvalidCarrier
+}
+
+func findFirstParentReference(refs []opentracing.SpanReference) *Span {
+	for _, s := range refs {
+		if s.Type == opentracing.ChildOfRef {
+			// Note that we only support using our type as the parent right now.
+			if span, ok := s.ReferencedContext.(*Span); ok {
+				return span
+			}
+		}
+	}
+	return nil
 }
