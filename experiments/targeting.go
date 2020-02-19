@@ -48,13 +48,6 @@ func parseNode(node interface{}) (Targeting, error) {
 	return nil, TargetingNodeError(fmt.Sprintf("node type %T unknown", node))
 }
 
-func firstKeyStr(m map[string]interface{}) string {
-	for key := range m {
-		return key
-	}
-	return ""
-}
-
 func firstKey(m interface{}) (string, error) {
 	switch n := m.(type) {
 	case map[string]interface{}:

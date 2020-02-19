@@ -50,7 +50,7 @@ func NewExperiments(ctx context.Context, path string, logger log.Wrapper) (*Expe
 // Experiment is the interface for experiments.
 type Experiment interface {
 	UniqueID(map[string]string) string
-	Variant(args map[string]string) (string, error)
+	Variant(args map[string]interface{}) (string, error)
 	LogBucketing() bool
 }
 
@@ -62,7 +62,7 @@ type Experiment interface {
 //
 // Returns the name of the enabled variant as a string if any variant is
 // enabled. If no variant is enabled returns an empty string.
-func (e *Experiments) Variant(name string, args map[string]string, bucketingEventOverride bool) (string, error) {
+func (e *Experiments) Variant(name string, args map[string]interface{}, bucketingEventOverride bool) (string, error) {
 	experiment, err := e.experiment(name)
 	if err != nil {
 		return "", err
@@ -79,18 +79,21 @@ func (e *Experiments) experiment(name string) (Experiment, error) {
 	if isSimpleExperiment(experiment.Type) {
 		return NewSimpleExperiment(experiment)
 	}
+	// TODO handle this according to baseplate.py
 	return nil, fmt.Errorf("unknown experiment %s", experiment.Type)
 }
 
 // ParsedExperiment represents the experiment and configures the available
 // variants.
 type ParsedExperiment struct {
-	ExperimentVersion int       `json:"experiment_version"`
-	ShuffleVersion    string    `json:"shuffle_version"`
-	BucketVal         string    `json:"bucket_val"`
-	LogBucketing      bool      `json:"log_bucketing"`
-	Variants          []Variant `json:"variants"`
-	BucketSeed        string    `json:"bucket_seed"`
+	ExperimentVersion int                          `json:"experiment_version"`
+	ShuffleVersion    string                       `json:"shuffle_version"`
+	BucketVal         string                       `json:"bucket_val"`
+	LogBucketing      bool                         `json:"log_bucketing"`
+	Variants          []Variant                    `json:"variants"`
+	BucketSeed        string                       `json:"bucket_seed"`
+	Targeting         json.RawMessage              `json:"targeting"`
+	Overrides         []map[string]json.RawMessage `json:"overrides"`
 }
 
 type document map[string]*ExperimentConfig
@@ -159,6 +162,11 @@ type SimpleExperiment struct {
 	// distributions. It is used by experiments to track which bucket a variant
 	// is assigned to.
 	variantSet VariantSet
+	// targeting allows to target users with multiple parameters supporting
+	// both AND and OR based logical grouping.
+	targeting Targeting
+	// overrides if matched allow to force a particular variant.
+	overrides []map[string]Targeting
 }
 
 // NewSimpleExperiment returns a new instance of SimpleExperiment. Default
@@ -184,6 +192,28 @@ func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error
 	if err != nil {
 		return nil, err
 	}
+
+	targetingConfig := experiment.Experiment.Targeting
+	if len(targetingConfig) == 0 {
+		targetingConfig = []byte(`{"OVERRIDE": true}`)
+	}
+	targeting, err := NewTargeting(targetingConfig)
+	if err != nil {
+		return nil, err
+	}
+	overrides := make([]map[string]Targeting, len(experiment.Experiment.Overrides))
+	for i, override := range experiment.Experiment.Overrides {
+		for variant, overrideConfig := range override {
+			override, err := NewTargeting(overrideConfig)
+			if err != nil {
+				return nil, err
+			}
+			if overrides[i] == nil {
+				overrides[i] = make(map[string]Targeting)
+			}
+			overrides[i][variant] = override
+		}
+	}
 	return &SimpleExperiment{
 		id:         experiment.ID,
 		name:       experiment.Name,
@@ -194,12 +224,14 @@ func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error
 		endTime:    time.Unix(experiment.StopTimestamp, 0),
 		numBuckets: 1000,
 		variantSet: variantSet,
+		targeting:  targeting,
+		overrides:  overrides,
 	}, nil
 }
 
 // Variant determines the variant, if any, is active. Bucket calculation is
 // determined based on the bucketVal.
-func (e *SimpleExperiment) Variant(args map[string]string) (string, error) {
+func (e *SimpleExperiment) Variant(args map[string]interface{}) (string, error) {
 	if !e.isEnabled() {
 		return "", nil
 	}
@@ -207,12 +239,27 @@ func (e *SimpleExperiment) Variant(args map[string]string) (string, error) {
 	if value, ok := args[e.bucketVal]; !ok || value == "" {
 		return "", fmt.Errorf("must specify %s in call to variant for experiment %s", e.bucketVal, e.name)
 	}
-	bucket := e.calculateBucket(args[e.bucketVal])
+	for _, override := range e.overrides {
+		for variant, targeting := range override {
+			if targeting.Evaluate(args) {
+				return variant, nil
+			}
+		}
+	}
+	if !e.targeting.Evaluate(args) {
+		return "", nil
+	}
+	bucketVal, ok := args[e.bucketVal].(string)
+	if !ok {
+		return "", fmt.Errorf("expected bucket val to be a string, actual: %T", args[e.bucketVal])
+	}
+
+	bucket := e.calculateBucket(bucketVal)
 	return e.variantSet.ChooseVariant(bucket), nil
 }
 
-func lowerArguments(args map[string]string) map[string]string {
-	lowered := make(map[string]string, len(args))
+func lowerArguments(args map[string]interface{}) map[string]interface{} {
+	lowered := make(map[string]interface{}, len(args))
 	for key, value := range args {
 		lowered[strings.ToLower(key)] = value
 	}

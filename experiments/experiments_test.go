@@ -1,6 +1,7 @@
 package experiments
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"testing"
@@ -231,14 +232,14 @@ func TestVariantReturnsNilIfOutOfTimeWindow(t *testing.T) {
 	}
 	unstartedExperiment.startTime = time.Now().Add(5 * 24 * time.Hour)
 
-	validVariant, err := validExperiment.Variant(map[string]string{"user_id": "t2_1"})
+	validVariant, err := validExperiment.Variant(map[string]interface{}{"user_id": "t2_1"})
 	if err != nil {
 		t.Error(err)
 	}
 	if validVariant == "" {
 		t.Fatal("expected variant to be not nil")
 	}
-	expiredVariant, err := expiredExperiment.Variant(map[string]string{"user_id": "t2_1"})
+	expiredVariant, err := expiredExperiment.Variant(map[string]interface{}{"user_id": "t2_1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +247,7 @@ func TestVariantReturnsNilIfOutOfTimeWindow(t *testing.T) {
 		t.Fatal("expected variant to be nil")
 	}
 
-	unstartedVariant, err := unstartedExperiment.Variant(map[string]string{"user_id": "t2_1"})
+	unstartedVariant, err := unstartedExperiment.Variant(map[string]interface{}{"user_id": "t2_1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +261,7 @@ func TestNoBucketVal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := experiment.Variant(map[string]string{"not_user_id": "t2_1"})
+	result, err := experiment.Variant(map[string]interface{}{"not_user_id": "t2_1"})
 	expectedErr := "must specify user_id in call to variant for experiment test_experiment"
 	if err != nil && err.Error() != expectedErr {
 		t.Errorf("expected error %s but was: %v", expectedErr, err)
@@ -273,7 +274,7 @@ func TestNoBucketVal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err = experiment.Variant(map[string]string{"not_user_id": ""})
+	result, err = experiment.Variant(map[string]interface{}{"not_user_id": ""})
 	expectedErr = "must specify user_id in call to variant for experiment test_experiment"
 	if err != nil && err.Error() != expectedErr {
 		t.Errorf("expected error %s but was: %v", expectedErr, err)
@@ -291,7 +292,7 @@ func TestExperimentDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	variant, err := experiment.Variant(map[string]string{"user_id": "t2_2"})
+	variant, err := experiment.Variant(map[string]interface{}{"user_id": "t2_2"})
 	if err != nil {
 		t.Error(err)
 	}
@@ -331,6 +332,55 @@ func TestChangeShuffleVersionChangesBucketing(t *testing.T) {
 	}
 	if !bucketingChanged {
 		t.Error("expected bucketing to change but did not")
+	}
+}
+
+func TestOverride(t *testing.T) {
+	t.Parallel()
+	config := &ExperimentConfig{
+		ID:             1,
+		Name:           "test_experiment",
+		Owner:          "test",
+		Type:           "single_variant",
+		Version:        "1",
+		StartTimestamp: time.Now().Add(-30 * 24 * time.Hour).Unix(),
+		StopTimestamp:  time.Now().Add(30 * 24 * time.Hour).Unix(),
+		Enabled:        func() *bool { b := true; return &b }(),
+		Experiment: ParsedExperiment{
+			Variants: []Variant{
+				Variant{
+					Name: "variant_1",
+					Size: 0.1,
+				},
+				Variant{
+					Name: "variant_2",
+					Size: 0.1,
+				},
+			},
+			ExperimentVersion: 1,
+			Overrides: []map[string]json.RawMessage{
+				map[string]json.RawMessage{
+					"override_variant_1": []byte(`{"EQ": {"field": "user_id", "value": "t2_1"}}`),
+				}},
+		},
+	}
+	experiment, err := NewSimpleExperiment(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	variant, err := experiment.Variant(map[string]interface{}{"user_id": "t2_1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if variant != "override_variant_1" {
+		t.Errorf("expected %s, actual: %s", "override_variant_1", variant)
+	}
+	variant, err = experiment.Variant(map[string]interface{}{"user_id": "t2_123"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if variant != "variant_1" && variant != "variant_2" {
+		t.Errorf("expected %s or %s, actual: %s", "variant_1", "variant_2", variant)
 	}
 }
 
