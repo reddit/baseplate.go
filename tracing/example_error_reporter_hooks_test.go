@@ -1,9 +1,9 @@
 package tracing_test
 
 import (
-	"context"
 	"errors"
 
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -11,19 +11,23 @@ import (
 func ExampleErrorReporterCreateServerSpanHook() {
 	// variables should be properly initialized in production code
 	var (
-		tracer *tracing.Tracer
-		ctx    context.Context
+		parent *tracing.Span
 	)
-
 	// initialize the ErrorReporterCreateServerSpanHook
 	hook := tracing.ErrorReporterCreateServerSpanHook{}
 
 	// register the hook with Baseplate
 	tracing.RegisterCreateServerSpanHooks(hook)
 
-	// Create a ServerSpan
-	span := tracing.CreateServerSpan(tracer, "test")
+	// Create a child server Span
+	span := opentracing.StartSpan(
+		"test",
+		opentracing.ChildOf(parent),
+		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
+	)
 
-	// Errors given to span.End will be sent to Sentry
-	span.Stop(ctx, errors.New("test error"))
+	// Errors given to span.FinishWithOptions will be sent to Sentry
+	span.FinishWithOptions(tracing.FinishOptions{
+		Err: errors.New("test error"),
+	}.Convert())
 }

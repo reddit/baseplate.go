@@ -5,6 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/log"
+)
+
+var (
+	_ opentracing.SpanContext = (*Span)(nil)
+	_ opentracing.Span        = (*Span)(nil)
 )
 
 // SpanType enum.
@@ -168,7 +176,7 @@ func (s *Span) SetDebug(v bool) {
 
 // SetTag sets a binary tag annotation and calls all OnSetTag Hooks
 // registered to the Span.
-func (s *Span) SetTag(key string, value interface{}) {
+func (s *Span) SetTag(key string, value interface{}) opentracing.Span {
 	s.trace.setTag(key, value)
 	for _, h := range s.hooks {
 		if hook, ok := h.(SetSpanTagHook); ok {
@@ -177,6 +185,7 @@ func (s *Span) SetTag(key string, value interface{}) {
 			}
 		}
 	}
+	return s
 }
 
 // AddCounter adds delta to a counter annotation and calls all OnAddCounter
@@ -233,7 +242,7 @@ func (s Span) CreateClientChildForContext(ctx context.Context, name string) (con
 //
 //     clientCtx, span := parentSpan.ChildAndThriftContext(ctx, "myCall")
 //     result, err := client.MyCall(clientCtx, arg1, arg2)
-//     span.End(ctx, err)
+//     span.Stop(ctx, err)
 func (s Span) ChildAndThriftContext(ctx context.Context, name string) (context.Context, *Span) {
 	ctx, child := s.CreateClientChildForContext(ctx, name)
 	ctx = CreateThriftContextFromSpan(ctx, child)
@@ -334,3 +343,100 @@ func (s *Span) preStop(err error) {
 		s.trace.setTag(ZipkinBinaryAnnotationKeyDebug, true)
 	}
 }
+
+// ForeachBaggageItem implements opentracing.SpanContext.
+//
+// We don't support any extra baggage items, so it's a noop.
+func (s *Span) ForeachBaggageItem(handler func(k, v string) bool) {}
+
+// SetBaggageItem implements opentracing.Span.
+//
+// As we don't support any extra baggage items,
+// it's a noop and just returns self.
+func (s *Span) SetBaggageItem(restrictedKey, value string) opentracing.Span {
+	return s
+}
+
+// BaggageItem implements opentracing.Span.
+//
+// As we don't support any extra baggage items, it always returns empty string.
+func (s *Span) BaggageItem(restrictedKey string) string {
+	return ""
+}
+
+// Finish implements opentracing.Span.
+//
+// It calls Stop with background context and nil error.
+func (s *Span) Finish() {
+	s.Stop(context.Background(), nil)
+}
+
+// FinishWithOptions implements opentracing.Span.
+//
+// In this implementation we ignore all timestamps in opts,
+// only extract context and error out of all the log fields,
+// and ignore all other log fields.
+//
+// Please use FinishOptions.Convert() to prepare the opts arg.
+func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
+	var err error
+	ctx := context.Background()
+	for _, records := range opts.LogRecords {
+		for _, field := range records.Fields {
+			switch field.Key() {
+			case ctxKey:
+				if c, ok := field.Value().(context.Context); ok {
+					ctx = c
+				}
+			case errorKey:
+				if e, ok := field.Value().(error); ok {
+					err = e
+				}
+			}
+		}
+	}
+	s.Stop(ctx, err)
+}
+
+// Context implements opentracing.Span.
+//
+// It returns self as opentracing.SpanContext.
+func (s *Span) Context() opentracing.SpanContext {
+	return s
+}
+
+// SetOperationName implements opentracing.Span.
+func (s *Span) SetOperationName(operationName string) opentracing.Span {
+	s.trace.name = operationName
+	return s
+}
+
+// Tracer implements opentracing.Span.
+func (s *Span) Tracer() opentracing.Tracer {
+	return s.trace.tracer
+}
+
+// LogFields implements opentracing.Span.
+//
+// In this implementation it's a no-op.
+func (s *Span) LogFields(fields ...log.Field) {}
+
+// LogKV implements opentracing.Span.
+//
+// In this implementation it's a no-op.
+func (s *Span) LogKV(alternatingKeyValues ...interface{}) {}
+
+// LogEvent implements opentracing.Span.
+//
+// it's deprecated in the interface and is a no-op here.
+func (s *Span) LogEvent(event string) {}
+
+// LogEventWithPayload implements opentracing.Span.
+//
+// it's deprecated in the interface and is a noop here.
+func (s *Span) LogEventWithPayload(event string, payload interface{}) {}
+
+// Log implements opentracing.Span.
+//
+// it's deprecated in the interface and is a no-op here.
+func (s *Span) Log(data opentracing.LogData) {}
