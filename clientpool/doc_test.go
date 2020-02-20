@@ -1,4 +1,4 @@
-package thriftpool_test
+package clientpool_test
 
 import (
 	"context"
@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/reddit/baseplate.go/clientpool"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/thriftclient"
-	"github.com/reddit/baseplate.go/thriftpool"
 )
 
 // In real code these should be coming from either config file or flags instead.
@@ -46,7 +46,7 @@ func NewMyServiceClient(_ thrift.TClient) MyService {
 // END THRIFT GENERATED CODE SECTION
 
 type Client interface {
-	thriftpool.Client
+	clientpool.Client
 
 	MyService
 }
@@ -54,7 +54,7 @@ type Client interface {
 type clientImpl struct {
 	MyService
 
-	*thriftpool.TTLClient
+	*thriftclient.TTLClient
 }
 
 func newClient(addr string) (Client, error) {
@@ -72,11 +72,11 @@ func newClient(addr string) (Client, error) {
 	)
 	return &clientImpl{
 		MyService: client,
-		TTLClient: thriftpool.NewTTLClient(trans, clientTTL),
+		TTLClient: thriftclient.NewTTLClient(trans, clientTTL),
 	}, nil
 }
 
-func reportPoolStats(ctx context.Context, pool thriftpool.Pool) {
+func reportPoolStats(ctx context.Context, pool clientpool.Pool) {
 	gauge := metricsbp.M.Gauge("pool-active-connections")
 	ticker := time.NewTicker(poolGaugeInterval)
 	defer ticker.Stop()
@@ -90,10 +90,10 @@ func reportPoolStats(ctx context.Context, pool thriftpool.Pool) {
 	}
 }
 
-func callEndpoint(ctx context.Context, pool thriftpool.Pool) (*MyEndpointResponse, error) {
+func callEndpoint(ctx context.Context, pool clientpool.Pool) (*MyEndpointResponse, error) {
 	c, err := pool.Get()
 	if err != nil {
-		if errors.Is(err, thriftpool.ErrExhausted) {
+		if errors.Is(err, clientpool.ErrExhausted) {
 			metricsbp.M.Counter("pool-exhausted").Add(1)
 		}
 		return nil, err
@@ -109,13 +109,13 @@ func callEndpoint(ctx context.Context, pool thriftpool.Pool) (*MyEndpointRespons
 	return client.MyEndpoint(ctx, &MyEndpointRequest{})
 }
 
-// This example demonstrates a typical use case of thriftpool in microservice
+// This example demonstrates a typical use case of clientpool in microservice
 // code.
 func Example() {
-	pool, err := thriftpool.NewChannelPool(
+	pool, err := clientpool.NewChannelPool(
 		minConnections,
 		maxConnections,
-		func() (thriftpool.Client, error) {
+		func() (clientpool.Client, error) {
 			return newClient(remoteAddr)
 		},
 	)

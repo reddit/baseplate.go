@@ -1,15 +1,16 @@
-package thriftpool
+package clientpool
 
 import (
 	"io"
 )
 
-// Client is a minimal interface for a thrift client needed by the pool.
+// Client is a minimal interface for a client needed by the pool.
 //
 // TTransport interface in thrift satisfies Client interface,
 // so embedding the TTransport used by the actual client is a common way to
-// implement the ClientOpener.
-// TTLClient also implements it, with an additional TTL to the transport.
+// implement the ClientOpener for thrift Clients.
+// thriftclient.TTLClient also implements it, with an additional TTL to
+// the transport.
 type Client interface {
 	io.Closer
 
@@ -19,7 +20,7 @@ type Client interface {
 // ClientOpener defines a generator for clients.
 type ClientOpener func() (Client, error)
 
-// Pool defines the thrift client pool interface.
+// Pool defines the client pool interface.
 type Pool interface {
 	io.Closer
 

@@ -1,4 +1,4 @@
-package thriftpool_test
+package clientpool_test
 
 import (
 	"sync"
@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/reddit/baseplate.go/thriftpool"
+	"github.com/reddit/baseplate.go/clientpool"
 )
 
 type testClient struct {
@@ -22,7 +22,7 @@ func (tc *testClient) Close() error {
 	return nil
 }
 
-func checkActiveAndAllocated(t *testing.T, pool thriftpool.Pool, expectedActive, expectedAllocated int) {
+func checkActiveAndAllocated(t *testing.T, pool clientpool.Pool, expectedActive, expectedAllocated int) {
 	t.Helper()
 
 	active := pool.NumActiveClients()
@@ -44,7 +44,7 @@ func checkActiveAndAllocated(t *testing.T, pool thriftpool.Pool, expectedActive,
 	}
 }
 
-func testPool(t *testing.T, pool thriftpool.Pool, openerCalled *int32, min, max int) {
+func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max int) {
 	t.Run(
 		"drain-the-pool",
 		func(t *testing.T) {

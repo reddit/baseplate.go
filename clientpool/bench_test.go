@@ -1,20 +1,20 @@
-package thriftpool_test
+package clientpool_test
 
 import (
 	"testing"
 
-	"github.com/reddit/baseplate.go/thriftpool"
+	"github.com/reddit/baseplate.go/clientpool"
 )
 
 func BenchmarkPoolGetRelease(b *testing.B) {
-	opener := func() (thriftpool.Client, error) {
+	opener := func() (clientpool.Client, error) {
 		return &testClient{}, nil
 	}
 
 	const min, max = 0, 100
-	channelPool, _ := thriftpool.NewChannelPool(min, max, opener)
+	channelPool, _ := clientpool.NewChannelPool(min, max, opener)
 
-	for label, pool := range map[string]thriftpool.Pool{
+	for label, pool := range map[string]clientpool.Pool{
 		"channel": channelPool,
 	} {
 		b.Run(
