@@ -3,9 +3,9 @@ package thriftclient
 import (
 	"time"
 
-	"github.com/reddit/baseplate.go/clientpool"
-
 	"github.com/apache/thrift/lib/go/thrift"
+
+	"github.com/reddit/baseplate.go/clientpool"
 )
 
 var _ clientpool.Client = (*TTLClient)(nil)
