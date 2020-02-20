@@ -14,6 +14,8 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
+const targetAllOverride = `{"OVERRIDE": true}`
+
 // Experiments offers access to the experiment framework with automatic refresh
 // when there are change.
 //
@@ -195,7 +197,7 @@ func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error
 
 	targetingConfig := experiment.Experiment.Targeting
 	if len(targetingConfig) == 0 {
-		targetingConfig = []byte(`{"OVERRIDE": true}`)
+		targetingConfig = []byte(targetAllOverride)
 	}
 	targeting, err := NewTargeting(targetingConfig)
 	if err != nil {
@@ -281,7 +283,7 @@ func (e *SimpleExperiment) UniqueID(bucketVals map[string]string) string {
 	if !ok {
 		return ""
 	}
-	return fmt.Sprintf("%s:%s:%s", e.name, e.bucketVal, bucketVal)
+	return strings.Join([]string{e.name, e.bucketVal, bucketVal}, ":")
 }
 
 // LogBucketing returns whether or not this experiment should log bucketing events.
