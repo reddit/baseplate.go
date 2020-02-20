@@ -20,7 +20,7 @@ type Client interface {
 // ClientOpener defines a generator for clients.
 type ClientOpener func() (Client, error)
 
-// Pool defines thrift client pool interface.
+// Pool defines the client pool interface.
 type Pool interface {
 	io.Closer
 
