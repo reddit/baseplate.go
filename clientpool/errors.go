@@ -1,4 +1,4 @@
-package thriftpool
+package clientpool
 
 import (
 	"errors"
@@ -19,7 +19,7 @@ var _ error = (*ConfigError)(nil)
 
 func (e *ConfigError) Error() string {
 	return fmt.Sprintf(
-		"thriftpool: minConnections (%d) > maxConnections (%d)",
+		"clientpool: minConnections (%d) > maxConnections (%d)",
 		e.MinConnections,
 		e.MaxConnections,
 	)

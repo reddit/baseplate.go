@@ -1,16 +1,16 @@
-package thriftpool_test
+package clientpool_test
 
 import (
 	"errors"
 	"sync/atomic"
 	"testing"
 
-	"github.com/reddit/baseplate.go/thriftpool"
+	"github.com/reddit/baseplate.go/clientpool"
 )
 
 func TestChannelPoolInvalidConfig(t *testing.T) {
 	const min, max = 5, 1
-	_, err := thriftpool.NewChannelPool(min, max, nil)
+	_, err := clientpool.NewChannelPool(min, max, nil)
 	if err == nil {
 		t.Errorf(
 			"NewChannelPool with min %d and max %d expected an error, got nil.",
@@ -21,8 +21,8 @@ func TestChannelPoolInvalidConfig(t *testing.T) {
 }
 
 func TestChannelPool(t *testing.T) {
-	opener := func(called *int32) thriftpool.ClientOpener {
-		return func() (thriftpool.Client, error) {
+	opener := func(called *int32) clientpool.ClientOpener {
+		return func() (clientpool.Client, error) {
 			if called != nil {
 				atomic.AddInt32(called, 1)
 			}
@@ -32,7 +32,7 @@ func TestChannelPool(t *testing.T) {
 
 	const min, max = 2, 5
 	var openerCalled int32
-	pool, err := thriftpool.NewChannelPool(min, max, opener(&openerCalled))
+	pool, err := clientpool.NewChannelPool(min, max, opener(&openerCalled))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,10 +43,10 @@ func TestChannelPool(t *testing.T) {
 
 func TestChannelPoolWithOpenerFailure(t *testing.T) {
 	// In this opener, every other call will fail
-	opener := func() thriftpool.ClientOpener {
+	opener := func() clientpool.ClientOpener {
 		var called int32
 		failure := errors.New("failed")
-		return func() (thriftpool.Client, error) {
+		return func() (clientpool.Client, error) {
 			if atomic.AddInt32(&called, 1)%2 == 0 {
 				return nil, failure
 			}
@@ -58,14 +58,14 @@ func TestChannelPoolWithOpenerFailure(t *testing.T) {
 	t.Run(
 		"new-with-min-2-should-fail-initialization",
 		func(t *testing.T) {
-			_, err := thriftpool.NewChannelPool(2, max, opener())
+			_, err := clientpool.NewChannelPool(2, max, opener())
 			if err == nil {
 				t.Error("NewChannelPool with min = 2 should fail but did not.")
 			}
 		},
 	)
 
-	pool, err := thriftpool.NewChannelPool(min, max, opener())
+	pool, err := clientpool.NewChannelPool(min, max, opener())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-package thriftpool
+package clientpool
 
 import (
 	"sync/atomic"
