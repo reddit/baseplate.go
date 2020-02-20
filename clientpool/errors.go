@@ -8,7 +8,7 @@ import (
 // ErrExhausted is the error returned by Get when the pool is exhausted.
 var ErrExhausted = errors.New("client pool exhausted")
 
-// ConfigError is the error type returned when trying to open a new thrift
+// ConfigError is the error type returned when trying to open a new
 // client pool, but the configuration values passed in won't work.
 type ConfigError struct {
 	MinClients int

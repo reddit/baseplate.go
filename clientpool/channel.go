@@ -15,7 +15,7 @@ type channelPool struct {
 // Make sure channelPool implements Pool interface.
 var _ Pool = (*channelPool)(nil)
 
-// NewChannelPool creates a new thrift client pool implemented via channel.
+// NewChannelPool creates a new client pool implemented via channel.
 func NewChannelPool(minClients, maxClients int, opener ClientOpener) (Pool, error) {
 	if minClients > maxClients {
 		return nil, &ConfigError{
@@ -41,7 +41,7 @@ func NewChannelPool(minClients, maxClients int, opener ClientOpener) (Pool, erro
 	}, nil
 }
 
-// Get returns a thrift client from the pool.
+// Get returns a client from the pool.
 func (cp *channelPool) Get() (client Client, err error) {
 	defer func() {
 		if err == nil {
