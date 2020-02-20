@@ -1,12 +1,14 @@
-package clientpool
+package thriftclient
 
 import (
 	"time"
 
+	"github.com/reddit/baseplate.go/clientpool"
+
 	"github.com/apache/thrift/lib/go/thrift"
 )
 
-var _ Client = (*TTLClient)(nil)
+var _ clientpool.Client = (*TTLClient)(nil)
 
 // TTLClient is a Client implementation wrapping thrift's TTransport with a TTL.
 //

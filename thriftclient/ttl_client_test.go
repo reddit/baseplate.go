@@ -1,10 +1,10 @@
-package clientpool_test
+package thriftclient_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/reddit/baseplate.go/clientpool"
+	"github.com/reddit/baseplate.go/thriftclient"
 
 	"github.com/apache/thrift/lib/go/thrift"
 )
@@ -13,7 +13,7 @@ func TestTTLClient(t *testing.T) {
 	trans := thrift.NewTMemoryBuffer()
 	ttl := time.Millisecond
 
-	client := clientpool.NewTTLClient(trans, ttl)
+	client := thriftclient.NewTTLClient(trans, ttl)
 	if !client.IsOpen() {
 		t.Error("Expected immediate IsOpen call to return true, got false.")
 	}

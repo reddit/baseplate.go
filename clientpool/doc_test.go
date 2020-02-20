@@ -54,7 +54,7 @@ type Client interface {
 type clientImpl struct {
 	MyService
 
-	*clientpool.TTLClient
+	*thriftclient.TTLClient
 }
 
 func newClient(addr string) (Client, error) {
@@ -72,7 +72,7 @@ func newClient(addr string) (Client, error) {
 	)
 	return &clientImpl{
 		MyService: client,
-		TTLClient: clientpool.NewTTLClient(trans, clientTTL),
+		TTLClient: thriftclient.NewTTLClient(trans, clientTTL),
 	}, nil
 }
 
