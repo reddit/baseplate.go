@@ -5,27 +5,27 @@ import (
 )
 
 type channelPool struct {
-	pool           chan Client
-	opener         ClientOpener
-	numActive      int32
-	minConnections int
-	maxConnections int
+	pool       chan Client
+	opener     ClientOpener
+	numActive  int32
+	minClients int
+	maxClients int
 }
 
 // Make sure channelPool implements Pool interface.
 var _ Pool = (*channelPool)(nil)
 
 // NewChannelPool creates a new thrift client pool implemented via channel.
-func NewChannelPool(minConnections, maxConnections int, opener ClientOpener) (Pool, error) {
-	if minConnections > maxConnections {
+func NewChannelPool(minClients, maxClients int, opener ClientOpener) (Pool, error) {
+	if minClients > maxClients {
 		return nil, &ConfigError{
-			MinConnections: minConnections,
-			MaxConnections: maxConnections,
+			MinClients: minClients,
+			MaxClients: maxClients,
 		}
 	}
 
-	pool := make(chan Client, maxConnections)
-	for i := 0; i < minConnections; i++ {
+	pool := make(chan Client, maxClients)
+	for i := 0; i < minClients; i++ {
 		c, err := opener()
 		if err != nil {
 			return nil, err
@@ -34,10 +34,10 @@ func NewChannelPool(minConnections, maxConnections int, opener ClientOpener) (Po
 	}
 
 	return &channelPool{
-		pool:           pool,
-		opener:         opener,
-		minConnections: minConnections,
-		maxConnections: maxConnections,
+		pool:       pool,
+		opener:     opener,
+		minClients: minClients,
+		maxClients: maxClients,
 	}, nil
 }
 
@@ -119,5 +119,5 @@ func (cp *channelPool) NumAllocated() int32 {
 
 // IsExhausted returns true when NumActiveClients >= max capacity.
 func (cp *channelPool) IsExhausted() bool {
-	return cp.NumActiveClients() >= int32(cp.maxConnections)
+	return cp.NumActiveClients() >= int32(cp.maxClients)
 }

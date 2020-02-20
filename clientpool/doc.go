@@ -1,4 +1,4 @@
-// Package clientpool provides implementations of thrift client pool.
+// Package clientpool provides implementations of a generic client pool.
 //
 // The channel implementation has roughly 300ns overhead on Get/Release pair
 // calls:
