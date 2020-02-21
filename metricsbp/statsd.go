@@ -75,6 +75,26 @@ type Statsd struct {
 	histogramSampleRate float64
 }
 
+// MetricsLabels allows you to specify labels as a convenient map and
+// provides helpers to convert them into other formats.
+type MetricsLabels map[string]string
+
+// AsStatsdLabels returns the labels in the format expected by the
+// statsd metrics client, that is a slice of strings.
+//
+// This method is nil-safe and will just return nil if the receiver is
+// nil.
+func (l MetricsLabels) AsStatsdLabels() []string {
+	if l == nil {
+		return nil
+	}
+	labels := make([]string, 0, len(l)*2)
+	for k, v := range l {
+		labels = append(labels, k, v)
+	}
+	return labels
+}
+
 // StatsdConfig is the configs used in NewStatsd.
 type StatsdConfig struct {
 	// Prefix is the common metrics path prefix shared by all metrics managed by
@@ -111,7 +131,7 @@ type StatsdConfig struct {
 	// Labels are the labels/tags to be attached to every metrics created
 	// from this Statsd object. For labels/tags only needed by some metrics,
 	// use Counter/Gauge/Timing.With() instead.
-	Labels map[string]string
+	Labels MetricsLabels
 }
 
 // counterSampleRate treats 0 (abs(rate) < epsilon) as 1, and <-epsilon as 0.
@@ -136,10 +156,7 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 	if prefix != "" && !strings.HasSuffix(prefix, ".") {
 		prefix = prefix + "."
 	}
-	labels := make([]string, 0, len(cfg.Labels)*2)
-	for k, v := range cfg.Labels {
-		labels = append(labels, k, v)
-	}
+	labels := cfg.Labels.AsStatsdLabels()
 	st := &Statsd{
 		Statsd:              influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), labels...),
 		ctx:                 ctx,
