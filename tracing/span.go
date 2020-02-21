@@ -52,41 +52,28 @@ const (
 	activeSpanKey
 )
 
-// CreateServerSpan creates a new server Span, calls any registered
-// CreateServerSpanHooks, and starts the Span.
-func CreateServerSpan(tracer *Tracer, name string) *Span {
-	span := newSpan(tracer, name, SpanTypeServer)
-	onCreateServerSpan(span)
-	span.onStart()
-	return span
-}
-
-// CreateServerSpanForContext creates a new server Span, calls any registered
-// CreateServerSpanHooks, and starts the Span as well as a Context with the span set as
-// the server Span.
-func CreateServerSpanForContext(ctx context.Context, tracer *Tracer, name string) (context.Context, *Span) {
-	span := CreateServerSpan(tracer, name)
-	// It's safe to ignore the error returned by span.SetServerSpan because it
-	// only returns an error if span.SpanType != SpanTypeServer which we know it
-	// does.
-	ctx, _ = span.SetServerSpan(ctx)
-	return ctx, span
-}
-
-// GetServerSpan gets the server Span from the given context.
-func GetServerSpan(ctx context.Context) *Span {
-	if span, ok := ctx.Value(serverSpanKey).(*Span); ok {
+// AsSpan converts an opentracing.Span back to *Span.
+//
+// This function never returns nil.
+// If the passed in opentracing.Span is actually not implemented by *Span,
+// a new *Span with empty name and local type will be created and returned.
+// When that happens it will also be logged if the last InitGlobalTracer call
+// was with a non-nil logger.
+//
+// This function is provided for convenience calling functions not in
+// opentracing Span API, for example:
+//
+//     span := opentracing.StartSpan(name, opts...)
+//     tracing.AsSpan(span).AddHooks(hooks...)
+func AsSpan(s opentracing.Span) *Span {
+	if span, ok := s.(*Span); ok && span != nil {
 		return span
 	}
-	return nil
-}
-
-// GetActiveSpan gets the currently active Span from the given context.
-func GetActiveSpan(ctx context.Context) *Span {
-	if span, ok := ctx.Value(activeSpanKey).(*Span); ok {
-		return span
-	}
-	return nil
+	globalTracer.getLogger()(fmt.Sprintf(
+		"Failed to cast opentracing.Span %#v back to *tracing.Span.",
+		s,
+	))
+	return newSpan(nil, "", SpanTypeLocal)
 }
 
 func newSpan(tracer *Tracer, name string, spanType SpanType) *Span {
@@ -136,12 +123,10 @@ func (s Span) SpanType() SpanType {
 
 // LogError is a helper method to log an error plus a message.
 //
-// This uses the the Logger provided by the underlying tracing.Tracer used to
+// This uses the the logger provided by the underlying tracing.Tracer used to
 // publish the Span.
 func (s Span) LogError(msg string, err error) {
-	if s.trace.tracer.Logger != nil {
-		s.trace.tracer.Logger(msg + err.Error())
-	}
+	s.trace.tracer.getLogger()(msg + err.Error())
 }
 
 // AddHooks adds hooks into the Span.
@@ -150,8 +135,8 @@ func (s Span) LogError(msg string, err error) {
 // will be discarded and an error will be logged.
 //
 // It is recommended that you only call AddHooks on a Span within an
-// OnCreate Hook so the Span is set up with all of it's Hooks as a part of
-// it's creation.
+// OnCreateChild/OnCreateServerSpan hook so the Span is set up with all of its
+// hooks as a part of its creation.
 func (s *Span) AddHooks(hooks ...interface{}) {
 	for _, hook := range hooks {
 		if IsSpanHook(hook) {
@@ -201,115 +186,34 @@ func (s *Span) AddCounter(key string, delta float64) {
 	}
 }
 
-// CreateClientChild creates a SpanTypeClient Span with given name that is a
-// child of the Span, starts it, and calls all OnCreateChildHooks registered to
-// the parent Span.
-//
-// A client child-span should be used to make requests to other upstream
-// servers.
-//
-// Timestamps, counters, and tags won't be inherited.
-// Parent id will be inherited from the span id,
-// and span id will be randomly generated.
-// Trace id, sampled, and flags will be copied over.
-func (s Span) CreateClientChild(name string) *Span {
-	child := newSpan(s.trace.tracer, name, SpanTypeClient)
-	s.initChildSpan(child)
-	return child
-}
-
-// CreateClientChildForContext creates a client Span with given name that is a
-// child of the Span, starts it, and calls all OnCreateChildHooks registered to
-// the parent Span as well as a Context that can be used by the client you
-// are creating the span for.
-//
-// A client child-span should be used to make requests to other upstream
-// servers.
-//
-// Timestamps, counters, and tags won't be inherited.
-// Parent id will be inherited from the span id,
-// and span id will be randomly generated.
-// Trace id, sampled, and flags will be copied over.
-func (s Span) CreateClientChildForContext(ctx context.Context, name string) (context.Context, *Span) {
-	child := s.CreateClientChild(name)
-	return context.WithValue(ctx, activeSpanKey, child), child
-}
-
-// ChildAndThriftContext creates both a client child span and a context can be
-// used by the thrift client code.
-//
-// A thrift client call would look like:
-//
-//     clientCtx, span := parentSpan.ChildAndThriftContext(ctx, "myCall")
-//     result, err := client.MyCall(clientCtx, arg1, arg2)
-//     span.Stop(ctx, err)
-func (s Span) ChildAndThriftContext(ctx context.Context, name string) (context.Context, *Span) {
-	ctx, child := s.CreateClientChildForContext(ctx, name)
-	ctx = CreateThriftContextFromSpan(ctx, child)
-	return ctx, child
-}
-
-// CreateLocalChild creates a SpanTypeLocal Span with given name and component
-// that is a child of the Span, starts it, and calls all OnCreateChildHooks
-// registered to the parent Span.
-//
-// component is an optional, local component name and may be empty string.
-//
-// Timestamps, counters, and tags won't be inherited.
-// Parent id will be inherited from the span id,
-// and span id will be randomly generated.
-// Trace id, sampled, and flags will be copied over.
-func (s Span) CreateLocalChild(name, component string) *Span {
-	child := newSpan(s.trace.tracer, name, SpanTypeLocal)
-	child.component = component
-	s.initChildSpan(child)
-	return child
-}
-
-// CreateLocalChildForContext creates a local Span with given name and component
-// that is a child of the Span, starts it, and calls all OnCreateChildHooks
-// registered to the parent Span as well as a Context that can be used by
-// the client you are creating the span for.
-//
-// component is an optional, local component name and may be empty string.
-//
-// Timestamps, counters, and tags won't be inherited.
-// Parent id will be inherited from the span id,
-// and span id will be randomly generated.
-// Trace id, sampled, and flags will be copied over.
-func (s Span) CreateLocalChildForContext(ctx context.Context, name, component string) (context.Context, *Span) {
-	child := s.CreateLocalChild(name, component)
-	return context.WithValue(ctx, activeSpanKey, child), child
-}
-
 func (s Span) initChildSpan(child *Span) {
 	child.trace.parentID = s.trace.spanID
 	child.trace.traceID = s.trace.traceID
 	child.trace.sampled = s.trace.sampled
 	child.trace.flags = s.trace.flags
-	for _, h := range s.hooks {
-		if hook, ok := h.(CreateChildSpanHook); ok {
-			if err := hook.OnCreateChild(&s, child); err != nil {
-				s.LogError("OnCreateChild hook error: ", err)
+
+	if child.spanType != SpanTypeServer {
+		// We treat server spans differently. They should only be child to a span
+		// from the client side, and have their own create hooks, so we don't call
+		// their hooks here. See also: Tracer.StartSpan.
+		for _, h := range s.hooks {
+			if hook, ok := h.(CreateChildSpanHook); ok {
+				if err := hook.OnCreateChild(&s, child); err != nil {
+					s.LogError("OnCreateChild hook error: ", err)
+				}
 			}
 		}
+		child.onStart()
 	}
-	child.onStart()
 }
 
-// SetServerSpan sets the Span as the ServerSpan on the given context
-func (s *Span) SetServerSpan(ctx context.Context) (context.Context, error) {
-	if s.SpanType() != SpanTypeServer {
-		return ctx, &InvalidSpanTypeError{
-			ExpectedSpanType: SpanTypeServer,
-			ActualSpanType:   s.SpanType(),
-		}
-	}
-	return context.WithValue(ctx, serverSpanKey, s), nil
-}
-
-// Stop stops the Span, calls all registered OnPreStop Hooks, serializes the Span,
+// Stop stops the Span, calls all registered OnPreStop Hooks,
+// serializes the Span,
 // and sends the serialized Span to a back-end that records the Span.
+//
+// In most cases FinishWithOptions should be used instead,
+// which calls Stop and auto logs the error returned by Stop.
+// Stop is still provided in case there's need to handle the error differently.
 func (s *Span) Stop(ctx context.Context, err error) error {
 	s.preStop(err)
 	for _, h := range s.hooks {
@@ -367,8 +271,11 @@ func (s *Span) BaggageItem(restrictedKey string) string {
 // Finish implements opentracing.Span.
 //
 // It calls Stop with background context and nil error.
+// If Stop returns an error, it will also be logged with the tracer's logger.
 func (s *Span) Finish() {
-	s.Stop(context.Background(), nil)
+	if err := s.Stop(context.Background(), nil); err != nil {
+		s.LogError("Span.Stop returned error: ", err)
+	}
 }
 
 // FinishWithOptions implements opentracing.Span.
@@ -378,6 +285,9 @@ func (s *Span) Finish() {
 // and ignore all other log fields.
 //
 // Please use FinishOptions.Convert() to prepare the opts arg.
+//
+// It calls Stop with context and error extracted from opts.
+// If Stop returns an error, it will also be logged with the tracer's logger.
 func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
 	var err error
 	ctx := context.Background()
@@ -395,7 +305,9 @@ func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
 			}
 		}
 	}
-	s.Stop(ctx, err)
+	if stopErr := s.Stop(ctx, err); stopErr != nil {
+		s.LogError("Span.Stop returned error: ", stopErr)
+	}
 }
 
 // Context implements opentracing.Span.

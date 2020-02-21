@@ -4,8 +4,7 @@ import (
 	"context"
 
 	"github.com/go-redis/redis/v7"
-
-	"github.com/reddit/baseplate.go/log"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/reddit/baseplate.go/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -26,10 +25,7 @@ func (s Service) Endpoint(ctx context.Context) error {
 
 // EndpointHandler is the actual handler function for
 // Service.Endpoint.
-func EndpointHandler(ctx context.Context, client redisbp.MonitoredCmdable) error {
-	if span := tracing.GetServerSpan(ctx); span != nil {
-		log.Debug("Span: %s", span.Name())
-	}
+func EndpointHandler(_ context.Context, client redisbp.MonitoredCmdable) error {
 	// Any calls using the injected Redis client will be monitored using Spans.
 	client.Ping()
 	return nil
@@ -37,8 +33,6 @@ func EndpointHandler(ctx context.Context, client redisbp.MonitoredCmdable) error
 
 // This example demonstrates how to use a MonitoredCmdableFactory.
 func ExampleMonitoredCmdableFactory() {
-	// variables should be properly initialized in production code
-	var tracer *tracing.Tracer
 	// Create a service with a factory using a basic redis.Client
 	svc := Service{
 		RedisFactory: redisbp.NewMonitoredClientFactory(
@@ -46,12 +40,15 @@ func ExampleMonitoredCmdableFactory() {
 			redis.NewClient(&redis.Options{Addr: ":6379"}),
 		),
 	}
-	// Get a context object and a server Span, with the server Span set on the
-	// context.
+	// Create a server span and attach it to a context object.
 	//
 	// In production, this will be handled by service middleware rather than
 	// being called manually.
-	ctx, _ := tracing.CreateServerSpanForContext(context.Background(), tracer, "test")
+	_, ctx := opentracing.StartSpanFromContext(
+		context.Background(),
+		"test",
+		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
+	)
 	// Calls to this endpoint will use the factory to create a new client and
 	// inject it into the actual implementation
 	//
@@ -70,7 +67,11 @@ func ExampleMonitoredCmdableFactory() {
 			}),
 		),
 	}
-	ctx, _ = tracing.CreateServerSpanForContext(context.Background(), tracer, "test")
+	_, ctx = opentracing.StartSpanFromContext(
+		context.Background(),
+		"test",
+		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
+	)
 	svc.Endpoint(ctx)
 
 	// Create service with a factory using a redis.ClusterClient to connect to
@@ -83,7 +84,11 @@ func ExampleMonitoredCmdableFactory() {
 			}),
 		),
 	}
-	ctx, _ = tracing.CreateServerSpanForContext(context.Background(), tracer, "test")
+	_, ctx = opentracing.StartSpanFromContext(
+		context.Background(),
+		"test",
+		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
+	)
 	svc.Endpoint(ctx)
 
 	// Create service with a factory using a redis.Ring client.
@@ -99,6 +104,10 @@ func ExampleMonitoredCmdableFactory() {
 			}),
 		),
 	}
-	ctx, _ = tracing.CreateServerSpanForContext(context.Background(), tracer, "test")
+	_, ctx = opentracing.StartSpanFromContext(
+		context.Background(),
+		"test",
+		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
+	)
 	svc.Endpoint(ctx)
 }

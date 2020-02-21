@@ -6,10 +6,13 @@ import (
 	"testing"
 	"time"
 
+	opentracing "github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
-	"github.com/reddit/baseplate.go/runtimebp"
 )
+
+const testTimeout = time.Millisecond * 100
 
 func TestTracer(t *testing.T) {
 	loggerFunc := func(t *testing.T) (logger log.Wrapper, called *bool) {
@@ -21,29 +24,28 @@ func TestTracer(t *testing.T) {
 		return
 	}
 
-	ip, err := runtimebp.GetFirstIPv4()
-	if err != nil {
-		t.Logf("Unable to get local ip address: %v", err)
-	}
-	tracer := Tracer{
-		SampleRate: 1,
-		Endpoint: ZipkinEndpointInfo{
-			ServiceName: "test-service",
-			IPv4:        ip,
-		},
-	}
-
-	tracer.Recorder = mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
-		MaxQueueSize:   1,
-		MaxMessageSize: 1,
-	})
-
 	t.Run(
 		"too-large",
 		func(t *testing.T) {
+			recorder := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
+				MaxQueueSize:   1,
+				MaxMessageSize: 1,
+			})
 			logger, called := loggerFunc(t)
-			tracer.Logger = logger
-			span := tracer.NewTrace("span")
+			defer func() {
+				CloseTracer()
+				InitGlobalTracer(TracerConfig{})
+			}()
+			InitGlobalTracer(TracerConfig{
+				SampleRate:               1,
+				Logger:                   logger,
+				TestOnlyMockMessageQueue: recorder,
+			})
+			// The above InitGlobalTracer might call the logger once for unable to get
+			// ip, so clear the called state.
+			*called = false
+
+			span := AsSpan(opentracing.StartSpan("span"))
 			err := span.Stop(context.Background(), nil)
 			var e mqsend.MessageTooLargeError
 			if !errors.As(err, &e) {
@@ -55,17 +57,28 @@ func TestTracer(t *testing.T) {
 		},
 	)
 
-	tracer.Recorder = mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
+	recorder := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
 		MaxQueueSize:   1,
 		MaxMessageSize: MaxSpanSize,
 	})
+	logger, called := loggerFunc(t)
+	defer func() {
+		CloseTracer()
+		InitGlobalTracer(TracerConfig{})
+	}()
+	InitGlobalTracer(TracerConfig{
+		SampleRate:               1,
+		Logger:                   logger,
+		TestOnlyMockMessageQueue: recorder,
+	})
+	// The above InitGlobalTracer might call the logger once for unable to get ip,
+	// so clear the called state.
+	*called = false
 
 	t.Run(
 		"first-message",
 		func(t *testing.T) {
-			logger, called := loggerFunc(t)
-			tracer.Logger = logger
-			span := tracer.NewTrace("span")
+			span := AsSpan(opentracing.StartSpan("span"))
 			err := span.Stop(context.Background(), nil)
 			if err != nil {
 				t.Errorf("End returned error: %v", err)
@@ -73,15 +86,16 @@ func TestTracer(t *testing.T) {
 			if *called {
 				t.Errorf("Logger shouldn't be called with first span.")
 			}
+
+			// Clear called for the next subtest.
+			*called = false
 		},
 	)
 
 	t.Run(
 		"second-message",
 		func(t *testing.T) {
-			logger, called := loggerFunc(t)
-			tracer.Logger = logger
-			span := tracer.NewTrace("span")
+			span := AsSpan(opentracing.StartSpan("span"))
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			start := span.trace.start
@@ -94,23 +108,24 @@ func TestTracer(t *testing.T) {
 					duration,
 				)
 			}
-			var e mqsend.TimedOutError
-			if !errors.As(err, &e) {
+			if !errors.As(err, new(mqsend.TimedOutError)) {
 				t.Errorf("Expected TimedOutError, got %v", err)
 			}
 			if !*called {
 				t.Errorf("Expected logger called with time out message, did not happen.")
 			}
+
+			// Clear called for the next subtest.
+			*called = false
 		},
 	)
 
 	t.Run(
 		"show-message",
 		func(t *testing.T) {
-			mmq := tracer.Recorder.(*mqsend.MockMessageQueue)
-			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 			defer cancel()
-			msg, err := mmq.Receive(ctx)
+			msg, err := recorder.Receive(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}

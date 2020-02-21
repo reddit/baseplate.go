@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/reddit/baseplate.go/httpbp"
-	"github.com/reddit/baseplate.go/log"
 )
 
 func TestStartSpanFromHTTPContext(t *testing.T) {
@@ -19,15 +18,21 @@ func TestStartSpanFromHTTPContext(t *testing.T) {
 		spanStr = "54321"
 	)
 
-	tracer := Tracer{
-		Logger: log.TestWrapper(t),
-	}
+	defer func() {
+		CloseTracer()
+		InitGlobalTracer(TracerConfig{})
+	}()
+	logger, startFailing := TestWrapper(t)
+	InitGlobalTracer(TracerConfig{
+		Logger: logger,
+	})
+	startFailing()
 
 	ctx := context.Background()
 	ctx = httpbp.SetHeader(ctx, httpbp.TraceIDContextKey, traceStr)
 	ctx = httpbp.SetHeader(ctx, httpbp.SpanIDContextKey, spanStr)
 
-	ctx, span := StartSpanFromHTTPContextWithTracer(ctx, name, &tracer)
+	ctx, span := StartSpanFromHTTPContext(ctx, name)
 	zs := span.trace.toZipkinSpan()
 
 	if zs.TraceID != traceInt {

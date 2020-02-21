@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	opentracing "github.com/opentracing/opentracing-go"
 
-	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -33,20 +33,19 @@ func NewMonitoredClientFromFactory(transport thrift.TTransport, factory thrift.T
 
 // Call wraps the underlying thrift.TClient.Call method with a client span.
 func (c MonitoredClient) Call(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
-	var span *tracing.Span
-	if span = tracing.GetActiveSpan(ctx); span == nil {
-		span = tracing.GetServerSpan(ctx)
-	}
-	var child *tracing.Span
-	if span != nil {
-		ctx, child = span.ChildAndThriftContext(ctx, method)
-	}
+	var s opentracing.Span
+	s, ctx = opentracing.StartSpanFromContext(
+		ctx,
+		method,
+		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
+	)
+	span := tracing.AsSpan(s)
+	ctx = tracing.CreateThriftContextFromSpan(ctx, span)
 	defer func() {
-		if child != nil {
-			if stopErr := child.Stop(ctx, err); stopErr != nil {
-				log.Error("Error trying to stop span: " + stopErr.Error())
-			}
-		}
+		span.FinishWithOptions(tracing.FinishOptions{
+			Ctx: ctx,
+			Err: err,
+		}.Convert())
 	}()
 	return c.Client.Call(ctx, method, args, result)
 }

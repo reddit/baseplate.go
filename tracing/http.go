@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
+	opentracing "github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/thriftbp"
 )
@@ -17,58 +19,52 @@ import (
 // Please note that "Sampled" header is default to false according to baseplate
 // spec, so if the context object doesn't have headers injected correctly,
 // this span (and all its child-spans) will never be sampled,
-// unless debug flag was set later.
+// unless debug flag was set explicitly later.
 //
 // Caller should pass in the context object they got from go-kit http library
 // with httpbp.PopulateRequestContext as a ServerBefore hook, this way the
 // context object would have all the required headers already injected.
 //
 // If any headers are missing or malformed, they will be ignored.
-// Malformed headers will be logged if the tracer's logger is non-nil.
+// Malformed headers will be logged if InitGlobalTracer was last called with a
+// non-nil logger.
 func StartSpanFromHTTPContext(ctx context.Context, name string) (context.Context, *Span) {
-	return StartSpanFromHTTPContextWithTracer(ctx, name, nil)
-}
-
-// StartSpanFromHTTPContextWithTracer is the same as
-// StartSpanFromHTTPContext, except that it uses the passed in tracer instead
-// of GlobalTracer.
-func StartSpanFromHTTPContextWithTracer(ctx context.Context, name string, tracer *Tracer) (context.Context, *Span) {
-	ctx, span := CreateServerSpanForContext(ctx, tracer, name)
+	logger := globalTracer.getLogger()
+	span := newSpan(nil, name, SpanTypeServer)
+	defer func() {
+		onCreateServerSpan(span)
+		span.onStart()
+	}()
+	ctx = opentracing.ContextWithSpan(ctx, span)
 	if str, ok := httpbp.GetHeader(ctx, httpbp.TraceIDContextKey); ok {
 		if id, err := strconv.ParseUint(str, 10, 64); err != nil {
-			if tracer.Logger != nil {
-				tracer.Logger(fmt.Sprintf(
-					"Malformed trace id in http ctx: %q, %v",
-					str,
-					err,
-				))
-			}
+			logger(fmt.Sprintf(
+				"Malformed trace id in http ctx: %q, %v",
+				str,
+				err,
+			))
 		} else {
 			span.trace.traceID = id
 		}
 	}
 	if str, ok := httpbp.GetHeader(ctx, httpbp.SpanIDContextKey); ok {
 		if id, err := strconv.ParseUint(str, 10, 64); err != nil {
-			if tracer.Logger != nil {
-				tracer.Logger(fmt.Sprintf(
-					"Malformed parent id in http ctx: %q, %v",
-					str,
-					err,
-				))
-			}
+			logger(fmt.Sprintf(
+				"Malformed parent id in http ctx: %q, %v",
+				str,
+				err,
+			))
 		} else {
 			span.trace.parentID = id
 		}
 	}
 	if str, ok := httpbp.GetHeader(ctx, httpbp.SpanFlagsContextKey); ok {
 		if flags, err := strconv.ParseInt(str, 10, 64); err != nil {
-			if tracer.Logger != nil {
-				tracer.Logger(fmt.Sprintf(
-					"Malformed flags in http ctx: %q, %v",
-					str,
-					err,
-				))
-			}
+			logger(fmt.Sprintf(
+				"Malformed flags in http ctx: %q, %v",
+				str,
+				err,
+			))
 		} else {
 			span.trace.flags = flags
 		}
