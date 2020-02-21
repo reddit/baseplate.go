@@ -42,7 +42,7 @@ type ClientPoolConfig struct {
 
 	// Any labels that should be applied to metrics logged by the ClientPool.
 	// This includes the optional pool stats.
-	MetricsLabels []string
+	MetricsLabels map[string]string
 
 	// ReportPoolStats signals to the ClientPool that it should report
 	// statistics on the underlying clientpool.Pool in a background
@@ -59,6 +59,16 @@ type ClientPoolConfig struct {
 	// PoolGaugeInterval indicates how often we should update the active
 	// connections gauge when collecting pool stats.
 	PoolGaugeInterval time.Duration
+}
+
+// GetMetricLabels returns c.MetricsLabels as a slice of strings, appropriate
+// for passing to a metrics client.
+func (c ClientPoolConfig) GetMetricLabels() []string {
+	labels := make([]string, len(c.MetricsLabels)*2)
+	for k, v := range c.MetricsLabels {
+		labels = append(labels, k, v)
+	}
+	return labels
 }
 
 // Client is a client object that implements both the clientpool.Client and
@@ -177,6 +187,7 @@ func NewCustomClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, clientF
 }
 
 func newClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, clientFact ClientFactory, protoFact thrift.TProtocolFactory) (*clientPool, error) {
+	labels := cfg.GetMetricLabels()
 	pool, err := clientpool.NewChannelPool(
 		cfg.InitialConnections,
 		cfg.MaxConnections,
@@ -193,17 +204,17 @@ func newClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, clientFact Cl
 			cfg.ServiceSlug,
 			pool,
 			cfg.PoolGaugeInterval,
-			cfg.MetricsLabels,
+			labels,
 		)
 	}
 	return &clientPool{
 		pool: pool,
 		poolExhaustedCounter: metricsbp.M.Counter(
 			cfg.ServiceSlug + ".pool-exhausted",
-		).With(cfg.MetricsLabels...),
+		).With(labels...),
 		releaseErrorCounter: metricsbp.M.Counter(
 			cfg.ServiceSlug + ".pool-release-error",
-		).With(cfg.MetricsLabels...),
+		).With(labels...),
 	}, nil
 }
 
