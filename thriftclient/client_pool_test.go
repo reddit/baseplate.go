@@ -18,7 +18,10 @@ func TestSingleAddressGenerator(t *testing.T) {
 	t.Parallel()
 
 	gen := thriftclient.SingleAddressGenerator(addr)
-	generated := gen()
+	generated, err := gen()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if generated != addr {
 		t.Fatalf("wrong address, expected %q, got %q", addr, generated)
 	}
@@ -53,11 +56,11 @@ func TestTTLClientPool(t *testing.T) {
 
 	pool, err := thriftclient.NewTTLClientPool(
 		time.Minute, thriftclient.ClientPoolConfig{
-			Addr:           ln.Addr().String(),
-			ServiceSlug:    "test",
-			MinConnections: 1,
-			MaxConnections: 5,
-			SocketTimeout:  time.Millisecond * 10,
+			Addr:               ln.Addr().String(),
+			ServiceSlug:        "test",
+			InitialConnections: 1,
+			MaxConnections:     5,
+			SocketTimeout:      time.Millisecond * 10,
 		},
 	)
 	if err != nil {
@@ -77,10 +80,10 @@ func TestCustomClientPool(t *testing.T) {
 	defer ln.Close()
 
 	cfg := thriftclient.ClientPoolConfig{
-		ServiceSlug:    "test",
-		MinConnections: 1,
-		MaxConnections: 5,
-		SocketTimeout:  time.Millisecond * 10,
+		ServiceSlug:        "test",
+		InitialConnections: 1,
+		MaxConnections:     5,
+		SocketTimeout:      time.Millisecond * 10,
 	}
 	_, _, client := initClients()
 	fact := func(trans thrift.TTransport, _ thrift.TProtocolFactory) thriftclient.Client {

@@ -76,13 +76,13 @@ func callEndpoint(ctx context.Context, pool thriftclient.ClientPool) (*MyEndpoin
 // code.
 func Example() {
 	pool, err := thriftclient.NewTTLClientPool(clientTTL, thriftclient.ClientPoolConfig{
-		ServiceSlug:       "my-service",
-		Addr:              remoteAddr,
-		MinConnections:    minConnections,
-		MaxConnections:    maxConnections,
-		SocketTimeout:     socketTimeout,
-		ReportPoolStats:   true,
-		PoolGaugeInterval: poolGaugeInterval,
+		ServiceSlug:        "my-service",
+		Addr:               remoteAddr,
+		InitialConnections: minConnections,
+		MaxConnections:     maxConnections,
+		SocketTimeout:      socketTimeout,
+		ReportPoolStats:    true,
+		PoolGaugeInterval:  poolGaugeInterval,
 	})
 	if err != nil {
 		panic(err)

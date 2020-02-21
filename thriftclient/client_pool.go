@@ -29,9 +29,9 @@ type ClientPoolConfig struct {
 	// ${host}:${port}
 	Addr string
 
-	// MinConnections is the minimum number of thrift connections the client
-	// pool should maintain.
-	MinConnections int
+	// InitialConnections is inital number of thrift connections created by the
+	// client pool.
+	InitialConnections int
 
 	// MinConnections is the maximum number of thrift connections the client
 	// pool can maintain.
@@ -39,6 +39,10 @@ type ClientPoolConfig struct {
 
 	// SocketTimeout is the timeout on the underling thrift.TSocket.
 	SocketTimeout time.Duration
+
+	// Any labels that should be applied to metrics logged by the ClientPool.
+	// This includes the optional pool stats.
+	MetricsLabels []string
 
 	// ReportPoolStats signals to the ClientPool that it should report
 	// statistics on the underlying clientpool.Pool in a background
@@ -80,7 +84,7 @@ type ClientPool interface {
 
 // AddressGenerator defines a function that returns the address of a thrift
 // service.
-type AddressGenerator func() string
+type AddressGenerator func() (string, error)
 
 // ClientFactory defines a function that builds a Client object using a
 // the thrift primitives required to create a thrift.TClient.
@@ -88,8 +92,8 @@ type ClientFactory func(thrift.TTransport, thrift.TProtocolFactory) Client
 
 // SingleAddressGenerator returns an AddressGenerator that always returns addr.
 func SingleAddressGenerator(addr string) AddressGenerator {
-	return func() string {
-		return addr
+	return func() (string, error) {
+		return addr, nil
 	}
 }
 
@@ -115,7 +119,11 @@ func UnmonitoredTTLClientFactory(ttl time.Duration) ClientFactory {
 }
 
 func newClient(socketTimeout time.Duration, genAddr AddressGenerator, clientFact ClientFactory, protoFact thrift.TProtocolFactory) (Client, error) {
-	trans, err := thrift.NewTSocketTimeout(genAddr(), socketTimeout)
+	addr, err := genAddr()
+	if err != nil {
+		return nil, err
+	}
+	trans, err := thrift.NewTSocketTimeout(addr, socketTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +134,8 @@ func newClient(socketTimeout time.Duration, genAddr AddressGenerator, clientFact
 	return clientFact(trans, protoFact), nil
 }
 
-func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration) {
-	gauge := metricsbp.M.Gauge(prefix + ".pool-active-connections")
+func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration, labels []string) {
+	gauge := metricsbp.M.Gauge(prefix + ".pool-active-connections").With(labels...)
 	ticker := time.NewTicker(tickerDuration)
 	defer ticker.Stop()
 	for {
@@ -158,16 +166,19 @@ func NewTTLClientPool(ttl time.Duration, cfg ClientPoolConfig) (ClientPool, erro
 // to support services that have non-standard and/or legacy needs.
 func NewCustomClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, clientFact ClientFactory, protoFact thrift.TProtocolFactory) (ClientPool, error) {
 	if cfg.Addr != "" {
-		log.Warnf(
-			"NewCustomClientPool received a non-empty cfg.Addr %q. "+
-				"This will be ignored in favor of what is returned by genAddr", cfg.Addr)
+		log.Warnw(
+			"NewCustomClientPool received a non-empty cfg.Addr, "+
+				"this will be ignored in favor of what is returned by genAddr",
+			"addr",
+			cfg.Addr,
+		)
 	}
 	return newClientPool(cfg, genAddr, clientFact, protoFact)
 }
 
 func newClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, clientFact ClientFactory, protoFact thrift.TProtocolFactory) (*clientPool, error) {
 	pool, err := clientpool.NewChannelPool(
-		cfg.MinConnections,
+		cfg.InitialConnections,
 		cfg.MaxConnections,
 		func() (clientpool.Client, error) {
 			return newClient(cfg.SocketTimeout, genAddr, clientFact, protoFact)
@@ -177,12 +188,22 @@ func newClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, clientFact Cl
 		return nil, err
 	}
 	if cfg.ReportPoolStats {
-		go reportPoolStats(metricsbp.M.Ctx(), cfg.ServiceSlug, pool, cfg.PoolGaugeInterval)
+		go reportPoolStats(
+			metricsbp.M.Ctx(),
+			cfg.ServiceSlug,
+			pool,
+			cfg.PoolGaugeInterval,
+			cfg.MetricsLabels,
+		)
 	}
 	return &clientPool{
-		pool:                 pool,
-		poolExhaustedCounter: metricsbp.M.Counter(cfg.ServiceSlug + ".pool-exhausted"),
-		releaseErrorCounter:  metricsbp.M.Counter(cfg.ServiceSlug + ".pool-release-error"),
+		pool: pool,
+		poolExhaustedCounter: metricsbp.M.Counter(
+			cfg.ServiceSlug + ".pool-exhausted",
+		).With(cfg.MetricsLabels...),
+		releaseErrorCounter: metricsbp.M.Counter(
+			cfg.ServiceSlug + ".pool-release-error",
+		).With(cfg.MetricsLabels...),
 	}, nil
 }
 
