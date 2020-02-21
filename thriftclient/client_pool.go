@@ -42,7 +42,7 @@ type ClientPoolConfig struct {
 
 	// Any labels that should be applied to metrics logged by the ClientPool.
 	// This includes the optional pool stats.
-	MetricsLabels map[string]string
+	MetricsLabels metricsbp.MetricsLabels
 
 	// ReportPoolStats signals to the ClientPool that it should report
 	// statistics on the underlying clientpool.Pool in a background
@@ -59,16 +59,6 @@ type ClientPoolConfig struct {
 	// PoolGaugeInterval indicates how often we should update the active
 	// connections gauge when collecting pool stats.
 	PoolGaugeInterval time.Duration
-}
-
-// getMetricLabels returns c.MetricsLabels as a slice of strings, appropriate
-// for passing to a metrics client.
-func (c ClientPoolConfig) getMetricLabels() []string {
-	labels := make([]string, len(c.MetricsLabels)*2)
-	for k, v := range c.MetricsLabels {
-		labels = append(labels, k, v)
-	}
-	return labels
 }
 
 // Client is a client object that implements both the clientpool.Client and
@@ -187,7 +177,7 @@ func NewCustomClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, clientF
 }
 
 func newClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, clientFact ClientFactory, protoFact thrift.TProtocolFactory) (*clientPool, error) {
-	labels := cfg.getMetricLabels()
+	labels := cfg.MetricsLabels.AsStatsdLabels()
 	pool, err := clientpool.NewChannelPool(
 		cfg.InitialConnections,
 		cfg.MaxConnections,
