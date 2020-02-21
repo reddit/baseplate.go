@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	opentracing "github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/mqsend"
-	"github.com/reddit/baseplate.go/runtimebp"
 	"github.com/reddit/baseplate.go/thriftclient"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -25,67 +26,55 @@ func initClients() (*thriftclient.MockClient, *thriftclient.RecordedClient, *thr
 	return mock, recorder, client
 }
 
-func initServerSpan(ctx context.Context) (context.Context, *tracing.Tracer) {
-	ip, _ := runtimebp.GetFirstIPv4()
-	tracer := &tracing.Tracer{
-		SampleRate: 1.0,
-		Endpoint: tracing.ZipkinEndpointInfo{
-			ServiceName: "test-service",
-			IPv4:        ip,
-		},
-	}
-	tracer.Recorder = mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
+func initServerSpan(ctx context.Context, t *testing.T) (context.Context, *mqsend.MockMessageQueue) {
+	t.Helper()
+
+	recorder := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
 		MaxQueueSize:   100,
 		MaxMessageSize: 1024,
 	})
+	tracing.InitGlobalTracer(tracing.TracerConfig{
+		SampleRate:               1.0,
+		TestOnlyMockMessageQueue: recorder,
+	})
 
-	ctx, span := tracing.CreateServerSpanForContext(ctx, tracer, "test-service")
-	span.SetDebug(true)
-	return ctx, tracer
+	span, ctx := opentracing.StartSpanFromContext(
+		ctx,
+		"test-service",
+		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
+	)
+	tracing.AsSpan(span).SetDebug(true)
+	return ctx, recorder
 }
 
-func initLocalSpan(ctx context.Context) (context.Context, *tracing.Tracer) {
-	ctx, tracer := initServerSpan(ctx)
-	span := tracing.GetServerSpan(ctx)
+func initLocalSpan(ctx context.Context, t *testing.T) (context.Context, *mqsend.MockMessageQueue) {
+	t.Helper()
+
+	ctx, recorder := initServerSpan(ctx, t)
+	span := opentracing.SpanFromContext(ctx)
 	if span == nil {
-		panic("server span was nill")
+		t.Fatal("server span was nill")
 	}
-	ctx, _ = span.CreateLocalChildForContext(ctx, "local-test", "")
-	return ctx, tracer
+	_, ctx = opentracing.StartSpanFromContext(
+		ctx,
+		"local-test",
+		tracing.LocalComponentOption{Name: ""},
+	)
+	return ctx, recorder
 }
 
-func drainTracer(t *tracing.Tracer) ([]byte, error) {
-	mmq := t.Recorder.(*mqsend.MockMessageQueue)
+func drainRecorder(recorder *mqsend.MockMessageQueue) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 	defer cancel()
-	return mmq.Receive(ctx)
-}
-
-func TestMonitoredClientNilSpan(t *testing.T) {
-	t.Parallel()
-
-	_, recorder, client := initClients()
-	if err := client.Call(context.Background(), method, nil, nil); err != nil {
-		t.Fatal(err)
-	}
-	call := recorder.Calls()[0]
-	span := tracing.GetActiveSpan(call.Ctx)
-	if span != nil {
-		t.Errorf("expected nil span, got %#v", span)
-	}
-	if call.Method != method {
-		t.Errorf("method mismatch, expected %q, got %q", method, call.Method)
-	}
+	return recorder.Receive(ctx)
 }
 
 func TestMonitoredClient(t *testing.T) {
-	t.Parallel()
-
 	cases := []struct {
 		name          string
 		call          thriftclient.MockCall
 		errorExpected bool
-		initSpan      func(context.Context) (context.Context, *tracing.Tracer)
+		initSpan      func(context.Context, *testing.T) (context.Context, *mqsend.MockMessageQueue)
 	}{
 		{
 			name: "server span: success",
@@ -120,27 +109,30 @@ func TestMonitoredClient(t *testing.T) {
 			initSpan:      initLocalSpan,
 		},
 	}
-	for _, _c := range cases {
-		c := _c
+	for _, c := range cases {
 		t.Run(
 			c.name,
 			func(t *testing.T) {
-				t.Parallel()
+				defer func() {
+					tracing.CloseTracer()
+					tracing.InitGlobalTracer(tracing.TracerConfig{})
+				}()
 
 				mock, recorder, client := initClients()
 				mock.AddMockCall(method, c.call)
 
-				ctx, tracer := c.initSpan(context.Background())
+				ctx, mmq := c.initSpan(context.Background(), t)
 				if err := client.Call(ctx, method, nil, nil); !c.errorExpected && err != nil {
 					t.Fatal(err)
 				} else if c.errorExpected && err == nil {
 					t.Fatal("expected an error, got nil")
 				}
 				call := recorder.Calls()[0]
-				span := tracing.GetActiveSpan(call.Ctx)
-				if span == nil {
+				s := opentracing.SpanFromContext(call.Ctx)
+				if s == nil {
 					t.Fatal("span was nil")
 				}
+				span := tracing.AsSpan(s)
 				if span.Name() != method {
 					t.Errorf("span name mismatch, expected %q, got %q", method, span.Name())
 				}
@@ -151,7 +143,7 @@ func TestMonitoredClient(t *testing.T) {
 					t.Errorf("method mismatch, expected %q, got %q", method, call.Method)
 				}
 
-				msg, err := drainTracer(tracer)
+				msg, err := drainRecorder(mmq)
 				if err != nil {
 					t.Fatal(err)
 				}

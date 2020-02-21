@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/apache/thrift/lib/go/thrift"
+	opentracing "github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/set"
 	"github.com/reddit/baseplate.go/thriftbp"
-
-	"github.com/apache/thrift/lib/go/thrift"
 )
 
 // StartSpanFromThriftContext creates a server span from thrift context object.
@@ -22,25 +23,25 @@ import (
 // Please note that "Sampled" header is default to false according to baseplate
 // spec, so if the context object doesn't have headers injected correctly,
 // this span (and all its child-spans) will never be sampled,
-// unless debug flag was set later.
+// unless debug flag was set explicitly later.
 //
 // If any of the tracing related thrift header is present but malformed,
 // it will be ignored.
-// The error will also logged if the global tracer's logger is non-nil.
+// The error will also be logged if InitGlobalTracer was last called with a
+// non-nil logger.
 // Absent tracing related headers are always silently ignored.
 func StartSpanFromThriftContext(ctx context.Context, name string) (context.Context, *Span) {
-	return StartSpanFromThriftContextWithTracer(ctx, name, nil)
-}
-
-// StartSpanFromThriftContextWithTracer is the same as
-// StartSpanFromThriftContext, except that it uses the passed in tracer instead
-// of GlobalTracer.
-func StartSpanFromThriftContextWithTracer(ctx context.Context, name string, tracer *Tracer) (context.Context, *Span) {
-	ctx, span := CreateServerSpanForContext(ctx, tracer, name)
+	logger := globalTracer.getLogger()
+	span := newSpan(nil, name, SpanTypeServer)
+	defer func() {
+		onCreateServerSpan(span)
+		span.onStart()
+	}()
+	ctx = opentracing.ContextWithSpan(ctx, span)
 	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingTrace); ok {
 		if id, err := strconv.ParseUint(str, 10, 64); err != nil {
-			if tracer.Logger != nil {
-				tracer.Logger(fmt.Sprintf(
+			if logger != nil {
+				logger(fmt.Sprintf(
 					"Malformed trace id in thrift ctx: %q, %v",
 					str,
 					err,
@@ -52,8 +53,8 @@ func StartSpanFromThriftContextWithTracer(ctx context.Context, name string, trac
 	}
 	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingSpan); ok {
 		if id, err := strconv.ParseUint(str, 10, 64); err != nil {
-			if tracer.Logger != nil {
-				tracer.Logger(fmt.Sprintf(
+			if logger != nil {
+				logger(fmt.Sprintf(
 					"Malformed span id in thrift ctx: %q, %v",
 					str,
 					err,
@@ -65,8 +66,8 @@ func StartSpanFromThriftContextWithTracer(ctx context.Context, name string, trac
 	}
 	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingFlags); ok {
 		if flags, err := strconv.ParseInt(str, 10, 64); err != nil {
-			if tracer.Logger != nil {
-				tracer.Logger(fmt.Sprintf(
+			if logger != nil {
+				logger(fmt.Sprintf(
 					"Malformed flags in thrift ctx: %q, %v",
 					str,
 					err,
@@ -91,12 +92,17 @@ func StartSpanFromThriftContextWithTracer(ctx context.Context, name string, trac
 // then use the returned context object in the thrift call.
 // Something like:
 //
-//     span := parentSpan.CreateClientChild("myCall")
-//     clientCtx := tracing.CreateThriftContextFromSpan(ctx, span)
+//     span, clientCtx := opentracing.StartSpanFromContext(
+//       ctx,
+//       "myCall",
+//       tracing.SpanTypeOption{Type: SpanTypeClient},
+//     )
 //     result, err := client.MyCall(clientCtx, arg1, arg2)
-//     span.End(ctx, err)
-//
-// See Span.ChildAndThriftContext for a shortcut.
+//     // Or: span.Stop(ctx, err)
+//     span.FinishWithOptions(tracing.FinishOptions{
+//       Ctx: ctx,
+//       Err: err,
+//     }.Convert())
 func CreateThriftContextFromSpan(ctx context.Context, span *Span) context.Context {
 	headers := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
 

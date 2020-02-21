@@ -6,12 +6,13 @@ import (
 	"testing"
 	"testing/quick"
 
+	opentracing "github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/randbp"
-	"github.com/reddit/baseplate.go/runtimebp"
 )
 
 func TestDebugFlag(t *testing.T) {
-	span := CreateServerSpan(nil, "test")
+	span := AsSpan(opentracing.StartSpan("test"))
 
 	t.Run(
 		"set",
@@ -104,7 +105,7 @@ func TestDebugFlag(t *testing.T) {
 
 func TestDebugFlagQuick(t *testing.T) {
 	f := func(flags int64) bool {
-		span := CreateServerSpan(nil, "test")
+		span := AsSpan(opentracing.StartSpan("test"))
 
 		span.trace.flags = flags
 
@@ -179,123 +180,82 @@ var (
 )
 
 func TestChildSpan(t *testing.T) {
-	ip, err := runtimebp.GetFirstIPv4()
-	if err != nil {
-		t.Logf("Unable to get local ip address: %v", err)
-	}
-	tracer := Tracer{
+	defer func() {
+		CloseTracer()
+		InitGlobalTracer(TracerConfig{})
+	}()
+	logger, startFailing := TestWrapper(t)
+	InitGlobalTracer(TracerConfig{
 		SampleRate: 0.2,
-		Endpoint: ZipkinEndpointInfo{
-			ServiceName: "test-service",
-			IPv4:        ip,
-		},
-	}
+		Logger:     logger,
+	})
+	startFailing()
 
 	f := func(
 		parentName, childName, component randomName,
 		childType randomSpanType,
 		flags int64,
 	) bool {
-		span := tracer.NewTrace(string(parentName))
+		span := AsSpan(opentracing.StartSpan(string(parentName)))
 		span.trace.flags = flags
+		var child *Span
 		switch SpanType(childType) {
 		case SpanTypeClient:
-			child := span.CreateClientChild(string(childName))
-
-			if child.trace.parentID != span.trace.spanID {
-				t.Errorf("Parent spanID %d != child parentID %d", span.trace.spanID, child.trace.parentID)
-			}
-			if child.trace.tracer != span.trace.tracer {
-				t.Errorf("Parent tracer %p != child tracer %p", span.trace.tracer, child.trace.tracer)
-			}
-			if child.trace.traceID != span.trace.traceID {
-				t.Errorf("Parent traceID %d != child traceID %d", span.trace.traceID, child.trace.traceID)
-			}
-			if child.trace.sampled != span.trace.sampled {
-				t.Errorf("Parent sampled %v != child sampled %v", span.trace.sampled, child.trace.sampled)
-			}
-			if child.trace.flags != span.trace.flags {
-				t.Errorf("Parent flags %d != child flags %d", span.trace.flags, child.trace.flags)
-			}
-			if child.trace.start.Equal(span.trace.start) {
-				t.Error("Child should not inherit parent's start timestamp")
-			}
-			if child.trace.spanID == span.trace.spanID {
-				t.Error("Child should not inherit parent's spanID")
-			}
-			if child.trace.parentID == span.trace.parentID {
-				t.Error("Child should not inherit parent's parentID")
-			}
-			if len(child.trace.tags) > 1 {
-				t.Error("Child should not inherit parent's tags")
-			}
-			if len(child.trace.counters) > 0 {
-				t.Error("Child should not inherit parent's counters")
-			}
-			if t.Failed() {
-				t.Logf("parent: %+v, child: %+v", span, child)
-			}
+			child = AsSpan(opentracing.StartSpan(
+				string(childName),
+				opentracing.ChildOf(span),
+				SpanTypeOption{Type: SpanTypeClient},
+			))
 		case SpanTypeLocal:
-			child := span.CreateLocalChild(string(childName), string(component))
+			child = AsSpan(opentracing.StartSpan(
+				string(childName),
+				opentracing.ChildOf(span),
+				LocalComponentOption{Name: string(component)},
+			))
+		}
 
-			if child.trace.parentID != span.trace.spanID {
-				t.Errorf("Parent spanID %d != child parentID %d", span.trace.spanID, child.trace.parentID)
-			}
-			if child.trace.tracer != span.trace.tracer {
-				t.Errorf("Parent tracer %p != child tracer %p", span.trace.tracer, child.trace.tracer)
-			}
-			if child.trace.traceID != span.trace.traceID {
-				t.Errorf("Parent traceID %d != child traceID %d", span.trace.traceID, child.trace.traceID)
-			}
-			if child.trace.sampled != span.trace.sampled {
-				t.Errorf("Parent sampled %v != child sampled %v", span.trace.sampled, child.trace.sampled)
-			}
-			if child.trace.flags != span.trace.flags {
-				t.Errorf("Parent flags %d != child flags %d", span.trace.flags, child.trace.flags)
-			}
-			if child.trace.start.Equal(span.trace.start) {
-				t.Error("Child should not inherit parent's start timestamp")
-			}
-			if child.trace.spanID == span.trace.spanID {
-				t.Error("Child should not inherit parent's spanID")
-			}
-			if child.trace.parentID == span.trace.parentID {
-				t.Error("Child should not inherit parent's parentID")
-			}
-			if len(child.trace.tags) > 1 {
-				t.Error("Child should not inherit parent's tags")
-			}
-			if len(child.trace.counters) > 0 {
-				t.Error("Child should not inherit parent's counters")
-			}
-			if t.Failed() {
-				t.Logf("parent: %+v, child: %+v", span, child)
-			}
+		if child.trace.parentID != span.trace.spanID {
+			t.Errorf("Parent spanID %d != child parentID %d", span.trace.spanID, child.trace.parentID)
+		}
+		if child.trace.tracer != span.trace.tracer {
+			t.Errorf(
+				"Parent tracer %p(%#v) != child tracer %p(%#v)",
+				span.trace.tracer, span.trace.tracer,
+				child.trace.tracer, child.trace.tracer,
+			)
+		}
+		if child.trace.traceID != span.trace.traceID {
+			t.Errorf("Parent traceID %d != child traceID %d", span.trace.traceID, child.trace.traceID)
+		}
+		if child.trace.sampled != span.trace.sampled {
+			t.Errorf("Parent sampled %v != child sampled %v", span.trace.sampled, child.trace.sampled)
+		}
+		if child.trace.flags != span.trace.flags {
+			t.Errorf("Parent flags %d != child flags %d", span.trace.flags, child.trace.flags)
+		}
+		if child.trace.start.Equal(span.trace.start) {
+			t.Error("Child should not inherit parent's start timestamp")
+		}
+		if child.trace.spanID == span.trace.spanID {
+			t.Error("Child should not inherit parent's spanID")
+		}
+		if child.trace.parentID == span.trace.parentID {
+			t.Error("Child should not inherit parent's parentID")
+		}
+		if len(child.trace.tags) > 1 {
+			t.Error("Child should not inherit parent's tags")
+		}
+		if len(child.trace.counters) > 0 {
+			t.Error("Child should not inherit parent's counters")
+		}
+		if t.Failed() {
+			t.Logf("parent: %+v, child: %+v", span, child)
 		}
 		return !t.Failed()
 	}
 
 	if err := quick.Check(f, nil); err != nil {
 		t.Error(err)
-	}
-}
-
-func TestCreateServerSpan(t *testing.T) {
-	ip, err := runtimebp.GetFirstIPv4()
-	if err != nil {
-		t.Logf("Unable to get local ip address: %v", err)
-	}
-	tracer := Tracer{
-		SampleRate: 0.2,
-		Endpoint: ZipkinEndpointInfo{
-			ServiceName: "test-service",
-			IPv4:        ip,
-		},
-	}
-
-	span := CreateServerSpan(&tracer, "foo")
-	if span.trace.start.IsZero() {
-		t.Errorf("Expected span to be started")
 	}
 }
 

@@ -11,40 +11,40 @@ import (
 
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/mqsend"
-	"github.com/reddit/baseplate.go/runtimebp"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
+
+const testTimeout = time.Millisecond * 100
 
 func testEndpoint(ctx context.Context, request interface{}) (interface{}, error) {
 	return nil, errors.New("test error")
 }
 
 func TestInjectHTTPServerSpanWithTracer(t *testing.T) {
-	ip, err := runtimebp.GetFirstIPv4()
-	if err != nil {
-		t.Logf("Unable to get local ip address: %v", err)
-	}
-	tracer := tracing.Tracer{
-		SampleRate: 1,
-		Endpoint: tracing.ZipkinEndpointInfo{
-			ServiceName: "test-service",
-			IPv4:        ip,
-		},
-	}
-
-	tracer.Recorder = mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
+	defer func() {
+		tracing.CloseTracer()
+		tracing.InitGlobalTracer(tracing.TracerConfig{})
+	}()
+	mmq := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
 		MaxQueueSize:   100,
 		MaxMessageSize: 1024,
 	})
+	logger, startFailing := tracing.TestWrapper(t)
+	tracing.InitGlobalTracer(tracing.TracerConfig{
+		SampleRate:               1,
+		MaxRecordTimeout:         testTimeout,
+		Logger:                   logger,
+		TestOnlyMockMessageQueue: mmq,
+	})
+	startFailing()
 
 	ctx := context.Background()
 	ctx = httpbp.SetHeader(ctx, httpbp.SpanSampledContextKey, "1")
-	middleware := tracing.InjectHTTPServerSpanWithTracer("test", &tracer)
+	middleware := tracing.InjectHTTPServerSpan("test")
 	wrapped := middleware(testEndpoint)
 	wrapped(ctx, nil)
-	mmq := tracer.Recorder.(*mqsend.MockMessageQueue)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 	msg, err := mmq.Receive(ctx)
 	if err != nil {
@@ -69,30 +69,29 @@ func TestInjectHTTPServerSpanWithTracer(t *testing.T) {
 }
 
 func TestInjectThriftServerSpanWithTracer(t *testing.T) {
-	ip, err := runtimebp.GetFirstIPv4()
-	if err != nil {
-		t.Logf("Unable to get local ip address: %v", err)
-	}
-	tracer := tracing.Tracer{
-		SampleRate: 1,
-		Endpoint: tracing.ZipkinEndpointInfo{
-			ServiceName: "test-service",
-			IPv4:        ip,
-		},
-	}
-
-	tracer.Recorder = mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
+	defer func() {
+		tracing.CloseTracer()
+		tracing.InitGlobalTracer(tracing.TracerConfig{})
+	}()
+	mmq := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
 		MaxQueueSize:   100,
 		MaxMessageSize: 1024,
 	})
+	logger, startFailing := tracing.TestWrapper(t)
+	tracing.InitGlobalTracer(tracing.TracerConfig{
+		SampleRate:               1,
+		MaxRecordTimeout:         testTimeout,
+		Logger:                   logger,
+		TestOnlyMockMessageQueue: mmq,
+	})
+	startFailing()
 
 	ctx := context.Background()
 	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
-	middleware := tracing.InjectThriftServerSpanWithTracer("test", &tracer)
+	middleware := tracing.InjectThriftServerSpan("test")
 	wrapped := middleware(testEndpoint)
 	wrapped(ctx, nil)
-	mmq := tracer.Recorder.(*mqsend.MockMessageQueue)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 	msg, err := mmq.Receive(ctx)
 	if err != nil {

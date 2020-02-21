@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/apache/thrift/lib/go/thrift"
-
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/thriftclient"
@@ -16,7 +16,6 @@ func ExampleMonitoredClient() {
 	var (
 		transport thrift.TTransport
 		factory   thrift.TProtocolFactory
-		tracer    *tracing.Tracer
 	)
 	// Create an actual service client
 	client := baseplate.NewBaseplateServiceClient(
@@ -24,7 +23,11 @@ func ExampleMonitoredClient() {
 		thriftclient.NewMonitoredClientFromFactory(transport, factory),
 	)
 	// Create a context with a server span
-	ctx, _ := tracing.CreateServerSpanForContext(context.Background(), tracer, "test")
+	_, ctx := opentracing.StartSpanFromContext(
+		context.Background(),
+		"test",
+		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
+	)
 	// Calls should be automatically wrapped using client spans
 	healthy, err := client.IsHealthy(ctx)
 	log.Debug("%v, %s", healthy, err)

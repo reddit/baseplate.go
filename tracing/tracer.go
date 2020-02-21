@@ -8,12 +8,12 @@ import (
 	"math/rand"
 	"time"
 
+	opentracing "github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/randbp"
 	"github.com/reddit/baseplate.go/runtimebp"
-
-	opentracing "github.com/opentracing/opentracing-go"
 )
 
 var (
@@ -32,34 +32,40 @@ const (
 	DefaultMaxRecordTimeout = time.Millisecond * 50
 )
 
-// Register our GlobalTracer as opentracing's global tracer.
+// Register an empty Tracer implementation as opentracing's global tracer.
 func init() {
-	opentracing.SetGlobalTracer(&GlobalTracer)
+	opentracing.SetGlobalTracer(&globalTracer)
 }
 
-// GlobalTracer is the default Tracer to be used.
-var GlobalTracer Tracer
+var globalTracer = Tracer{logger: log.NopWrapper}
 
 // A Tracer creates and manages spans.
 type Tracer struct {
+	sampleRate       float64
+	recorder         mqsend.MessageQueue
+	logger           log.Wrapper
+	endpoint         ZipkinEndpointInfo
+	maxRecordTimeout time.Duration
+}
+
+// TracerConfig are the configuration values to be used in InitGlobalTracer.
+type TracerConfig struct {
+	// The name of the service that will be attached to every span.
+	ServiceName string
+
 	// SampleRate should be in the range of [0, 1].
 	// When SampleRate >= 1, all traces will be recoreded;
 	// When SampleRate <= 0, none of the traces will be recorded,
 	// except the ones with debug flag set.
-	SampleRate float64
-
-	// Recorder sends the sampled spans.
 	//
-	// If Recorder is nil, no spans will be sampled,
-	// including the ones with debug flag set.
-	Recorder mqsend.MessageQueue
+	// Please note that SampleRate only affect top level spans created inside this
+	// service. For most services the sample status will be inherited from the
+	// headers from the client.
+	SampleRate float64
 
 	// Logger, if non-nil, will be used to log additional informations Record
 	// returned certain errors.
 	Logger log.Wrapper
-
-	// The endpoint info to be reported to zipkin with annotations.
-	Endpoint ZipkinEndpointInfo
 
 	// The max timeout applied to Record function.
 	//
@@ -68,67 +74,86 @@ type Tracer struct {
 	//
 	// If MaxRecordTimeout <= 0, DefaultMaxRecordTimeout will be used.
 	MaxRecordTimeout time.Duration
+
+	// The name of the message queue to be used to actually send sampled spans to
+	// backend service (requires baseplate.py tracing publishing sidecar with the
+	// same name configured).
+	//
+	// QueueName should not contain "traces-" prefix, it will be auto added.
+	//
+	// If QueueName is empty, no spans will be sampled,
+	// including the ones with debug flag set.
+	QueueName string
+
+	// In test code,
+	// this field can be used to set the message queue the tracer publishes to,
+	// usually an *mqsend.MockMessageQueue.
+	//
+	// This field will be ignored when QueueName is non-empty,
+	// to help avoiding footgun prod code.
+	//
+	// DO NOT USE IN PROD CODE.
+	TestOnlyMockMessageQueue mqsend.MessageQueue
 }
 
-// InitGlobalTracer initializes GlobalTracer.
-//
-// queueName should not contain "traces-" prefix, it will be auto added.
+// InitGlobalTracer initializes opentracing's global tracer.
 //
 // This function will try to get the first local IPv4 address of this machine
-// and set the GlobalTracer.Endpoint.
+// as part of the span information send to the backend service.
 // If it fails to do so, UndefinedIP will be used instead,
 // and the error will be logged if logger is non-nil.
-func InitGlobalTracer(
-	serviceName string,
-	queueName string,
-	sampleRate float64,
-	logger log.Wrapper,
-) error {
-	recorder, err := mqsend.OpenMessageQueue(mqsend.MessageQueueConfig{
-		Name:           QueueNamePrefix + queueName,
-		MaxQueueSize:   MaxQueueSize,
-		MaxMessageSize: MaxSpanSize,
-	})
-	if err != nil {
-		return err
+func InitGlobalTracer(cfg TracerConfig) error {
+	if cfg.QueueName != "" {
+		recorder, err := mqsend.OpenMessageQueue(mqsend.MessageQueueConfig{
+			Name:           QueueNamePrefix + cfg.QueueName,
+			MaxQueueSize:   MaxQueueSize,
+			MaxMessageSize: MaxSpanSize,
+		})
+		if err != nil {
+			return err
+		}
+		globalTracer.recorder = recorder
+	} else {
+		globalTracer.recorder = cfg.TestOnlyMockMessageQueue
 	}
-	GlobalTracer.Recorder = recorder
+
+	globalTracer.sampleRate = cfg.SampleRate
+
+	logger := cfg.Logger
+	if logger == nil {
+		logger = log.NopWrapper
+	}
+	globalTracer.logger = logger
+
+	timeout := cfg.MaxRecordTimeout
+	if timeout <= 0 {
+		timeout = DefaultMaxRecordTimeout
+	}
+	globalTracer.maxRecordTimeout = timeout
 
 	ip, err := runtimebp.GetFirstIPv4()
-	if err != nil && logger != nil {
+	if err != nil {
 		logger(`Unable to get local ip address: ` + err.Error())
 	}
-	GlobalTracer.Endpoint = ZipkinEndpointInfo{
-		ServiceName: serviceName,
+	globalTracer.endpoint = ZipkinEndpointInfo{
+		ServiceName: cfg.ServiceName,
 		IPv4:        ip,
 	}
 
-	GlobalTracer.SampleRate = sampleRate
-	GlobalTracer.Logger = logger
-	opentracing.SetGlobalTracer(&GlobalTracer)
+	opentracing.SetGlobalTracer(&globalTracer)
 	return nil
 }
 
-// Close closes the tracer's Recorder.
+// Close closes the tracer's reporting.
 //
-// After Close is called,
-// Recorder will be set to nil and no more spans will be sampled.
+// After Close is called, no more spans will be sampled.
 func (t *Tracer) Close() error {
-	if t.Recorder == nil {
+	if t.recorder == nil {
 		return nil
 	}
-	err := t.Recorder.Close()
-	t.Recorder = nil
+	err := t.recorder.Close()
+	t.recorder = nil
 	return err
-}
-
-// NewTrace creates a new trace (top level local span).
-func (t *Tracer) NewTrace(name string) *Span {
-	span := newSpan(t, name, SpanTypeLocal)
-	span.trace.traceID = rand.Uint64()
-	span.trace.sampled = randbp.ShouldSampleWithRate(t.SampleRate)
-	span.onStart()
-	return span
 }
 
 // Record records a span with the Recorder.
@@ -138,7 +163,7 @@ func (t *Tracer) NewTrace(name string) *Span {
 // In most cases that should be enough and you should not call this function
 // directly.
 func (t *Tracer) Record(ctx context.Context, zs ZipkinSpan) error {
-	if t.Recorder == nil {
+	if t.recorder == nil {
 		return nil
 	}
 	data, err := json.Marshal(zs)
@@ -146,23 +171,20 @@ func (t *Tracer) Record(ctx context.Context, zs ZipkinSpan) error {
 		return err
 	}
 
-	timeout := t.MaxRecordTimeout
-	if timeout <= 0 {
-		timeout = DefaultMaxRecordTimeout
-	}
+	timeout := t.maxRecordTimeout
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	err = t.Recorder.Send(ctx, data)
-	if t.Logger != nil {
+	err = t.recorder.Send(ctx, data)
+	if t.logger != nil {
 		if errors.As(err, new(mqsend.MessageTooLargeError)) {
-			t.Logger(fmt.Sprintf(
+			t.logger(fmt.Sprintf(
 				"Span is too big, max allowed size is %d. This can be caused by an excess amount of tags. Error: %v",
 				MaxSpanSize,
 				err,
 			))
 		}
 		if errors.As(err, new(mqsend.TimedOutError)) {
-			t.Logger(
+			t.logger(
 				"Trace queue is full. Is trace sidecar healthy? Error: " + err.Error(),
 			)
 		}
@@ -183,6 +205,9 @@ func (t *Tracer) Record(ctx context.Context, zs ZipkinSpan) error {
 //
 // It supports additional StartSpanOptions defined in this package.
 //
+// If the new span's type is server,
+// all registered CreateServerSpanHooks will be called as well.
+//
 // Please note that trying to set span type via opentracing-go/ext package won't
 // work, please use SpanTypeOption defined in this package instead.
 func (t *Tracer) StartSpan(operationName string, opts ...opentracing.StartSpanOption) opentracing.Span {
@@ -196,9 +221,21 @@ func (t *Tracer) StartSpan(operationName string, opts ...opentracing.StartSpanOp
 	if !sso.OpenTracingOptions.StartTime.IsZero() {
 		span.trace.start = sso.OpenTracingOptions.StartTime
 	}
-	if parent := findFirstParentReference(sso.OpenTracingOptions.References); parent != nil {
+	parent := findFirstParentReference(sso.OpenTracingOptions.References)
+	if parent != nil {
 		parent.initChildSpan(span)
+	} else {
+		span.trace.traceID = rand.Uint64()
+		span.trace.sampled = randbp.ShouldSampleWithRate(t.sampleRate)
 	}
+
+	switch span.spanType {
+	case SpanTypeServer:
+		// Special handlings for server spans. See also: Span.initChildSpan.
+		onCreateServerSpan(span)
+		span.onStart()
+	}
+
 	for key, value := range sso.OpenTracingOptions.Tags {
 		span.SetTag(key, value)
 	}
@@ -220,6 +257,13 @@ func (t *Tracer) Extract(format interface{}, carrier interface{}) (opentracing.S
 	return nil, opentracing.ErrInvalidCarrier
 }
 
+func (t *Tracer) getLogger() log.Wrapper {
+	if t.logger != nil {
+		return t.logger
+	}
+	return log.NopWrapper
+}
+
 func findFirstParentReference(refs []opentracing.SpanReference) *Span {
 	for _, s := range refs {
 		if s.Type == opentracing.ChildOfRef {
@@ -228,6 +272,17 @@ func findFirstParentReference(refs []opentracing.SpanReference) *Span {
 				return span
 			}
 		}
+	}
+	return nil
+}
+
+// CloseTracer tries to cast opentracing.GlobalTracer() into *Tracer, and calls
+// its Close function.
+//
+// See Tracer.Close for more details.
+func CloseTracer() error {
+	if tracer, ok := opentracing.GlobalTracer().(*Tracer); ok {
+		return tracer.Close()
 	}
 	return nil
 }

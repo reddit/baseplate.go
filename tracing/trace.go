@@ -43,7 +43,7 @@ type trace struct {
 
 func newTrace(tracer *Tracer, name string) *trace {
 	if tracer == nil {
-		tracer = &GlobalTracer
+		tracer = &globalTracer
 	}
 	return &trace{
 		tracer: tracer,
@@ -84,7 +84,7 @@ func (t *trace) toZipkinSpan() ZipkinSpan {
 
 	var endpoint ZipkinEndpointInfo
 	if t.tracer != nil {
-		endpoint = t.tracer.Endpoint
+		endpoint = t.tracer.endpoint
 	}
 
 	if t.timeAnnotationReceiveKey != "" {

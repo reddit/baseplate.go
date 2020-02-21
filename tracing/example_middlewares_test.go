@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-kit/kit/endpoint"
 	httpgk "github.com/go-kit/kit/transport/http"
-
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"

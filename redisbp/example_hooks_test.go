@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/go-redis/redis/v7"
-
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/reddit/baseplate.go/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -20,14 +20,16 @@ func ExampleSpanHook() {
 		// baseClient is not actually used to run commands, we register the Hook
 		// to it and use it to create clients for each Server Span.
 		baseClient redis.Client
-		tracer     *tracing.Tracer
 	)
 	// Add the Hook onto baseClient
 	baseClient.AddHook(redisbp.SpanHook{ClientName: "redis"})
-	// Get a context object and a server Span, with the server Span set on the
-	// context
-	ctx, _ := tracing.CreateServerSpanForContext(context.Background(), tracer, "test")
-	// Create a new client using the context for the Server Span
+	// Create a server span and attach it into a context object
+	_, ctx := opentracing.StartSpanFromContext(
+		context.Background(),
+		"test",
+		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
+	)
+	// Create a new client using the context for the server span
 	client := baseClient.WithContext(ctx)
 	// Commands should now be wrapped using Client Spans
 	client.Ping()

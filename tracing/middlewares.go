@@ -19,24 +19,17 @@ import (
 // the context object.  This can be done by adding httpbp.PopulateRequestContext
 // as a ServerBefore option when setting up the request handler for an endpoint.
 func InjectHTTPServerSpan(name string) endpoint.Middleware {
-	return InjectHTTPServerSpanWithTracer(name, nil)
-}
-
-// InjectHTTPServerSpanWithTracer is the same as InjectHTTPServerSpan except it
-// uses StartSpanFromHTTPContextWithTracer to initialize the server span rather
-// than StartSpanFromHTTPContext.
-func InjectHTTPServerSpanWithTracer(name string, tracer *Tracer) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-			ctx, span := StartSpanFromHTTPContextWithTracer(ctx, name, tracer)
+			ctx, span := StartSpanFromHTTPContext(ctx, name)
 			defer func() {
-				if err = span.Stop(ctx, err); err != nil && tracer.Logger != nil {
-					tracer.Logger("Error while trying to stop span: " + err.Error())
-				}
+				span.FinishWithOptions(FinishOptions{
+					Ctx: ctx,
+					Err: err,
+				}.Convert())
 			}()
 
-			response, err = next(ctx, request)
-			return
+			return next(ctx, request)
 		}
 	}
 }
@@ -52,24 +45,17 @@ func InjectHTTPServerSpanWithTracer(name string, tracer *Tracer) endpoint.Middle
 // context object.  These should be automatically injected by your
 // thrift.TSimpleServer.
 func InjectThriftServerSpan(name string) endpoint.Middleware {
-	return InjectThriftServerSpanWithTracer(name, nil)
-}
-
-// InjectThriftServerSpanWithTracer is the same as InjectThriftServerSpan except it
-// uses StartSpanFromThriftContextWithTracer to initialize the server span rather
-// than StartSpanFromThriftContext.
-func InjectThriftServerSpanWithTracer(name string, tracer *Tracer) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-			ctx, span := StartSpanFromThriftContextWithTracer(ctx, name, tracer)
+			ctx, span := StartSpanFromThriftContext(ctx, name)
 			defer func() {
-				if err = span.Stop(ctx, err); err != nil && tracer.Logger != nil {
-					tracer.Logger("Error while trying to stop span: " + err.Error())
-				}
+				span.FinishWithOptions(FinishOptions{
+					Ctx: ctx,
+					Err: err,
+				}.Convert())
 			}()
 
-			response, err = next(ctx, request)
-			return
+			return next(ctx, request)
 		}
 	}
 }

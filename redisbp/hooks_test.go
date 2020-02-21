@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-redis/redis/v7"
+	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
@@ -22,12 +23,12 @@ func TestSpanHook(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Unexpected error: %s", err)
 			}
-			activeSpan := tracing.GetActiveSpan(ctx)
+			activeSpan := opentracing.SpanFromContext(ctx)
 			if activeSpan == nil {
 				t.Fatalf("'activeSpan' is 'nil'")
 			}
-			if activeSpan.Name() != "redis.ping" {
-				t.Fatalf("Incorrect span name %q", activeSpan.Name())
+			if name := tracing.AsSpan(activeSpan).Name(); name != "redis.ping" {
+				t.Fatalf("Incorrect span name %q", name)
 			}
 
 			if err = hooks.AfterProcess(ctx, cmd); err != nil {
@@ -44,12 +45,12 @@ func TestSpanHook(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Unexpected error: %s", err)
 			}
-			activeSpan := tracing.GetActiveSpan(ctx)
+			activeSpan := opentracing.SpanFromContext(ctx)
 			if activeSpan == nil {
 				t.Fatalf("'activeSpan' is 'nil'")
 			}
-			if activeSpan.Name() != "redis.pipeline" {
-				t.Fatalf("Incorrect span name %q", activeSpan.Name())
+			if name := tracing.AsSpan(activeSpan).Name(); name != "redis.pipeline" {
+				t.Fatalf("Incorrect span name %q", name)
 			}
 
 			if err = hooks.AfterProcessPipeline(ctx, cmds); err != nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-redis/redis/v7"
+	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/batcherror"
 	"github.com/reddit/baseplate.go/tracing"
@@ -49,27 +50,21 @@ func (h SpanHook) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmder) 
 }
 
 func (h SpanHook) startChildSpan(ctx context.Context, cmdName string) context.Context {
-	// Get the current span tracing the work being done by ctx.  Try to get a
-	// sub-span first and fall back to the server span if we are not currently
-	// in a sub-span.
-	//
-	// We are going to use this span to create a child span that is attached to
-	// a new context and used by go-redis to trace the command/pipeline.
-	span := tracing.GetActiveSpan(ctx)
-	if span == nil {
-		span = tracing.GetServerSpan(ctx)
-	}
-	if span == nil {
-		return ctx
-	}
 	name := fmt.Sprintf("%s.%s", h.ClientName, cmdName)
-	ctx, _ = span.CreateClientChildForContext(ctx, name)
+	_, ctx = opentracing.StartSpanFromContext(
+		ctx,
+		name,
+		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
+	)
 	return ctx
 }
 
 func (h SpanHook) endChildSpan(ctx context.Context, err error) error {
-	if span := tracing.GetActiveSpan(ctx); span != nil {
-		return span.Stop(ctx, err)
+	if span := opentracing.SpanFromContext(ctx); span != nil {
+		span.FinishWithOptions(tracing.FinishOptions{
+			Ctx: ctx,
+			Err: err,
+		}.Convert())
 	}
-	return nil
+	return err
 }

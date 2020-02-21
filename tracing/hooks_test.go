@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"testing"
 
+	opentracing "github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -78,8 +80,12 @@ func TestHooks(t *testing.T) {
 
 	ctx, span := tracing.StartSpanFromThriftContext(context.Background(), "foo")
 	span.SetTag("foo", "bar")
-	span.CreateClientChild("bar")
-	span.AddCounter("foo", 1.0)
+	opentracing.StartSpanFromContext(
+		ctx,
+		"bar",
+		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
+	)
+	span.AddCounter("foo", 1)
 	span.Stop(ctx, nil)
 	expected := []string{
 		"on-server-span-create",
@@ -90,7 +96,7 @@ func TestHooks(t *testing.T) {
 		"on-end",
 	}
 	if !reflect.DeepEqual(hook.Calls.Calls, expected) {
-		t.Fatalf("Expected %v:\nGot: %v", expected, hook.Calls.Calls)
+		t.Fatalf("Expected calls %v, got %v", expected, hook.Calls.Calls)
 	}
 }
 
@@ -104,7 +110,11 @@ func TestHookFailures(t *testing.T) {
 
 	ctx, span := tracing.StartSpanFromThriftContext(context.Background(), "foo")
 	span.SetTag("foo", "bar")
-	span.CreateClientChild("bar")
+	opentracing.StartSpanFromContext(
+		ctx,
+		"bar",
+		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
+	)
 	span.AddCounter("foo", 1.0)
 	span.Stop(ctx, nil)
 	expected := []string{
