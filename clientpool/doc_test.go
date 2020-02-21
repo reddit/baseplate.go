@@ -13,8 +13,8 @@ const (
 	remoteAddr    = "host:port"
 	socketTimeout = time.Millisecond * 10
 
-	minConnections = 50
-	maxConnections = 100
+	initialConnections = 50
+	maxConnections     = 100
 
 	clientTTL = time.Minute * 5
 
@@ -78,7 +78,7 @@ func Example() {
 	pool, err := thriftclient.NewTTLClientPool(clientTTL, thriftclient.ClientPoolConfig{
 		ServiceSlug:        "my-service",
 		Addr:               remoteAddr,
-		InitialConnections: minConnections,
+		InitialConnections: initialConnections,
 		MaxConnections:     maxConnections,
 		SocketTimeout:      socketTimeout,
 		ReportPoolStats:    true,
