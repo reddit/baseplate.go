@@ -61,9 +61,9 @@ type ClientPoolConfig struct {
 	PoolGaugeInterval time.Duration
 }
 
-// GetMetricLabels returns c.MetricsLabels as a slice of strings, appropriate
+// getMetricLabels returns c.MetricsLabels as a slice of strings, appropriate
 // for passing to a metrics client.
-func (c ClientPoolConfig) GetMetricLabels() []string {
+func (c ClientPoolConfig) getMetricLabels() []string {
 	labels := make([]string, len(c.MetricsLabels)*2)
 	for k, v := range c.MetricsLabels {
 		labels = append(labels, k, v)
@@ -187,7 +187,7 @@ func NewCustomClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, clientF
 }
 
 func newClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, clientFact ClientFactory, protoFact thrift.TProtocolFactory) (*clientPool, error) {
-	labels := cfg.GetMetricLabels()
+	labels := cfg.getMetricLabels()
 	pool, err := clientpool.NewChannelPool(
 		cfg.InitialConnections,
 		cfg.MaxConnections,
