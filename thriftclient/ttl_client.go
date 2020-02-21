@@ -4,18 +4,16 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
-
-	"github.com/reddit/baseplate.go/clientpool"
 )
 
-var _ clientpool.Client = (*TTLClient)(nil)
+var _ Client = (*TTLClient)(nil)
 
 // TTLClient is a Client implementation wrapping thrift's TTransport with a TTL.
 //
-// It's intended to be used in ClientOpener implementation.
-//
-// TODO: Add example.
+// It's intended to be managed by a ClientPool rather than created directly.
 type TTLClient struct {
+	thrift.TClient
+
 	trans      thrift.TTransport
 	expiration time.Time
 }
@@ -43,8 +41,9 @@ func (c *TTLClient) IsOpen() bool {
 }
 
 // NewTTLClient creates a TTLClient with a thrift TTransport and a ttl.
-func NewTTLClient(trans thrift.TTransport, ttl time.Duration) *TTLClient {
+func NewTTLClient(trans thrift.TTransport, client thrift.TClient, ttl time.Duration) *TTLClient {
 	return &TTLClient{
+		TClient:    client,
 		trans:      trans,
 		expiration: time.Now().Add(ttl),
 	}

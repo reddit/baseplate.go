@@ -11,9 +11,14 @@ import (
 
 func TestTTLClient(t *testing.T) {
 	trans := thrift.NewTMemoryBuffer()
+	factory := thrift.NewTBinaryProtocolFactoryDefault()
+	tc := thrift.NewTStandardClient(
+		factory.GetProtocol(trans),
+		factory.GetProtocol(trans),
+	)
 	ttl := time.Millisecond
 
-	client := thriftclient.NewTTLClient(trans, ttl)
+	client := thriftclient.NewTTLClient(trans, tc, ttl)
 	if !client.IsOpen() {
 		t.Error("Expected immediate IsOpen call to return true, got false.")
 	}
