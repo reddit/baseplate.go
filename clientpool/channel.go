@@ -5,27 +5,27 @@ import (
 )
 
 type channelPool struct {
-	pool       chan Client
-	opener     ClientOpener
-	numActive  int32
-	minClients int
-	maxClients int
+	pool           chan Client
+	opener         ClientOpener
+	numActive      int32
+	initialClients int
+	maxClients     int
 }
 
 // Make sure channelPool implements Pool interface.
 var _ Pool = (*channelPool)(nil)
 
 // NewChannelPool creates a new client pool implemented via channel.
-func NewChannelPool(minClients, maxClients int, opener ClientOpener) (Pool, error) {
-	if minClients > maxClients {
+func NewChannelPool(initialClients, maxClients int, opener ClientOpener) (Pool, error) {
+	if initialClients > maxClients {
 		return nil, &ConfigError{
-			MinClients: minClients,
-			MaxClients: maxClients,
+			InitialClients: initialClients,
+			MaxClients:     maxClients,
 		}
 	}
 
 	pool := make(chan Client, maxClients)
-	for i := 0; i < minClients; i++ {
+	for i := 0; i < initialClients; i++ {
 		c, err := opener()
 		if err != nil {
 			return nil, err
@@ -34,10 +34,10 @@ func NewChannelPool(minClients, maxClients int, opener ClientOpener) (Pool, erro
 	}
 
 	return &channelPool{
-		pool:       pool,
-		opener:     opener,
-		minClients: minClients,
-		maxClients: maxClients,
+		pool:           pool,
+		opener:         opener,
+		initialClients: initialClients,
+		maxClients:     maxClients,
 	}, nil
 }
 
