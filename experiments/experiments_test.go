@@ -6,6 +6,8 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/reddit/baseplate.go/timebp"
 )
 
 var simpleConfig = &ExperimentConfig{
@@ -14,17 +16,17 @@ var simpleConfig = &ExperimentConfig{
 	Owner:          "test",
 	Type:           "single_variant",
 	Version:        "1",
-	StartTimestamp: time.Now().Add(-30 * 24 * time.Hour).Unix(),
-	StopTimestamp:  time.Now().Add(30 * 24 * time.Hour).Unix(),
+	StartTimestamp: timebp.TimestampSecondF(time.Now().Add(-30 * 24 * time.Hour)),
+	StopTimestamp:  timebp.TimestampSecondF(time.Now().Add(30 * 24 * time.Hour)),
 	Enabled:        func() *bool { b := true; return &b }(),
 	Experiment: ParsedExperiment{
 		BucketSeed: "some new seed",
 		Variants: []Variant{
-			Variant{
+			{
 				Name: "variant_1",
 				Size: 0.1,
 			},
-			Variant{
+			{
 				Name: "variant_2",
 				Size: 0.1,
 			},
@@ -51,11 +53,11 @@ func TestCalculateBucketValue(t *testing.T) {
 					ShuffleVersion: "",
 					BucketSeed:     "some new seed",
 					Variants: []Variant{
-						Variant{
+						{
 							Name: "variant_1",
 							Size: 0.1,
 						},
-						Variant{
+						{
 							Name: "variant_2",
 							Size: 0.1,
 						},
@@ -87,16 +89,16 @@ func TestCalculateBucket(t *testing.T) {
 		Owner:          "test",
 		Type:           "single_variant",
 		Version:        "1",
-		StartTimestamp: time.Now().Add(-30 * 24 * time.Hour).Unix(),
-		StopTimestamp:  time.Now().Add(30 * 24 * time.Hour).Unix(),
+		StartTimestamp: timebp.TimestampSecondF(time.Now().Add(-30 * 24 * time.Hour)),
+		StopTimestamp:  timebp.TimestampSecondF(time.Now().Add(30 * 24 * time.Hour)),
 		Enabled:        func() *bool { b := true; return &b }(),
 		Experiment: ParsedExperiment{
 			Variants: []Variant{
-				Variant{
+				{
 					Name: "variant_1",
 					Size: 0.1,
 				},
-				Variant{
+				{
 					Name: "variant_2",
 					Size: 0.1,
 				},
@@ -145,17 +147,17 @@ func TestCalculateBucketWithSeed(t *testing.T) {
 		Owner:          "test",
 		Type:           "single_variant",
 		Version:        "1",
-		StartTimestamp: time.Now().Add(-30 * 24 * time.Hour).Unix(),
-		StopTimestamp:  time.Now().Add(30 * 24 * time.Hour).Unix(),
+		StartTimestamp: timebp.TimestampSecondF(time.Now().Add(-30 * 24 * time.Hour)),
+		StopTimestamp:  timebp.TimestampSecondF(time.Now().Add(30 * 24 * time.Hour)),
 		Enabled:        func() *bool { b := true; return &b }(),
 		Experiment: ParsedExperiment{
 			BucketSeed: "some new seed",
 			Variants: []Variant{
-				Variant{
+				{
 					Name: "variant_1",
 					Size: 0.1,
 				},
-				Variant{
+				{
 					Name: "variant_2",
 					Size: 0.1,
 				},
@@ -343,23 +345,23 @@ func TestOverride(t *testing.T) {
 		Owner:          "test",
 		Type:           "single_variant",
 		Version:        "1",
-		StartTimestamp: time.Now().Add(-30 * 24 * time.Hour).Unix(),
-		StopTimestamp:  time.Now().Add(30 * 24 * time.Hour).Unix(),
+		StartTimestamp: timebp.TimestampSecondF(time.Now().Add(-30 * 24 * time.Hour)),
+		StopTimestamp:  timebp.TimestampSecondF(time.Now().Add(30 * 24 * time.Hour)),
 		Enabled:        func() *bool { b := true; return &b }(),
 		Experiment: ParsedExperiment{
 			Variants: []Variant{
-				Variant{
+				{
 					Name: "variant_1",
 					Size: 0.1,
 				},
-				Variant{
+				{
 					Name: "variant_2",
 					Size: 0.1,
 				},
 			},
 			ExperimentVersion: 1,
 			Overrides: []map[string]json.RawMessage{
-				map[string]json.RawMessage{
+				{
 					"override_variant_1": []byte(`{"EQ": {"field": "user_id", "value": "t2_1"}}`),
 				}},
 		},

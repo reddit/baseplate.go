@@ -12,6 +12,7 @@ import (
 
 	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/timebp"
 )
 
 const targetAllOverride = `{"OVERRIDE": true}`
@@ -121,11 +122,11 @@ type ExperimentConfig struct {
 	// StartTimestamp is a float of seconds since the epoch of date and time
 	// when you want the experiment to start. If an experiment has not been
 	// started yet, it is considered disabled.
-	StartTimestamp int64 `json:"start_ts"`
+	StartTimestamp timebp.TimestampSecondF `json:"start_ts"`
 	// StopTimestamp is a float of seconds since the epoch of date and time when
 	// you want the experiment to stop. Once an experiment is stopped, it is
 	// considered disabled.
-	StopTimestamp int64 `json:"stop_ts"`
+	StopTimestamp timebp.TimestampSecondF `json:"stop_ts"`
 	// Experiment is the specific experiment.
 	Experiment ParsedExperiment `json:"experiment"`
 }
@@ -222,8 +223,8 @@ func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error
 		bucketSeed: bucketSeed,
 		bucketVal:  bucketVal,
 		enabled:    enabled,
-		startTime:  time.Unix(experiment.StartTimestamp, 0),
-		endTime:    time.Unix(experiment.StopTimestamp, 0),
+		startTime:  experiment.StartTimestamp.ToTime(),
+		endTime:    experiment.StopTimestamp.ToTime(),
 		numBuckets: 1000,
 		variantSet: variantSet,
 		targeting:  targeting,
