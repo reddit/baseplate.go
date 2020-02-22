@@ -10,41 +10,12 @@ import (
 	"github.com/reddit/baseplate.go/secrets"
 )
 
-type keysType []*rsa.PublicKey
+type keysType = []*rsa.PublicKey
 
 const (
 	authenticationPubKeySecretPath = "secret/authentication/public-key"
 	jwtAlg                         = "RS256"
 )
-
-// When trying versioned secret with jwt, there are some errors that won't be
-// fixed by the next version of the secret, so we can return early instead of
-// trying all the remaining versions.
-//
-// TODO: We can also get rid of this block when upstream added native support
-// for key rotation.
-var shortCircuitErrors = []uint32{
-	jwt.ValidationErrorMalformed,
-	jwt.ValidationErrorAudience,
-	jwt.ValidationErrorExpired,
-	jwt.ValidationErrorIssuedAt,
-	jwt.ValidationErrorIssuer,
-	jwt.ValidationErrorNotValidYet,
-	jwt.ValidationErrorId,
-	jwt.ValidationErrorClaimsInvalid,
-}
-
-func shouldShortCircutError(err error) bool {
-	var ve jwt.ValidationError
-	if errors.As(err, &ve) {
-		for _, bitmask := range shortCircuitErrors {
-			if ve.Errors&bitmask != 0 {
-				return true
-			}
-		}
-	}
-	return false
-}
 
 // ValidateToken parses and validates a jwt token, and return the decoded
 // AuthenticationToken.
@@ -55,33 +26,30 @@ func ValidateToken(token string) (*AuthenticationToken, error) {
 		return nil, errors.New("no public keys loaded")
 	}
 
-	// TODO: Patch upstream to support key rotation natively:
-	// https://github.com/dgrijalva/jwt-go/pull/372
-	var lastErr error
-	for _, key := range keys {
-		token, err := jwt.ParseWithClaims(
-			token,
-			&AuthenticationToken{},
-			func(_ *jwt.Token) (interface{}, error) {
-				return key, nil
-			},
-		)
-		if err != nil {
-			if shouldShortCircutError(err) {
-				return nil, err
-			}
-			// Try next pubkey.
-			lastErr = err
-			continue
-		}
-
-		if claims, ok := token.Claims.(*AuthenticationToken); ok && token.Valid && token.Method.Alg() == jwtAlg {
-			return claims, nil
-		}
-
-		lastErr = jwt.NewValidationError("", 0)
+	tok, err := jwt.ParseWithClaims(
+		token,
+		&AuthenticationToken{},
+		func(_ *jwt.Token) (interface{}, error) {
+			return keys, nil
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
-	return nil, lastErr
+
+	if !tok.Valid {
+		return nil, jwt.NewValidationError("invalid token", 0)
+	}
+
+	if tok.Method.Alg() != jwtAlg {
+		return nil, jwt.NewValidationError("wrong signing method", 0)
+	}
+
+	if claims, ok := tok.Claims.(*AuthenticationToken); ok {
+		return claims, nil
+	}
+
+	return nil, jwt.NewValidationError("invalid token type", 0)
 }
 
 func validatorMiddleware(next secrets.SecretHandlerFunc) secrets.SecretHandlerFunc {
