@@ -18,3 +18,5 @@ require (
 	gopkg.in/dgrijalva/jwt-go.v3 v3.2.0
 	gopkg.in/fsnotify.v1 v1.4.7
 )
+
+replace gopkg.in/dgrijalva/jwt-go.v3 => github.com/reddit/jwt-go v3.2.1-0.20200222044038-a63f2d40479f+incompatible
