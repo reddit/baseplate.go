@@ -3,6 +3,7 @@ package thriftclient
 import (
 	"context"
 	"errors"
+	"io"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -12,6 +13,10 @@ import (
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 )
+
+// DefaultPoolGaugeInterval is the fallback value to be used when
+// ClientPoolConfig.PoolGaugeInterval <= 0.
+const DefaultPoolGaugeInterval = time.Second * 10
 
 // ClientPoolConfig is the configuration struct for creating a new ClientPool.
 type ClientPoolConfig struct {
@@ -26,11 +31,11 @@ type ClientPoolConfig struct {
 	ServiceSlug string
 
 	// Addr is the address of a thrift service.  Addr must be in the format
-	// ${host}:${port}
+	// "${host}:${port}"
 	Addr string
 
-	// InitialConnections is inital number of thrift connections created by the
-	// client pool.
+	// InitialConnections is the inital number of thrift connections created by
+	// the client pool.
 	InitialConnections int
 
 	// MinConnections is the maximum number of thrift connections the client
@@ -49,8 +54,11 @@ type ClientPoolConfig struct {
 	// goroutine.  If this is set to false, the reporting goroutine will
 	// not be started and it will not report pool stats.
 	//
-	// It reports the number of active clients to a gauge named
-	// "${ServiceSlug}.pool-active-connections".
+	// It reports:
+	// - the number of active clients to a gauge named
+	//   "${ServiceSlug}.pool-active-connections".
+	// - the number of allocated clients to a gauge named
+	//   "${ServiceSlug}.pool-allocated-clients".
 	//
 	// The reporting goroutine is cancelled when the global metrics client
 	// context is Done.
@@ -58,6 +66,9 @@ type ClientPoolConfig struct {
 
 	// PoolGaugeInterval indicates how often we should update the active
 	// connections gauge when collecting pool stats.
+	//
+	// When PoolGaugeInterval <= 0 and ReportPoolStats is true,
+	// DefaultPoolGaugeInterval will be used instead.
 	PoolGaugeInterval time.Duration
 }
 
@@ -74,6 +85,10 @@ type Client interface {
 // ClientPool defines an object that can be used to manage a pool of
 // Client objects.
 type ClientPool interface {
+	// Passthrough APIs from clientpool.Pool:
+	io.Closer
+	IsExhausted() bool
+
 	// GetClient returns a Client from the pool or creates a new one if
 	// needed.
 	GetClient() (Client, error)
@@ -135,7 +150,11 @@ func newClient(socketTimeout time.Duration, genAddr AddressGenerator, clientFact
 }
 
 func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration, labels []string) {
-	gauge := metricsbp.M.Gauge(prefix + ".pool-active-connections").With(labels...)
+	activeGauge := metricsbp.M.Gauge(prefix + ".pool-active-connections").With(labels...)
+	allocatedGauge := metricsbp.M.Gauge(prefix + ".pool-allocated-clients").With(labels...)
+	if tickerDuration <= 0 {
+		tickerDuration = DefaultPoolGaugeInterval
+	}
 	ticker := time.NewTicker(tickerDuration)
 	defer ticker.Stop()
 	for {
@@ -143,7 +162,8 @@ func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, t
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			gauge.Set(float64(pool.NumActiveClients()))
+			activeGauge.Set(float64(pool.NumActiveClients()))
+			allocatedGauge.Set(float64(pool.NumAllocated()))
 		}
 	}
 }
@@ -198,7 +218,8 @@ func newClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, clientFact Cl
 		)
 	}
 	return &clientPool{
-		pool: pool,
+		Pool: pool,
+
 		poolExhaustedCounter: metricsbp.M.Counter(
 			cfg.ServiceSlug + ".pool-exhausted",
 		).With(labels...),
@@ -209,13 +230,14 @@ func newClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, clientFact Cl
 }
 
 type clientPool struct {
-	pool                 clientpool.Pool
+	clientpool.Pool
+
 	poolExhaustedCounter metrics.Counter
 	releaseErrorCounter  metrics.Counter
 }
 
 func (p *clientPool) GetClient() (Client, error) {
-	c, err := p.pool.Get()
+	c, err := p.Pool.Get()
 	if err != nil {
 		if errors.Is(err, clientpool.ErrExhausted) {
 			p.poolExhaustedCounter.Add(1)
@@ -226,7 +248,7 @@ func (p *clientPool) GetClient() (Client, error) {
 }
 
 func (p *clientPool) ReleaseClient(c Client) {
-	if err := p.pool.Release(c); err != nil {
+	if err := p.Pool.Release(c); err != nil {
 		log.Errorw("Failed to release client back to pool", "err", err)
 		p.releaseErrorCounter.Add(1)
 	}
