@@ -20,7 +20,7 @@ const (
 )
 
 func initClients() (*thriftclient.MockClient, *thriftclient.RecordedClient, *thriftclient.MonitoredClient) {
-	mock := &thriftclient.MockClient{}
+	mock := &thriftclient.MockClient{FailUnregisteredMethods: true}
 	recorder := thriftclient.NewRecordedClient(mock)
 	client := &thriftclient.MonitoredClient{Client: recorder}
 	return mock, recorder, client
