@@ -30,6 +30,20 @@ type MockClient struct {
 	methods map[string]MockCall
 }
 
+func nopMockCall(ctx context.Context, args, result thrift.TStruct) error {
+	return nil
+}
+
+// AddNopMockCalls registers the nop MockCall to the given methods.
+//
+// A nop MockCall is a MockCall implementation that does nothing and returns nil
+// error.
+func (c *MockClient) AddNopMockCalls(methods ...string) {
+	for _, method := range methods {
+		c.AddMockCall(method, nopMockCall)
+	}
+}
+
 // AddMockCall registers the given MockCall to the given method.
 //
 // If a mock is already registered to that method,
