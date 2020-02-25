@@ -30,8 +30,12 @@ func NewTimer(h metrics.Histogram) *Timer {
 }
 
 // Start records the start time for the Timer.
+//
+// If t is nil, it will be no-op.
 func (t *Timer) Start() {
-	t.start = time.Now()
+	if t != nil {
+		t.start = time.Now()
+	}
 }
 
 // ObserveDuration reports the time elapsed via the wrapped histogram.
