@@ -7,7 +7,7 @@ platform:
 
 steps:
 - name: test
-  image: golang:1.13.7-buster
+  image: golang:1.14.0-buster
   pull: if-not-exists
   commands:
   - go test ./... -race
@@ -20,7 +20,7 @@ steps:
     - push
 
 - name: check-go-modules
-  image: golang:1.13.7-buster
+  image: golang:1.14.0-buster
   pull: if-not-exists
   commands:
   - go mod tidy
@@ -35,7 +35,7 @@ steps:
     - push
     
 - name: lint
-  image: golang:1.13.7-buster
+  image: golang:1.14.0-buster
   pull: if-not-exists
   commands:
   - go get -u golang.org/x/lint/golint
