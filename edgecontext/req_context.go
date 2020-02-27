@@ -13,6 +13,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 )
 
+// Signer is used to return a signature of the given string.
 type Signer func(s string) (string, error)
 
 // An EdgeRequestContext contains context info about an edge request.
