@@ -2,8 +2,10 @@ package edgecontext
 
 import (
 	"context"
+	"net/http"
 	"sync"
 
+	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/set"
 	"github.com/reddit/baseplate.go/thriftbp"
@@ -45,6 +47,11 @@ func (e *EdgeRequestContext) AttachToContext(ctx context.Context) context.Contex
 	headers.Add(thriftbp.HeaderEdgeRequest)
 	ctx = thrift.SetWriteHeaderList(ctx, headers.ToSlice())
 	return ctx
+}
+
+// AttachHTTPHeader attaches the header to the http Headers
+func (e *EdgeRequestContext) AttachHTTPHeader(h http.Header) {
+	h.Add(httpbp.EdgeContextHeader, e.header)
 }
 
 // SessionID returns the session id of this request.
