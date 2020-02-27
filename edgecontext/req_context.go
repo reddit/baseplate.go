@@ -13,6 +13,8 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 )
 
+type Signer func(s string) (string, error)
+
 // An EdgeRequestContext contains context info about an edge request.
 type EdgeRequestContext struct {
 	// header and raw should always be set during initialization
@@ -52,6 +54,18 @@ func (e *EdgeRequestContext) AttachToContext(ctx context.Context) context.Contex
 // AttachHTTPHeader attaches the header to the http Headers
 func (e *EdgeRequestContext) AttachHTTPHeader(h http.Header) {
 	h.Add(httpbp.EdgeContextHeader, e.header)
+}
+
+// AttachSignedHTTPHeader attaches the header to the http Headers along with
+// a signature header.
+func (e *EdgeRequestContext) AttachSignedHTTPHeader(h http.Header, signer Signer) error {
+	sig, err := signer(e.header)
+	if err != nil {
+		return err
+	}
+	e.AttachHTTPHeader(h)
+	h.Add(httpbp.EdgeContextSignatureHeader, sig)
+	return nil
 }
 
 // SessionID returns the session id of this request.
