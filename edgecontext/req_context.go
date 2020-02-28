@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
@@ -15,6 +16,15 @@ import (
 
 // Signer is used to return a signature of the given string.
 type Signer func(s string) (string, error)
+
+// HeaderTrustHandlerSigner returns a Signer that can be used to sign an
+// edge context HTTP header using TrustHeaderSignature.SignEdgeContextHeader.
+func HeaderTrustHandlerSigner(handler httpbp.TrustHeaderSignature, duration time.Duration) Signer {
+	return func(s string) (string, error) {
+		h := httpbp.EdgeContextHeaders{EdgeRequest: s}
+		return handler.SignEdgeContextHeader(h, duration)
+	}
+}
 
 // An EdgeRequestContext contains context info about an edge request.
 type EdgeRequestContext struct {
