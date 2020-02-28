@@ -9,12 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
-
-	"github.com/reddit/baseplate.go/httpbp"
-
-	"github.com/reddit/baseplate.go/edgecontext"
 )
 
 const secretsFile = `{
