@@ -34,7 +34,7 @@ type spanHook struct {
 }
 
 func newSpanHook(metrics *Statsd, span *tracing.Span) spanHook {
-	name := fmt.Sprintf("%v.%s", span.SpanType(), span.Name())
+	name := span.Component() + "." + span.Name()
 	return spanHook{
 		Name:    name,
 		Metrics: metrics,
