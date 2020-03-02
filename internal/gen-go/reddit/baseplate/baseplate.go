@@ -261,6 +261,106 @@ func (p *Session) String() string {
   return fmt.Sprintf("Session(%+v)", *p)
 }
 
+// The components of the device making a request to our services that we want to
+// propogate between services.
+// 
+// This model is a component of the "Edge-Request" header.  You should not need to
+// interact with this model directly, but rather through the EdgeRequestContext
+// interface provided by baseplate.
+// 
+// 
+// Attributes:
+//  - ID: The ID of the device.
+// 
+type Device struct {
+  ID string `thrift:"id,1" db:"id" json:"id"`
+}
+
+func NewDevice() *Device {
+  return &Device{}
+}
+
+
+func (p *Device) GetID() string {
+  return p.ID
+}
+func (p *Device) Read(iprot thrift.TProtocol) error {
+  if _, err := iprot.ReadStructBegin(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+  }
+
+
+  for {
+    _, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+    if err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+    }
+    if fieldTypeId == thrift.STOP { break; }
+    switch fieldId {
+    case 1:
+      if fieldTypeId == thrift.STRING {
+        if err := p.ReadField1(iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(fieldTypeId); err != nil {
+          return err
+        }
+      }
+    default:
+      if err := iprot.Skip(fieldTypeId); err != nil {
+        return err
+      }
+    }
+    if err := iprot.ReadFieldEnd(); err != nil {
+      return err
+    }
+  }
+  if err := iprot.ReadStructEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+  }
+  return nil
+}
+
+func (p *Device)  ReadField1(iprot thrift.TProtocol) error {
+  if v, err := iprot.ReadString(); err != nil {
+  return thrift.PrependError("error reading field 1: ", err)
+} else {
+  p.ID = v
+}
+  return nil
+}
+
+func (p *Device) Write(oprot thrift.TProtocol) error {
+  if err := oprot.WriteStructBegin("Device"); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
+  if p != nil {
+    if err := p.writeField1(oprot); err != nil { return err }
+  }
+  if err := oprot.WriteFieldStop(); err != nil {
+    return thrift.PrependError("write field stop error: ", err) }
+  if err := oprot.WriteStructEnd(); err != nil {
+    return thrift.PrependError("write struct stop error: ", err) }
+  return nil
+}
+
+func (p *Device) writeField1(oprot thrift.TProtocol) (err error) {
+  if err := oprot.WriteFieldBegin("id", thrift.STRING, 1); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:id: ", p), err) }
+  if err := oprot.WriteString(string(p.ID)); err != nil {
+  return thrift.PrependError(fmt.Sprintf("%T.id (1) field write error: ", p), err) }
+  if err := oprot.WriteFieldEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field end error 1:id: ", p), err) }
+  return err
+}
+
+func (p *Device) String() string {
+  if p == nil {
+    return "<nil>"
+  }
+  return fmt.Sprintf("Device(%+v)", *p)
+}
+
 // Container model for the Edge-Request context header.
 // 
 // Baseplate will automatically parse this from the "Edge-Request" header and
@@ -273,10 +373,12 @@ func (p *Session) String() string {
 //  - Loid
 //  - Session
 //  - AuthenticationToken
+//  - Device
 type Request struct {
   Loid *Loid `thrift:"loid,1" db:"loid" json:"loid"`
   Session *Session `thrift:"session,2" db:"session" json:"session"`
   AuthenticationToken AuthenticationToken `thrift:"authentication_token,3" db:"authentication_token" json:"authentication_token"`
+  Device *Device `thrift:"device,4" db:"device" json:"device"`
 }
 
 func NewRequest() *Request {
@@ -301,12 +403,23 @@ return p.Session
 func (p *Request) GetAuthenticationToken() AuthenticationToken {
   return p.AuthenticationToken
 }
+var Request_Device_DEFAULT *Device
+func (p *Request) GetDevice() *Device {
+  if !p.IsSetDevice() {
+    return Request_Device_DEFAULT
+  }
+return p.Device
+}
 func (p *Request) IsSetLoid() bool {
   return p.Loid != nil
 }
 
 func (p *Request) IsSetSession() bool {
   return p.Session != nil
+}
+
+func (p *Request) IsSetDevice() bool {
+  return p.Device != nil
 }
 
 func (p *Request) Read(iprot thrift.TProtocol) error {
@@ -345,6 +458,16 @@ func (p *Request) Read(iprot thrift.TProtocol) error {
     case 3:
       if fieldTypeId == thrift.STRING {
         if err := p.ReadField3(iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(fieldTypeId); err != nil {
+          return err
+        }
+      }
+    case 4:
+      if fieldTypeId == thrift.STRUCT {
+        if err := p.ReadField4(iprot); err != nil {
           return err
         }
       } else {
@@ -393,6 +516,14 @@ func (p *Request)  ReadField3(iprot thrift.TProtocol) error {
   return nil
 }
 
+func (p *Request)  ReadField4(iprot thrift.TProtocol) error {
+  p.Device = &Device{}
+  if err := p.Device.Read(iprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Device), err)
+  }
+  return nil
+}
+
 func (p *Request) Write(oprot thrift.TProtocol) error {
   if err := oprot.WriteStructBegin("Request"); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
@@ -400,6 +531,7 @@ func (p *Request) Write(oprot thrift.TProtocol) error {
     if err := p.writeField1(oprot); err != nil { return err }
     if err := p.writeField2(oprot); err != nil { return err }
     if err := p.writeField3(oprot); err != nil { return err }
+    if err := p.writeField4(oprot); err != nil { return err }
   }
   if err := oprot.WriteFieldStop(); err != nil {
     return thrift.PrependError("write field stop error: ", err) }
@@ -437,6 +569,17 @@ func (p *Request) writeField3(oprot thrift.TProtocol) (err error) {
   return thrift.PrependError(fmt.Sprintf("%T.authentication_token (3) field write error: ", p), err) }
   if err := oprot.WriteFieldEnd(); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write field end error 3:authentication_token: ", p), err) }
+  return err
+}
+
+func (p *Request) writeField4(oprot thrift.TProtocol) (err error) {
+  if err := oprot.WriteFieldBegin("device", thrift.STRUCT, 4); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field begin error 4:device: ", p), err) }
+  if err := p.Device.Write(oprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Device), err)
+  }
+  if err := oprot.WriteFieldEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field end error 4:device: ", p), err) }
   return err
 }
 
