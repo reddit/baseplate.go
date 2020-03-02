@@ -109,6 +109,8 @@ type NewArgs struct {
 
 	SessionID string
 
+	DeviceID string
+
 	AuthToken string
 }
 
@@ -130,6 +132,11 @@ func New(ctx context.Context, args NewArgs) (*EdgeRequestContext, error) {
 	if args.SessionID != "" {
 		request.Session = &baseplate.Session{
 			ID: args.SessionID,
+		}
+	}
+	if args.DeviceID != "" {
+		request.Device = &baseplate.Device{
+			ID: args.DeviceID,
 		}
 	}
 	request.AuthenticationToken = baseplate.AuthenticationToken(args.AuthToken)
@@ -155,6 +162,9 @@ func fromHeader(header string) (*EdgeRequestContext, error) {
 	}
 	if request.Session != nil {
 		raw.SessionID = request.Session.ID
+	}
+	if request.Device != nil {
+		raw.DeviceID = request.Device.ID
 	}
 	if request.Loid != nil {
 		raw.LoID = request.Loid.ID

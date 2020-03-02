@@ -84,6 +84,11 @@ func (e *EdgeRequestContext) SessionID() string {
 	return e.raw.SessionID
 }
 
+// DeviceID returns the device id of this request.
+func (e *EdgeRequestContext) DeviceID() string {
+	return e.raw.DeviceID
+}
+
 // User returns the info about the user of this request.
 func (e *EdgeRequestContext) User() User {
 	return User{
