@@ -186,6 +186,25 @@ func (s *Span) AddCounter(key string, delta float64) {
 	}
 }
 
+// Component returns the local component name of this span, with special cases.
+//
+// For local spans,
+// this returns the component name set while starting the span,
+// or "local" if it's empty.
+// For client spans, this returns "clients".
+// For all other span types, this returns the string version of the span type.
+func (s *Span) Component() string {
+	switch s.spanType {
+	case SpanTypeClient:
+		return "clients"
+	case SpanTypeLocal:
+		if s.component != "" {
+			return s.component
+		}
+	}
+	return s.spanType.String()
+}
+
 func (s Span) initChildSpan(child *Span) {
 	child.trace.parentID = s.trace.spanID
 	child.trace.traceID = s.trace.traceID
