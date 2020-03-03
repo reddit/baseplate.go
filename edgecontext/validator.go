@@ -17,13 +17,17 @@ const (
 	jwtAlg                         = "RS256"
 )
 
+// ErrNoPublicKeysLoaded is an error returned by ValidateToken indicates that
+// the function is called before any public keys are loaded from secrets.
+var ErrNoPublicKeysLoaded = errors.New("edgecontext.ValidateToken: no public keys loaded")
+
 // ValidateToken parses and validates a jwt token, and return the decoded
 // AuthenticationToken.
 func ValidateToken(token string) (*AuthenticationToken, error) {
 	keys, ok := keysValue.Load().(keysType)
 	if !ok {
 		// This would only happen when all previous middleware parsing failed.
-		return nil, errors.New("no public keys loaded")
+		return nil, ErrNoPublicKeysLoaded
 	}
 
 	tok, err := jwt.ParseWithClaims(

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -265,8 +266,8 @@ func TestNoBucketVal(t *testing.T) {
 	}
 	result, err := experiment.Variant(map[string]interface{}{"not_user_id": "t2_1"})
 	expectedErr := "must specify user_id in call to variant for experiment test_experiment"
-	if err != nil && err.Error() != expectedErr {
-		t.Errorf("expected error %s but was: %v", expectedErr, err)
+	if err != nil && !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("expected error %q but was: %v", expectedErr, err)
 	}
 	if result != "" {
 		t.Errorf("expected result to be empty but was %s", result)
@@ -278,8 +279,8 @@ func TestNoBucketVal(t *testing.T) {
 	}
 	result, err = experiment.Variant(map[string]interface{}{"not_user_id": ""})
 	expectedErr = "must specify user_id in call to variant for experiment test_experiment"
-	if err != nil && err.Error() != expectedErr {
-		t.Errorf("expected error %s but was: %v", expectedErr, err)
+	if err != nil && !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("expected error %q but was: %v", expectedErr, err)
 	}
 	if result != "" {
 		t.Errorf("expected result to be empty but was %s", result)

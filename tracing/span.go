@@ -145,8 +145,7 @@ func (s *Span) AddHooks(hooks ...interface{}) {
 			s.LogError(
 				"AddHooks error: ",
 				fmt.Errorf(
-					"attempting to add non-SpanHook object %T into span's hook registry: %#v",
-					hook,
+					"tracing.Span.AddHooks: attempting to add non-SpanHook object into span's hook registry: %#v",
 					hook,
 				),
 			)

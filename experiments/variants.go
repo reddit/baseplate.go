@@ -240,5 +240,5 @@ func (v *RangeVariantSet) ChooseVariant(bucket int) string {
 type VariantValidationError string
 
 func (cause VariantValidationError) Error() string {
-	return string(cause)
+	return "experiments: " + string(cause)
 }
