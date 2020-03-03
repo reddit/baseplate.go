@@ -6,7 +6,7 @@ import (
 )
 
 // ErrExhausted is the error returned by Get when the pool is exhausted.
-var ErrExhausted = errors.New("client pool exhausted")
+var ErrExhausted = errors.New("clientpool: exhausted")
 
 // ConfigError is the error type returned when trying to open a new
 // client pool, but the configuration values passed in won't work.

@@ -267,7 +267,10 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 			}
 			secrets.credentialSecrets[key] = credential
 		default:
-			return nil, fmt.Errorf("encountered unknown secret type %s", secret.Type)
+			return nil, fmt.Errorf(
+				"secrets.NewSecrets: encountered unknown secret type %s",
+				secret.Type,
+			)
 		}
 	}
 	return secrets, nil

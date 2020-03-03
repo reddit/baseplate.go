@@ -305,9 +305,9 @@ func lessThan(i, j float64) bool      { return i < j }
 func lessEquals(i, j float64) bool    { return i <= j }
 func notEqual(i, j float64) bool      { return i != j }
 
-func mapOperatorNode(name string, value interface{}) (Targeting, error) {
-	name = strings.ToLower(name)
-	switch name {
+func mapOperatorNode(operator string, value interface{}) (Targeting, error) {
+	operator = strings.ToLower(operator)
+	switch operator {
 	case "any":
 		return NewAnyNode(value)
 	case "all":
@@ -329,7 +329,7 @@ func mapOperatorNode(name string, value interface{}) (Targeting, error) {
 	case "ne":
 		return NewComparisonNode(value.(map[string]interface{}), notEqual)
 	}
-	return nil, UnknownTargetingOperatorError(fmt.Sprintf("unrecognized operator while constructing targeting tree: %s", name))
+	return nil, UnknownTargetingOperatorError(operator)
 }
 
 // TargetingNodeError is returned when there was an inconsistency in the
@@ -338,13 +338,13 @@ func mapOperatorNode(name string, value interface{}) (Targeting, error) {
 type TargetingNodeError string
 
 func (cause TargetingNodeError) Error() string {
-	return string(cause)
+	return "experiments: " + string(cause)
 }
 
 // UnknownTargetingOperatorError is returned when the parsed operator is not
 // known.
 type UnknownTargetingOperatorError string
 
-func (cause UnknownTargetingOperatorError) Error() string {
-	return string(cause)
+func (operator UnknownTargetingOperatorError) Error() string {
+	return "experiments: unrecognized operator while constructing targeting tree: " + string(operator)
 }

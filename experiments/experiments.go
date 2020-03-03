@@ -83,7 +83,10 @@ func (e *Experiments) experiment(name string) (Experiment, error) {
 		return NewSimpleExperiment(experiment)
 	}
 	// TODO handle this according to baseplate.py
-	return nil, fmt.Errorf("unknown experiment %s", experiment.Type)
+	return nil, fmt.Errorf(
+		"experiments.Experiments.Variant: unknown experiment %s",
+		experiment.Type,
+	)
 }
 
 // ParsedExperiment represents the experiment and configures the available
@@ -240,7 +243,11 @@ func (e *SimpleExperiment) Variant(args map[string]interface{}) (string, error) 
 	}
 	args = lowerArguments(args)
 	if value, ok := args[e.bucketVal]; !ok || value == "" {
-		return "", fmt.Errorf("must specify %s in call to variant for experiment %s", e.bucketVal, e.name)
+		return "", fmt.Errorf(
+			"experiment.SimpleExperiment.Variant: must specify %s in call to variant for experiment %s",
+			e.bucketVal,
+			e.name,
+		)
 	}
 	for _, override := range e.overrides {
 		for variant, targeting := range override {
@@ -254,7 +261,10 @@ func (e *SimpleExperiment) Variant(args map[string]interface{}) (string, error) 
 	}
 	bucketVal, ok := args[e.bucketVal].(string)
 	if !ok {
-		return "", fmt.Errorf("expected bucket val to be a string, actual: %T", args[e.bucketVal])
+		return "", fmt.Errorf(
+			"experiment.SimpleExperiment.Variant: expected bucket val to be a string, actual: %T",
+			args[e.bucketVal],
+		)
 	}
 
 	bucket := e.calculateBucket(bucketVal)
@@ -311,7 +321,7 @@ type Variant struct {
 type UnknownExperimentError string
 
 func (name UnknownExperimentError) Error() string {
-	return fmt.Sprintf("experiment with name %s unknown", name)
+	return fmt.Sprintf("experiments: experiment with name %s unknown", name)
 }
 
 func isSimpleExperiment(experimentType string) bool {

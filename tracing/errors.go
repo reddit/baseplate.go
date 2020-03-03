@@ -17,7 +17,7 @@ var _ error = (*InvalidSpanTypeError)(nil)
 
 func (e *InvalidSpanTypeError) Error() string {
 	return fmt.Sprintf(
-		"span.spanType: expected (%v) != actual (%v)",
+		"span.SpanType: expected (%v) != actual (%v)",
 		e.ExpectedSpanType,
 		e.ActualSpanType,
 	)

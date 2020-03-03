@@ -93,18 +93,18 @@ func numCPUSharesFallback() (n float64) {
 func readNumberFromFile(path string, buf []byte) (float64, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open %s: %w", path, err)
+		return 0, fmt.Errorf("runtimebp: failed to open %s: %w", path, err)
 	}
 	defer file.Close()
 
 	n, err := file.Read(buf)
 	if err != nil {
-		return 0, fmt.Errorf("failed to read %s: %w", path, err)
+		return 0, fmt.Errorf("runtimebp: failed to read %s: %w", path, err)
 	}
 
 	f, err := strconv.ParseInt(strings.TrimSpace(string(buf[:n])), 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse %s: %w", path, err)
+		return 0, fmt.Errorf("runtimebp: failed to parse %s: %w", path, err)
 	}
 	return float64(f), nil
 }
