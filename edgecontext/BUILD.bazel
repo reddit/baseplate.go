@@ -1,0 +1,52 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "edgecontext.go",
+        "middlewares.go",
+        "oauth_client.go",
+        "req_context.go",
+        "service.go",
+        "token.go",
+        "user.go",
+        "validator.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/edgecontext",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//httpbp:go_default_library",
+        "//internal/gen-go/reddit/baseplate:go_default_library",
+        "//log:go_default_library",
+        "//secrets:go_default_library",
+        "//set:go_default_library",
+        "//thriftbp:go_default_library",
+        "//timebp:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+        "@com_github_go_kit_kit//endpoint:go_default_library",
+        "@in_gopkg_dgrijalva_jwt_go_v3//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "edgecontext_test.go",
+        "example_middlewares_test.go",
+        "init_test.go",
+        "middlewares_test.go",
+        "req_context_test.go",
+        "validator_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//httpbp:go_default_library",
+        "//log:go_default_library",
+        "//secrets:go_default_library",
+        "//thriftbp:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+        "@com_github_go_kit_kit//endpoint:go_default_library",
+        "@com_github_go_kit_kit//transport/http:go_default_library",
+    ],
+)

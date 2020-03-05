@@ -1,0 +1,33 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "hooks.go",
+        "monitored_client.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/redisbp",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//batcherror:go_default_library",
+        "//tracing:go_default_library",
+        "@com_github_go_redis_redis_v7//:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "example_hooks_test.go",
+        "example_monitored_client_test.go",
+        "hooks_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//tracing:go_default_library",
+        "@com_github_go_redis_redis_v7//:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
+    ],
+)

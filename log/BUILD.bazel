@@ -1,0 +1,26 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "encoder.go",
+        "kit_wrapper.go",
+        "log.go",
+        "wrapper.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/log",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_getsentry_raven_go//:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
+        "@org_uber_go_zap//zapcore:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["log_test.go"],
+    embed = [":go_default_library"],
+    deps = ["@com_github_go_kit_kit//log:go_default_library"],
+)

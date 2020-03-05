@@ -1,0 +1,25 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "filewatcher.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/filewatcher",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//log:go_default_library",
+        "@in_gopkg_fsnotify_v1//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "doc_test.go",
+        "filewatcher_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = ["//log:go_default_library"],
+)

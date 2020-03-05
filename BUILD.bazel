@@ -1,0 +1,5 @@
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
+# gazelle:prefix github.com/reddit/baseplate.go
+# gazelle:exclude bazel-baseplate.go
+gazelle(name = "gazelle")
