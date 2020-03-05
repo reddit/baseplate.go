@@ -1,0 +1,33 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "errors.go",
+        "interface.go",
+        "mqsend_linux.go",
+        "mqsend_mock.go",
+        "mqsend_other.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/mqsend",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "@org_golang_x_sys//unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux": [
+            "@org_golang_x_sys//unix:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "mqsend_mock_test.go",
+        "mqsend_test.go",
+    ],
+    embed = [":go_default_library"],
+)

@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "channel.go",
+        "doc.go",
+        "errors.go",
+        "interface.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/clientpool",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "bench_test.go",
+        "channel_test.go",
+        "doc_test.go",
+        "interface_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//thriftclient:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+    ],
+)

@@ -1,0 +1,43 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "client_pool.go",
+        "doc.go",
+        "monitored_tclient.go",
+        "testing.go",
+        "ttl_client.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/thriftclient",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//clientpool:go_default_library",
+        "//log:go_default_library",
+        "//metricsbp:go_default_library",
+        "//tracing:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+        "@com_github_go_kit_kit//metrics:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "client_pool_test.go",
+        "example_client_test.go",
+        "monitored_tclient_test.go",
+        "ttl_client_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//clientpool:go_default_library",
+        "//internal/gen-go/reddit/baseplate:go_default_library",
+        "//log:go_default_library",
+        "//mqsend:go_default_library",
+        "//tracing:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
+    ],
+)

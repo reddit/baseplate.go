@@ -1,0 +1,43 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "baseplate_hooks.go",
+        "doc.go",
+        "nil_check.go",
+        "sampled.go",
+        "statsd.go",
+        "sys_stats.go",
+        "timer.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/metricsbp",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//log:go_default_library",
+        "//randbp:go_default_library",
+        "//tracing:go_default_library",
+        "@com_github_go_kit_kit//metrics:go_default_library",
+        "@com_github_go_kit_kit//metrics/influxstatsd:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "baseplate_hooks_test.go",
+        "example_baseplate_hooks_test.go",
+        "example_nil_check_test.go",
+        "example_timer_test.go",
+        "nil_check_test.go",
+        "sample_rate_test.go",
+        "sampled_test.go",
+        "statsd_test.go",
+        "timer_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//tracing:go_default_library",
+        "@com_github_go_kit_kit//metrics:go_default_library",
+    ],
+)
