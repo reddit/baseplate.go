@@ -6,6 +6,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	opentracing "github.com/opentracing/opentracing-go"
 
+	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -46,6 +47,9 @@ func (c MonitoredClient) Call(ctx context.Context, method string, args, result t
 			Ctx: ctx,
 			Err: err,
 		}.Convert())
+		if err != nil {
+			metricsbp.M.Counter(method + ".error").Add(1)
+		}
 	}()
 	return c.Client.Call(ctx, method, args, result)
 }
