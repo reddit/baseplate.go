@@ -25,6 +25,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    size = "small",
     srcs = [
         "mqsend_mock_test.go",
         "mqsend_test.go",

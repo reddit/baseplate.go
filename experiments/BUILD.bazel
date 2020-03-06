@@ -18,6 +18,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    size = "small",
     srcs = [
         "experiments_test.go",
         "targeting_test.go",

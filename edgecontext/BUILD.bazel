@@ -31,6 +31,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    size = "small",
     srcs = [
         "edgecontext_test.go",
         "example_middlewares_test.go",

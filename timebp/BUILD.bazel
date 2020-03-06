@@ -14,6 +14,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    size = "small",
     srcs = [
         "microsecond_test.go",
         "millisecond_test.go",

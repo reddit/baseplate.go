@@ -16,8 +16,13 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    size = "small",
     srcs = ["events_test.go"],
     embed = [":go_default_library"],
+    # This test is marked as flaky as sometimes the running environment in drone
+    # is just too slow that TestV2Put would fail because of the timeout.
+    # See https://cloud.drone.io/reddit/baseplate.go/496/1/2 for an example.
+    flaky = True,
     deps = [
         "//mqsend:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
