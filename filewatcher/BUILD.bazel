@@ -16,10 +16,17 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    size = "small",
     srcs = [
         "doc_test.go",
         "filewatcher_test.go",
     ],
     embed = [":go_default_library"],
+    # This test is marked as flaky as sometimes the running environment in drone
+    # is just too slow that TestFileWatcherRename would exceed the timeout.
+    # Since this only happens rarely, mark it flaky so it gets auto retried is
+    # likely better than just enlarge the timeout.
+    # See https://cloud.drone.io/reddit/baseplate.go/503/1/2 for an example.
+    flaky = True,
     deps = ["//log:go_default_library"],
 )

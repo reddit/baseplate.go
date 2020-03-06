@@ -39,10 +39,16 @@ please run the following command to reflect the changes in Bazel:
 bazel run //:gazelle -- update-repos -from_file=go.mod -prune
 ```
 
+Or just use the script we used in CI:
+
+```
+./scripts/bazel_cleanup.sh
+```
+
 To run tests via Bazel, use the following command:
 
 ```
-bazel test --features=race ...
+bazel test //...:all
 ```
 
 
