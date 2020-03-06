@@ -13,13 +13,13 @@ const (
 
 // CreateServerSpanHook registers each Server Span with a MetricsSpanHook.
 type CreateServerSpanHook struct {
+	// Optional, will fallback to M when it's nil.
 	Metrics *Statsd
 }
 
 // OnCreateServerSpan registers MetricSpanHooks on a server Span.
 func (h CreateServerSpanHook) OnCreateServerSpan(span *tracing.Span) error {
-	serverSpanHook := newSpanHook(h.Metrics, span)
-	span.AddHooks(serverSpanHook)
+	span.AddHooks(newSpanHook(h.Metrics.fallback(), span))
 	return nil
 }
 
@@ -27,8 +27,8 @@ func (h CreateServerSpanHook) OnCreateServerSpan(span *tracing.Span) error {
 // metric when the Span ends based on whether an error was passed to `span.End`
 // or not.
 type spanHook struct {
-	Name    string
-	Metrics *Statsd
+	name    string
+	metrics *Statsd
 
 	timer *Timer
 }
@@ -36,8 +36,8 @@ type spanHook struct {
 func newSpanHook(metrics *Statsd, span *tracing.Span) spanHook {
 	name := span.Component() + "." + span.Name()
 	return spanHook{
-		Name:    name,
-		Metrics: metrics,
+		name:    name,
+		metrics: metrics,
 		timer:   &Timer{Histogram: metrics.Timing(name)},
 	}
 }
@@ -45,8 +45,7 @@ func newSpanHook(metrics *Statsd, span *tracing.Span) spanHook {
 // OnCreateChild registers a child MetricsSpanHook on the child Span and starts
 // a new Timer around the Span.
 func (h spanHook) OnCreateChild(parent, child *tracing.Span) error {
-	childHook := newSpanHook(h.Metrics, child)
-	child.AddHooks(childHook)
+	child.AddHooks(newSpanHook(h.metrics, child))
 	return nil
 }
 
@@ -65,18 +64,18 @@ func (h spanHook) OnPreStop(span *tracing.Span, err error) error {
 	h.timer.ObserveDuration()
 	var statusMetricPath string
 	if err != nil {
-		statusMetricPath = fmt.Sprintf("%s.%s", h.Name, fail)
+		statusMetricPath = fmt.Sprintf("%s.%s", h.name, fail)
 	} else {
-		statusMetricPath = fmt.Sprintf("%s.%s", h.Name, success)
+		statusMetricPath = fmt.Sprintf("%s.%s", h.name, success)
 	}
-	h.Metrics.Counter(statusMetricPath).Add(1)
+	h.metrics.Counter(statusMetricPath).Add(1)
 	return nil
 }
 
 // OnAddCounter will increment a metric by "delta" using "key" as the metric
 // "name"
 func (h spanHook) OnAddCounter(span *tracing.Span, key string, delta float64) error {
-	h.Metrics.Counter(key).Add(delta)
+	h.metrics.Counter(key).Add(delta)
 	return nil
 }
 
