@@ -266,7 +266,7 @@ func TestNoBucketVal(t *testing.T) {
 	}
 	result, err := experiment.Variant(map[string]interface{}{"not_user_id": "t2_1"})
 	expectedErr := "must specify user_id in call to variant for experiment test_experiment"
-	if err != nil && !strings.Contains(err.Error(), expectedErr) {
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("expected error %q but was: %v", expectedErr, err)
 	}
 	if result != "" {
@@ -279,7 +279,7 @@ func TestNoBucketVal(t *testing.T) {
 	}
 	result, err = experiment.Variant(map[string]interface{}{"not_user_id": ""})
 	expectedErr = "must specify user_id in call to variant for experiment test_experiment"
-	if err != nil && !strings.Contains(err.Error(), expectedErr) {
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("expected error %q but was: %v", expectedErr, err)
 	}
 	if result != "" {
