@@ -31,7 +31,6 @@ go_test(
         "example_nil_check_test.go",
         "example_timer_test.go",
         "nil_check_test.go",
-        "sample_rate_test.go",
         "sampled_test.go",
         "statsd_test.go",
         "timer_test.go",
