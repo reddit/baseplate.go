@@ -22,7 +22,7 @@ func TestSampledHistogram(t *testing.T) {
 	statsdSampled := metricsbp.NewStatsd(
 		context.Background(),
 		metricsbp.StatsdConfig{
-			HistogramSampleRate: 0.3,
+			HistogramSampleRate: metricsbp.Float64Ptr(0.3),
 		},
 	)
 	statsdWithLabels := metricsbp.NewStatsd(
@@ -36,7 +36,7 @@ func TestSampledHistogram(t *testing.T) {
 	statsdWithLabelsSampled := metricsbp.NewStatsd(
 		context.Background(),
 		metricsbp.StatsdConfig{
-			HistogramSampleRate: 0.3,
+			HistogramSampleRate: metricsbp.Float64Ptr(0.3),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
@@ -158,7 +158,7 @@ func TestSampledCounter(t *testing.T) {
 	statsdSampled := metricsbp.NewStatsd(
 		context.Background(),
 		metricsbp.StatsdConfig{
-			CounterSampleRate: 0.3,
+			CounterSampleRate: metricsbp.Float64Ptr(0.3),
 		},
 	)
 	statsdWithLabels := metricsbp.NewStatsd(
@@ -172,7 +172,7 @@ func TestSampledCounter(t *testing.T) {
 	statsdWithLabelsSampled := metricsbp.NewStatsd(
 		context.Background(),
 		metricsbp.StatsdConfig{
-			CounterSampleRate: 0.3,
+			CounterSampleRate: metricsbp.Float64Ptr(0.3),
 			Labels: map[string]string{
 				"foo": "bar",
 			},

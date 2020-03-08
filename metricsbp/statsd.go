@@ -2,7 +2,6 @@ package metricsbp
 
 import (
 	"context"
-	"math"
 	"strings"
 	"time"
 
@@ -12,7 +11,9 @@ import (
 	"github.com/go-kit/kit/metrics/influxstatsd"
 )
 
-const epsilon = 1e-9
+// DefaultSampleRate is the default value to be used when *SampleRate in
+// StatsdConfig is nil (zero value).
+const DefaultSampleRate = 1
 
 // ReporterTickerInterval is the interval the reporter sends data to statsd
 // server. Default is one minute.
@@ -106,11 +107,12 @@ type StatsdConfig struct {
 	// The reporting sample rate used when creating counters and
 	// timings/histograms, respectively.
 	//
-	// For user convenience,
-	// we actually treat zero values (within 1e-9 since it's float) as 1 (100%),
-	// and <-1e-9 as 0 (0%).
-	CounterSampleRate   float64
-	HistogramSampleRate float64
+	// DefaultSampleRate will be used when they are nil (zero value).
+	//
+	// Use Float64Ptr to convert literals or other values that you can't get the
+	// pointer directly.
+	CounterSampleRate   *float64
+	HistogramSampleRate *float64
 
 	// Address is the UDP address (in "host:port" format) of the statsd service.
 	//
@@ -134,15 +136,16 @@ type StatsdConfig struct {
 	Labels MetricsLabels
 }
 
-// counterSampleRate treats 0 (abs(rate) < epsilon) as 1, and <-epsilon as 0.
-func convertSampleRate(rate float64) float64 {
-	if math.Abs(rate) < epsilon {
-		return 1
+func convertSampleRate(rate *float64) float64 {
+	if rate == nil {
+		return DefaultSampleRate
 	}
-	if rate < 0 {
-		return 0
-	}
-	return rate
+	return *rate
+}
+
+// Float64Ptr converts float64 value into pointer.
+func Float64Ptr(v float64) *float64 {
+	return &v
 }
 
 // NewStatsd creates a Statsd object.
