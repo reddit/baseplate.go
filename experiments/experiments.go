@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/timebp"
@@ -24,7 +25,8 @@ const targetAllOverride = `{"OVERRIDE": true}`
 // the experiment configuration fetcher daemon.  It will automatically reload
 // the cache when changed.
 type Experiments struct {
-	watcher *filewatcher.Result
+	watcher     *filewatcher.Result
+	eventLogger Logger
 }
 
 // NewExperiments returns a new instance of the experiments clients. The path
@@ -32,7 +34,7 @@ type Experiments struct {
 //
 // Context should come with a timeout otherwise this might block forever, i.e.
 // if the path never becomes available.
-func NewExperiments(ctx context.Context, path string, logger log.Wrapper) (*Experiments, error) {
+func NewExperiments(ctx context.Context, path string, eventLogger Logger, logger log.Wrapper) (*Experiments, error) {
 	parser := func(r io.Reader) (interface{}, error) {
 		var doc document
 		err := json.NewDecoder(r).Decode(&doc)
@@ -46,15 +48,9 @@ func NewExperiments(ctx context.Context, path string, logger log.Wrapper) (*Expe
 		return nil, err
 	}
 	return &Experiments{
-		watcher: result,
+		watcher:     result,
+		eventLogger: eventLogger,
 	}, nil
-}
-
-// Experiment is the interface for experiments.
-type Experiment interface {
-	UniqueID(map[string]string) string
-	Variant(args map[string]interface{}) (string, error)
-	LogBucketing() bool
 }
 
 // Variant determines the variant, if any, of this experiment is active.
@@ -73,7 +69,20 @@ func (e *Experiments) Variant(name string, args map[string]interface{}, bucketin
 	return experiment.Variant(args)
 }
 
-func (e *Experiments) experiment(name string) (Experiment, error) {
+// Expose logs an event to indicate that a user has been exposed to an
+// experimental treatment.
+func (e *Experiments) Expose(ctx context.Context, experimentName string, event ExperimentEvent) error {
+	doc := e.watcher.Get().(document)
+	experiment, ok := doc[experimentName]
+	if !ok {
+		return UnknownExperimentError(experimentName)
+	}
+	event.Experiment = experiment
+	event.EventType = "EXPOSE"
+	return e.eventLogger.Log(ctx, event)
+}
+
+func (e *Experiments) experiment(name string) (*SimpleExperiment, error) {
 	doc := e.watcher.Get().(document)
 	experiment, ok := doc[name]
 	if !ok {
@@ -82,20 +91,18 @@ func (e *Experiments) experiment(name string) (Experiment, error) {
 	if isSimpleExperiment(experiment.Type) {
 		return NewSimpleExperiment(experiment)
 	}
-	// TODO handle this according to baseplate.py
 	return nil, fmt.Errorf(
 		"experiments.Experiments.Variant: unknown experiment %s",
 		experiment.Type,
 	)
 }
 
-// ParsedExperiment represents the experiment and configures the available
+// Experiment represents the experiment and configures the available
 // variants.
-type ParsedExperiment struct {
+type Experiment struct {
 	ExperimentVersion int                          `json:"experiment_version"`
 	ShuffleVersion    string                       `json:"shuffle_version"`
 	BucketVal         string                       `json:"bucket_val"`
-	LogBucketing      bool                         `json:"log_bucketing"`
 	Variants          []Variant                    `json:"variants"`
 	BucketSeed        string                       `json:"bucket_seed"`
 	Targeting         json.RawMessage              `json:"targeting"`
@@ -131,7 +138,7 @@ type ExperimentConfig struct {
 	// considered disabled.
 	StopTimestamp timebp.TimestampSecondF `json:"stop_ts"`
 	// Experiment is the specific experiment.
-	Experiment ParsedExperiment `json:"experiment"`
+	Experiment Experiment `json:"experiment"`
 }
 
 // SimpleExperiment is a basic experiment choosing from a set of variants.
@@ -159,8 +166,6 @@ type SimpleExperiment struct {
 	// endTime determines when this experiment is due to end. Variant requests
 	// after this time will return an empty string.
 	endTime time.Time
-	// logBucketing determines whether bucketing events should be logged.
-	logBucketing bool
 	// bucketVal is a string used for shifting the deterministic bucketing
 	// algorithm.  In most cases, this will be an Account's fullname.
 	bucketVal string
@@ -297,11 +302,6 @@ func (e *SimpleExperiment) UniqueID(bucketVals map[string]string) string {
 	return strings.Join([]string{e.name, e.bucketVal, bucketVal}, ":")
 }
 
-// LogBucketing returns whether or not this experiment should log bucketing events.
-func (e *SimpleExperiment) LogBucketing() bool {
-	return e.logBucketing
-}
-
 func (e *SimpleExperiment) isEnabled() bool {
 	now := time.Now()
 	return e.enabled && !now.Before(e.startTime) && now.Before(e.endTime)
@@ -333,4 +333,25 @@ func isSimpleExperiment(experimentType string) bool {
 		return true
 	}
 	return false
+}
+
+// ExperimentEvent is the playload used by Expose to log whether a user has
+// been exposed to an experimental treatment.
+type ExperimentEvent struct {
+	ID              uuid.UUID
+	CorrelationID   uuid.UUID
+	DeviceID        uuid.UUID
+	Experiment      *ExperimentConfig
+	VariantName     string
+	UserID          string
+	LoggedIn        bool
+	ClientTimestamp int64
+	CookieCreatedAt int64
+	AppName         string
+	EventType       string
+}
+
+// Logger provides an interface for experiment events to be logged.
+type Logger interface {
+	Log(ctx context.Context, event ExperimentEvent) error
 }

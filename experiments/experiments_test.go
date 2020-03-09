@@ -20,7 +20,7 @@ var simpleConfig = &ExperimentConfig{
 	StartTimestamp: timebp.TimestampSecondF(time.Now().Add(-30 * 24 * time.Hour)),
 	StopTimestamp:  timebp.TimestampSecondF(time.Now().Add(30 * 24 * time.Hour)),
 	Enabled:        func() *bool { b := true; return &b }(),
-	Experiment: ParsedExperiment{
+	Experiment: Experiment{
 		BucketSeed: "some new seed",
 		Variants: []Variant{
 			{
@@ -50,7 +50,7 @@ func TestCalculateBucketValue(t *testing.T) {
 			config: &ExperimentConfig{
 				ID:   1,
 				Name: "test_experiment",
-				Experiment: ParsedExperiment{
+				Experiment: Experiment{
 					ShuffleVersion: "",
 					BucketSeed:     "some new seed",
 					Variants: []Variant{
@@ -93,7 +93,7 @@ func TestCalculateBucket(t *testing.T) {
 		StartTimestamp: timebp.TimestampSecondF(time.Now().Add(-30 * 24 * time.Hour)),
 		StopTimestamp:  timebp.TimestampSecondF(time.Now().Add(30 * 24 * time.Hour)),
 		Enabled:        func() *bool { b := true; return &b }(),
-		Experiment: ParsedExperiment{
+		Experiment: Experiment{
 			Variants: []Variant{
 				{
 					Name: "variant_1",
@@ -151,7 +151,7 @@ func TestCalculateBucketWithSeed(t *testing.T) {
 		StartTimestamp: timebp.TimestampSecondF(time.Now().Add(-30 * 24 * time.Hour)),
 		StopTimestamp:  timebp.TimestampSecondF(time.Now().Add(30 * 24 * time.Hour)),
 		Enabled:        func() *bool { b := true; return &b }(),
-		Experiment: ParsedExperiment{
+		Experiment: Experiment{
 			BucketSeed: "some new seed",
 			Variants: []Variant{
 				{
@@ -349,7 +349,7 @@ func TestOverride(t *testing.T) {
 		StartTimestamp: timebp.TimestampSecondF(time.Now().Add(-30 * 24 * time.Hour)),
 		StopTimestamp:  timebp.TimestampSecondF(time.Now().Add(30 * 24 * time.Hour)),
 		Enabled:        func() *bool { b := true; return &b }(),
-		Experiment: ParsedExperiment{
+		Experiment: Experiment{
 			Variants: []Variant{
 				{
 					Name: "variant_1",
