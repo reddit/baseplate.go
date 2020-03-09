@@ -1,1 +1,1 @@
-test --features=race
+test --features=race --test_output=errors

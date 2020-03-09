@@ -48,7 +48,7 @@ steps:
   image: l.gcr.io/google/bazel:2.2.0
   pull: if-not-exists
   commands:
-  - ./scripts/ci-run-bazel-test.sh
+  - bazel --bazelrc=.bazelrc.ci test //...:all
   when:
     branch:
     - master
