@@ -43,10 +43,3 @@ load("//:external.bzl", "go_dependencies")
 
 # gazelle:repository_macro external.bzl%go_dependencies
 go_dependencies()
-
-go_repository(
-    name = "com_github_gofrs_uuid",
-    importpath = "github.com/gofrs/uuid",
-    sum = "h1:y12jRkkFxsd7GpqdSZ+/KCs/fJbqpEXSGd4+jfEaewE=",
-    version = "v3.2.0+incompatible",
-)

@@ -78,7 +78,9 @@ func (e *Experiments) Expose(ctx context.Context, experimentName string, event E
 		return UnknownExperimentError(experimentName)
 	}
 	event.Experiment = experiment
-	event.EventType = "EXPOSE"
+	if event.EventType == "" {
+		event.EventType = "EXPOSE"
+	}
 	return e.eventLogger.Log(ctx, event)
 }
 
@@ -338,17 +340,34 @@ func isSimpleExperiment(experimentType string) bool {
 // ExperimentEvent is the playload used by Expose to log whether a user has
 // been exposed to an experimental treatment.
 type ExperimentEvent struct {
-	ID              uuid.UUID
-	CorrelationID   uuid.UUID
-	DeviceID        uuid.UUID
-	Experiment      *ExperimentConfig
-	VariantName     string
-	UserID          string
-	LoggedIn        bool
-	ClientTimestamp int64
-	CookieCreatedAt int64
-	AppName         string
-	EventType       string
+	// ID uniquely identifies the experiment event. If you pass in uuid.Nil the
+	// logger handling this event should generate a UUID v4 (optional).
+	ID uuid.UUID
+	// CorrelationID are used to track events across different services.
+	CorrelationID uuid.UUID
+	// DeviceID unique identifies the device this experiment is being logged
+	// from (optional).
+	DeviceID uuid.UUID
+	// Experiment is the experiment of the applied treatment.
+	Experiment *ExperimentConfig
+	// VariantName is the type of bucket that is being applied.
+	VariantName string
+	// UserID identifies the user who is being exposed to the experimental
+	// treatment.
+	UserID string
+	// LoggedIn indiciates whether the user is authenticated.
+	LoggedIn bool
+	// ClientTimestamp is the time when the experiment has been applied. If
+	// this is not provided the logger should generate a timestamp (optional).
+	ClientTimestamp time.Time
+	// CookieCreatedAt is the timestamp when the cookie for the user has been
+	// generated.
+	CookieCreatedAt time.Time
+	// AppName if any specifies the application (optional).
+	AppName string
+	// EventType is the type of the experiment event. Will be set to EXPOSE
+	// (optional).
+	EventType string
 }
 
 // Logger provides an interface for experiment events to be logged.
