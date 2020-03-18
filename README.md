@@ -2,6 +2,10 @@
 
 [Baseplate][baseplate.py] implemented in go.
 
+## Documentation
+
+[Code documentation][godev]
+
 ## IDE/Editor Setup
 
 See [here](Editor.md).
@@ -59,3 +63,5 @@ bazel test //...:all
 [edgecontext]: https://godoc.org/github.com/reddit/baseplate.go/edgecontext
 
 [bazel]: https://bazel.build/
+
+[godev]: https://pkg.go.dev/github.com/reddit/baseplate.go
