@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/reddit/baseplate.go/set"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-func runSpan(st *metricsbp.Statsd, spanErr error) (counter string, successCounter string, histogram string, err error) {
+func runSpan(st *metricsbp.Statsd, spanErr error) (counter string, statusCounters set.String, histogram string, err error) {
 	ctx, span := tracing.StartSpanFromThriftContext(context.Background(), "foo")
 	time.Sleep(time.Millisecond)
 	span.AddCounter("bar.count", 1.0)
@@ -23,16 +24,18 @@ func runSpan(st *metricsbp.Statsd, spanErr error) (counter string, successCounte
 		return
 	}
 	stats := strings.Split(sb.String(), "\n")
-	if len(stats) != 4 {
-		err = fmt.Errorf("Expected 3 stats, got %d\n%v", len(stats)-1, stats)
+	if len(stats) != 5 {
+		err = fmt.Errorf("Expected 4 stats, got %d\n%v", len(stats)-1, stats)
 		return
 	}
+
+	statusCounters = make(set.String)
 
 	for _, stat := range stats {
 		if strings.HasSuffix(stat, "|c") && strings.Contains(stat, "bar") {
 			counter = stat
 		} else if strings.HasSuffix(stat, "|c") {
-			successCounter = stat
+			statusCounters.Add(stat)
 		} else if strings.HasSuffix(stat, "|ms") {
 			histogram = stat
 		}
@@ -58,7 +61,7 @@ func TestOnCreateServerSpan(t *testing.T) {
 	t.Run(
 		"success",
 		func(t *testing.T) {
-			counter, statusCounter, histogram, err := runSpan(st, nil)
+			counter, statusCounters, histogram, err := runSpan(st, nil)
 			if err != nil {
 				t.Fatalf("Got error: %s", err)
 			}
@@ -68,9 +71,12 @@ func TestOnCreateServerSpan(t *testing.T) {
 				t.Errorf("Expected counter: %s\nGot: %s", expected, counter)
 			}
 
-			expected = "server.foo.success:1.000000|c"
-			if statusCounter != expected {
-				t.Errorf("Expected status counter: %s\nGot: %s", expected, statusCounter)
+			expectedSet := set.StringSliceToSet([]string{
+				"server.foo.success:1.000000|c",
+				"server.foo.total:1.000000|c",
+			})
+			if !statusCounters.Equals(expectedSet) {
+				t.Errorf("Expected status counters: %v\nGot: %v", expectedSet, statusCounters)
 			}
 
 			if !histogramRegex.MatchString(histogram) {
@@ -82,7 +88,7 @@ func TestOnCreateServerSpan(t *testing.T) {
 	t.Run(
 		"fail",
 		func(t *testing.T) {
-			counter, statusCounter, histogram, err := runSpan(st, fmt.Errorf("test error"))
+			counter, statusCounters, histogram, err := runSpan(st, fmt.Errorf("test error"))
 			if err != nil {
 				t.Fatalf("Got error: %s", err)
 			}
@@ -92,9 +98,12 @@ func TestOnCreateServerSpan(t *testing.T) {
 				t.Errorf("Expected counter: %s\nGot: %s", expected, counter)
 			}
 
-			expected = "server.foo.fail:1.000000|c"
-			if statusCounter != expected {
-				t.Errorf("Expected status counter: %s\nGot: %s", expected, statusCounter)
+			expectedSet := set.StringSliceToSet([]string{
+				"server.foo.fail:1.000000|c",
+				"server.foo.total:1.000000|c",
+			})
+			if !statusCounters.Equals(expectedSet) {
+				t.Errorf("Expected status counters: %v\nGot: %v", expectedSet, statusCounters)
 			}
 
 			if !histogramRegex.MatchString(histogram) {
