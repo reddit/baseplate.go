@@ -9,7 +9,6 @@ import (
 const (
 	success = "success"
 	fail    = "fail"
-	total   = "total"
 )
 
 // CreateServerSpanHook registers each Server Span with a MetricsSpanHook.
@@ -70,7 +69,6 @@ func (h spanHook) OnPreStop(span *tracing.Span, err error) error {
 		statusMetricPath = fmt.Sprintf("%s.%s", h.name, success)
 	}
 	h.metrics.Counter(statusMetricPath).Add(1)
-	h.metrics.Counter(fmt.Sprintf("%s.%s", h.name, total)).Add(1)
 	return nil
 }
 

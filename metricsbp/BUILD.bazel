@@ -37,7 +37,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//set:go_default_library",
         "//tracing:go_default_library",
         "@com_github_go_kit_kit//metrics:go_default_library",
     ],
