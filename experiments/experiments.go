@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+
 	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/timebp"
@@ -361,7 +362,7 @@ type ExperimentEvent struct {
 	// this is not provided the logger should generate a timestamp (optional).
 	ClientTimestamp time.Time
 	// CookieCreatedAt is the timestamp when the cookie for the user has been
-	// generated.
+	// generated (optional).
 	CookieCreatedAt time.Time
 	// AppName if any specifies the application (optional).
 	AppName string
