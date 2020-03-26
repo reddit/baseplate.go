@@ -20,6 +20,7 @@ func ExampleInjectHTTPEdgeContext() {
 		DecodeIsHealthyRequest httpgk.DecodeRequestFunc
 		trustHandler           httpbp.AlwaysTrustHeaders
 		logger                 log.Wrapper
+		impl                   *edgecontext.Impl
 	)
 	handler := http.NewServeMux()
 	handler.Handle("/health", httpgk.NewServer(
@@ -28,7 +29,7 @@ func ExampleInjectHTTPEdgeContext() {
 		// easier to add more later on down the line (since you'll have to add
 		// it then anyways).
 		endpoint.Chain(
-			edgecontext.InjectHTTPEdgeContext(logger),
+			edgecontext.InjectHTTPEdgeContext(impl, logger),
 		)(IsHealthy),
 		DecodeIsHealthyRequest,
 		httpbp.EncodeJSONResponse,

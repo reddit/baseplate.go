@@ -23,8 +23,8 @@ var ErrNoPublicKeysLoaded = errors.New("edgecontext.ValidateToken: no public key
 
 // ValidateToken parses and validates a jwt token, and return the decoded
 // AuthenticationToken.
-func ValidateToken(token string) (*AuthenticationToken, error) {
-	keys, ok := keysValue.Load().(keysType)
+func (impl *Impl) ValidateToken(token string) (*AuthenticationToken, error) {
+	keys, ok := impl.keysValue.Load().(keysType)
 	if !ok {
 		// This would only happen when all previous middleware parsing failed.
 		return nil, ErrNoPublicKeysLoaded
@@ -56,13 +56,13 @@ func ValidateToken(token string) (*AuthenticationToken, error) {
 	return nil, jwt.NewValidationError("invalid token type", 0)
 }
 
-func validatorMiddleware(next secrets.SecretHandlerFunc) secrets.SecretHandlerFunc {
+func (impl *Impl) validatorMiddleware(next secrets.SecretHandlerFunc) secrets.SecretHandlerFunc {
 	return func(sec *secrets.Secrets) {
 		defer next(sec)
 
 		versioned, err := sec.GetVersionedSecret(authenticationPubKeySecretPath)
 		if err != nil {
-			logger(fmt.Sprintf(
+			impl.logger(fmt.Sprintf(
 				"Failed to get secrets %q: %v",
 				authenticationPubKeySecretPath,
 				err,
@@ -75,7 +75,7 @@ func validatorMiddleware(next secrets.SecretHandlerFunc) secrets.SecretHandlerFu
 		for i, v := range all {
 			key, err := jwt.ParseRSAPublicKeyFromPEM([]byte(v))
 			if err != nil {
-				logger(fmt.Sprintf(
+				impl.logger(fmt.Sprintf(
 					"Failed to parse key #%d: %v",
 					i,
 					err,
@@ -86,10 +86,10 @@ func validatorMiddleware(next secrets.SecretHandlerFunc) secrets.SecretHandlerFu
 		}
 
 		if len(keys) == 0 {
-			logger("No valid keys in secrets store.")
+			impl.logger("No valid keys in secrets store.")
 			return
 		}
 
-		keysValue.Store(keys)
+		impl.keysValue.Store(keys)
 	}
 }

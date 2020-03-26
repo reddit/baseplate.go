@@ -23,6 +23,8 @@ const secretStore = `
 	}
 }`
 
+var globalTestImpl *edgecontext.Impl
+
 func TestMain(m *testing.M) {
 	dir, err := ioutil.TempDir("", "edge_context_test_")
 	if err != nil {
@@ -48,6 +50,6 @@ func TestMain(m *testing.M) {
 	}
 	defer store.Close()
 
-	edgecontext.Init(edgecontext.Config{Store: store})
+	globalTestImpl = edgecontext.Init(edgecontext.Config{Store: store})
 	os.Exit(m.Run())
 }
