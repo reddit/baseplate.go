@@ -27,6 +27,7 @@ go_test(
     size = "small",
     srcs = [
         "client_pool_test.go",
+        "doc_test.go",
         "example_client_test.go",
         "monitored_tclient_test.go",
         "ttl_client_test.go",

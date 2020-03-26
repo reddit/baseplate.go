@@ -1,4 +1,4 @@
-package clientpool_test
+package thriftclient_test
 
 import (
 	"context"
@@ -72,8 +72,8 @@ func callEndpoint(ctx context.Context, pool thriftclient.ClientPool) (*MyEndpoin
 	return client.MyEndpoint(ctx, &MyEndpointRequest{})
 }
 
-// This example demonstrates a typical use case of clientpool in microservice
-// code.
+// This example demonstrates a typical use case of thriftclient pool in
+// microservice code.
 func Example() {
 	pool, err := thriftclient.NewTTLClientPool(clientTTL, thriftclient.ClientPoolConfig{
 		ServiceSlug:        "my-service",
