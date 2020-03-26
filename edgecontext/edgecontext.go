@@ -17,20 +17,25 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 )
 
+// LoIDPrefix is the prefix for all LoIDs.
+const LoIDPrefix = "t2_"
+
 // ErrLoIDWrongPrefix is an error could be returned by New() when passed in LoID
 // does not have the correct prefix.
-var ErrLoIDWrongPrefix = errors.New("edgecontext: loid should have t2_ prefix")
+var ErrLoIDWrongPrefix = errors.New("edgecontext: loid should have " + LoIDPrefix + " prefix")
 
 // ErrNoHeader is an error could be returned by FromThriftContext() when passed
 // in context does not have Edge-Request header set.
 var ErrNoHeader = errors.New("edgecontext: no Edge-Request header found")
 
-// global vars that will be initialized in Init function.
-var (
+// An Impl is an initialized edge context implementation.
+//
+// Please call Init function to initialize it.
+type Impl struct {
 	store     *secrets.Store
 	logger    log.Wrapper
 	keysValue atomic.Value
-)
+}
 
 var serializerPool = thrift.NewTSerializerPool(
 	func() *thrift.TSerializer {
@@ -85,25 +90,24 @@ type Config struct {
 	Logger log.Wrapper
 }
 
-// Init the global state.
-//
-// All other top level functions requires Init to be called first to work,
-// otherwise they might panic.
-func Init(cfg Config) error {
-	store = cfg.Store
-	logger = cfg.Logger
-	if logger == nil {
-		logger = log.NopWrapper
+// Init intializes an Impl.
+func Init(cfg Config) *Impl {
+	impl := &Impl{
+		store:  cfg.Store,
+		logger: cfg.Logger,
 	}
-	store.AddMiddlewares(validatorMiddleware)
-	return nil
+	if impl.logger == nil {
+		impl.logger = log.NopWrapper
+	}
+	impl.store.AddMiddlewares(impl.validatorMiddleware)
+	return impl
 }
 
 // NewArgs are the args for New function.
 //
 // All fields are optional.
 type NewArgs struct {
-	// If LoID is non-empty, it must have prefix of "t2_".
+	// If LoID is non-empty, it must have prefix of LoIDPrefix ("t2_").
 	LoID          string
 	LoIDCreatedAt time.Time
 
@@ -118,7 +122,7 @@ type NewArgs struct {
 //
 // This function should be used by services on the edge talking to clients
 // directly, after talked to authentication service to get the auth token.
-func New(ctx context.Context, args NewArgs) (*EdgeRequestContext, error) {
+func New(ctx context.Context, impl *Impl, args NewArgs) (*EdgeRequestContext, error) {
 	request := baseplate.NewRequest()
 	if args.LoID != "" {
 		if !strings.HasPrefix(args.LoID, userPrefix) {
@@ -146,12 +150,13 @@ func New(ctx context.Context, args NewArgs) (*EdgeRequestContext, error) {
 		return nil, err
 	}
 	return &EdgeRequestContext{
+		impl:   impl,
 		header: header,
 		raw:    args,
 	}, nil
 }
 
-func fromHeader(header string) (*EdgeRequestContext, error) {
+func fromHeader(header string, impl *Impl) (*EdgeRequestContext, error) {
 	request := baseplate.NewRequest()
 	if err := deserializerPool.ReadString(request, header); err != nil {
 		return nil, err
@@ -171,34 +176,35 @@ func fromHeader(header string) (*EdgeRequestContext, error) {
 		raw.LoIDCreatedAt = timebp.MillisecondsToTime(request.Loid.CreatedMs)
 	}
 	return &EdgeRequestContext{
+		impl:   impl,
 		header: header,
 		raw:    raw,
 	}, nil
 }
 
 // ContextFactory builds an *EdgeRequestContext from a context object.
-type ContextFactory func(ctx context.Context) (*EdgeRequestContext, error)
+type ContextFactory func(ctx context.Context, impl *Impl) (*EdgeRequestContext, error)
 
 // FromThriftContext implements the ContextFactory interface and extracts
 // EdgeRequestContext from a thrift context object.
-func FromThriftContext(ctx context.Context) (*EdgeRequestContext, error) {
+func FromThriftContext(ctx context.Context, impl *Impl) (*EdgeRequestContext, error) {
 	header, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
 	if !ok {
 		return nil, ErrNoHeader
 	}
 
-	return fromHeader(header)
+	return fromHeader(header, impl)
 }
 
 // FromHTTPContext implements the ContextFactory interface and extracts
 // EdgeRequestContext from an http context object.
-func FromHTTPContext(ctx context.Context) (*EdgeRequestContext, error) {
+func FromHTTPContext(ctx context.Context, impl *Impl) (*EdgeRequestContext, error) {
 	header, ok := httpbp.GetHeader(ctx, httpbp.EdgeContextContextKey)
 	if !ok {
 		return nil, ErrNoHeader
 	}
 
-	return fromHeader(header)
+	return fromHeader(header, impl)
 }
 
 var (

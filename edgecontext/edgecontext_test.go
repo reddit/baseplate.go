@@ -36,6 +36,7 @@ func TestNew(t *testing.T) {
 	ctx := context.Background()
 	e, err := edgecontext.New(
 		ctx,
+		globalTestImpl,
 		edgecontext.NewArgs{
 			LoID:          expectedLoID,
 			LoIDCreatedAt: expectedCookieTime,
@@ -64,7 +65,7 @@ func TestFromThriftContext(t *testing.T) {
 		"no-header",
 		func(t *testing.T) {
 			ctx := context.Background()
-			_, err := edgecontext.FromThriftContext(ctx)
+			_, err := edgecontext.FromThriftContext(ctx, globalTestImpl)
 			if !errors.Is(err, edgecontext.ErrNoHeader) {
 				t.Errorf("Expected ErrNoHeader, got %v", err)
 			}
@@ -79,7 +80,7 @@ func TestFromThriftContext(t *testing.T) {
 				thriftbp.HeaderEdgeRequest,
 				headerWithNoAuthNoDevice,
 			)
-			e, err := edgecontext.FromThriftContext(ctx)
+			e, err := edgecontext.FromThriftContext(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -98,7 +99,7 @@ func TestFromThriftContext(t *testing.T) {
 				thriftbp.HeaderEdgeRequest,
 				headerWithNoAuth,
 			)
-			e, err := edgecontext.FromThriftContext(ctx)
+			e, err := edgecontext.FromThriftContext(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -167,7 +168,7 @@ func TestFromThriftContext(t *testing.T) {
 				thriftbp.HeaderEdgeRequest,
 				headerWithValidAuth,
 			)
-			e, err := edgecontext.FromThriftContext(ctx)
+			e, err := edgecontext.FromThriftContext(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -236,7 +237,7 @@ func TestFromThriftContext(t *testing.T) {
 				thriftbp.HeaderEdgeRequest,
 				headerWithExpiredAuth,
 			)
-			e, err := edgecontext.FromThriftContext(ctx)
+			e, err := edgecontext.FromThriftContext(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -297,7 +298,7 @@ func TestFromThriftContext(t *testing.T) {
 				thriftbp.HeaderEdgeRequest,
 				headerWithAnonAuth,
 			)
-			e, err := edgecontext.FromThriftContext(ctx)
+			e, err := edgecontext.FromThriftContext(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -354,7 +355,7 @@ func TestFromHTTPContext(t *testing.T) {
 		"no-header",
 		func(t *testing.T) {
 			ctx := context.Background()
-			_, err := edgecontext.FromHTTPContext(ctx)
+			_, err := edgecontext.FromHTTPContext(ctx, globalTestImpl)
 			if !errors.Is(err, edgecontext.ErrNoHeader) {
 				t.Errorf("Expected ErrNoHeader, got %v", err)
 			}
@@ -369,7 +370,7 @@ func TestFromHTTPContext(t *testing.T) {
 				httpbp.EdgeContextContextKey,
 				headerWithNoAuth,
 			)
-			e, err := edgecontext.FromHTTPContext(ctx)
+			e, err := edgecontext.FromHTTPContext(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -430,7 +431,7 @@ func TestFromHTTPContext(t *testing.T) {
 				httpbp.EdgeContextContextKey,
 				headerWithValidAuth,
 			)
-			e, err := edgecontext.FromHTTPContext(ctx)
+			e, err := edgecontext.FromHTTPContext(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -491,7 +492,7 @@ func TestFromHTTPContext(t *testing.T) {
 				httpbp.EdgeContextContextKey,
 				headerWithExpiredAuth,
 			)
-			e, err := edgecontext.FromHTTPContext(ctx)
+			e, err := edgecontext.FromHTTPContext(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -552,7 +553,7 @@ func TestFromHTTPContext(t *testing.T) {
 				httpbp.EdgeContextContextKey,
 				headerWithAnonAuth,
 			)
-			e, err := edgecontext.FromHTTPContext(ctx)
+			e, err := edgecontext.FromHTTPContext(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}

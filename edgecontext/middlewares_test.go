@@ -32,6 +32,7 @@ func TestInitializeEdgeContext(t *testing.T) {
 
 	expected, err := edgecontext.New(
 		context.Background(),
+		globalTestImpl,
 		edgecontext.NewArgs{
 			LoID:          expectedLoID,
 			LoIDCreatedAt: expectedCookieTime,
@@ -86,7 +87,7 @@ func TestInitializeEdgeContext(t *testing.T) {
 			func(t *testing.T) {
 				t.Parallel()
 
-				ctx := edgecontext.InitializeEdgeContext(c.ctx, nil, c.factory)
+				ctx := edgecontext.InitializeEdgeContext(c.ctx, globalTestImpl, nil, c.factory)
 				ec, ok := edgecontext.GetEdgeContext(ctx)
 				if ok != c.ok {
 					t.Errorf("Ok does not match, expected %v got %v", c.ok, ok)
@@ -197,7 +198,7 @@ func TestInitializeHTTPEdgeContext(t *testing.T) {
 			func(t *testing.T) {
 				t.Parallel()
 
-				ctx := edgecontext.InitializeHTTPEdgeContext(c.ctx, nil)
+				ctx := edgecontext.InitializeHTTPEdgeContext(c.ctx, globalTestImpl, nil)
 				if _, ok := edgecontext.GetEdgeContext(ctx); ok != c.ok {
 					t.Errorf("Ok does not match, expected %v got %v", c.ok, ok)
 				}
@@ -235,7 +236,7 @@ func TestInitializeThriftEdgeContext(t *testing.T) {
 			func(t *testing.T) {
 				t.Parallel()
 
-				ctx := edgecontext.InitializeThriftEdgeContext(c.ctx, nil)
+				ctx := edgecontext.InitializeThriftEdgeContext(c.ctx, globalTestImpl, nil)
 				if _, ok := edgecontext.GetEdgeContext(ctx); ok != c.ok {
 					t.Errorf("Ok does not match, expected %v got %v", c.ok, ok)
 				}

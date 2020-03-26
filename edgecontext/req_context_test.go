@@ -40,6 +40,7 @@ func TestAttachHTTPHeader(t *testing.T) {
 
 	e, err := edgecontext.New(
 		context.Background(),
+		globalTestImpl,
 		edgecontext.NewArgs{
 			LoID:          expectedLoID,
 			LoIDCreatedAt: expectedCookieTime,
@@ -63,7 +64,7 @@ func TestAttachHTTPHeader(t *testing.T) {
 				t.Fatal("Header was not attached.")
 			}
 			ctx := httpbp.SetHeader(context.Background(), httpbp.EdgeContextContextKey, h)
-			ec, err := edgecontext.FromHTTPContext(ctx)
+			ec, err := edgecontext.FromHTTPContext(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -122,7 +123,7 @@ func TestAttachHTTPHeader(t *testing.T) {
 			}
 
 			ctx := httpbp.SetHeader(context.Background(), httpbp.EdgeContextContextKey, h)
-			ec, err := edgecontext.FromHTTPContext(ctx)
+			ec, err := edgecontext.FromHTTPContext(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}

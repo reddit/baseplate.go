@@ -28,6 +28,8 @@ func HeaderTrustHandlerSigner(handler httpbp.TrustHeaderSignature, duration time
 
 // An EdgeRequestContext contains context info about an edge request.
 type EdgeRequestContext struct {
+	impl *Impl
+
 	// header and raw should always be set during initialization
 	header string
 	raw    NewArgs
@@ -43,7 +45,7 @@ type EdgeRequestContext struct {
 // If the validation failed, the error will be logged.
 func (e *EdgeRequestContext) AuthToken() *AuthenticationToken {
 	e.tokenOnce.Do(func() {
-		if token, err := ValidateToken(e.raw.AuthToken); err != nil {
+		if token, err := e.impl.ValidateToken(e.raw.AuthToken); err != nil {
 			log.Errorw("token validation failed", "err", err)
 			e.token = nil
 		} else {
