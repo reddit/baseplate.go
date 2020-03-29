@@ -3,6 +3,8 @@ package mqsend_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math/rand"
 	"runtime"
 	"strings"
 	"syscall"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"github.com/reddit/baseplate.go/mqsend"
+	_ "github.com/reddit/baseplate.go/randbp"
 )
 
 func TestLinuxMessageQueue(t *testing.T) {
@@ -22,10 +25,11 @@ func TestLinuxMessageQueue(t *testing.T) {
 		return
 	}
 
-	const name = "test-mq"
 	const msg = "hello, world!"
 	const max = len(msg)
 	const timeout = time.Millisecond
+
+	name := fmt.Sprintf("test-mq-%d", rand.Uint64())
 
 	mq, err := mqsend.OpenMessageQueue(mqsend.MessageQueueConfig{
 		Name:           name,
@@ -36,6 +40,13 @@ func TestLinuxMessageQueue(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer mq.Close()
+
+	// Delete the mq created in this test.
+	defer func() {
+		if err := deleteMessageQueue(t, name); err != nil {
+			t.Errorf("Failed to delete message queue %q: %v", name, err)
+		}
+	}()
 
 	t.Run(
 		"message-too-large",
