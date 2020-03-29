@@ -10,6 +10,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const maxEINTRRetries = 3
+
 type messageQueue uintptr
 
 // C version:
@@ -72,30 +74,46 @@ func (mqd messageQueue) Send(ctx context.Context, data []byte) error {
 		absTimeout = uintptr(unsafe.Pointer(&t))
 	}
 
-	// From MQ_SEND(3) manpage:
-	// int mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned int msg_prio, const struct timespec *abs_timeout);
-	_, _, errno := unix.Syscall6(
-		unix.SYS_MQ_TIMEDSEND,
-		uintptr(mqd),                      // mqdes
-		uintptr(unsafe.Pointer(&data[0])), // msg_ptr
-		uintptr(len(data)),                // msg_len
-		0,                                 // msg_prio
-		absTimeout,                        // abs_timeout
-		0,                                 // unused
-	)
-	switch errno {
-	default:
-		return errno
-	case 0:
-		return nil
-	case syscall.EMSGSIZE:
-		return MessageTooLargeError{
-			MessageSize: len(data),
-			Cause:       errno,
+	for i := 0; i < maxEINTRRetries; i++ {
+		if ctx.Err() != nil {
+			return TimedOutError{
+				Cause: ctx.Err(),
+			}
 		}
-	case syscall.ETIMEDOUT:
-		return TimedOutError{
-			Cause: errno,
+
+		// From MQ_SEND(3) manpage:
+		// int mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned int msg_prio, const struct timespec *abs_timeout);
+		_, _, errno := unix.Syscall6(
+			unix.SYS_MQ_TIMEDSEND,
+			uintptr(mqd),                      // mqdes
+			uintptr(unsafe.Pointer(&data[0])), // msg_ptr
+			uintptr(len(data)),                // msg_len
+			0,                                 // msg_prio
+			absTimeout,                        // abs_timeout
+			0,                                 // unused
+		)
+		switch errno {
+		default:
+			return errno
+		case 0:
+			return nil
+		case syscall.EINTR:
+			// Just retry the syscall. We set absolute timeout so retry won't cause
+			// the timeout to be longer.
+			continue
+		case syscall.EMSGSIZE:
+			return MessageTooLargeError{
+				MessageSize: len(data),
+				Cause:       errno,
+			}
+		case syscall.ETIMEDOUT:
+			return TimedOutError{
+				Cause: errno,
+			}
 		}
 	}
+
+	// The only possibility we get here is because we exceeded maxEINTRRetries,
+	// so just return that error.
+	return syscall.EINTR
 }

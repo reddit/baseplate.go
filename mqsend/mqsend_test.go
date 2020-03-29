@@ -72,8 +72,11 @@ func TestLinuxMessageQueue(t *testing.T) {
 			if !errors.As(err, new(mqsend.TimedOutError)) {
 				t.Errorf("Expected TimedOutError when the queue is full, got %v", err)
 			}
-			if !errors.Is(err, syscall.ETIMEDOUT) {
-				t.Errorf("Expected ETIMEDOUT when the queue is full, got %v", err)
+			if !errors.Is(err, syscall.ETIMEDOUT) && !errors.Is(err, context.DeadlineExceeded) {
+				t.Errorf(
+					"Expected either ETIMEDOUT or context.DeadlineExceeded when the queue is full, got %v",
+					err,
+				)
 			}
 		},
 	)
