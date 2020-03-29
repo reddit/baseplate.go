@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"runtime"
 	"strings"
 	"syscall"
@@ -12,7 +11,7 @@ import (
 	"time"
 
 	"github.com/reddit/baseplate.go/mqsend"
-	_ "github.com/reddit/baseplate.go/randbp"
+	"github.com/reddit/baseplate.go/randbp"
 )
 
 func TestLinuxMessageQueue(t *testing.T) {
@@ -29,7 +28,7 @@ func TestLinuxMessageQueue(t *testing.T) {
 	const max = len(msg)
 	const timeout = time.Millisecond
 
-	name := fmt.Sprintf("test-mq-%d", rand.Uint64())
+	name := fmt.Sprintf("test-mq-%d", randbp.R.Uint64())
 
 	mq, err := mqsend.OpenMessageQueue(mqsend.MessageQueueConfig{
 		Name:           name,

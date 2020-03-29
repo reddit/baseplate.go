@@ -12,7 +12,7 @@ func TestShouldSampleWithRate(t *testing.T) {
 		"0",
 		func(t *testing.T) {
 			if randbp.ShouldSampleWithRate(0) {
-				t.Error("rand.ShouldSplitWithProbability(0) returned true")
+				t.Error("randbp.ShouldSampleWithRate(0) returned true")
 			}
 
 			f := func() bool {
@@ -28,7 +28,7 @@ func TestShouldSampleWithRate(t *testing.T) {
 		"1",
 		func(t *testing.T) {
 			if !randbp.ShouldSampleWithRate(1) {
-				t.Error("rand.ShouldSplitWithProbability(1) returned false")
+				t.Error("randbp.ShouldSampleWithRate(1) returned false")
 			}
 
 			f := func() bool {

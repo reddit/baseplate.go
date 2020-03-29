@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"time"
 
 	opentracing "github.com/opentracing/opentracing-go"
@@ -225,7 +224,7 @@ func (t *Tracer) StartSpan(operationName string, opts ...opentracing.StartSpanOp
 	if parent != nil {
 		parent.initChildSpan(span)
 	} else {
-		span.trace.traceID = rand.Uint64()
+		span.trace.traceID = randbp.R.Uint64()
 		span.trace.sampled = randbp.ShouldSampleWithRate(t.sampleRate)
 	}
 

@@ -3,9 +3,9 @@ package tracing
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"time"
 
+	"github.com/reddit/baseplate.go/randbp"
 	"github.com/reddit/baseplate.go/timebp"
 )
 
@@ -49,8 +49,8 @@ func newTrace(tracer *Tracer, name string) *trace {
 		tracer: tracer,
 
 		name:    name,
-		traceID: rand.Uint64(),
-		spanID:  rand.Uint64(),
+		traceID: randbp.R.Uint64(),
+		spanID:  randbp.R.Uint64(),
 		start:   time.Now(),
 
 		counters: make(map[string]float64),
