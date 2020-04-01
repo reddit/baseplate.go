@@ -68,7 +68,7 @@ func TestInjectHTTPServerSpanWithTracer(t *testing.T) {
 	}
 }
 
-func TestInjectThriftServerSpanWithTracer(t *testing.T) {
+func TestInjectThriftServerSpan(t *testing.T) {
 	defer func() {
 		tracing.CloseTracer()
 		tracing.InitGlobalTracer(tracing.TracerConfig{})
@@ -85,12 +85,22 @@ func TestInjectThriftServerSpanWithTracer(t *testing.T) {
 		TestOnlyMockMessageQueue: mmq,
 	})
 	startFailing()
-
+	name := "test"
+	processor := thriftbp.NewMockBaseplateProcessor(
+		map[string]thrift.TProcessorFunction{
+			name: thriftbp.WrappedTProcessorFunc{
+				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+					return false, errors.New("TError")
+				},
+			},
+		},
+	)
 	ctx := context.Background()
 	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
-	middleware := tracing.InjectThriftServerSpan("test")
-	wrapped := middleware(testEndpoint)
-	wrapped(ctx, nil)
+	ctx = thriftbp.SetMockBaseplateProcessorName(ctx, name)
+
+	wrapped := thriftbp.Wrap(processor, logger, tracing.InjectThriftServerSpan)
+	wrapped.Process(ctx, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 	msg, err := mmq.Receive(ctx)

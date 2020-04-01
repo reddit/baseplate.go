@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 
+	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/go-kit/kit/endpoint"
 
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/thriftbp"
 )
 
 // InitializeEdgeContext sets an edge request context created using the given
@@ -47,17 +49,20 @@ func InitializeThriftEdgeContext(ctx context.Context, impl *Impl, logger log.Wra
 	return InitializeEdgeContext(ctx, impl, logger, FromThriftContext)
 }
 
-// InjectThriftEdgeContext returns a go-kit endpoint.Middleware that injects an
-// edge request context created from the Thrift headers set on the context into
-// the `next` endpoint.Endpoint.
+// InjectThriftEdgeContext returns a thriftbp.Middleware that injects an edge
+// request context created from the Thrift headers set on the context into the
+// `next` thrift.TProcessorFunction.
 //
 // Note, this depends on the edge context headers already being set on the
 // context object.  These should be automatically injected by your
 // thrift.TSimpleServer.
-func InjectThriftEdgeContext(impl *Impl, logger log.Wrapper) endpoint.Middleware {
-	return func(next endpoint.Endpoint) endpoint.Endpoint {
-		return func(ctx context.Context, request interface{}) (interface{}, error) {
-			return next(InitializeThriftEdgeContext(ctx, impl, logger), request)
+func InjectThriftEdgeContext(impl *Impl, logger log.Wrapper) thriftbp.Middleware {
+	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+		return thriftbp.WrappedTProcessorFunc{
+			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+				ctx = InitializeThriftEdgeContext(ctx, impl, logger)
+				return next.Process(ctx, seqId, in, out)
+			},
 		}
 	}
 }

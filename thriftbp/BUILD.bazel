@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -6,8 +6,29 @@ go_library(
         "doc.go",
         "headers.go",
         "merger.go",
+        "middlewares.go",
+        "testing.go",
     ],
     importpath = "github.com/reddit/baseplate.go/thriftbp",
     visibility = ["//visibility:public"],
-    deps = ["@com_github_apache_thrift//lib/go/thrift:go_default_library"],
+    deps = [
+        "//log:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "example_middlewares_test.go",
+        "middlewares_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//edgecontext:go_default_library",
+        "//internal/gen-go/reddit/baseplate:go_default_library",
+        "//log:go_default_library",
+        "//tracing:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+    ],
 )
