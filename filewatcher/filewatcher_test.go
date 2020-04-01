@@ -40,7 +40,7 @@ func TestFileWatcher(t *testing.T) {
 	interval := time.Millisecond
 	filewatcher.InitialReadInterval = interval
 	writeDelay := interval * 10
-	timeout := writeDelay * 2
+	timeout := writeDelay * 20
 
 	payload1 := []byte("Hello, world!")
 	payload2 := []byte("Bye, world!")
@@ -57,7 +57,8 @@ func TestFileWatcher(t *testing.T) {
 		time.Sleep(writeDelay)
 		f, err := os.Create(path)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 		defer f.Close()
 		if _, err := f.Write(payload1); err != nil {
@@ -131,7 +132,7 @@ func TestFileWatcherRename(t *testing.T) {
 	interval := time.Millisecond
 	filewatcher.InitialReadInterval = interval
 	writeDelay := interval * 10
-	timeout := writeDelay * 2
+	timeout := writeDelay * 20
 
 	payload1 := []byte("Hello, world!")
 	payload2 := []byte("Bye, world!")
