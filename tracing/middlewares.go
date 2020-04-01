@@ -3,7 +3,10 @@ package tracing
 import (
 	"context"
 
+	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/go-kit/kit/endpoint"
+
+	"github.com/reddit/baseplate.go/thriftbp"
 )
 
 // InjectHTTPServerSpan returns a go-kit endpoint.Middleware that injects a server
@@ -34,19 +37,19 @@ func InjectHTTPServerSpan(name string) endpoint.Middleware {
 	}
 }
 
-// InjectThriftServerSpan returns a go-kit endpoint.Middleware that injects a server
+// InjectThriftServerSpan implements thriftbp.Middleware and injects a server
 // span into the `next` context.
 //
-// Starts the server span before calling the `next` endpoint and stops the span
-// after the endpoint finishes.
-// If the endpoint returns an error, that will be passed to span.Stop.
+// Starts the server span before calling the `next` TProcessorFunction and stops
+// the span after it finishes.
+// If the function returns an error, that will be passed to span.Stop.
 //
 // Note, this depends on the edge context headers already being set on the
 // context object.  These should be automatically injected by your
 // thrift.TSimpleServer.
-func InjectThriftServerSpan(name string) endpoint.Middleware {
-	return func(next endpoint.Endpoint) endpoint.Endpoint {
-		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+func InjectThriftServerSpan(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+	return thriftbp.WrappedTProcessorFunc{
+		Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
 			ctx, span := StartSpanFromThriftContext(ctx, name)
 			defer func() {
 				span.FinishWithOptions(FinishOptions{
@@ -55,7 +58,11 @@ func InjectThriftServerSpan(name string) endpoint.Middleware {
 				}.Convert())
 			}()
 
-			return next(ctx, request)
-		}
+			return next.Process(ctx, seqId, in, out)
+		},
 	}
 }
+
+var (
+	_ thriftbp.Middleware = InjectThriftServerSpan
+)
