@@ -277,7 +277,7 @@ func TestSecretFileIsUpdated(t *testing.T) {
 	if err := os.Rename(tmpPath2, tmpPath); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(time.Millisecond * 100)
 
 	secret, err = store.GetSimpleSecret("secret/myservice/some-api-key")
 	if err != nil {

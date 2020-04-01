@@ -82,7 +82,7 @@ func TestV2Put(t *testing.T) {
 	const expected = "[1,\"mock\",1,0]"
 	for i := 0; i < queueSize; i++ {
 		func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 			defer cancel()
 			data, err := queue.Receive(ctx)
 			if err != nil {
