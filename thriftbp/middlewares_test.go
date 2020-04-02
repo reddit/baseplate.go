@@ -45,7 +45,7 @@ func TestWrap(t *testing.T) {
 	ctx := context.Background()
 	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
 	ctx = thriftbp.SetMockBaseplateProcessorName(ctx, name)
-	wrapped := thriftbp.Wrap(processor, nil, testMiddleware(c))
+	wrapped := thriftbp.Wrap(processor, testMiddleware(c))
 	wrapped.Process(ctx, nil, nil)
 	if c.count != 1 {
 		t.Fatalf("Unexpected count value %v", c.count)

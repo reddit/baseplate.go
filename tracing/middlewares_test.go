@@ -99,7 +99,7 @@ func TestInjectThriftServerSpan(t *testing.T) {
 	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
 	ctx = thriftbp.SetMockBaseplateProcessorName(ctx, name)
 
-	wrapped := thriftbp.Wrap(processor, logger, tracing.InjectThriftServerSpan)
+	wrapped := thriftbp.Wrap(processor, tracing.InjectThriftServerSpan)
 	wrapped.Process(ctx, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()

@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/apache/thrift/lib/go/thrift"
-
-	"github.com/reddit/baseplate.go/log"
 )
 
 // BaseplateProcessor is a TProcessor that can be thriftbp.Wrap-ed and
@@ -68,7 +66,7 @@ var (
 // It is reccomended that you pass in tracing.InjectThriftServerSpan and the
 // Middleware returned by edgecontext.InjectThriftEdgeContext as the first two
 // middlewares.
-func Wrap(processor BaseplateProcessor, logger log.Wrapper, middlewares ...Middleware) thrift.TProcessor {
+func Wrap(processor BaseplateProcessor, middlewares ...Middleware) thrift.TProcessor {
 	for name, processorFunc := range processor.ProcessorMap() {
 		wrapped := processorFunc
 		for i := len(middlewares) - 1; i >= 0; i-- {

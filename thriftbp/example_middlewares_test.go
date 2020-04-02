@@ -24,7 +24,6 @@ func ExampleWrap() {
 		// Use thriftbp.Wrap to wrap the base TProcessor in the middleware
 		thriftbp.Wrap(
 			processor,
-			logger,
 			edgecontext.InjectThriftEdgeContext(ecImpl, logger),
 			tracing.InjectThriftServerSpan,
 		),
