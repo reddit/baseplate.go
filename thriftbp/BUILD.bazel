@@ -7,6 +7,7 @@ go_library(
         "headers.go",
         "merger.go",
         "middlewares.go",
+        "server.go",
         "testing.go",
     ],
     importpath = "github.com/reddit/baseplate.go/thriftbp",
@@ -21,6 +22,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "example_middlewares_test.go",
+        "example_server_test.go",
         "middlewares_test.go",
     ],
     embed = [":go_default_library"],
