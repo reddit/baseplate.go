@@ -16,7 +16,7 @@ type ServerConfig struct {
 	// The timeout for the underlying thrift.TServerSocket transport.
 	Timeout time.Duration
 
-	// A log wrapper that is passed to the "Wrap" call and server.SetLogger
+	// A log wrapper that is used the TSimpleServer.
 	Logger log.Wrapper
 }
 
@@ -30,7 +30,7 @@ func NewThriftServer(cfg ServerConfig, processor BaseplateProcessor, middlewares
 	}
 
 	server := thrift.NewTSimpleServer4(
-		Wrap(processor, cfg.Logger, middlewares...),
+		Wrap(processor, middlewares...),
 		transport,
 		thrift.NewTHeaderTransportFactory(nil),
 		thrift.NewTHeaderProtocolFactory(),
