@@ -16,7 +16,7 @@ type ServerConfig struct {
 	// The timeout for the underlying thrift.TServerSocket transport.
 	Timeout time.Duration
 
-	// A log wrapper that is used the TSimpleServer.
+	// A log wrapper that is used by the TSimpleServer.
 	Logger log.Wrapper
 }
 
