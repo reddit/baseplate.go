@@ -28,7 +28,7 @@ func compareBytesData(t *testing.T, data interface{}, expected []byte) {
 	}
 	b, ok := (data).([]byte)
 	if !ok {
-		t.Errorf("data is not of type *[]byte, actual value: %v", data)
+		t.Errorf("data is not of type *[]byte, actual value: %#v", data)
 		return
 	}
 	if string(b) != string(expected) {
@@ -91,15 +91,15 @@ func TestFileWatcher(t *testing.T) {
 		}
 	}()
 	// Give it some time to handle the file content change
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(time.Millisecond * 500)
 	compareBytesData(t, data.Get(), payload2)
 }
 
 func TestFileWatcherTimeout(t *testing.T) {
 	interval := time.Millisecond
 	filewatcher.InitialReadInterval = interval
-	round := interval * 10
-	timeout := round * 8
+	round := interval * 20
+	timeout := round * 4
 
 	dir, err := ioutil.TempDir("", "filewatcher_test_")
 	if err != nil {
@@ -255,7 +255,7 @@ func TestParserFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Give it some time to handle the file content change
-	time.Sleep(interval * 10)
+	time.Sleep(interval * 500)
 	if atomic.LoadInt64(&loggerCalled) == 0 {
 		t.Error("Expected logger being called")
 	}
@@ -276,7 +276,7 @@ func TestParserFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Give it some time to handle the file content change
-	time.Sleep(interval * 10)
+	time.Sleep(interval * 500)
 	expected = 3
 	value = data.Get().(int64)
 	if value != expected {

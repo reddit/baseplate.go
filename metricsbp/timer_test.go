@@ -22,7 +22,7 @@ func (m *mockHistogram) Observe(v float64) {
 	m.t.Logf("Expected reporting value %v, got %v", m.expected, v)
 	// We just need to make sure that it's the correct unit,
 	// and allow some actual time differences.
-	if v > m.expected*2 || v < m.expected/10 {
+	if v > m.expected*10 || v < m.expected/10 {
 		m.t.Fail()
 	}
 }
