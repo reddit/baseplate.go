@@ -2,16 +2,22 @@ package httpbp_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
 
+	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/httpbp"
+	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/mqsend"
+	"github.com/reddit/baseplate.go/tracing"
 )
 
 func simplifyCookies(cookies []*http.Cookie) map[string][]string {
@@ -47,13 +53,6 @@ func TestHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	httpErrWithHeaders := httpbp.NewHTTPError(
-		http.StatusBadGateway,
-		errBody,
-		errors.New("test"),
-		httpbp.JSONContentWriter,
-	)
-	httpErrWithHeaders.Headers().Add("err", "test")
 	type expectation struct {
 		code        int
 		body        string
@@ -95,47 +94,29 @@ func TestHandler(t *testing.T) {
 			expected: expectation{
 				code:        http.StatusInternalServerError,
 				body:        http.StatusText(http.StatusInternalServerError) + "\n",
-				headers:     make(http.Header),
-				cookies:     nil,
+				headers:     headers,
+				cookies:     cookies,
 				contentType: httpbp.PlainTextContentType,
 			},
 		},
 		{
-			name: "HTTPError/basic",
+			name: "HTTPError",
 			plan: testHandlerPlan{
 				code:    http.StatusOK,
 				body:    body,
 				headers: headers,
 				cookies: cookies,
-				err: httpbp.NewHTTPError(
+				err: httpbp.NewJSONError(
 					http.StatusBadGateway,
 					errBody,
 					errors.New("test"),
-					httpbp.JSONContentWriter,
 				),
 			},
 			expected: expectation{
 				code:        http.StatusBadGateway,
 				body:        jsonErrBody.String(),
-				headers:     make(http.Header),
-				cookies:     nil,
-				contentType: httpbp.JSONContentType,
-			},
-		},
-		{
-			name: "HTTPError/custom-header",
-			plan: testHandlerPlan{
-				code:    http.StatusOK,
-				body:    body,
-				headers: headers,
-				cookies: cookies,
-				err:     httpErrWithHeaders,
-			},
-			expected: expectation{
-				code:        http.StatusBadGateway,
-				body:        jsonErrBody.String(),
-				headers:     httpErrWithHeaders.Headers(),
-				cookies:     nil,
+				headers:     headers,
+				cookies:     cookies,
 				contentType: httpbp.JSONContentType,
 			},
 		},
@@ -147,10 +128,7 @@ func TestHandler(t *testing.T) {
 			c.name,
 			func(t *testing.T) {
 				t.Parallel()
-				handler := httpbp.NewHandler(
-					newTestHandler(c.plan),
-					httpbp.JSONContentWriter,
-				)
+				handler := httpbp.NewHandler(newTestHandler(c.plan))
 				request := httptest.NewRequest(
 					"get",
 					"localhost:9090",
@@ -198,5 +176,86 @@ func TestHandler(t *testing.T) {
 				}
 			},
 		)
+	}
+}
+
+func TestBaseplateHandlerFactory(t *testing.T) {
+	defer func() {
+		tracing.CloseTracer()
+		tracing.InitGlobalTracer(tracing.TracerConfig{})
+	}()
+
+	const expectedID = "t2_example"
+
+	mmq := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
+		MaxQueueSize:   100,
+		MaxMessageSize: 1024,
+	})
+	logger, startFailing := tracing.TestWrapper(t)
+	tracing.InitGlobalTracer(tracing.TracerConfig{
+		SampleRate:               1,
+		MaxRecordTimeout:         testTimeout,
+		Logger:                   logger,
+		TestOnlyMockMessageQueue: mmq,
+	})
+	startFailing()
+
+	store, dir := newSecretsStore(t)
+	defer os.RemoveAll(dir)
+	defer store.Close()
+
+	c := counter{}
+	ecRecorder := edgecontextRecorder{}
+	factory := httpbp.BaseplateHandlerFactory{
+		Args: httpbp.DefaultMiddlewareArgs{
+			TrustHandler:    httpbp.AlwaysTrustHeaders{},
+			EdgeContextImpl: edgecontext.Init(edgecontext.Config{Store: store}),
+			Logger:          log.TestWrapper(t),
+		},
+		Middlewares: []httpbp.Middleware{
+			edgecontextRecorderMiddleware(&ecRecorder),
+			testMiddleware(&c),
+		},
+	}
+
+	handle := newTestHandler(testHandlerPlan{
+		body: jsonResponseBody{X: 1},
+	})
+	// include an additional counter middleware here to test that both middlewares
+	// are applied
+	handler := factory.NewHandler("test", handle, testMiddleware(&c))
+	handler.ServeHTTP(httptest.NewRecorder(), newRequest(t))
+
+	// c.count should be 2 since we applied the "counting" middleware twice
+	if c.count != 2 {
+		t.Errorf("wrong counter %d", c.count)
+	}
+
+	// verify that the Span middleware was applied
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	msg, err := mmq.Receive(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var trace tracing.ZipkinSpan
+	err = json.Unmarshal(msg, &trace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trace.BinaryAnnotations) == 0 {
+		t.Fatal("no binary annotations")
+	}
+
+	// verify that the EdgeContext middleware was applied
+	if ecRecorder.EdgeContext == nil {
+		t.Fatal("edge request context not set")
+	}
+	userID, ok := ecRecorder.EdgeContext.User().ID()
+	if !ok {
+		t.Error("user should be logged in")
+	}
+	if userID != expectedID {
+		t.Errorf("user ID mismatch, expected %q, got %q", expectedID, userID)
 	}
 }
