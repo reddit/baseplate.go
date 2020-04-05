@@ -1,16 +1,24 @@
 package httpbp
 
 import (
-	"context"
+	"fmt"
 	"net/http"
+	"sort"
+	"strings"
+	"time"
 
-	httpgk "github.com/go-kit/kit/transport/http"
+	"github.com/reddit/baseplate.go/secrets"
+	"github.com/reddit/baseplate.go/signing"
 )
 
 const (
 	// EdgeContextHeader is the key use to get the raw edge context from
 	// the HTTP request headers.
 	EdgeContextHeader = "X-Edge-Request"
+
+	// EdgeContextSignatureHeader is the key use to get the signature for
+	// the edge context headers from the HTTP request headers.
+	EdgeContextSignatureHeader = "X-Edge-Request-Signature"
 
 	// ParentIDHeader is the key use to get the span parent ID from
 	// the HTTP request headers.
@@ -28,44 +36,14 @@ const (
 	// HTTP request headers.
 	SpanSampledHeader = "X-Sampled"
 
+	// SpanSignatureHeader is the key use to get the signature for
+	// the span headers from the HTTP request headers.
+	SpanSignatureHeader = "X-Span-Signature"
+
 	// TraceIDHeader is the key use to get the trace ID from the HTTP
 	// request headers.
 	TraceIDHeader = "X-Trace"
 )
-
-// HeaderContextKey is a key used to get HTTP headers from a context object.
-type HeaderContextKey int
-
-const (
-	// EdgeContextContextKey is the key for the raw edge request context
-	EdgeContextContextKey HeaderContextKey = iota
-
-	// TraceIDContextKey is the header for the trace ID passed by the caller
-	TraceIDContextKey
-
-	// ParentIDContextKey is the header for the parent ID passed by the caller
-	ParentIDContextKey
-
-	// SpanIDContextKey is the header for the span ID passed by the caller
-	SpanIDContextKey
-
-	// SpanFlagsContextKey is the header for the span flags passed by the caller
-	SpanFlagsContextKey
-
-	// SpanSampledContextKey is the header for the sampled flag passed by the caller
-	SpanSampledContextKey
-)
-
-// SetHeader sets the value on the context at key.
-func SetHeader(ctx context.Context, key HeaderContextKey, value string) context.Context {
-	return context.WithValue(ctx, key, value)
-}
-
-// GetHeader returns the HTTP header stored on the context at key.
-func GetHeader(ctx context.Context, key HeaderContextKey) (header string, ok bool) {
-	header, ok = ctx.Value(key).(string)
-	return
-}
 
 // Headers is an interface to collect all of the HTTP headers for a particular
 // baseplate resource (spans and edge contexts) into a struct that provides an
@@ -138,42 +116,227 @@ var (
 	_ Headers = SpanHeaders{}
 )
 
-// InjectTrustedContext takes baseplate HTTP headers from the request,
-// verifies that it should trust the headers using the provided
-// HeaderTrustHandler, and attaches the trusted headers to the context.
-//
-// These headers can be retrieved using httpbp.GetHeader.
-//
-// This method does not implement the go-kit http.RequestFunc interface, if you
-// want to use this with go-kit, use PopulateRequestContext to return a function
-// that wraps InjectTrustedContext with the HeaderTrustHandler and does
-// implement the http.RequestFunc interface.
-func InjectTrustedContext(ctx context.Context, t HeaderTrustHandler, r *http.Request) context.Context {
-	if t.TrustEdgeContext(r) {
-		ctx = SetHeader(ctx, EdgeContextContextKey, r.Header.Get(EdgeContextHeader))
-	}
+// HeaderTrustHandler provides an interface PopulateBaseplateRequestContext to
+// verify that it should trust the HTTP headers it receives.
+type HeaderTrustHandler interface {
+	// TrustEdgeContext informs the function returned by PopulateBaseplateRequestContext
+	// if it can trust the HTTP headers that can be used to create an edge
+	// context.
+	//
+	// If it can trust those headers, then the headers will be copied into the
+	// context object to be later used to initialize the edge context for the
+	// request.
+	TrustEdgeContext(r *http.Request) bool
 
-	if t.TrustSpan(r) {
-		for k, v := range map[HeaderContextKey]string{
-			TraceIDContextKey:     r.Header.Get(TraceIDHeader),
-			ParentIDContextKey:    r.Header.Get(ParentIDHeader),
-			SpanIDContextKey:      r.Header.Get(SpanIDHeader),
-			SpanFlagsContextKey:   r.Header.Get(SpanFlagsHeader),
-			SpanSampledContextKey: r.Header.Get(SpanSampledHeader),
-		} {
-			ctx = SetHeader(ctx, k, v)
-		}
-	}
-
-	return ctx
+	// TrustSpan informs the function returned by PopulateBaseplateRequestContext
+	// if it can trust the HTTP headers that can be used to create a server
+	// span.
+	//
+	// If it can trust those headers, then the headers will be copied into the
+	// context object to later be used to initialize the server span for the
+	// request.
+	TrustSpan(r *http.Request) bool
 }
 
-// PopulateRequestContext returns a function that calls InjectTrustedContext
-// with the HeaderTrustHandler you pass to it. The function that this produces
-// implements go-kit's http.RequestFunc interface and can be passed to go-kit's
-// http.ServerBefore ServerOption.
-func PopulateRequestContext(t HeaderTrustHandler) httpgk.RequestFunc {
-	return func(ctx context.Context, r *http.Request) context.Context {
-		return InjectTrustedContext(ctx, t, r)
+// NeverTrustHeaders implements the HeaderTrustHandler interface and always
+// returns false.
+//
+// This handler is appropriate when your service is exposed to the public
+// internet and also do not expect to receive these headers anyways, or simply
+// does not care to parse these headers.
+type NeverTrustHeaders struct{}
+
+// TrustEdgeContext always returns false.  The edge context headers will never
+// be added to the context.
+func (h NeverTrustHeaders) TrustEdgeContext(r *http.Request) bool {
+	return false
+}
+
+// TrustSpan always returns false.  The span headers will never be added to the
+// context.
+func (h NeverTrustHeaders) TrustSpan(r *http.Request) bool {
+	return false
+}
+
+// AlwaysTrustHeaders implements the HeaderTrustHandler interface and always
+// returns true.
+//
+// This handler is appropriate when your service only accept calls from within a
+// secure network and you feel comfortable always trusting these headers.
+type AlwaysTrustHeaders struct{}
+
+// TrustEdgeContext always returns true.  The edge context headers will always
+// be added to the context.
+func (h AlwaysTrustHeaders) TrustEdgeContext(r *http.Request) bool {
+	return true
+}
+
+// TrustSpan always returns true.  The span headers will always be added to the
+// context.
+func (h AlwaysTrustHeaders) TrustSpan(r *http.Request) bool {
+	return true
+}
+
+// TrustHeaderSignature implements the HeaderTrustHandler interface and
+// checks the headers for a valid signature header.  If the headers are signed,
+// then they can be trusted and the Trust request returns true.  If there is no
+// signature or the signature is invalid, then the Trust request returns false.
+//
+// For both the span and edge context headers, the trust handler expects the
+// caller to provide the signature of a message in the following format:
+//
+// 		"{header0}:{value0}|{header1}|{value1}|...|{headerN}:{valueN}"
+//
+// where the headers are sorted lexicographically.  Additionally, the signature
+// should be generated using the baseplate provided `signing.Sign` function.
+//
+// TrustHeaderSignature provides implementations for both signing and
+// verifying edge context and span headers.
+//
+// This handler is appropriate when your service wants to be able to trust
+// headers that come from trusted sources, but also receives calls from
+// un-trusted sources that you would not want to accept these headers from.  One
+// example would be an HTTP API that is exposed to clients over the public
+// internet where you would not trust these headers but is also used internally
+// where you want to accept these headers.
+type TrustHeaderSignature struct {
+	secrets               *secrets.Store
+	edgeContextSecretPath string
+	spanSecretPath        string
+}
+
+// TrustHeaderSignatureArgs is used as input to create a new
+// TrustHeaderSignature.
+type TrustHeaderSignatureArgs struct {
+	SecretsStore          *secrets.Store
+	EdgeContextSecretPath string
+	SpanSecretPath        string
+}
+
+// NewTrustHeaderSignature returns a new HMACTrustHandler that uses the
+// provided TrustHeaderSignatureArgs
+func NewTrustHeaderSignature(args TrustHeaderSignatureArgs) TrustHeaderSignature {
+	return TrustHeaderSignature{
+		secrets:               args.SecretsStore,
+		edgeContextSecretPath: args.EdgeContextSecretPath,
+		spanSecretPath:        args.SpanSecretPath,
 	}
+}
+
+func (h TrustHeaderSignature) signHeaders(headers Headers, secretPath string, expiresIn time.Duration) (string, error) {
+	secret, err := h.secrets.GetVersionedSecret(secretPath)
+	if err != nil {
+		return "", err
+	}
+	return signing.Sign(signing.SignArgs{
+		Message:   headerMessage(headers),
+		Key:       secret.Current,
+		ExpiresIn: expiresIn,
+	})
+}
+
+func (h TrustHeaderSignature) verifyHeaders(headers Headers, signature string, secretPath string) (bool, error) {
+	if signature == "" {
+		return false, nil
+	}
+
+	secret, err := h.secrets.GetVersionedSecret(secretPath)
+	if err != nil {
+		return false, err
+	}
+
+	if err = signing.Verify(headerMessage(headers), signature, secret.GetAll()...); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// SignEdgeContextHeader signs the edge context header using signing.Sign.
+//
+// The message that is signed has the following format:
+//
+//		"X-Edge-Request:{headerValue}
+func (h TrustHeaderSignature) SignEdgeContextHeader(headers EdgeContextHeaders, expiresIn time.Duration) (string, error) {
+	return h.signHeaders(headers, h.edgeContextSecretPath, expiresIn)
+}
+
+// VerifyEdgeContextHeader verifies the edge context header using signing.Verify.
+func (h TrustHeaderSignature) VerifyEdgeContextHeader(headers EdgeContextHeaders, signature string) (bool, error) {
+	return h.verifyHeaders(headers, signature, h.edgeContextSecretPath)
+}
+
+// SignSpanHeaders signs the given span headers using signing.Sign.
+//
+// The message that is signed has the following format:
+//
+//		"{header0}:{value0}|{header1}|{value1}|...|{headerN}:{valueN}"
+//
+// where the headers are sorted lexicographically.
+func (h TrustHeaderSignature) SignSpanHeaders(headers SpanHeaders, expiresIn time.Duration) (string, error) {
+	return h.signHeaders(headers, h.spanSecretPath, expiresIn)
+}
+
+// VerifySpanHeaders verifies the edge context header using signing.Verify.
+func (h TrustHeaderSignature) VerifySpanHeaders(headers SpanHeaders, signature string) (bool, error) {
+	return h.verifyHeaders(headers, signature, h.spanSecretPath)
+}
+
+// TrustEdgeContext returns true if the request has the header
+// "X-Edge-Request-Signature" set and is a valid signature of the header:
+//		"X-Edge-Request"
+//
+// The message that should be signed is:
+//
+//		"X-Edge-Request:{headerValue}"
+func (h TrustHeaderSignature) TrustEdgeContext(r *http.Request) bool {
+	signature := r.Header.Get(EdgeContextSignatureHeader)
+	ok, err := h.VerifyEdgeContextHeader(NewEdgeContextHeaders(r.Header), signature)
+	if err != nil {
+		return false
+	}
+	return ok
+}
+
+// TrustSpan returns true if the request has the header
+// "X-Span-Signature" set and is a valid signature of the headers:
+//
+//		"X-Flags"
+//		"X-Parent"
+//		"X-Sampled"
+//		"X-Span"
+//		"X-Trace"
+//
+// The message that should be signed is:
+//
+//		"{header0}:{value0}|{header1}|{value1}|...|{headerN}:{valueN}"
+//
+// where the headers are sorted lexicographically.
+func (h TrustHeaderSignature) TrustSpan(r *http.Request) bool {
+	signature := r.Header.Get(SpanSignatureHeader)
+	ok, err := h.VerifySpanHeaders(NewSpanHeaders(r.Header), signature)
+	if err != nil {
+		return false
+	}
+	return ok
+}
+
+var (
+	_ HeaderTrustHandler = AlwaysTrustHeaders{}
+	_ HeaderTrustHandler = NeverTrustHeaders{}
+	_ HeaderTrustHandler = TrustHeaderSignature{}
+)
+
+func headerMessage(h Headers) []byte {
+	headers := h.AsMap()
+	components := make([]string, 0, len(headers))
+	keys := make([]string, 0, len(headers))
+	for key := range headers {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		components = append(components, fmt.Sprintf("%s:%s", key, headers[key]))
+	}
+	return []byte(strings.Join(components, "|"))
 }

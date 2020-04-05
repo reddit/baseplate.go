@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	"github.com/go-kit/kit/endpoint"
 
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/thriftbp"
@@ -20,27 +19,6 @@ func InitializeEdgeContext(ctx context.Context, impl *Impl, logger log.Wrapper, 
 		logger("Error while trying to initialize edge context: " + err.Error())
 	}
 	return ctx
-}
-
-// InitializeHTTPEdgeContext sets an edge request context created from the HTTP
-// headers set on the context onto the context.
-func InitializeHTTPEdgeContext(ctx context.Context, impl *Impl, logger log.Wrapper) context.Context {
-	return InitializeEdgeContext(ctx, impl, logger, FromHTTPContext)
-}
-
-// InjectHTTPEdgeContext returns a go-kit endpoint.Middleware that injects an
-// edge request context created from the HTTP headers set on the context into
-// the `next` endpoint.Endpoint.
-//
-// Note, this depends on the edge context headers already being set on the
-// context object.  This can be done by adding httpbp.PopulateRequestContext as
-// a ServerBefore option when setting up the request handler for an endpoint.
-func InjectHTTPEdgeContext(impl *Impl, logger log.Wrapper) endpoint.Middleware {
-	return func(next endpoint.Endpoint) endpoint.Endpoint {
-		return func(ctx context.Context, request interface{}) (interface{}, error) {
-			return next(InitializeHTTPEdgeContext(ctx, impl, logger), request)
-		}
-	}
 }
 
 // InitializeThriftEdgeContext sets an edge request context created from the

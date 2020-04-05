@@ -11,7 +11,6 @@ import (
 
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/experiments"
-	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/timebp"
 )
@@ -714,14 +713,14 @@ func TestFromThriftContext(t *testing.T) {
 	)
 }
 
-func TestFromHTTPContext(t *testing.T) {
+func TestFromRawHeader(t *testing.T) {
 	const expectedUser = "t2_example"
+	ctx := context.Background()
 
 	t.Run(
 		"no-header",
 		func(t *testing.T) {
-			ctx := context.Background()
-			_, err := edgecontext.FromHTTPContext(ctx, globalTestImpl)
+			_, err := edgecontext.FromRawHeader("")(ctx, globalTestImpl)
 			if !errors.Is(err, edgecontext.ErrNoHeader) {
 				t.Errorf("Expected ErrNoHeader, got %v", err)
 			}
@@ -731,12 +730,7 @@ func TestFromHTTPContext(t *testing.T) {
 	t.Run(
 		"no-auth",
 		func(t *testing.T) {
-			ctx := httpbp.SetHeader(
-				context.Background(),
-				httpbp.EdgeContextContextKey,
-				headerWithNoAuth,
-			)
-			e, err := edgecontext.FromHTTPContext(ctx, globalTestImpl)
+			e, err := edgecontext.FromRawHeader(headerWithNoAuth)(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -792,12 +786,7 @@ func TestFromHTTPContext(t *testing.T) {
 	t.Run(
 		"valid-auth",
 		func(t *testing.T) {
-			ctx := httpbp.SetHeader(
-				context.Background(),
-				httpbp.EdgeContextContextKey,
-				headerWithValidAuth,
-			)
-			e, err := edgecontext.FromHTTPContext(ctx, globalTestImpl)
+			e, err := edgecontext.FromRawHeader(headerWithValidAuth)(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -853,12 +842,7 @@ func TestFromHTTPContext(t *testing.T) {
 	t.Run(
 		"expired-auth",
 		func(t *testing.T) {
-			ctx := httpbp.SetHeader(
-				context.Background(),
-				httpbp.EdgeContextContextKey,
-				headerWithExpiredAuth,
-			)
-			e, err := edgecontext.FromHTTPContext(ctx, globalTestImpl)
+			e, err := edgecontext.FromRawHeader(headerWithExpiredAuth)(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -914,12 +898,7 @@ func TestFromHTTPContext(t *testing.T) {
 	t.Run(
 		"anon-auth",
 		func(t *testing.T) {
-			ctx := httpbp.SetHeader(
-				context.Background(),
-				httpbp.EdgeContextContextKey,
-				headerWithAnonAuth,
-			)
-			e, err := edgecontext.FromHTTPContext(ctx, globalTestImpl)
+			e, err := edgecontext.FromRawHeader(headerWithAnonAuth)(ctx, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}

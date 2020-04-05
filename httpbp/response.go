@@ -1,14 +1,14 @@
 package httpbp
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
-
-	httpgk "github.com/go-kit/kit/transport/http"
+	"strings"
 )
 
 const (
@@ -20,294 +20,288 @@ const (
 
 	// HTMLContentType is the Content-Type header for HTML responses.
 	HTMLContentType = "text/html; charset=utf-8"
+
+	// PlainTextContentType is the Content-Type header for plain text responses.
+	PlainTextContentType = "text/plain; charset=utf-8"
 )
 
-// HTTPError is a specialized error that is returned be the Err method specified
-// in the ErrorResponse interface.
-type HTTPError struct {
-	// Code is the status code to set on the HTTP response.  Defaults to 500 if
-	// it is not set.
-	Code int
+// ContentWriter is responsible writing the response body and communicating the
+// "Content-Type" of the response body.
+type ContentWriter interface {
+	// ContentType returns the value to set on the "Content-Type" header of the
+	// response.
+	ContentType() string
 
-	// Message is an optional message that can be returned to the
-	// client.  Defaults to the native http.StatusText message for the
-	// StatusCode() of the HTTPError.
-	Message string
-
-	// Cause is an optional error that can be used to retain the error that
-	// led to us returning an HTTP error to the client.
-	Cause error
+	// WriteResponse takes the given response body and writes it to the given
+	// writer.
+	WriteResponse(w io.Writer, v interface{}) error
 }
 
-// Error returns the standard error string, this is not returned to the client.
-func (e HTTPError) Error() string {
-	return fmt.Sprintf(
-		"httpbp: http error with code %d, message %q and cause %v",
-		e.Code,
-		e.Message,
-		e.Cause,
-	)
-}
+// ContentWriterFactory is the interface used by the handler to create new
+// ContentWriters when serving requests.
+type ContentWriterFactory func() ContentWriter
 
-// ResponseMessage returns the error message to send to the client.
-func (e HTTPError) ResponseMessage() string {
-	if e.Message != "" {
-		return e.Message
-	}
-	return http.StatusText(e.StatusCode())
-}
-
-// As implements helper interface for errors.As.
+// Response is an HTTP response that can be returned by a baseplate HTTP handler.
 //
-// If v is pointer to either HTTPError or *HTTPError, *v will be set into this
-// error.
-func (e HTTPError) As(v interface{}) bool {
-	if target, ok := v.(*HTTPError); ok {
-		*target = e
-		return true
-	} else if target, ok := v.(**HTTPError); ok {
-		*target = &e
-		return true
-	}
-	return false
-}
+// Response is responsible for setting the values that are independant of the
+// body as well as the ContentWriter to write the response body.
+type Response interface {
+	// SetCode sets the status code to return with the response.
+	SetCode(code int)
 
-// Unwrap implements helper interface for errors.Unwrap.  Returns the optional
-// e.Cause error.
-func (e HTTPError) Unwrap() error {
-	return e.Cause
-}
+	// StatusCode returns the current status code set on the response.
+	StatusCode() int
 
-// StatusCode returns the HTTP status code to set on the response.  Defaults to
-// 500 if Code is not set on the HTTPError.
-func (e HTTPError) StatusCode() int {
-	if e.Code == 0 {
-		return http.StatusInternalServerError
-	}
-	return e.Code
-}
+	// ClearCookies clears all cookies currently set on the response.
+	ClearCookies()
 
-var (
-	_ error = HTTPError{}
-	_ error = (*HTTPError)(nil)
-)
+	// AddCookie adds the cookie to the list of cookies to set on the response.
+	AddCookie(cookie *http.Cookie)
 
-// ResponseCookies is an interface that your Response objects can implement in
-// order to have the httpbp.Encode methods automatically add cookies to the
-// response.
-type ResponseCookies interface {
-	// Return a list of all cookies to set on the response.
+	// Cookies returns the list of cookies current set on the response.
 	Cookies() []*http.Cookie
+
+	// Headers returns the list of headers to return to the client.
+	Headers() http.Header
+
+	// NewHTTPError returns a new HTTPError with the given values using the
+	// a new ContentWriter of the same type as the Response.
+	//
+	// The new HTTPError will not inherit headers or cookies from the Response
+	// used to create it.
+	NewHTTPError(code int, body interface{}, cause error) HTTPError
+
+	// SetContentWriter replaces the current ContentWriter with the one passed
+	// in.
+	//
+	// A response should be initialized with a default ContentWriter, this is
+	// provided so services that want to be able to serve multiple content types
+	// from the same endpoint.
+	SetContentWriter(w ContentWriter)
+
+	// ContentWriter returns the ContentWriter used to write the response.
+	ContentWriter() ContentWriter
 }
 
-// ErrorResponse is an interface that your Response objects can implement in
-// order to have the httpbp.Encode methods automatically return http errors.
-type ErrorResponse interface {
-	// Err returns the HTTPError set on the response.
-	Err() error
+// HTTPError is an error that implements Response and can be returned by an
+// HTTPHandler to return a customized error Response.
+type HTTPError interface {
+	Response
+	error
+
+	// Body is the body value to be passed to Response.WriteResponse for the
+	// error.
+	Body() interface{}
+
+	// Unwrap implements helper interface for errors.Unwrap.  Should return the
+	// internal error that triggered the HTTPError to be returned to the caller.
+	Unwrap() error
 }
 
-// BaseResponse can be embedded into other response structs to allow them to
-// implement the go-kit Headerer and StatusCoder interfaces as well as the
-// baseplate.go ResponseCookies and ErrorResponse interfaces.
+// JSONContentWriter is a ContentWriterFactory that returns a ContentWriter
+// for writing JSON.
 //
-// BaseResponse must be initalized using NewBaseResponse before use, if it is
-// not, some methods will panic.
-//
-// 		type Response struct {
-//			httpbp.BaseResponse
-// 		}
-//
-//		func NewResponse() *Response {
-//			return &Response{
-//				BaseResponse: httpbp.NewBaseResponse(),
-//			}
-//		}
-type BaseResponse struct {
-	code    int
-	headers http.Header
-	cookies []*http.Cookie
-	err     error
+// When using a JSON content writer, your handler should return a value that
+// can be marshalled into JSON.  This can either be a struct that defines JSON
+// reflection tags or a `map` of values that can be Marshalled to JSON.
+func JSONContentWriter() ContentWriter {
+	return contentWriter{
+		contentType: JSONContentType,
+		write: func(w io.Writer, body interface{}) error {
+			return json.NewEncoder(w).Encode(body)
+		},
+	}
 }
 
-// NewBaseResponse returns an initialized BaseResponse.
-//
-// Intended to be used by the constructor methods for Response structs that
-// embed BaseResponse.
-func NewBaseResponse() BaseResponse {
-	return BaseResponse{headers: make(http.Header)}
+// HTMLBody is the interface that is expected by an HTML ContentWriter.
+type HTMLBody interface {
+	// TemplateName returns the name of the template to use to render the HTML
+	// response.
+	TemplateName() string
 }
 
-// SetCode sets the status code for this response.
-func (r *BaseResponse) SetCode(code int) {
+// BaseHTMLBody can be embedded in another struct to allow that struct to fufill
+// the HTMLBody interface.
+type BaseHTMLBody struct {
+	Name string
+}
+
+// TemplateName returns the name of the template to use to render the HTML
+// response.
+func (b BaseHTMLBody) TemplateName() string {
+	return b.Name
+}
+
+// HTMLContentWriterFactory returns a ContentWriterFactory that returns a
+// ContentWriter for writing HTML using the given template.
+//
+// When using an HTML content writer, your handler should return a struct that
+// implements the HTMLBody interface and can be given as input to t.Execute.
+func HTMLContentWriterFactory(templates *template.Template) ContentWriterFactory {
+	return func() ContentWriter {
+		return contentWriter{
+			contentType: HTMLContentType,
+			write: func(w io.Writer, body interface{}) error {
+				var htmlBody HTMLBody
+				var ok bool
+				if htmlBody, ok = body.(HTMLBody); !ok {
+					return errors.New("httpbp: wrong response type for html response")
+				}
+
+				var t *template.Template
+				if t = templates.Lookup(htmlBody.TemplateName()); t == nil {
+					return fmt.Errorf("httpbp: no html template with name %s", htmlBody.TemplateName())
+				}
+
+				return t.Execute(w, htmlBody)
+			},
+		}
+	}
+}
+
+// RawContentWriterFactory returns a ContentWriterFactory that returns a
+// ContentWriter for writing raw content in the given Content-Type.
+//
+// When using a raw content writer, your handler should return an object that
+// implements `io.Reader`, a string, or a byte slice.
+func RawContentWriterFactory(contentType string) ContentWriterFactory {
+	return func() ContentWriter {
+		return contentWriter{
+			contentType: contentType,
+			write: func(w io.Writer, body interface{}) error {
+				var r io.Reader
+				switch b := body.(type) {
+				default:
+					return fmt.Errorf("httpbp: %#v is not an io.Reader", body)
+				case io.Reader:
+					r = b
+				case string:
+					r = strings.NewReader(b)
+				case []byte:
+					r = bytes.NewReader(b)
+				}
+				_, err := io.Copy(w, r)
+				return err
+			},
+		}
+	}
+}
+
+// NewResponse returns a new Response object with a ContentWriter built by the
+// given ContentWriterFactory.
+//
+// NewResponse is provided for testing purposes and should not be used directly
+// as the http.Handler given by httpbp.NewHandler provides your HandlerFunc with
+// an already initialized response.
+func NewResponse(contentFactory ContentWriterFactory) Response {
+	return &httpResponse{
+		headers:       make(http.Header),
+		content:       contentFactory(),
+		writerFactory: contentFactory,
+	}
+}
+
+type contentWriter struct {
+	contentType string
+	write       func(io.Writer, interface{}) error
+}
+
+func (c contentWriter) ContentType() string {
+	return c.contentType
+}
+
+func (c contentWriter) WriteResponse(w io.Writer, v interface{}) error {
+	return c.write(w, v)
+}
+
+type httpResponse struct {
+	code          int
+	headers       http.Header
+	cookies       []*http.Cookie
+	content       ContentWriter
+	writerFactory ContentWriterFactory
+
+	err HTTPError
+}
+
+func (r *httpResponse) SetCode(code int) {
 	r.code = code
 }
 
-// StatusCode returns the current status code set for this response.
-func (r BaseResponse) StatusCode() int {
+func (r httpResponse) StatusCode() int {
 	return r.code
 }
 
-// Headers returns the http.Header collection of headers to set on the response.
-func (r BaseResponse) Headers() http.Header {
+func (r httpResponse) Headers() http.Header {
 	return r.headers
 }
 
-// Cookies returns the a copy of the current list of cookies to set on the response.
-func (r BaseResponse) Cookies() []*http.Cookie {
+func (r httpResponse) Cookies() []*http.Cookie {
 	cookies := make([]*http.Cookie, len(r.cookies))
 	copy(cookies, r.cookies)
 	return cookies
 }
 
-// SetCookie adds a cookie to set on the response.
-func (r *BaseResponse) SetCookie(cookie *http.Cookie) {
+func (r *httpResponse) AddCookie(cookie *http.Cookie) {
 	r.cookies = append(r.cookies, cookie)
 }
 
-// ClearCookies clears all cookies set on the response.
-func (r *BaseResponse) ClearCookies() {
+func (r *httpResponse) ClearCookies() {
 	r.cookies = nil
 }
 
-// SetError sets the error to return as an error response.
-func (r *BaseResponse) SetError(e error) {
-	r.err = e
+func (r *httpResponse) SetContentWriter(w ContentWriter) {
+	r.content = w
 }
 
-// Err returns the error to send back to the client.
-func (r BaseResponse) Err() error {
-	return r.err
+func (r httpResponse) ContentWriter() ContentWriter {
+	return r.content
 }
 
-// Verify that BaseResponse implements all the interfaces it intends to.
-var (
-	_ httpgk.Headerer    = BaseResponse{}
-	_ httpgk.Headerer    = (*BaseResponse)(nil)
-	_ httpgk.StatusCoder = BaseResponse{}
-	_ httpgk.StatusCoder = (*BaseResponse)(nil)
-	_ ResponseCookies    = BaseResponse{}
-	_ ResponseCookies    = (*BaseResponse)(nil)
-	_ ErrorResponse      = BaseResponse{}
-	_ ErrorResponse      = (*BaseResponse)(nil)
-)
-
-type responseEncoder func(w http.ResponseWriter, r interface{}) error
-
-type encodeArgs struct {
-	contentType string
-	encoder     responseEncoder
+func (r httpResponse) NewHTTPError(code int, body interface{}, cause error) HTTPError {
+	return NewHTTPError(code, body, cause, r.writerFactory)
 }
 
-func encodeResponse(w http.ResponseWriter, response interface{}, args encodeArgs) error {
-	w.Header().Set(ContentTypeHeader, args.contentType)
-
-	if resp, ok := response.(httpgk.Headerer); ok {
-		for key, values := range resp.Headers() {
-			for _, value := range values {
-				w.Header().Add(key, value)
-			}
-		}
+// NewHTTPError returns a new HTTPError object initialized with the given
+// values.
+//
+// NewHTTPError is provided for testing purposes and should not be used directly,
+// you should use Request.NewHTTPError to create HTTP errors rather than
+// creating them directly using NewHTTPError.
+func NewHTTPError(code int, body interface{}, cause error, writerFactory ContentWriterFactory) HTTPError {
+	resp := NewResponse(writerFactory)
+	resp.SetCode(code)
+	return &httpError{
+		Response: resp,
+		body:     body,
+		cause:    cause,
 	}
-
-	if resp, ok := response.(ResponseCookies); ok {
-		for _, cookie := range resp.Cookies() {
-			http.SetCookie(w, cookie)
-		}
-	}
-
-	if resp, ok := response.(ErrorResponse); ok {
-		if respErr := resp.Err(); respErr != nil {
-			var he HTTPError
-			if !errors.As(respErr, &he) {
-				he.Code = 500
-				he.Cause = respErr
-			}
-			http.Error(w, he.ResponseMessage(), he.StatusCode())
-			return nil
-		}
-	}
-
-	// The response code in the HTTPError returned by ErrorResponse.Err takes
-	// precedent over this one, so we put this after the error check so we
-	// don't even bother to run this if we are returning an error.
-	if resp, ok := response.(httpgk.StatusCoder); ok {
-		if resp.StatusCode() != 0 && resp.StatusCode() != http.StatusOK {
-			w.WriteHeader(resp.StatusCode())
-		}
-	}
-
-	return args.encoder(w, response)
 }
 
-// EncodeJSONResponse implements go-kit's http.EncodeResponseFunc interface and
-// encodes the given response as json.
-//
-// If the response implements go-kit's http.Headerer interface, then the headers
-// will be applied to the response, after the Content-Type header is set.
-//
-// If the response implements the ResponseCookie interface, then any cookies
-// returned will be applied to the response, after the headers are set.
-//
-// If the response implements the ErrorResponse interface, then an error
-// response will be returned if Err() is non-nil.  You can use the HTTPError
-// object to customize the error response.
-//
-// If the response implements go-kit's http.StatusCoder interface, then the
-// status code returned will be used rather than 200.  If a response implements
-// this but returns the default integer value of 0, then the code will still be
-// set to 200.  If the response also implements the ErrorResponse interface,
-// then this status code is ignored in favor of the error status code.
-func EncodeJSONResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
-	return encodeResponse(w, response, encodeArgs{
-		contentType: JSONContentType,
-		encoder: func(w http.ResponseWriter, r interface{}) error {
-			return json.NewEncoder(w).Encode(r)
-		},
-	})
+type httpError struct {
+	Response
+
+	body  interface{}
+	cause error
 }
 
-// EncodeTemplatedResponse encodes the given response as text/html with the
-// given template.
-//
-// This method does not implement the go-kit http.EncodeResponseFunc interface,
-// if you want to use this with go-kit, use BuildEncodeTemplatedResponse to
-// return a function that wraps EncodeTemplatedResponse with the a single
-// template and does implement the http.EncodeResponseFunc interface.
-//
-// If the response implements go-kit's http.Headerer interface, then the headers
-// will be applied to the response, after the Content-Type header is set.
-//
-// If the response implements the ResponseCookie interface, then any cookies
-// returned will be applied to the response, after the headers are set.
-//
-// If the response implements the ErrorResponse interface, then an error
-// response will be returned if Err() is non-nil.  You can use the HTTPError
-// object to customize the error response.
-//
-// If the response implements go-kit's http.StatusCoder interface, then the
-// status code returned will be used rather than 200.  If a response implements
-// this but returns the default integer value of 0, then the code will still be
-// set to 200.  If the response also implements the ErrorResponse interface,
-// then this status code is ignored in favor of the error status code.
-func EncodeTemplatedResponse(_ context.Context, w http.ResponseWriter, response interface{}, t *template.Template) error {
-	return encodeResponse(w, response, encodeArgs{
-		contentType: HTMLContentType,
-		encoder: func(w http.ResponseWriter, r interface{}) error {
-			return t.Execute(w, r)
-		},
-	})
+func (e httpError) Body() interface{} {
+	return e.body
 }
 
-// BuildEncodeTemplatedResponse returns a function that implements go-kits
-// http.EncodeResponseFunc interface and wraps EncodeTemplatedResponse with the
-// template passed in.
-func BuildEncodeTemplatedResponse(t *template.Template) httpgk.EncodeResponseFunc {
-	return func(ctx context.Context, w http.ResponseWriter, response interface{}) error {
-		return EncodeTemplatedResponse(ctx, w, response, t)
-	}
+func (e httpError) Error() string {
+	return fmt.Sprintf(
+		"httpbp: http error with code %d and cause %v",
+		e.StatusCode(),
+		e.Unwrap(),
+	)
+}
+
+func (e httpError) Unwrap() error {
+	return e.cause
 }
 
 var (
-	_ httpgk.EncodeResponseFunc = EncodeJSONResponse
+	_ HTTPError = httpError{}
+	_ HTTPError = (*httpError)(nil)
 )

@@ -12,6 +12,84 @@ import (
 	"github.com/reddit/baseplate.go/thriftbp"
 )
 
+// Headers is the argument struct for starting a Span from upstream headers.
+type Headers struct {
+	// TraceID is the trace ID passed via upstream headers.
+	TraceID string
+
+	// SpanID is the span ID passed via upstream headers.
+	SpanID string
+
+	// Flags is the flags int passed via upstream headers as a string.
+	Flags string
+
+	// Sampled is whether this span was sampled by the upstream caller.  Uses
+	// a pointer to a bool so it can distinguish between set/not-set.
+	Sampled *bool
+}
+
+// StartSpanFromHeaders creates a server span from the passed in Headers.
+//
+// Please note that "Sampled" header is default to false according to baseplate
+// spec, so if the headers are incorrect, this span (and all its child-spans)
+// will never be sampled, unless debug flag was set explicitly later.
+//
+// If any headers are missing or malformed, they will be ignored.
+// Malformed headers will be logged if InitGlobalTracer was last called with a
+// non-nil logger.
+func StartSpanFromHeaders(ctx context.Context, name string, headers Headers) (context.Context, *Span) {
+	logger := globalTracer.getLogger()
+	span := newSpan(nil, name, SpanTypeServer)
+	defer func() {
+		onCreateServerSpan(span)
+		span.onStart()
+	}()
+
+	ctx = opentracing.ContextWithSpan(ctx, span)
+
+	if headers.TraceID != "" {
+		if id, err := strconv.ParseUint(headers.TraceID, 10, 64); err != nil {
+			logger(fmt.Sprintf(
+				"Malformed trace id in http ctx: %q, %v",
+				headers.TraceID,
+				err,
+			))
+		} else {
+			span.trace.traceID = id
+		}
+	}
+
+	if headers.SpanID != "" {
+		if id, err := strconv.ParseUint(headers.SpanID, 10, 64); err != nil {
+			logger(fmt.Sprintf(
+				"Malformed parent id in http ctx: %q, %v",
+				headers.SpanID,
+				err,
+			))
+		} else {
+			span.trace.parentID = id
+		}
+	}
+
+	if headers.Flags != "" {
+		if flags, err := strconv.ParseInt(headers.Flags, 10, 64); err != nil {
+			logger(fmt.Sprintf(
+				"Malformed flags in http ctx: %q, %v",
+				headers.Flags,
+				err,
+			))
+		} else {
+			span.trace.flags = flags
+		}
+	}
+
+	if headers.Sampled != nil {
+		span.trace.sampled = *headers.Sampled
+	}
+
+	return ctx, span
+}
+
 // StartSpanFromThriftContext creates a server span from thrift context object.
 //
 // This span would usually be used as the span of the whole thrift endpoint
@@ -31,57 +109,24 @@ import (
 // non-nil logger.
 // Absent tracing related headers are always silently ignored.
 func StartSpanFromThriftContext(ctx context.Context, name string) (context.Context, *Span) {
-	logger := globalTracer.getLogger()
-	span := newSpan(nil, name, SpanTypeServer)
-	defer func() {
-		onCreateServerSpan(span)
-		span.onStart()
-	}()
-	ctx = opentracing.ContextWithSpan(ctx, span)
+	var headers Headers
+	var sampled bool
+
 	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingTrace); ok {
-		if id, err := strconv.ParseUint(str, 10, 64); err != nil {
-			if logger != nil {
-				logger(fmt.Sprintf(
-					"Malformed trace id in thrift ctx: %q, %v",
-					str,
-					err,
-				))
-			}
-		} else {
-			span.trace.traceID = id
-		}
+		headers.TraceID = str
 	}
 	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingSpan); ok {
-		if id, err := strconv.ParseUint(str, 10, 64); err != nil {
-			if logger != nil {
-				logger(fmt.Sprintf(
-					"Malformed span id in thrift ctx: %q, %v",
-					str,
-					err,
-				))
-			}
-		} else {
-			span.trace.parentID = id
-		}
+		headers.SpanID = str
 	}
 	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingFlags); ok {
-		if flags, err := strconv.ParseInt(str, 10, 64); err != nil {
-			if logger != nil {
-				logger(fmt.Sprintf(
-					"Malformed flags in thrift ctx: %q, %v",
-					str,
-					err,
-				))
-			}
-		} else {
-			span.trace.flags = flags
-		}
+		headers.Flags = str
 	}
-	str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingSampled)
-	sampled := ok && str == thriftbp.HeaderTracingSampledTrue
-	span.trace.sampled = sampled
+	if str, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingSampled); ok {
+		sampled = str == thriftbp.HeaderTracingSampledTrue
+		headers.Sampled = &sampled
+	}
 
-	return ctx, span
+	return StartSpanFromHeaders(ctx, name, headers)
 }
 
 // CreateThriftContextFromSpan injects span info into a context object that can

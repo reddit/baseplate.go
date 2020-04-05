@@ -1,323 +1,356 @@
 package httpbp_test
 
 import (
-	"context"
+	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
-	"log"
 	"net/http"
-	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
-	httpgk "github.com/go-kit/kit/transport/http"
 	"github.com/reddit/baseplate.go/httpbp"
 )
 
-func TestHTTPError(t *testing.T) {
-	t.Parallel()
+type htmlResponseBody struct {
+	httpbp.BaseHTMLBody
 
-	t.Run(
-		"default values",
-		func(t *testing.T) {
-			t.Parallel()
-
-			defaultCode := http.StatusInternalServerError
-			err := httpbp.HTTPError{}
-			if err.StatusCode() != defaultCode {
-				t.Errorf("Got unexpected status code %d", err.StatusCode())
-			}
-			if err.Unwrap() != nil {
-				t.Errorf("Expected Unwrap to return nil: %v", err.Unwrap())
-			}
-			if err.ResponseMessage() != http.StatusText(defaultCode) {
-				t.Errorf("Got unexpected response message: %v", err.ResponseMessage())
-			}
-		},
-	)
-
-	t.Run(
-		"custom values",
-		func(t *testing.T) {
-			t.Parallel()
-
-			cause := errors.New("test-error")
-			message := "test-message"
-			err := httpbp.HTTPError{
-				Code:    http.StatusForbidden,
-				Message: message,
-				Cause:   cause,
-			}
-			if err.StatusCode() != http.StatusForbidden {
-				t.Errorf("Got unexpected status code %d", err.StatusCode())
-			}
-			if err.Unwrap() != cause {
-				t.Errorf("Expected Unwrap to return %v, got %v", cause, err.Unwrap())
-			}
-			if err.ResponseMessage() != message {
-				t.Errorf("Got unexpected response message: %v", err.ResponseMessage())
-			}
-		},
-	)
-
-	t.Run(
-		"code only",
-		func(t *testing.T) {
-			t.Parallel()
-
-			err := httpbp.HTTPError{
-				Code: http.StatusForbidden,
-			}
-			if err.StatusCode() != http.StatusForbidden {
-				t.Errorf("Got unexpected status code %d", err.StatusCode())
-			}
-			if err.Unwrap() != nil {
-				t.Errorf("Expected Unwrap to return nil: %v", err.Unwrap())
-			}
-			if err.ResponseMessage() != http.StatusText(http.StatusForbidden) {
-				t.Errorf("Got unexpected response message: %v", err.ResponseMessage())
-			}
-		},
-	)
-
-	t.Run(
-		"as",
-		func(t *testing.T) {
-			t.Parallel()
-
-			code := http.StatusForbidden
-			errs := []error{
-				httpbp.HTTPError{Code: code},
-				&httpbp.HTTPError{Code: code},
-			}
-			for _, err := range errs {
-				var he httpbp.HTTPError
-				if !errors.As(err, &he) {
-					log.Fatalf("errors.As failed")
-				}
-				if he.StatusCode() != code {
-					t.Errorf("Got unexpected status code %d", he.StatusCode())
-				}
-			}
-		},
-	)
+	Y int
 }
 
-type testResponse struct {
-	httpbp.BaseResponse
+const (
+	htmlTemplateOK  = `<b>OK: {{.Y}}</b>`
+	htmlTemplateErr = `<b>ERROR: {{.Y}}</b>`
 
-	Message string `json:"message,omitempty"`
-}
-
-func (r *testResponse) AddCookie(name, value string) {
-	r.SetCookie(&http.Cookie{Name: name, Value: value})
-}
-
-var (
-	_ httpgk.Headerer        = testResponse{}
-	_ httpgk.Headerer        = (*testResponse)(nil)
-	_ httpgk.StatusCoder     = testResponse{}
-	_ httpgk.StatusCoder     = (*testResponse)(nil)
-	_ httpbp.ErrorResponse   = testResponse{}
-	_ httpbp.ErrorResponse   = (*testResponse)(nil)
-	_ httpbp.ResponseCookies = testResponse{}
-	_ httpbp.ResponseCookies = (*testResponse)(nil)
+	x = 1
+	y = 2
 )
 
-func TestEncodeJSONResponse(t *testing.T) {
+func TestJSONContentWriter(t *testing.T) {
 	t.Parallel()
 
+	cw := httpbp.JSONContentWriter()
+	if cw.ContentType() != httpbp.JSONContentType {
+		t.Errorf("wrong content-type %q", cw.ContentType())
+	}
+
 	t.Run(
-		"empty",
+		"map",
 		func(t *testing.T) {
 			t.Parallel()
 
-			w := httptest.NewRecorder()
-			resp := &testResponse{}
-			if err := httpbp.EncodeJSONResponse(context.Background(), w, resp); err != nil {
-				t.Fatalf("Unexpected error: %s", err)
-			}
-			result := w.Result()
+			expected := map[string]int{"x": x}
 
-			if result.StatusCode != http.StatusOK {
-				t.Errorf("unexpected status code: %d", result.StatusCode)
+			var buf bytes.Buffer
+			if err := cw.WriteResponse(&buf, map[string]int{"x": x}); err != nil {
+				t.Fatal(err)
 			}
 
-			if len(result.Header) != 1 {
-				t.Errorf("too many headers: %v.", w.Header())
+			var got map[string]int
+			if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+				t.Fatal(err)
 			}
 
-			if result.Header.Get(httpbp.ContentTypeHeader) != httpbp.JSONContentType {
-				t.Errorf("wrong content-type: %v", result.Header.Get(httpbp.ContentTypeHeader))
-			}
-
-			body := make([]byte, 1024)
-			if _, err := result.Body.Read(body); err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-
-			str := strings.Trim(string(body), "\x00\n")
-			if strings.Compare(str, "{}") != 0 {
-				t.Errorf("unexpected body: %q", str)
-			}
-
-			if len(result.Cookies()) != 0 {
-				t.Errorf("too many cookies: %v", result.Cookies())
+			if !reflect.DeepEqual(expected, got) {
+				t.Errorf("map mismatch, expected %#v, got %#v", expected, got)
 			}
 		},
 	)
 
 	t.Run(
-		"populated",
+		"struct",
 		func(t *testing.T) {
 			t.Parallel()
 
-			w := httptest.NewRecorder()
-			resp := &testResponse{
-				BaseResponse: httpbp.NewBaseResponse(),
-				Message:      "test-message",
-			}
-			resp.SetCode(http.StatusAccepted)
-			resp.AddCookie("test-cookie", "foo")
-			resp.Headers().Add("test-header", "bar")
-			if err := httpbp.EncodeJSONResponse(context.Background(), w, resp); err != nil {
-				t.Fatalf("Unexpected error: %s", err)
-			}
-			result := w.Result()
+			expected := jsonResponseBody{X: x}
 
-			if result.StatusCode != http.StatusAccepted {
-				t.Errorf("unexpected status code: %d", result.StatusCode)
+			var buf bytes.Buffer
+			if err := cw.WriteResponse(&buf, expected); err != nil {
+				t.Fatal(err)
 			}
 
-			if result.Header.Get(httpbp.ContentTypeHeader) != httpbp.JSONContentType {
-				t.Errorf("wrong content-type: %v", result.Header.Get(httpbp.ContentTypeHeader))
-			}
-			if result.Header.Get("test-header") != "bar" {
-				t.Errorf("wrong test-header: %v", result.Header.Get("test-header"))
+			var got jsonResponseBody
+			if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+				t.Fatal(err)
 			}
 
-			if len(result.Cookies()) != 1 {
-				t.Errorf("wrong number of cookies: %v", result.Cookies())
+			if !reflect.DeepEqual(expected, got) {
+				t.Errorf("map mismatch, expected %#v, got %#v", expected, got)
+			}
+		},
+	)
+}
+
+func TestHTMLContentWriterFactory(t *testing.T) {
+	t.Parallel()
+
+	const (
+		okName  = "ok"
+		errName = "err"
+	)
+
+	tmpl, err := template.New(okName).Parse(htmlTemplateOK)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpl, err = tmpl.New(errName).Parse(htmlTemplateErr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cw := httpbp.HTMLContentWriterFactory(tmpl)()
+	if cw.ContentType() != httpbp.HTMLContentType {
+		t.Errorf("wrong content-type %q", cw.ContentType())
+	}
+
+	type expectation struct {
+		body string
+		err  bool
+	}
+	cases := []struct {
+		name     string
+		resp     interface{}
+		expected expectation
+	}{
+		{
+			name: okName,
+			resp: htmlResponseBody{
+				BaseHTMLBody: httpbp.BaseHTMLBody{Name: okName},
+				Y:            y,
+			},
+			expected: expectation{body: fmt.Sprintf("<b>OK: %d</b>", y)},
+		},
+		{
+			name: errName,
+			resp: htmlResponseBody{
+				BaseHTMLBody: httpbp.BaseHTMLBody{Name: errName},
+				Y:            y,
+			},
+			expected: expectation{body: fmt.Sprintf("<b>ERROR: %d</b>", y)},
+		},
+		{
+			name: "template-missing",
+			resp: htmlResponseBody{
+				BaseHTMLBody: httpbp.BaseHTMLBody{Name: "missinsg"},
+				Y:            y,
+			},
+			expected: expectation{err: true},
+		},
+		{
+			name:     "wrong-type",
+			resp:     jsonResponseBody{X: x},
+			expected: expectation{err: true},
+		},
+	}
+
+	for _, _c := range cases {
+		c := _c
+		t.Run(
+			c.name,
+			func(t *testing.T) {
+				t.Parallel()
+
+				var buf bytes.Buffer
+				err := cw.WriteResponse(&buf, c.resp)
+				if c.expected.err && err == nil {
+					t.Errorf("expected error, got nil")
+				} else if !c.expected.err && err != nil {
+					t.Fatal(err)
+				}
+
+				if buf.String() != c.expected.body {
+					t.Errorf(
+						"body mismatch, expected %q, got %q",
+						c.expected.body,
+						buf.String(),
+					)
+				}
+			},
+		)
+	}
+}
+
+func TestRawContentWriterFactory(t *testing.T) {
+	t.Parallel()
+
+	content := "test"
+
+	cw := httpbp.RawContentWriterFactory(httpbp.PlainTextContentType)()
+	if cw.ContentType() != httpbp.PlainTextContentType {
+		t.Errorf("wrong content-type %q", cw.ContentType())
+	}
+
+	type expectation struct {
+		body string
+		err  bool
+	}
+
+	cases := []struct {
+		name     string
+		body     interface{}
+		expected expectation
+	}{
+		{
+			name:     "string",
+			body:     content,
+			expected: expectation{body: content},
+		},
+		{
+			name:     "[]byte",
+			body:     []byte(content),
+			expected: expectation{body: content},
+		},
+		{
+			name:     "io.Reader",
+			body:     strings.NewReader(content),
+			expected: expectation{body: content},
+		},
+		{
+			name:     "wrong-type",
+			body:     1,
+			expected: expectation{err: true},
+		},
+	}
+	for _, _c := range cases {
+		c := _c
+		t.Run(
+			c.name,
+			func(t *testing.T) {
+				t.Parallel()
+
+				var buf bytes.Buffer
+				err := cw.WriteResponse(&buf, c.body)
+				if c.expected.err && err == nil {
+					t.Errorf("expected error, got nil")
+				} else if !c.expected.err && err != nil {
+					t.Fatal(err)
+				}
+
+				if buf.String() != c.expected.body {
+					t.Errorf("body mismatch, expected %q, got %q", c.expected.body, buf.String())
+				}
+			},
+		)
+	}
+}
+
+func TestResponse(t *testing.T) {
+	t.Parallel()
+
+	resp := httpbp.NewResponse(httpbp.JSONContentWriter)
+
+	t.Run(
+		"StatusCode",
+		func(t *testing.T) {
+			if resp.StatusCode() != 0 {
+				t.Errorf("wrong default status code, %d", resp.StatusCode())
 			}
 
-			body := make([]byte, 1024)
-			if _, err := result.Body.Read(body); err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			str := strings.Trim(string(body), "\x00\n")
-			if str != "{\"message\":\"test-message\"}" {
-				t.Errorf("unexpected body: %q", str)
+			resp.SetCode(http.StatusPermanentRedirect)
+			if resp.StatusCode() != http.StatusPermanentRedirect {
+				t.Errorf(
+					"wrong status code, expected %d, got %d",
+					http.StatusPermanentRedirect,
+					resp.StatusCode(),
+				)
 			}
 		},
 	)
 
 	t.Run(
-		"error",
+		"Headers",
 		func(t *testing.T) {
-			t.Parallel()
-
-			w := httptest.NewRecorder()
-			resp := &testResponse{
-				BaseResponse: httpbp.NewBaseResponse(),
-				Message:      "test-message",
-			}
-			resp.SetCode(http.StatusAccepted)
-			resp.SetError(httpbp.HTTPError{
-				Code: http.StatusForbidden,
-			})
-			resp.AddCookie("test-cookie", "foo")
-			resp.Headers().Add("test-header", "bar")
-			if err := httpbp.EncodeJSONResponse(context.Background(), w, resp); err != nil {
-				t.Fatalf("Unexpected error: %s", err)
-			}
-			result := w.Result()
-
-			if result.StatusCode != resp.Err().(httpbp.HTTPError).StatusCode() {
-				t.Errorf("unexpected status code: %d", result.StatusCode)
+			if len(resp.Headers()) != 0 {
+				t.Fatalf("wrong default headers %#v", resp.Headers())
 			}
 
-			if result.Header.Get("test-header") != "bar" {
-				t.Errorf("wrong test-header: %v", result.Header.Get("test-header"))
+			resp.Headers().Set("foo", "bar")
+			if len(resp.Headers()) != 1 {
+				t.Fatalf("wrong headers %#v", resp.Headers())
 			}
 
-			if len(result.Cookies()) != 1 {
-				t.Errorf("wrong number of cookies: %v", result.Cookies())
-			}
-
-			body := make([]byte, 1024)
-			if _, err := result.Body.Read(body); err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			str := strings.Trim(string(body), "\x00\n")
-			if str != "Forbidden" {
-				t.Errorf("unexpected body: %q", str)
+			resp.Headers().Del("foo")
+			if len(resp.Headers()) != 0 {
+				t.Fatalf("key not deleted %#v", resp.Headers())
 			}
 		},
 	)
 
 	t.Run(
-		"clear cookies",
+		"Cookies",
 		func(t *testing.T) {
-			t.Parallel()
-
-			resp := &testResponse{
-				BaseResponse: httpbp.NewBaseResponse(),
+			if len(resp.Cookies()) != 0 {
+				t.Fatalf("wrong default cookies %#v", resp.Cookies())
 			}
-			resp.AddCookie("test", "cookie")
+
+			resp.AddCookie(&http.Cookie{})
 			if len(resp.Cookies()) != 1 {
-				t.Fatalf("Expected 1 cookie. %#v", resp.Cookies())
+				t.Fatalf("wrong cookies %#v", resp.Cookies())
 			}
 
 			resp.ClearCookies()
 			if len(resp.Cookies()) != 0 {
-				t.Fatalf("Expected 0 cookies. %#v", resp.Cookies())
+				t.Fatalf("cookies not cleared %#v", resp.Cookies())
 			}
 		},
 	)
-}
 
-func TestEncodeTemplatedResponse(t *testing.T) {
-	t.Parallel()
+	t.Run("ContentWriter", func(t *testing.T) {
+		cw := resp.ContentWriter()
+		if cw.ContentType() != httpbp.JSONContentType {
+			t.Errorf("wrong content-type %q", cw.ContentType())
+		}
 
-	w := httptest.NewRecorder()
-	resp := &testResponse{
-		BaseResponse: httpbp.NewBaseResponse(),
-		Message:      "test-message",
-	}
-	resp.SetCode(http.StatusAccepted)
-	resp.AddCookie("test-cookie", "foo")
-	resp.Headers().Add("test-header", "bar")
-	temp, err := template.New("test").Parse(`{{.Message}}`)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+		resp.SetContentWriter(httpbp.HTMLContentWriterFactory(nil)())
+		defer func() {
+			resp.SetContentWriter(cw)
+		}()
 
-	if err = httpbp.EncodeTemplatedResponse(context.Background(), w, resp, temp); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	result := w.Result()
+		if resp.ContentWriter().ContentType() != httpbp.HTMLContentType {
+			t.Errorf("wrong content-type %q", resp.ContentWriter().ContentType())
+		}
+	})
 
-	if result.StatusCode != http.StatusAccepted {
-		t.Errorf("unexpected status code: %d", result.StatusCode)
-	}
+	t.Run(
+		"NewHTTPError",
+		func(t *testing.T) {
+			// Add a header and cookie to test that they do not propogate to
+			// the error.
+			resp.Headers().Set("foo", "bar")
+			resp.AddCookie(&http.Cookie{})
+			defer func() {
+				resp.ClearCookies()
+				resp.Headers().Del("foo")
+			}()
 
-	if result.Header.Get(httpbp.ContentTypeHeader) != httpbp.HTMLContentType {
-		t.Errorf("wrong content-type: %v", result.Header.Get(httpbp.ContentTypeHeader))
-	}
-	if result.Header.Get("test-header") != "bar" {
-		t.Errorf("wrong test-header: %v", result.Header.Get("test-header"))
-	}
+			err := resp.NewHTTPError(
+				http.StatusInternalServerError,
+				jsonResponseBody{X: x},
+				errors.New("test"),
+			)
 
-	if len(result.Cookies()) != 1 {
-		t.Errorf("wrong number of cookies: %v", result.Cookies())
-	}
+			if len(err.Headers()) != 0 {
+				t.Fatalf("headers not empty %#v", err.Headers())
+			}
+			if len(err.Cookies()) != 0 {
+				t.Fatalf("cookies not empty %#v", err.Cookies())
+			}
 
-	body := make([]byte, 1024)
-	if _, err := result.Body.Read(body); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	str := strings.Trim(string(body), "\x00\n")
-	if str != "test-message" {
-		t.Errorf("unexpected body: %q", str)
-	}
+			cw := err.ContentWriter()
+			if cw.ContentType() != httpbp.JSONContentType {
+				t.Errorf("wrong content-type %q", cw.ContentType())
+			}
+
+			if err.StatusCode() != http.StatusInternalServerError {
+				t.Errorf(
+					"wrong status code, expected %d, got %d",
+					http.StatusInternalServerError,
+					err.StatusCode(),
+				)
+			}
+		},
+	)
 }
