@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
@@ -196,18 +195,17 @@ func FromThriftContext(ctx context.Context, impl *Impl) (*EdgeRequestContext, er
 	return fromHeader(header, impl)
 }
 
-// FromHTTPContext implements the ContextFactory interface and extracts
-// EdgeRequestContext from an http context object.
-func FromHTTPContext(ctx context.Context, impl *Impl) (*EdgeRequestContext, error) {
-	header, ok := httpbp.GetHeader(ctx, httpbp.EdgeContextContextKey)
-	if !ok {
-		return nil, ErrNoHeader
+// FromRawHeader returns a ContextFactory that will return a new
+// EdgeRequestContext using the given string.
+func FromRawHeader(header string) ContextFactory {
+	return func(ctx context.Context, impl *Impl) (*EdgeRequestContext, error) {
+		if header == "" {
+			return nil, ErrNoHeader
+		}
+		return fromHeader(header, impl)
 	}
-
-	return fromHeader(header, impl)
 }
 
 var (
 	_ ContextFactory = FromThriftContext
-	_ ContextFactory = FromHTTPContext
 )

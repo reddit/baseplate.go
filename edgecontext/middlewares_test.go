@@ -7,7 +7,6 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/reddit/baseplate.go/edgecontext"
-	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/thriftbp"
 )
 
@@ -15,14 +14,6 @@ func getThriftContext() context.Context {
 	return thrift.SetHeader(
 		context.Background(),
 		thriftbp.HeaderEdgeRequest,
-		headerWithValidAuth,
-	)
-}
-
-func getHTTPContext() context.Context {
-	return httpbp.SetHeader(
-		context.Background(),
-		httpbp.EdgeContextContextKey,
 		headerWithValidAuth,
 	)
 }
@@ -52,32 +43,11 @@ func TestInitializeEdgeContext(t *testing.T) {
 		ok       bool
 	}{
 		{
-			name:     "http factory, thrift context",
-			factory:  edgecontext.FromHTTPContext,
-			ctx:      getThriftContext(),
-			expected: nil,
-			ok:       false,
-		},
-		{
-			name:     "http factory, http context",
-			factory:  edgecontext.FromHTTPContext,
-			ctx:      getHTTPContext(),
-			expected: expected,
-			ok:       true,
-		},
-		{
-			name:     "thrift factory, thrift context",
+			name:     "thrift factory",
 			factory:  edgecontext.FromThriftContext,
 			ctx:      getThriftContext(),
 			expected: expected,
 			ok:       true,
-		},
-		{
-			name:     "thrift factory, http context",
-			factory:  edgecontext.FromThriftContext,
-			ctx:      getHTTPContext(),
-			expected: nil,
-			ok:       false,
 		},
 	}
 	for _, _c := range cases {
@@ -169,44 +139,6 @@ func TestInitializeEdgeContext(t *testing.T) {
 	}
 }
 
-func TestInitializeHTTPEdgeContext(t *testing.T) {
-	cases := []struct {
-		name string
-		ctx  context.Context
-		// We only bother testing `ok` because InitializeHTTPEdgeContext just
-		// calls InitializeEdgeContext which we test in more detail above.  This
-		// test is just a sanity check to ensure we're using the right factory
-		// method.
-		ok bool
-	}{
-		{
-			name: "thrift context",
-			ctx:  getThriftContext(),
-			ok:   false,
-		},
-		{
-			name: "http context",
-			ctx:  getHTTPContext(),
-			ok:   true,
-		},
-	}
-
-	for _, _c := range cases {
-		c := _c
-		t.Run(
-			c.name,
-			func(t *testing.T) {
-				t.Parallel()
-
-				ctx := edgecontext.InitializeHTTPEdgeContext(c.ctx, globalTestImpl, nil)
-				if _, ok := edgecontext.GetEdgeContext(ctx); ok != c.ok {
-					t.Errorf("Ok does not match, expected %v got %v", c.ok, ok)
-				}
-			},
-		)
-	}
-}
-
 func TestInitializeThriftEdgeContext(t *testing.T) {
 	cases := []struct {
 		name string
@@ -221,11 +153,6 @@ func TestInitializeThriftEdgeContext(t *testing.T) {
 			name: "thrift context",
 			ctx:  getThriftContext(),
 			ok:   true,
-		},
-		{
-			name: "http context",
-			ctx:  getHTTPContext(),
-			ok:   false,
 		},
 	}
 

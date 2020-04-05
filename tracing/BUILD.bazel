@@ -8,7 +8,6 @@ go_library(
         "errors.go",
         "finish_option.go",
         "hooks.go",
-        "http.go",
         "log.go",
         "middlewares.go",
         "span.go",
@@ -21,7 +20,6 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/tracing",
     visibility = ["//visibility:public"],
     deps = [
-        "//httpbp:go_default_library",
         "//log:go_default_library",
         "//mqsend:go_default_library",
         "//randbp:go_default_library",
@@ -31,7 +29,6 @@ go_library(
         "//timebp:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
         "@com_github_getsentry_raven_go//:go_default_library",
-        "@com_github_go_kit_kit//endpoint:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",
         "@com_github_opentracing_opentracing_go//log:go_default_library",
     ],
@@ -42,9 +39,7 @@ go_test(
     size = "small",
     srcs = [
         "example_error_reporter_hooks_test.go",
-        "example_middlewares_test.go",
         "hooks_test.go",
-        "http_test.go",
         "middlewares_test.go",
         "span_test.go",
         "thrift_test.go",
@@ -53,7 +48,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//httpbp:go_default_library",
         "//log:go_default_library",
         "//mqsend:go_default_library",
         "//randbp:go_default_library",
@@ -61,8 +55,6 @@ go_test(
         "//thriftbp:go_default_library",
         "//timebp:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
-        "@com_github_go_kit_kit//endpoint:go_default_library",
-        "@com_github_go_kit_kit//transport/http:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",
     ],
 )

@@ -4,16 +4,19 @@ go_library(
     name = "go_default_library",
     srcs = [
         "doc.go",
+        "handler.go",
         "headers.go",
+        "middlewares.go",
         "response.go",
-        "trust_handers.go",
     ],
     importpath = "github.com/reddit/baseplate.go/httpbp",
     visibility = ["//visibility:public"],
     deps = [
+        "//edgecontext:go_default_library",
+        "//log:go_default_library",
         "//secrets:go_default_library",
         "//signing:go_default_library",
-        "@com_github_go_kit_kit//transport/http:go_default_library",
+        "//tracing:go_default_library",
     ],
 )
 
@@ -21,17 +24,18 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "example_headers_test.go",
-        "example_response_test.go",
+        "fixtures_test.go",
+        "handler_test.go",
         "headers_test.go",
+        "middlewares_test.go",
         "response_test.go",
-        "trust_handlers_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
+        "//edgecontext:go_default_library",
         "//log:go_default_library",
+        "//mqsend:go_default_library",
         "//secrets:go_default_library",
-        "@com_github_go_kit_kit//endpoint:go_default_library",
-        "@com_github_go_kit_kit//transport/http:go_default_library",
+        "//tracing:go_default_library",
     ],
 )
