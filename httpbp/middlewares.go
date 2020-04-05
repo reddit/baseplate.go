@@ -37,7 +37,6 @@ func Wrap(handle HandlerFunc, middlewares ...Middleware) HandlerFunc {
 // DefaultMiddlewareArgs provides the arguments for the default, Baseplate
 // Middlewares
 type DefaultMiddlewareArgs struct {
-	SpanName        string
 	TrustHandler    HeaderTrustHandler
 	EdgeContextImpl *edgecontext.Impl
 	Logger          log.Wrapper
@@ -45,9 +44,9 @@ type DefaultMiddlewareArgs struct {
 
 // DefaultMiddleware returns a slice of all of the default Middleware for a
 // Baseplate HTTP server.
-func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
+func DefaultMiddleware(name string, args DefaultMiddlewareArgs) []Middleware {
 	return []Middleware{
-		InjectServerSpan(args.SpanName, args.TrustHandler),
+		InjectServerSpan(name, args.TrustHandler),
 		InjectEdgeRequestContext(args.TrustHandler, args.EdgeContextImpl, args.Logger),
 	}
 }
@@ -101,8 +100,8 @@ func StartSpanFromTrustedRequest(
 // InjectServerSpan as one of the Middlewares to wrap your handler in.
 func InjectServerSpan(name string, truster HeaderTrustHandler) Middleware {
 	return func(next HandlerFunc) HandlerFunc {
-		return func(ctx context.Context, req *http.Request, resp Response) (body interface{}, err error) {
-			ctx, span := StartSpanFromTrustedRequest(ctx, name, truster, req)
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+			ctx, span := StartSpanFromTrustedRequest(ctx, name, truster, r)
 			defer func() {
 				span.FinishWithOptions(tracing.FinishOptions{
 					Ctx: ctx,
@@ -110,7 +109,7 @@ func InjectServerSpan(name string, truster HeaderTrustHandler) Middleware {
 				}.Convert())
 			}()
 
-			return next(ctx, req, resp)
+			return next(ctx, w, r)
 		}
 	}
 }
@@ -132,10 +131,8 @@ func InitializeEdgeContextFromTrustedRequest(
 	r *http.Request,
 ) context.Context {
 	if truster.TrustEdgeContext(r) {
-		if header := r.Header.Get(EdgeContextHeader); header != "" {
-			factory := edgecontext.FromRawHeader(header)
-			ctx = edgecontext.InitializeEdgeContext(ctx, impl, logger, factory)
-		}
+		factory := edgecontext.FromRawHeader(r.Header.Get(EdgeContextHeader))
+		return edgecontext.InitializeEdgeContext(ctx, impl, logger, factory)
 	}
 	return ctx
 }
@@ -150,9 +147,9 @@ func InitializeEdgeContextFromTrustedRequest(
 // wrap your handler in.
 func InjectEdgeRequestContext(truster HeaderTrustHandler, impl *edgecontext.Impl, logger log.Wrapper) Middleware {
 	return func(next HandlerFunc) HandlerFunc {
-		return func(ctx context.Context, req *http.Request, resp Response) (interface{}, error) {
-			ctx = InitializeEdgeContextFromTrustedRequest(ctx, truster, impl, logger, req)
-			return next(ctx, req, resp)
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+			ctx = InitializeEdgeContextFromTrustedRequest(ctx, truster, impl, logger, r)
+			return next(ctx, w, r)
 		}
 	}
 }

@@ -27,81 +27,143 @@ const (
 
 // ContentWriter is responsible writing the response body and communicating the
 // "Content-Type" of the response body.
+//
+// To use a ContentWriter, pass it to httpbp.WriteResponse rather than using
+// it directly.
 type ContentWriter interface {
 	// ContentType returns the value to set on the "Content-Type" header of the
 	// response.
 	ContentType() string
 
-	// WriteResponse takes the given response body and writes it to the given
+	// WriteBody takes the given response body and writes it to the given
 	// writer.
-	WriteResponse(w io.Writer, v interface{}) error
+	WriteBody(w io.Writer, v interface{}) error
 }
 
-// ContentWriterFactory is the interface used by the handler to create new
-// ContentWriters when serving requests.
-type ContentWriterFactory func() ContentWriter
+// Response is the non-header content to be written in an HTTP response.
+type Response struct {
+	// Body is the response body to write using a ContentWriter.  You should
+	// ensure that Body is something that can be successfully written by the
+	// ContentWriter, otherwise an error will be returned instead.
+	Body interface{}
 
-// Response is an HTTP response that can be returned by a baseplate HTTP handler.
+	// Code is the status code to set on the response, this is optional and only
+	// should be set if you want to return something other than http.StatusOK (200).
+	Code int
+}
+
+// WriteResponse writes the given Response to the given ResponseWriter using the
+// given ContentWriter.  It also sets the Content-Type header on the response to
+// the one defined by the ContentWriter and sets the status code of the response
+// if set on the Response object.
 //
-// Response is responsible for setting the values that are independant of the
-// body as well as the ContentWriter to write the response body.
-type Response interface {
-	// SetCode sets the status code to return with the response.
-	SetCode(code int)
-
-	// StatusCode returns the current status code set on the response.
-	StatusCode() int
-
-	// ClearCookies clears all cookies currently set on the response.
-	ClearCookies()
-
-	// AddCookie adds the cookie to the list of cookies to set on the response.
-	AddCookie(cookie *http.Cookie)
-
-	// Cookies returns the list of cookies current set on the response.
-	Cookies() []*http.Cookie
-
-	// Headers returns the list of headers to return to the client.
-	Headers() http.Header
-
-	// NewHTTPError returns a new HTTPError with the given values using the
-	// a new ContentWriter of the same type as the Response.
-	//
-	// The new HTTPError will not inherit headers or cookies from the Response
-	// used to create it.
-	NewHTTPError(code int, body interface{}, cause error) HTTPError
-
-	// SetContentWriter replaces the current ContentWriter with the one passed
-	// in.
-	//
-	// A response should be initialized with a default ContentWriter, this is
-	// provided so services that want to be able to serve multiple content types
-	// from the same endpoint.
-	SetContentWriter(w ContentWriter)
-
-	// ContentWriter returns the ContentWriter used to write the response.
-	ContentWriter() ContentWriter
+// WriteResponse generally does not need to be called directly, instead you can
+// use one of the helper methods to call it with a pre-defined ContentWriter.
+func WriteResponse(w http.ResponseWriter, cw ContentWriter, resp Response) error {
+	w.Header().Set(ContentTypeHeader, cw.ContentType())
+	if resp.Code > 0 {
+		w.WriteHeader(resp.Code)
+	}
+	return cw.WriteBody(w, resp.Body)
 }
 
-// HTTPError is an error that implements Response and can be returned by an
-// HTTPHandler to return a customized error Response.
+// WriteJSON calls WriteResponse with a JSON ContentWriter.
+func WriteJSON(w http.ResponseWriter, resp Response) error {
+	return WriteResponse(w, JSONContentWriter(), resp)
+}
+
+// WriteHTML calls WriteResponse with an HTML ContentWriter using the given
+// templates.
+func WriteHTML(w http.ResponseWriter, resp Response, templates *template.Template) error {
+	return WriteResponse(w, HTMLContentWriter(templates), resp)
+}
+
+// WriteRawContent calls WriteResponse with a Raw ContentWriter with the given
+// Content-Type.
+func WriteRawContent(w http.ResponseWriter, resp Response, contentType string) error {
+	return WriteResponse(w, RawContentWriter(contentType), resp)
+}
+
+// HTTPError is an error that and can be returned by an  HTTPHandler to return a
+// customized error response.
 type HTTPError interface {
-	Response
 	error
 
-	// Body is the body value to be passed to Response.WriteResponse for the
-	// error.
-	Body() interface{}
+	// Response returns the custom Response for the error to be written by
+	// the ContentWriter.
+	Response() Response
+
+	// ContentWriter returns the ContentWriter object to use to write the error
+	// response.
+	ContentWriter() ContentWriter
 
 	// Unwrap implements helper interface for errors.Unwrap.  Should return the
 	// internal error that triggered the HTTPError to be returned to the caller.
 	Unwrap() error
 }
 
-// JSONContentWriter is a ContentWriterFactory that returns a ContentWriter
-// for writing JSON.
+// NewHTTPError returns a new HTTPError object initialized with the given
+// values.
 //
-// When using a JSON content writer, your handler should return a value that
+// NewHTTPError is provided for testing purposes and should not be used directly,
+// you should use Request.NewHTTPError to create HTTP errors rather than
+// creating them directly using NewHTTPError.
+func NewHTTPError(code int, body interface{}, cause error, cw ContentWriter) HTTPError {
+	return &httpError{
+		resp: Response{
+			Code: code,
+			Body: body,
+		},
+		cw:    cw,
+		cause: cause,
+	}
+}
+
+// NewJSONError returns a new HTTPError with the given values and a JSON ContentWriter.
+func NewJSONError(code int, body interface{}, cause error) HTTPError {
+	return NewHTTPError(code, body, cause, JSONContentWriter())
+}
+
+// NewHTMLError returns a new HTTPError with the given values and an HTML ContentWriter
+// using the given template.
+func NewHTMLError(code int, body interface{}, cause error, t *template.Template) HTTPError {
+	return NewHTTPError(code, body, cause, HTMLContentWriter(t))
+}
+
+// NewRawError returns a new HTTPError with the given values and a Raw ContentWriter
+// using the given Content-Type.
+func NewRawError(code int, body interface{}, cause error, contentType string) HTTPError {
+	return NewHTTPError(code, body, cause, RawContentWriter(contentType))
+}
+
+type httpError struct {
+	resp  Response
+	cw    ContentWriter
+	cause error
+}
+
+func (e httpError) Response() Response {
+	return e.resp
+}
+func (e httpError) ContentWriter() ContentWriter {
+	return e.cw
+}
+
+func (e httpError) Error() string {
+	return fmt.Sprintf(
+		"httpbp: http error with code %d and cause %v",
+		e.Response().Code,
+		e.Unwrap(),
+	)
+}
+
+func (e httpError) Unwrap() error {
+	return e.cause
+}
+
+// JSONContentWriter returns a ContentWriter for writing JSON.
+//
+// When using a JSON ContentWriter, your Response.Body should be a value that
 // can be marshalled into JSON.  This can either be a struct that defines JSON
 // reflection tags or a `map` of values that can be Marshalled to JSON.
 func JSONContentWriter() ContentWriter {
@@ -132,72 +194,59 @@ func (b BaseHTMLBody) TemplateName() string {
 	return b.Name
 }
 
-// HTMLContentWriterFactory returns a ContentWriterFactory that returns a
-// ContentWriter for writing HTML using the given template.
+// HTMLContentWriter returns a ContentWriter for writing HTML using the given
+// templates.
 //
-// When using an HTML content writer, your handler should return a struct that
-// implements the HTMLBody interface and can be given as input to t.Execute.
-func HTMLContentWriterFactory(templates *template.Template) ContentWriterFactory {
-	return func() ContentWriter {
-		return contentWriter{
-			contentType: HTMLContentType,
-			write: func(w io.Writer, body interface{}) error {
-				var htmlBody HTMLBody
-				var ok bool
-				if htmlBody, ok = body.(HTMLBody); !ok {
-					return errors.New("httpbp: wrong response type for html response")
-				}
+// When using an HTML ContentWriter, your Response.Body should be an object that
+// implements the HTMLBody interface and can be given as input to  t.Execute.
+// If it does not, an error will be returned.  An error will also be returned if
+// there is no template available with the TemplateName() returned by Response.Body.
+func HTMLContentWriter(templates *template.Template) ContentWriter {
+	return contentWriter{
+		contentType: HTMLContentType,
+		write: func(w io.Writer, body interface{}) error {
+			var htmlBody HTMLBody
+			var ok bool
+			if htmlBody, ok = body.(HTMLBody); !ok {
+				return errors.New("httpbp: wrong response type for html response")
+			}
 
-				var t *template.Template
-				if t = templates.Lookup(htmlBody.TemplateName()); t == nil {
-					return fmt.Errorf("httpbp: no html template with name %s", htmlBody.TemplateName())
-				}
+			var t *template.Template
+			if t = templates.Lookup(htmlBody.TemplateName()); t == nil {
+				return fmt.Errorf("httpbp: no html template with name %s", htmlBody.TemplateName())
+			}
 
-				return t.Execute(w, htmlBody)
-			},
-		}
+			return t.Execute(w, htmlBody)
+		},
 	}
 }
 
-// RawContentWriterFactory returns a ContentWriterFactory that returns a
-// ContentWriter for writing raw content in the given Content-Type.
+// RawContentWriter returns a ContentWriter for writing raw content with the
+// given Content-Type.
 //
-// When using a raw content writer, your handler should return an object that
-// implements `io.Reader`, a string, or a byte slice.
-func RawContentWriterFactory(contentType string) ContentWriterFactory {
-	return func() ContentWriter {
-		return contentWriter{
-			contentType: contentType,
-			write: func(w io.Writer, body interface{}) error {
-				var r io.Reader
-				switch b := body.(type) {
-				default:
-					return fmt.Errorf("httpbp: %#v is not an io.Reader", body)
-				case io.Reader:
-					r = b
-				case string:
-					r = strings.NewReader(b)
-				case []byte:
-					r = bytes.NewReader(b)
-				}
-				_, err := io.Copy(w, r)
-				return err
-			},
-		}
-	}
-}
-
-// NewResponse returns a new Response object with a ContentWriter built by the
-// given ContentWriterFactory.
-//
-// NewResponse is provided for testing purposes and should not be used directly
-// as the http.Handler given by httpbp.NewHandler provides your HandlerFunc with
-// an already initialized response.
-func NewResponse(contentFactory ContentWriterFactory) Response {
-	return &httpResponse{
-		headers:       make(http.Header),
-		content:       contentFactory(),
-		writerFactory: contentFactory,
+// When using a raw content writer, your your Response.Body should be an object
+// that  implements one of the io.Reader or fmt.Stringer interfaces, a string,
+// or a byte slice.  If it is not one of these, an error will be returned.
+func RawContentWriter(contentType string) ContentWriter {
+	return contentWriter{
+		contentType: contentType,
+		write: func(w io.Writer, body interface{}) error {
+			var r io.Reader
+			switch b := body.(type) {
+			default:
+				return fmt.Errorf("httpbp: %#v is not an io.Reader", body)
+			case io.Reader:
+				r = b
+			case fmt.Stringer:
+				r = strings.NewReader(b.String())
+			case string:
+				r = strings.NewReader(b)
+			case []byte:
+				r = bytes.NewReader(b)
+			}
+			_, err := io.Copy(w, r)
+			return err
+		},
 	}
 }
 
@@ -210,98 +259,6 @@ func (c contentWriter) ContentType() string {
 	return c.contentType
 }
 
-func (c contentWriter) WriteResponse(w io.Writer, v interface{}) error {
+func (c contentWriter) WriteBody(w io.Writer, v interface{}) error {
 	return c.write(w, v)
 }
-
-type httpResponse struct {
-	code          int
-	headers       http.Header
-	cookies       []*http.Cookie
-	content       ContentWriter
-	writerFactory ContentWriterFactory
-
-	err HTTPError
-}
-
-func (r *httpResponse) SetCode(code int) {
-	r.code = code
-}
-
-func (r httpResponse) StatusCode() int {
-	return r.code
-}
-
-func (r httpResponse) Headers() http.Header {
-	return r.headers
-}
-
-func (r httpResponse) Cookies() []*http.Cookie {
-	cookies := make([]*http.Cookie, len(r.cookies))
-	copy(cookies, r.cookies)
-	return cookies
-}
-
-func (r *httpResponse) AddCookie(cookie *http.Cookie) {
-	r.cookies = append(r.cookies, cookie)
-}
-
-func (r *httpResponse) ClearCookies() {
-	r.cookies = nil
-}
-
-func (r *httpResponse) SetContentWriter(w ContentWriter) {
-	r.content = w
-}
-
-func (r httpResponse) ContentWriter() ContentWriter {
-	return r.content
-}
-
-func (r httpResponse) NewHTTPError(code int, body interface{}, cause error) HTTPError {
-	return NewHTTPError(code, body, cause, r.writerFactory)
-}
-
-// NewHTTPError returns a new HTTPError object initialized with the given
-// values.
-//
-// NewHTTPError is provided for testing purposes and should not be used directly,
-// you should use Request.NewHTTPError to create HTTP errors rather than
-// creating them directly using NewHTTPError.
-func NewHTTPError(code int, body interface{}, cause error, writerFactory ContentWriterFactory) HTTPError {
-	resp := NewResponse(writerFactory)
-	resp.SetCode(code)
-	return &httpError{
-		Response: resp,
-		body:     body,
-		cause:    cause,
-	}
-}
-
-type httpError struct {
-	Response
-
-	body  interface{}
-	cause error
-}
-
-func (e httpError) Body() interface{} {
-	return e.body
-}
-
-func (e httpError) Error() string {
-	return fmt.Sprintf(
-		"httpbp: http error with code %d and cause %v",
-		e.StatusCode(),
-		e.Unwrap(),
-	)
-}
-
-func (e httpError) Unwrap() error {
-	return e.cause
-}
-
-var (
-	_ HTTPError = httpError{}
-	_ HTTPError = (*httpError)(nil)
-)

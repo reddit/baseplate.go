@@ -3,10 +3,8 @@ package httpbp_test
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html/template"
-	"net/http"
 	"reflect"
 	"strings"
 	"testing"
@@ -44,7 +42,7 @@ func TestJSONContentWriter(t *testing.T) {
 			expected := map[string]int{"x": x}
 
 			var buf bytes.Buffer
-			if err := cw.WriteResponse(&buf, map[string]int{"x": x}); err != nil {
+			if err := cw.WriteBody(&buf, map[string]int{"x": x}); err != nil {
 				t.Fatal(err)
 			}
 
@@ -67,7 +65,7 @@ func TestJSONContentWriter(t *testing.T) {
 			expected := jsonResponseBody{X: x}
 
 			var buf bytes.Buffer
-			if err := cw.WriteResponse(&buf, expected); err != nil {
+			if err := cw.WriteBody(&buf, expected); err != nil {
 				t.Fatal(err)
 			}
 
@@ -101,7 +99,7 @@ func TestHTMLContentWriterFactory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cw := httpbp.HTMLContentWriterFactory(tmpl)()
+	cw := httpbp.HTMLContentWriter(tmpl)
 	if cw.ContentType() != httpbp.HTMLContentType {
 		t.Errorf("wrong content-type %q", cw.ContentType())
 	}
@@ -154,7 +152,7 @@ func TestHTMLContentWriterFactory(t *testing.T) {
 				t.Parallel()
 
 				var buf bytes.Buffer
-				err := cw.WriteResponse(&buf, c.resp)
+				err := cw.WriteBody(&buf, c.resp)
 				if c.expected.err && err == nil {
 					t.Errorf("expected error, got nil")
 				} else if !c.expected.err && err != nil {
@@ -173,12 +171,20 @@ func TestHTMLContentWriterFactory(t *testing.T) {
 	}
 }
 
+type testStringer struct {
+	content string
+}
+
+func (s testStringer) String() string {
+	return s.content
+}
+
 func TestRawContentWriterFactory(t *testing.T) {
 	t.Parallel()
 
 	content := "test"
 
-	cw := httpbp.RawContentWriterFactory(httpbp.PlainTextContentType)()
+	cw := httpbp.RawContentWriter(httpbp.PlainTextContentType)
 	if cw.ContentType() != httpbp.PlainTextContentType {
 		t.Errorf("wrong content-type %q", cw.ContentType())
 	}
@@ -209,6 +215,11 @@ func TestRawContentWriterFactory(t *testing.T) {
 			expected: expectation{body: content},
 		},
 		{
+			name:     "fmt.Stringer",
+			body:     testStringer{content: content},
+			expected: expectation{body: content},
+		},
+		{
 			name:     "wrong-type",
 			body:     1,
 			expected: expectation{err: true},
@@ -222,7 +233,7 @@ func TestRawContentWriterFactory(t *testing.T) {
 				t.Parallel()
 
 				var buf bytes.Buffer
-				err := cw.WriteResponse(&buf, c.body)
+				err := cw.WriteBody(&buf, c.body)
 				if c.expected.err && err == nil {
 					t.Errorf("expected error, got nil")
 				} else if !c.expected.err && err != nil {
@@ -235,122 +246,4 @@ func TestRawContentWriterFactory(t *testing.T) {
 			},
 		)
 	}
-}
-
-func TestResponse(t *testing.T) {
-	t.Parallel()
-
-	resp := httpbp.NewResponse(httpbp.JSONContentWriter)
-
-	t.Run(
-		"StatusCode",
-		func(t *testing.T) {
-			if resp.StatusCode() != 0 {
-				t.Errorf("wrong default status code, %d", resp.StatusCode())
-			}
-
-			resp.SetCode(http.StatusPermanentRedirect)
-			if resp.StatusCode() != http.StatusPermanentRedirect {
-				t.Errorf(
-					"wrong status code, expected %d, got %d",
-					http.StatusPermanentRedirect,
-					resp.StatusCode(),
-				)
-			}
-		},
-	)
-
-	t.Run(
-		"Headers",
-		func(t *testing.T) {
-			if len(resp.Headers()) != 0 {
-				t.Fatalf("wrong default headers %#v", resp.Headers())
-			}
-
-			resp.Headers().Set("foo", "bar")
-			if len(resp.Headers()) != 1 {
-				t.Fatalf("wrong headers %#v", resp.Headers())
-			}
-
-			resp.Headers().Del("foo")
-			if len(resp.Headers()) != 0 {
-				t.Fatalf("key not deleted %#v", resp.Headers())
-			}
-		},
-	)
-
-	t.Run(
-		"Cookies",
-		func(t *testing.T) {
-			if len(resp.Cookies()) != 0 {
-				t.Fatalf("wrong default cookies %#v", resp.Cookies())
-			}
-
-			resp.AddCookie(&http.Cookie{})
-			if len(resp.Cookies()) != 1 {
-				t.Fatalf("wrong cookies %#v", resp.Cookies())
-			}
-
-			resp.ClearCookies()
-			if len(resp.Cookies()) != 0 {
-				t.Fatalf("cookies not cleared %#v", resp.Cookies())
-			}
-		},
-	)
-
-	t.Run("ContentWriter", func(t *testing.T) {
-		cw := resp.ContentWriter()
-		if cw.ContentType() != httpbp.JSONContentType {
-			t.Errorf("wrong content-type %q", cw.ContentType())
-		}
-
-		resp.SetContentWriter(httpbp.HTMLContentWriterFactory(nil)())
-		defer func() {
-			resp.SetContentWriter(cw)
-		}()
-
-		if resp.ContentWriter().ContentType() != httpbp.HTMLContentType {
-			t.Errorf("wrong content-type %q", resp.ContentWriter().ContentType())
-		}
-	})
-
-	t.Run(
-		"NewHTTPError",
-		func(t *testing.T) {
-			// Add a header and cookie to test that they do not propogate to
-			// the error.
-			resp.Headers().Set("foo", "bar")
-			resp.AddCookie(&http.Cookie{})
-			defer func() {
-				resp.ClearCookies()
-				resp.Headers().Del("foo")
-			}()
-
-			err := resp.NewHTTPError(
-				http.StatusInternalServerError,
-				jsonResponseBody{X: x},
-				errors.New("test"),
-			)
-
-			if len(err.Headers()) != 0 {
-				t.Fatalf("headers not empty %#v", err.Headers())
-			}
-			if len(err.Cookies()) != 0 {
-				t.Fatalf("cookies not empty %#v", err.Cookies())
-			}
-
-			cw := err.ContentWriter()
-			if cw.ContentType() != httpbp.JSONContentType {
-				t.Errorf("wrong content-type %q", cw.ContentType())
-			}
-
-			if err.StatusCode() != http.StatusInternalServerError {
-				t.Errorf(
-					"wrong status code, expected %d, got %d",
-					http.StatusInternalServerError,
-					err.StatusCode(),
-				)
-			}
-		},
-	)
 }

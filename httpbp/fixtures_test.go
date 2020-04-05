@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/reddit/baseplate.go/edgecontext"
@@ -74,9 +75,9 @@ type edgecontextRecorder struct {
 
 func edgecontextRecorderMiddleware(recorder *edgecontextRecorder) httpbp.Middleware {
 	return func(next httpbp.HandlerFunc) httpbp.HandlerFunc {
-		return func(ctx context.Context, req *http.Request, resp httpbp.Response) (interface{}, error) {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 			recorder.EdgeContext, _ = edgecontext.GetEdgeContext(ctx)
-			return next(ctx, req, resp)
+			return next(ctx, w, r)
 		}
 	}
 }
@@ -90,23 +91,54 @@ type testHandlerPlan struct {
 }
 
 func newTestHandler(plan testHandlerPlan) httpbp.HandlerFunc {
-	return func(ctx context.Context, req *http.Request, resp httpbp.Response) (interface{}, error) {
-		if plan.code != 0 {
-			resp.SetCode(plan.code)
-		}
-
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		if plan.headers != nil {
 			for k, values := range plan.headers {
 				for _, v := range values {
-					resp.Headers().Add(k, v)
+					w.Header().Add(k, v)
 				}
 			}
 		}
 
 		for _, cookie := range plan.cookies {
-			resp.AddCookie(cookie)
+			http.SetCookie(w, cookie)
 		}
-
-		return plan.body, plan.err
+		if plan.err != nil {
+			return plan.err
+		}
+		return httpbp.WriteJSON(
+			w,
+			httpbp.Response{
+				Code: plan.code,
+				Body: plan.body,
+			},
+		)
 	}
+}
+
+type counter struct {
+	count int
+}
+
+func (c *counter) Incr() {
+	c.count++
+}
+
+func testMiddleware(c *counter) httpbp.Middleware {
+	return func(next httpbp.HandlerFunc) httpbp.HandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+			c.Incr()
+			return next(ctx, w, r)
+		}
+	}
+}
+
+func newRequest(t *testing.T) *http.Request {
+	req, err := http.NewRequest("get", "localhost:9090", strings.NewReader("test"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Add(httpbp.EdgeContextHeader, headerWithValidAuth)
+	req.Header.Add(httpbp.SpanSampledHeader, "1")
+	return req
 }
