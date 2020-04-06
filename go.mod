@@ -16,6 +16,7 @@ require (
 	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449
 	gopkg.in/dgrijalva/jwt-go.v3 v3.2.0
 	gopkg.in/fsnotify.v1 v1.4.7
+	gopkg.in/yaml.v2 v2.2.4
 )
 
 replace gopkg.in/dgrijalva/jwt-go.v3 => github.com/reddit/jwt-go v3.2.1-0.20200222044038-a63f2d40479f+incompatible
