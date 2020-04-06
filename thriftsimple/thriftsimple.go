@@ -47,6 +47,10 @@ type BaseplateServerConfig struct {
 	}
 }
 
+func (c BaseplateServerConfig) AsConfig() BaseplateServerConfig {
+	return c
+}
+
 func ParseBaseplateServerConfig(path string, cfg interface{}) error {
 	if path == "" {
 		return errors.New("no config path given")
