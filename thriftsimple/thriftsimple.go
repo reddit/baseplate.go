@@ -47,23 +47,22 @@ type BaseplateServerConfig struct {
 	}
 }
 
-func ParseBaseplateServerConfig(path string) (BaseplateServerConfig, error) {
-	var cfg BaseplateServerConfig
+func ParseBaseplateServerConfig(path string, cfg *BaseplateServerConfig) error {
 	if path == "" {
-		return cfg, errors.New("no config path given")
+		return errors.New("no config path given")
 	}
 
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		return cfg, err
+		return err
 	}
 
 	if err = yaml.Unmarshal(data, &cfg); err != nil {
-		return cfg, err
+		return err
 	}
 
 	log.Debugf("%#v", cfg)
-	return cfg, nil
+	return nil
 }
 func initLogger(debug bool) (log.Level, log.Wrapper) {
 	var logLevel log.Level
