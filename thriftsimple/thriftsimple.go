@@ -47,7 +47,7 @@ type BaseplateServerConfig struct {
 	}
 }
 
-func ParseBaseplateServerConfig(path string, cfg *BaseplateServerConfig) error {
+func ParseBaseplateServerConfig(path string, cfg *interface{}) error {
 	if path == "" {
 		return errors.New("no config path given")
 	}
