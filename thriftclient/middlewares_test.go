@@ -19,10 +19,10 @@ const (
 	method = "foo"
 )
 
-func initClients() (*thriftclient.MockClient, *thriftclient.RecordedClient, *thriftclient.MonitoredClient) {
+func initClients() (*thriftclient.MockClient, *thriftclient.RecordedClient, thrift.TClient) {
 	mock := &thriftclient.MockClient{FailUnregisteredMethods: true}
 	recorder := thriftclient.NewRecordedClient(mock)
-	client := &thriftclient.MonitoredClient{Client: recorder}
+	client := thriftclient.Wrap(recorder, thriftclient.MonitorClient)
 	return mock, recorder, client
 }
 
@@ -69,7 +69,7 @@ func drainRecorder(recorder *mqsend.MockMessageQueue) ([]byte, error) {
 	return recorder.Receive(ctx)
 }
 
-func TestMonitoredClient(t *testing.T) {
+func TestWrapMonitoredClient(t *testing.T) {
 	cases := []struct {
 		name          string
 		call          thriftclient.MockCall

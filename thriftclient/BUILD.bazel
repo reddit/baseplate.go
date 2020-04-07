@@ -5,7 +5,7 @@ go_library(
     srcs = [
         "client_pool.go",
         "doc.go",
-        "monitored_tclient.go",
+        "middlewares.go",
         "testing.go",
         "ttl_client.go",
     ],
@@ -29,7 +29,7 @@ go_test(
         "client_pool_test.go",
         "doc_test.go",
         "example_client_test.go",
-        "monitored_tclient_test.go",
+        "middlewares_test.go",
         "ttl_client_test.go",
     ],
     embed = [":go_default_library"],

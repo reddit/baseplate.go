@@ -11,7 +11,11 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-func ExampleMonitoredClient() {
+// This example illustrates what thriftclient.MonitorClient does specifically
+// and the details of how thriftclient.Wrap works, a typical service will
+// not write code like this and will instead be creating a ClientPool using
+// thriftclient.NewBaseplateClientPool.
+func ExampleMonitorClient() {
 	// variables should be properly initialized in production code
 	var (
 		transport thrift.TTransport
@@ -20,7 +24,10 @@ func ExampleMonitoredClient() {
 	// Create an actual service client
 	client := baseplate.NewBaseplateServiceClient(
 		// Use MonitoredClient to wrap a standard thrift client
-		thriftclient.NewMonitoredClientFromFactory(transport, factory),
+		thriftclient.NewWrappedTClientFactory(
+			thriftclient.StandardTClientFactory,
+			thriftclient.MonitorClient,
+		)(transport, factory),
 	)
 	// Create a context with a server span
 	_, ctx := opentracing.StartSpanFromContext(
