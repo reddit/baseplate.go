@@ -159,9 +159,9 @@ func NewCustomClientPool(
 		)
 	}
 	return newClientPool(cfg, genAddr, factories{
-		client:  clientFactory,
-		tclient: tClientFactory,
-		proto:   protoFactory,
+		Client:   clientFactory,
+		TClient:  tClientFactory,
+		Protocol: protoFactory,
 	})
 }
 
@@ -217,9 +217,9 @@ func NewWrappedTClientFactory(base TClientFactory, middlewares ...Middleware) TC
 // convenience struct for passing around the different factories needed to
 // create a Client.
 type factories struct {
-	client  ClientFactory
-	tclient TClientFactory
-	proto   thrift.TProtocolFactory
+	Client   ClientFactory
+	TClient  TClientFactory
+	Protocol thrift.TProtocolFactory
 }
 
 func newClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, factories factories) (*clientPool, error) {
@@ -268,7 +268,7 @@ func newClient(socketTimeout time.Duration, genAddr AddressGenerator, factories 
 	if err != nil {
 		return nil, err
 	}
-	return factories.client(factories.tclient, trans, factories.proto), nil
+	return factories.Client(factories.TClient, trans, factories.Protocol), nil
 }
 
 func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration, labels []string) {
