@@ -27,7 +27,7 @@ const targetAllOverride = `{"OVERRIDE": true}`
 // the cache when changed.
 type Experiments struct {
 	watcher     *filewatcher.Result
-	eventLogger Logger
+	eventLogger EventLogger
 }
 
 // NewExperiments returns a new instance of the experiments clients. The path
@@ -35,7 +35,7 @@ type Experiments struct {
 //
 // Context should come with a timeout otherwise this might block forever, i.e.
 // if the path never becomes available.
-func NewExperiments(ctx context.Context, path string, eventLogger Logger, logger log.Wrapper) (*Experiments, error) {
+func NewExperiments(ctx context.Context, path string, eventLogger EventLogger, logger log.Wrapper) (*Experiments, error) {
 	parser := func(r io.Reader) (interface{}, error) {
 		var doc document
 		err := json.NewDecoder(r).Decode(&doc)
@@ -371,7 +371,7 @@ type ExperimentEvent struct {
 	EventType string
 }
 
-// Logger provides an interface for experiment events to be logged.
-type Logger interface {
+// EventLogger provides an interface for experiment events to be logged.
+type EventLogger interface {
 	Log(ctx context.Context, event ExperimentEvent) error
 }
