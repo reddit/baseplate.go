@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/thriftclient"
 )
 
@@ -72,18 +73,36 @@ func callEndpoint(ctx context.Context, pool thriftclient.ClientPool) (*MyEndpoin
 	return client.MyEndpoint(ctx, &MyEndpointRequest{})
 }
 
+func LoggingMiddleware(next thrift.TClient) thrift.TClient {
+	return thriftclient.WrappedTClient{
+		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
+			log.Infof("pre: %s", method)
+			log.Infof("args: %#v", args)
+			defer func() {
+				log.Infof("after: %s", method)
+			}()
+
+			return next.Call(ctx, method, args, result)
+		},
+	}
+}
+
 // This example demonstrates a typical use case of thriftclient pool in
-// microservice code.
+// microservice code with custom middleware.
 func Example() {
-	pool, err := thriftclient.NewTTLClientPool(clientTTL, thriftclient.ClientPoolConfig{
-		ServiceSlug:        "my-service",
-		Addr:               remoteAddr,
-		InitialConnections: initialConnections,
-		MaxConnections:     maxConnections,
-		SocketTimeout:      socketTimeout,
-		ReportPoolStats:    true,
-		PoolGaugeInterval:  poolGaugeInterval,
-	})
+	pool, err := thriftclient.NewBaseplateClientPool(
+		thriftclient.ClientPoolConfig{
+			ServiceSlug:        "my-service",
+			Addr:               remoteAddr,
+			InitialConnections: initialConnections,
+			MaxConnections:     maxConnections,
+			SocketTimeout:      socketTimeout,
+			ReportPoolStats:    true,
+			PoolGaugeInterval:  poolGaugeInterval,
+		},
+		clientTTL,
+		LoggingMiddleware,
+	)
 	if err != nil {
 		panic(err)
 	}

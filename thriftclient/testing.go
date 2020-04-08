@@ -30,6 +30,14 @@ type MockClient struct {
 	methods map[string]MockCall
 }
 
+// NewMockTClientFactory returns a TClientFactory that always returns the
+// given MockClient.
+func NewMockTClientFactory(client MockClient) TClientFactory {
+	return func(thrift.TTransport, thrift.TProtocolFactory) thrift.TClient {
+		return &client
+	}
+}
+
 func nopMockCall(ctx context.Context, args, result thrift.TStruct) error {
 	return nil
 }
@@ -83,8 +91,8 @@ func (MockClient) IsOpen() bool {
 	return true
 }
 
-// Call records the inputs passed to RecordedClient.Call.
-type Call struct {
+// RecordedCall records the inputs passed to RecordedClient.RecordedCall.
+type RecordedCall struct {
 	Ctx    context.Context
 	Method string
 	args   thrift.TStruct
@@ -101,7 +109,7 @@ type Call struct {
 type RecordedClient struct {
 	client thrift.TClient
 
-	calls []Call
+	calls []RecordedCall
 }
 
 // NewRecordedClient returns a pointer to a new RecordedClient that wraps the
@@ -114,8 +122,8 @@ func NewRecordedClient(c thrift.TClient) *RecordedClient {
 //
 // Calls is not thread-safe and may panic if used across threads if the number
 // of calls changes between the copy buffer being intialized and copied.
-func (c RecordedClient) Calls() []Call {
-	calls := make([]Call, len(c.calls))
+func (c RecordedClient) Calls() []RecordedCall {
+	calls := make([]RecordedCall, len(c.calls))
 	copy(calls, c.calls)
 	return calls
 }
@@ -124,7 +132,7 @@ func (c RecordedClient) Calls() []Call {
 // and either return the result of the inner client.Call or nil if the inner
 // client is nil.
 func (c *RecordedClient) Call(ctx context.Context, method string, args, result thrift.TStruct) error {
-	c.calls = append(c.calls, Call{
+	c.calls = append(c.calls, RecordedCall{
 		Ctx:    ctx,
 		Method: method,
 		args:   args,
