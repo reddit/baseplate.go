@@ -35,9 +35,9 @@ func TestTTLClientFactory(t *testing.T) {
 
 	fact := thriftclient.NewTTLClientFactory(time.Millisecond * 3)
 	trans := thrift.NewTMemoryBuffer()
-	protoFact := thrift.NewTBinaryProtocolFactoryDefault()
-	tclientFact := thriftclient.StandardTClientFactory
-	client := fact(tclientFact, trans, protoFact)
+	protoFactory := thrift.NewTBinaryProtocolFactoryDefault()
+	tClientFactory := thriftclient.StandardTClientFactory
+	client := fact(tClientFactory, trans, protoFactory)
 	if _, ok := client.(*thriftclient.TTLClient); !ok {
 		t.Fatal("wrong type for client")
 	}
@@ -77,13 +77,13 @@ func TestNewWrappedTClientFactory(t *testing.T) {
 	t.Parallel()
 
 	count := &counter{}
-	fact := thriftclient.NewWrappedTClientFactory(
+	tClientFactory := thriftclient.NewWrappedTClientFactory(
 		thriftclient.NewMockTClientFactory(thriftclient.MockClient{}),
 		testMiddleware(count),
 	)
 	trans := thrift.NewTMemoryBuffer()
-	protoFact := thrift.NewTBinaryProtocolFactoryDefault()
-	c := fact(trans, protoFact)
+	protoFactory := thrift.NewTBinaryProtocolFactoryDefault()
+	c := tClientFactory(trans, protoFactory)
 	if count.count != 0 {
 		t.Errorf("Wrong count value: %d, expected 0", count.count)
 	}

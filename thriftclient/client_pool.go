@@ -146,9 +146,9 @@ func NewBaseplateClientPool(cfg ClientPoolConfig, ttl time.Duration, middlewares
 func NewCustomClientPool(
 	cfg ClientPoolConfig,
 	genAddr AddressGenerator,
-	clientFact ClientFactory,
-	tclientFact TClientFactory,
-	protoFact thrift.TProtocolFactory,
+	clientFactory ClientFactory,
+	tClientFactory TClientFactory,
+	protoFactory thrift.TProtocolFactory,
 ) (ClientPool, error) {
 	if cfg.Addr != "" {
 		log.Warnw(
@@ -159,9 +159,9 @@ func NewCustomClientPool(
 		)
 	}
 	return newClientPool(cfg, genAddr, factories{
-		client:  clientFact,
-		tclient: tclientFact,
-		proto:   protoFact,
+		client:  clientFactory,
+		tclient: tClientFactory,
+		proto:   protoFactory,
 	})
 }
 
