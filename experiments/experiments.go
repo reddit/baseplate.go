@@ -344,19 +344,19 @@ type ExperimentEvent struct {
 	// ID uniquely identifies the experiment event. If you pass in uuid.Nil the
 	// logger handling this event should generate a UUID v4 (optional).
 	ID uuid.UUID
-	// CorrelationID are used to track events across different services.
+	// CorrelationID are used to track events across different services (optional).
 	CorrelationID uuid.UUID
 	// DeviceID unique identifies the device this experiment is being logged
 	// from (optional).
 	DeviceID uuid.UUID
-	// Experiment is the experiment of the applied treatment.
+	// Experiment is the experiment of the applied treatment (required).
 	Experiment *ExperimentConfig
-	// VariantName is the type of bucket that is being applied.
+	// VariantName is the type of bucket that is being applied (required).
 	VariantName string
 	// UserID identifies the user who is being exposed to the experimental
-	// treatment.
+	// treatment (optional).
 	UserID string
-	// LoggedIn indiciates whether the user is authenticated.
+	// LoggedIn indiciates whether the user is authenticated (optional).
 	LoggedIn bool
 	// ClientTimestamp is the time when the experiment has been applied. If
 	// this is not provided the logger should generate a timestamp (optional).
@@ -366,6 +366,9 @@ type ExperimentEvent struct {
 	CookieCreatedAt time.Time
 	// AppName if any specifies the application (optional).
 	AppName string
+	// IsOverride should be true if the variant shown was due to an override
+	// rather than bucketing (required).
+	IsOverride bool
 	// EventType is the type of the experiment event. Will be set to EXPOSE
 	// (optional).
 	EventType string
