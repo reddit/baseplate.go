@@ -2,6 +2,8 @@ package edgecontext
 
 import (
 	"strings"
+
+	"github.com/reddit/baseplate.go/experiments"
 )
 
 // An OAuthClient wrapps AuthenticationToken and provides info about a client
@@ -34,4 +36,12 @@ func (o OAuthClient) IsType(types ...string) bool {
 		}
 	}
 	return false
+}
+
+// UpdateExperimentEvent updates the passed in experiment event with oauth
+// client info.
+//
+// It always updates OAuthClientID field and never touches other fields.
+func (o OAuthClient) UpdateExperimentEvent(ee *experiments.ExperimentEvent) {
+	ee.OAuthClientID = o.ID()
 }

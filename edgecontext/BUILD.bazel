@@ -16,6 +16,7 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/edgecontext",
     visibility = ["//visibility:public"],
     deps = [
+        "//experiments:go_default_library",
         "//httpbp:go_default_library",
         "//internal/gen-go/reddit/baseplate:go_default_library",
         "//log:go_default_library",
@@ -25,6 +26,7 @@ go_library(
         "//timebp:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
         "@com_github_go_kit_kit//endpoint:go_default_library",
+        "@com_github_gofrs_uuid//:go_default_library",
         "@in_gopkg_dgrijalva_jwt_go_v3//:go_default_library",
     ],
 )
@@ -42,12 +44,15 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//experiments:go_default_library",
         "//httpbp:go_default_library",
         "//log:go_default_library",
         "//secrets:go_default_library",
         "//thriftbp:go_default_library",
+        "//timebp:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
         "@com_github_go_kit_kit//endpoint:go_default_library",
         "@com_github_go_kit_kit//transport/http:go_default_library",
+        "@com_github_gofrs_uuid//:go_default_library",
     ],
 )

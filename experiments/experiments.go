@@ -357,15 +357,19 @@ type ExperimentEvent struct {
 	// treatment (optional).
 	UserID string
 	// LoggedIn indiciates whether the user is authenticated (optional).
-	LoggedIn bool
-	// ClientTimestamp is the time when the experiment has been applied. If
-	// this is not provided the logger should generate a timestamp (optional).
-	ClientTimestamp time.Time
+	LoggedIn *bool
 	// CookieCreatedAt is the timestamp when the cookie for the user has been
 	// generated (optional).
 	CookieCreatedAt time.Time
+	// OAuthClientID is the id of the OAuth client (optional).
+	OAuthClientID string
+	// ClientTimestamp is the time when the experiment has been applied. If
+	// this is not provided the logger should generate a timestamp (optional).
+	ClientTimestamp time.Time
 	// AppName if any specifies the application (optional).
 	AppName string
+	// SessionID is the id of the session (optional).
+	SessionID string
 	// IsOverride should be true if the variant shown was due to an override
 	// rather than bucketing (required).
 	IsOverride bool
