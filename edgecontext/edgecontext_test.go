@@ -6,11 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/gofrs/uuid"
+
 	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/experiments"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/thriftbp"
-
-	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/reddit/baseplate.go/timebp"
 )
 
 const (
@@ -28,9 +31,182 @@ const (
 	expectedLoID      = "t2_deadbeef"
 	expectedSessionID = "beefdead"
 	expectedDeviceID  = "becc50f6-ff3d-407a-aa49-fa49531363be"
+
+	emptyDeviceID = "00000000-0000-0000-0000-000000000000"
 )
 
 var expectedCookieTime = time.Unix(100, 0)
+
+var uuidGen = uuid.NewGen()
+
+func mustV4() uuid.UUID {
+	id, err := uuidGen.NewV4()
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
+var emptyExperimentEventBase = experiments.ExperimentEvent{}
+
+var fullExperimentEventBase = experiments.ExperimentEvent{
+	ID:            mustV4(),
+	CorrelationID: mustV4(),
+	DeviceID:      mustV4(),
+	Experiment: &experiments.ExperimentConfig{
+		ID:             1234,
+		Name:           "name",
+		Owner:          "owner",
+		Enabled:        thrift.BoolPtr(true),
+		Version:        "version",
+		Type:           "type",
+		StartTimestamp: timebp.TimestampSecondF(time.Now()),
+		StopTimestamp:  timebp.TimestampSecondF(time.Now()),
+	},
+	VariantName:     "variant",
+	UserID:          "t2_user",
+	LoggedIn:        thrift.BoolPtr(true),
+	CookieCreatedAt: time.Now(),
+	OAuthClientID:   "client",
+	ClientTimestamp: time.Now(),
+	AppName:         "app",
+	SessionID:       "session",
+	IsOverride:      true,
+	EventType:       "type",
+}
+
+func compareUntouchedFields(t *testing.T, expected, actual experiments.ExperimentEvent) {
+	t.Helper()
+
+	if expected.ID.String() != actual.ID.String() {
+		t.Errorf(
+			"Expected ExperimentEvent.ID %v, got %v",
+			expected.ID,
+			actual.ID,
+		)
+	}
+
+	if expected.CorrelationID.String() != actual.CorrelationID.String() {
+		t.Errorf(
+			"Expected ExperimentEvent.CorrelationID %v, got %v",
+			expected.CorrelationID,
+			actual.CorrelationID,
+		)
+	}
+
+	if expected.Experiment != actual.Experiment {
+		t.Errorf(
+			"Expected ExperimentEvent.Experiment %#v, got %#v",
+			expected.Experiment,
+			actual.Experiment,
+		)
+	}
+
+	if expected.VariantName != actual.VariantName {
+		t.Errorf(
+			"Expected ExperimentEvent.VariantName %v, got %v",
+			expected.VariantName,
+			actual.VariantName,
+		)
+	}
+
+	if !expected.ClientTimestamp.Equal(actual.ClientTimestamp) {
+		t.Errorf(
+			"Expected ExperimentEvent.ClientTimestamp %v, got %v",
+			expected.ClientTimestamp,
+			actual.ClientTimestamp,
+		)
+	}
+
+	if expected.AppName != actual.AppName {
+		t.Errorf(
+			"Expected ExperimentEvent.AppName %v, got %v",
+			expected.AppName,
+			actual.AppName,
+		)
+	}
+
+	if expected.IsOverride != actual.IsOverride {
+		t.Errorf(
+			"Expected ExperimentEvent.IsOverride %v, got %v",
+			expected.IsOverride,
+			actual.IsOverride,
+		)
+	}
+
+	if expected.EventType != actual.EventType {
+		t.Errorf(
+			"Expected ExperimentEvent.EventType %v, got %v",
+			expected.EventType,
+			actual.EventType,
+		)
+	}
+}
+
+func compareTouchedFields(
+	t *testing.T,
+	actual experiments.ExperimentEvent,
+	userID string,
+	loggedIn bool,
+	cookieTime time.Time,
+	oauthID string,
+	session string,
+	device string,
+) {
+	t.Helper()
+
+	if userID != actual.UserID {
+		t.Errorf(
+			"Expected ExperimentEvent.UserID %v, got %v",
+			userID,
+			actual.UserID,
+		)
+	}
+
+	if actual.LoggedIn == nil {
+		t.Error("Expected non-nil ExperimentEvent.LoggedIn")
+	} else {
+		if loggedIn != *actual.LoggedIn {
+			t.Errorf(
+				"Expected ExperimentEvent.LoggedIn %v, got %v",
+				loggedIn,
+				*actual.LoggedIn,
+			)
+		}
+	}
+
+	if !cookieTime.Equal(actual.CookieCreatedAt) {
+		t.Errorf(
+			"Expected ExperimentEvent.CookieCreatedAt %v, got %v",
+			cookieTime,
+			actual.CookieCreatedAt,
+		)
+	}
+
+	if oauthID != actual.OAuthClientID {
+		t.Errorf(
+			"Expected ExperimentEvent.OAuthClientID %v, got %v",
+			oauthID,
+			actual.OAuthClientID,
+		)
+	}
+
+	if session != actual.SessionID {
+		t.Errorf(
+			"Expected ExperimentEvent.SessionID %v, got %v",
+			session,
+			actual.SessionID,
+		)
+	}
+
+	if device != actual.DeviceID.String() {
+		t.Errorf(
+			"Expected ExperimentEvent.DeviceID %v, got %v",
+			device,
+			actual.DeviceID,
+		)
+	}
+}
 
 func TestNew(t *testing.T) {
 	ctx := context.Background()
@@ -88,6 +264,41 @@ func TestFromThriftContext(t *testing.T) {
 			if e.DeviceID() != "" {
 				t.Errorf("Unexpected device id %q", e.DeviceID())
 			}
+
+			t.Run(
+				"experiment-event",
+				func(t *testing.T) {
+					// Make deep copy from base
+					emptyEvent := emptyExperimentEventBase
+					e.UpdateExperimentEvent(&emptyEvent)
+					compareUntouchedFields(t, emptyExperimentEventBase, emptyEvent)
+					compareTouchedFields(
+						t,
+						emptyEvent,
+						expectedLoID,
+						false, // logged in
+						expectedCookieTime,
+						"", // oauth client id
+						expectedSessionID,
+						emptyDeviceID,
+					)
+
+					// Make deep copy from base
+					fullEvent := fullExperimentEventBase
+					e.UpdateExperimentEvent(&fullEvent)
+					compareUntouchedFields(t, fullExperimentEventBase, fullEvent)
+					compareTouchedFields(
+						t,
+						fullEvent,
+						expectedLoID,
+						false, // logged in
+						expectedCookieTime,
+						"", // oauth client id
+						expectedSessionID,
+						emptyDeviceID,
+					)
+				},
+			)
 		},
 	)
 
@@ -155,6 +366,41 @@ func TestFromThriftContext(t *testing.T) {
 					if token != nil {
 						t.Errorf("Expected nil auth token, got %+v", *token)
 					}
+				},
+			)
+
+			t.Run(
+				"experiment-event",
+				func(t *testing.T) {
+					// Make deep copy from base
+					emptyEvent := emptyExperimentEventBase
+					e.UpdateExperimentEvent(&emptyEvent)
+					compareUntouchedFields(t, emptyExperimentEventBase, emptyEvent)
+					compareTouchedFields(
+						t,
+						emptyEvent,
+						expectedLoID,
+						false, // logged in
+						expectedCookieTime,
+						"", // oauth client id
+						expectedSessionID,
+						expectedDeviceID,
+					)
+
+					// Make deep copy from base
+					fullEvent := fullExperimentEventBase
+					e.UpdateExperimentEvent(&fullEvent)
+					compareUntouchedFields(t, fullExperimentEventBase, fullEvent)
+					compareTouchedFields(
+						t,
+						fullEvent,
+						expectedLoID,
+						false, // logged in
+						expectedCookieTime,
+						"", // oauth client id
+						expectedSessionID,
+						expectedDeviceID,
+					)
 				},
 			)
 		},
@@ -226,6 +472,41 @@ func TestFromThriftContext(t *testing.T) {
 					}
 				},
 			)
+
+			t.Run(
+				"experiment-event",
+				func(t *testing.T) {
+					// Make deep copy from base
+					emptyEvent := emptyExperimentEventBase
+					e.UpdateExperimentEvent(&emptyEvent)
+					compareUntouchedFields(t, emptyExperimentEventBase, emptyEvent)
+					compareTouchedFields(
+						t,
+						emptyEvent,
+						expectedUser,
+						true, // logged in
+						expectedCookieTime,
+						"", // oauth client id
+						expectedSessionID,
+						expectedDeviceID,
+					)
+
+					// Make deep copy from base
+					fullEvent := fullExperimentEventBase
+					e.UpdateExperimentEvent(&fullEvent)
+					compareUntouchedFields(t, fullExperimentEventBase, fullEvent)
+					compareTouchedFields(
+						t,
+						fullEvent,
+						expectedUser,
+						true, // logged in
+						expectedCookieTime,
+						"", // oauth client id
+						expectedSessionID,
+						expectedDeviceID,
+					)
+				},
+			)
 		},
 	)
 
@@ -287,6 +568,56 @@ func TestFromThriftContext(t *testing.T) {
 					}
 				},
 			)
+
+			t.Run(
+				"experiment-event",
+				func(t *testing.T) {
+					// Make deep copy from base
+					emptyEvent := emptyExperimentEventBase
+					e.UpdateExperimentEvent(&emptyEvent)
+					compareUntouchedFields(t, emptyExperimentEventBase, emptyEvent)
+
+					// Make deep copy from base
+					fullEvent := fullExperimentEventBase
+					e.UpdateExperimentEvent(&fullEvent)
+					compareUntouchedFields(t, fullExperimentEventBase, fullEvent)
+				},
+			)
+
+			t.Run(
+				"experiment-event",
+				func(t *testing.T) {
+					// Make deep copy from base
+					emptyEvent := emptyExperimentEventBase
+					e.UpdateExperimentEvent(&emptyEvent)
+					compareUntouchedFields(t, emptyExperimentEventBase, emptyEvent)
+					compareTouchedFields(
+						t,
+						emptyEvent,
+						expectedLoID,
+						false, // logged in
+						expectedCookieTime,
+						"", // oauth client id
+						expectedSessionID,
+						emptyDeviceID,
+					)
+
+					// Make deep copy from base
+					fullEvent := fullExperimentEventBase
+					e.UpdateExperimentEvent(&fullEvent)
+					compareUntouchedFields(t, fullExperimentEventBase, fullEvent)
+					compareTouchedFields(
+						t,
+						fullEvent,
+						expectedLoID,
+						false, // logged in
+						expectedCookieTime,
+						"", // oauth client id
+						expectedSessionID,
+						emptyDeviceID,
+					)
+				},
+			)
 		},
 	)
 
@@ -342,6 +673,41 @@ func TestFromThriftContext(t *testing.T) {
 							user.Roles(),
 						)
 					}
+				},
+			)
+
+			t.Run(
+				"experiment-event",
+				func(t *testing.T) {
+					// Make deep copy from base
+					emptyEvent := emptyExperimentEventBase
+					e.UpdateExperimentEvent(&emptyEvent)
+					compareUntouchedFields(t, emptyExperimentEventBase, emptyEvent)
+					compareTouchedFields(
+						t,
+						emptyEvent,
+						expectedLoID,
+						false, // logged in
+						expectedCookieTime,
+						"", // oauth client id
+						expectedSessionID,
+						emptyDeviceID,
+					)
+
+					// Make deep copy from base
+					fullEvent := fullExperimentEventBase
+					e.UpdateExperimentEvent(&fullEvent)
+					compareUntouchedFields(t, fullExperimentEventBase, fullEvent)
+					compareTouchedFields(
+						t,
+						fullEvent,
+						expectedLoID,
+						false, // logged in
+						expectedCookieTime,
+						"", // oauth client id
+						expectedSessionID,
+						emptyDeviceID,
+					)
 				},
 			)
 		},

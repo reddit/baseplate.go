@@ -3,6 +3,8 @@ package edgecontext
 import (
 	"strings"
 	"time"
+
+	"github.com/reddit/baseplate.go/experiments"
 )
 
 const userPrefix = "t2_"
@@ -81,4 +83,18 @@ func (u User) HasRole(role string) bool {
 		}
 	}
 	return false
+}
+
+// UpdateExperimentEvent updates the passed in experiment event with user info.
+//
+// It always updates UserID, LoggedIn, and CookieCreatedAt fields and never
+// touches other fields.
+func (u User) UpdateExperimentEvent(ee *experiments.ExperimentEvent) {
+	var loggedIn bool
+	ee.UserID, loggedIn = u.ID()
+	if !loggedIn {
+		ee.UserID, _ = u.LoID()
+	}
+	ee.LoggedIn = &loggedIn
+	ee.CookieCreatedAt, _ = u.CookieCreatedAt()
 }
