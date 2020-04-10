@@ -5,10 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/reddit/baseplate.go/log"
-
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/influxstatsd"
+	"github.com/go-kit/kit/util/conn"
+
+	"github.com/reddit/baseplate.go/log"
 )
 
 // DefaultSampleRate is the default value to be used when *SampleRate in
@@ -71,7 +72,9 @@ var M = NewStatsd(context.Background(), StatsdConfig{})
 type Statsd struct {
 	Statsd *influxstatsd.Influxstatsd
 
+	cfg                 StatsdConfig
 	ctx                 context.Context
+	cancel              context.CancelFunc
 	counterSampleRate   float64
 	histogramSampleRate float64
 }
@@ -142,17 +145,18 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 	labels := cfg.Labels.AsStatsdLabels()
 	st := &Statsd{
 		Statsd:              influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), labels...),
-		ctx:                 ctx,
+		cfg:                 cfg,
 		counterSampleRate:   convertSampleRate(cfg.CounterSampleRate),
 		histogramSampleRate: convertSampleRate(cfg.HistogramSampleRate),
 	}
+	st.ctx, st.cancel = context.WithCancel(ctx)
 
 	if cfg.Address != "" {
 		go func() {
 			ticker := time.NewTicker(ReporterTickerInterval)
 			defer ticker.Stop()
 
-			st.Statsd.SendLoop(ctx, ticker.C, "udp", cfg.Address)
+			st.Statsd.SendLoop(st.ctx, ticker.C, "udp", cfg.Address)
 		}()
 	}
 
@@ -241,4 +245,38 @@ func (st *Statsd) fallback() *Statsd {
 //     }
 func (st *Statsd) Ctx() context.Context {
 	return st.ctx
+}
+
+// Close flushes all metrics not written to collector (if Address was set),
+// and cancel the context,
+// thus stop all background goroutines started by this Statsd.
+//
+// After Close() is called,
+// no more metrics will be send to the remote collector,
+// similar to the situation that this Statsd was initialized without Address
+// set,
+// but the difference is that calling Close() again will do the manual flush
+// again.
+//
+// After Close() is called,
+// Ctx() will always return an already canceled context.
+//
+// This function is useful for jobs that exit,
+// to make sure that all metrics are flushed before exiting.
+// For server code, there's usually no need to call Close(),
+// just cancel the context object passed in is sufficient.
+// But server code can also choose to pass in a background context,
+// and use Close() call to do the cleanup instead of canceling the context.
+func (st *Statsd) Close() error {
+	st.cancel()
+	if st.cfg.Address == "" {
+		return nil
+	}
+
+	_, err := st.Statsd.WriteTo(conn.NewDefaultManager(
+		"udp",
+		st.cfg.Address,
+		log.KitLogger(st.cfg.LogLevel),
+	))
+	return err
 }
