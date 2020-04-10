@@ -47,7 +47,7 @@ type ClientPoolConfig struct {
 
 	// Any labels that should be applied to metrics logged by the ClientPool.
 	// This includes the optional pool stats.
-	MetricsLabels metricsbp.MetricsLabels
+	MetricsLabels metricsbp.Labels
 
 	// ReportPoolStats signals to the ClientPool that it should report
 	// statistics on the underlying clientpool.Pool in a background

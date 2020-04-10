@@ -3,7 +3,6 @@ package metricsbp_test
 import (
 	"bytes"
 	"context"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -247,40 +246,4 @@ func BenchmarkStatsd(b *testing.B) {
 			)
 		},
 	)
-}
-
-func TestMetricsLabels(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name     string
-		labels   metricsbp.MetricsLabels
-		expected []string
-	}{
-		{
-			name:     "nil",
-			labels:   nil,
-			expected: nil,
-		},
-		{
-			name:     "one",
-			labels:   metricsbp.MetricsLabels{"key": "value"},
-			expected: []string{"key", "value"},
-		},
-	}
-
-	for _, _c := range cases {
-		c := _c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-
-			asStatsd := c.labels.AsStatsdLabels()
-			if len(asStatsd) != len(c.labels)*2 {
-				t.Fatalf("wrong size: %#v", asStatsd)
-			}
-			if !reflect.DeepEqual(c.expected, asStatsd) {
-				t.Fatalf("labels do not match, expected %#v, got %#v", c.expected, asStatsd)
-			}
-		})
-	}
 }

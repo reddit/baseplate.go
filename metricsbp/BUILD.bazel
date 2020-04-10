@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "baseplate_hooks.go",
         "doc.go",
+        "labels.go",
         "nil_check.go",
         "sampled.go",
         "statsd.go",
@@ -30,6 +31,7 @@ go_test(
         "example_baseplate_hooks_test.go",
         "example_nil_check_test.go",
         "example_timer_test.go",
+        "labels_test.go",
         "nil_check_test.go",
         "sampled_test.go",
         "statsd_test.go",
