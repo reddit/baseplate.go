@@ -1,6 +1,6 @@
 module github.com/reddit/baseplate.go
 
-go 1.13
+go 1.14
 
 require (
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
