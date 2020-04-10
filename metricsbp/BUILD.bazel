@@ -20,6 +20,7 @@ go_library(
         "//tracing:go_default_library",
         "@com_github_go_kit_kit//metrics:go_default_library",
         "@com_github_go_kit_kit//metrics/influxstatsd:go_default_library",
+        "@com_github_go_kit_kit//util/conn:go_default_library",
     ],
 )
 
