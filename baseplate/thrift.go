@@ -2,9 +2,7 @@ package baseplate
 
 import (
 	"context"
-	"errors"
 	"io"
-	"io/ioutil"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -15,50 +13,17 @@ import (
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
-	"gopkg.in/yaml.v2"
 )
-
-type BaseplateServerConfig struct {
-	Addr string
-
-	Timeout time.Duration
-
-	Log struct {
-		Level log.Level
-	}
-
-	Metrics struct {
-		Namespace string
-		Endpoint  string
-	}
-
-	Secrets struct {
-		Path string
-	}
-
-	Sentry struct {
-		DSN         string
-		Environment string
-		SampleRate  float64
-	}
-
-	Tracing struct {
-		Namespace     string
-		Endpoint      string
-		RecordTimeout time.Duration `yaml:"recordTimeout"`
-		SampleRate    float64
-	}
-}
 
 type baseplateThriftServer struct {
 	thriftServer *thrift.TSimpleServer
-	config       BaseplateServerConfig
+	config       ServerConfig
 	beforeStop   []io.Closer
 	afterStop    []io.Closer
 	logger       log.Wrapper
 }
 
-func (bts *baseplateThriftServer) Config() BaseplateServerConfig {
+func (bts *baseplateThriftServer) Config() ServerConfig {
 	return bts.config
 }
 
@@ -81,32 +46,7 @@ func (bts *baseplateThriftServer) Stop() error {
 	}
 	return err
 }
-
-type BaseplateServer interface {
-	Config() BaseplateServerConfig
-	Impl() interface{}
-	Serve() error
-	Stop() error
-}
-
-func ParseBaseplateServerConfig(path string, cfg interface{}) error {
-	if path == "" {
-		return errors.New("no config path given")
-	}
-
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	if err = yaml.Unmarshal(data, &cfg); err != nil {
-		return err
-	}
-
-	log.Debugf("%#v", cfg)
-	return nil
-}
-func initLogger(cfg BaseplateServerConfig) log.Wrapper {
+func initLogger(cfg ServerConfig) log.Wrapper {
 	if cfg.Log.Level == "" {
 		cfg.Log.Level = log.InfoLevel
 	}
@@ -115,7 +55,7 @@ func initLogger(cfg BaseplateServerConfig) log.Wrapper {
 	return log.ZapWrapper(level)
 }
 
-func initSecrets(ctx context.Context, cfg BaseplateServerConfig, logger log.Wrapper) (*secrets.Store, error) {
+func initSecrets(ctx context.Context, cfg ServerConfig, logger log.Wrapper) (*secrets.Store, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
@@ -126,7 +66,7 @@ func initSecrets(ctx context.Context, cfg BaseplateServerConfig, logger log.Wrap
 	return secretsStore, nil
 }
 
-func initTracing(cfg BaseplateServerConfig, logger log.Wrapper, metrics *metricsbp.Statsd) error {
+func initTracing(cfg ServerConfig, logger log.Wrapper, metrics *metricsbp.Statsd) error {
 	if err := tracing.InitGlobalTracer(tracing.TracerConfig{
 		ServiceName:      cfg.Tracing.Namespace,
 		SampleRate:       cfg.Tracing.SampleRate,
@@ -144,7 +84,7 @@ func initTracing(cfg BaseplateServerConfig, logger log.Wrapper, metrics *metrics
 	return nil
 }
 
-func initSentry(cfg BaseplateServerConfig) error {
+func initSentry(cfg ServerConfig) error {
 	if err := raven.SetDSN(cfg.Sentry.DSN); err != nil {
 		return err
 	}
@@ -156,7 +96,7 @@ func initSentry(cfg BaseplateServerConfig) error {
 }
 
 // NewBaseplateThriftServer returns a server that includes the default middleware.
-func NewBaseplateThriftServer(ctx context.Context, cfg BaseplateServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (BaseplateServer, error) {
+func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (Server, error) {
 	beforeStop := make([]io.Closer, 0)
 	afterStop := make([]io.Closer, 0)
 	logger := initLogger(cfg)
