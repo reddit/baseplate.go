@@ -3,6 +3,7 @@ package baseplate
 import (
 	"context"
 	"errors"
+	"io"
 	"io/ioutil"
 	"time"
 
@@ -22,7 +23,9 @@ type BaseplateServerConfig struct {
 
 	Timeout time.Duration
 
-	Debug bool
+	Log struct {
+		Level log.Level
+	}
 
 	Metrics struct {
 		Namespace string
@@ -47,8 +50,43 @@ type BaseplateServerConfig struct {
 	}
 }
 
-func (c BaseplateServerConfig) AsConfig() BaseplateServerConfig {
-	return c
+type baseplateThriftServer struct {
+	thriftServer *thrift.TSimpleServer
+	config       BaseplateServerConfig
+	beforeStop   []io.Closer
+	afterStop    []io.Closer
+	logger       log.Wrapper
+}
+
+func (bts *baseplateThriftServer) Config() BaseplateServerConfig {
+	return bts.config
+}
+
+func (bts *baseplateThriftServer) Impl() interface{} {
+	return bts.thriftServer
+}
+
+func (bts *baseplateThriftServer) Serve() error {
+	return bts.thriftServer.Serve()
+}
+
+func (bts *baseplateThriftServer) Stop() error {
+	var err error = nil
+	for _, c := range bts.beforeStop {
+		c.Close()
+	}
+	bts.thriftServer.Stop()
+	for _, c := range bts.afterStop {
+		c.Close()
+	}
+	return err
+}
+
+type BaseplateServer interface {
+	Config() BaseplateServerConfig
+	Impl() interface{}
+	Serve() error
+	Stop() error
 }
 
 func ParseBaseplateServerConfig(path string, cfg interface{}) error {
@@ -68,15 +106,13 @@ func ParseBaseplateServerConfig(path string, cfg interface{}) error {
 	log.Debugf("%#v", cfg)
 	return nil
 }
-func initLogger(debug bool) (log.Level, log.Wrapper) {
-	var logLevel log.Level
-	if debug {
-		logLevel = log.DebugLevel
-	} else {
-		logLevel = log.WarnLevel
+func initLogger(cfg BaseplateServerConfig) log.Wrapper {
+	if cfg.Log.Level == "" {
+		cfg.Log.Level = log.InfoLevel
 	}
-	log.InitLogger(logLevel)
-	return logLevel, log.ZapWrapper(logLevel)
+	level := cfg.Log.Level
+	log.InitLogger(level)
+	return log.ZapWrapper(level)
 }
 
 func initSecrets(ctx context.Context, cfg BaseplateServerConfig, logger log.Wrapper) (*secrets.Store, error) {
@@ -120,29 +156,29 @@ func initSentry(cfg BaseplateServerConfig) error {
 }
 
 // NewBaseplateThriftServer returns a server that includes the default middleware.
-func NewBaseplateThriftServer(cfg BaseplateServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (*thrift.TSimpleServer, error) {
-	ctx, _ := context.WithCancel(context.Background())
-
-	logLevel, logger := initLogger(cfg.Debug)
+func NewBaseplateThriftServer(ctx context.Context, cfg BaseplateServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (BaseplateServer, error) {
+	beforeStop := make([]io.Closer, 0)
+	afterStop := make([]io.Closer, 0)
+	logger := initLogger(cfg)
 
 	metricsbp.M = metricsbp.NewStatsd(ctx, metricsbp.StatsdConfig{
 		Prefix:   cfg.Metrics.Namespace,
 		Address:  cfg.Metrics.Endpoint,
-		LogLevel: logLevel,
+		LogLevel: cfg.Log.Level,
 	})
 
 	secretsStore, err := initSecrets(ctx, cfg, logger)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	defer secretsStore.Close()
+	afterStop = append(afterStop, secretsStore)
 
 	ecImpl := edgecontext.Init(edgecontext.Config{Store: secretsStore})
 	if err = initTracing(cfg, logger, metricsbp.M); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	if err = initSentry(cfg); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	innerCfg := thriftbp.ServerConfig{
 		Addr:    cfg.Addr,
@@ -151,10 +187,21 @@ func NewBaseplateThriftServer(cfg BaseplateServerConfig, processor thriftbp.Base
 	}
 
 	middlewares := []thriftbp.Middleware{
-		edgecontext.InjectThriftEdgeContext(ecImpl, logger),
 		tracing.InjectThriftServerSpan,
+		edgecontext.InjectThriftEdgeContext(ecImpl, logger),
 	}
 	middlewares = append(middlewares, additionalMiddlewares...)
 
-	return thriftbp.NewThriftServer(innerCfg, processor, middlewares...)
+	ts, err := thriftbp.NewThriftServer(innerCfg, processor, middlewares...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &baseplateThriftServer{
+		logger:       logger,
+		config:       cfg,
+		afterStop:    afterStop,
+		beforeStop:   beforeStop,
+		thriftServer: ts,
+	}, nil
 }
