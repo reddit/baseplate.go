@@ -1,4 +1,4 @@
-package thriftsimple
+package baseplate
 
 import (
 	"context"
