@@ -3,7 +3,7 @@
 In your favorite IDE/Editor,
 you should set it up so that it auto runs the following tools for you:
 
-- `gofmt`
+- `gofmt -s`
 - `golint`
 - `go vet`
 

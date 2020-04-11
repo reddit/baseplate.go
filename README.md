@@ -6,9 +6,13 @@
 
 [Code documentation][godev]
 
-## IDE/Editor Setup
+## IDE/Editor setup
 
 See [here](Editor.md).
+
+## Code style guide
+
+See [here](Style.md).
 
 ## Thrift generated files
 
