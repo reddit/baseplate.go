@@ -103,7 +103,7 @@ func cleanup(closers []io.Closer) {
 // in order to be a standard Reddit service.
 //
 // At the moment, this includes secrets management, metrics, edge contexts, and spans/tracing.
-func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (Server, err error) {
+func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (srv Server, err error) {
 	var afterStop []io.Closer
 	defer func() {
 		if err != nil {
@@ -147,11 +147,12 @@ func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor t
 	if err != nil {
 		return nil, err
 	}
-
-	return &baseplateThriftServer{
+	srv = &baseplateThriftServer{
 		logger:       logger,
 		config:       cfg,
 		afterStop:    afterStop,
 		thriftServer: ts,
 	}
+
+	return srv, nil
 }
