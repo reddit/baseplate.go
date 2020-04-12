@@ -153,5 +153,5 @@ func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor t
 		config:       cfg,
 		afterStop:    afterStop,
 		thriftServer: ts,
-	}, nil
+	}
 }
