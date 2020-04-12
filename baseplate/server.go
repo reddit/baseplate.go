@@ -51,7 +51,8 @@ type Server interface {
 }
 
 // ParseServerConfig will populate a ServerConfig from a YAML file.
-func ParseServerConfig(path string, cfg *ServerConfig) error {
+func ParseServerConfig(path string) (*ServerConfig, error) {
+	cfg := &ServerConfig{}
 	if path == "" {
 		return errors.New("no config path given")
 	}
@@ -61,10 +62,10 @@ func ParseServerConfig(path string, cfg *ServerConfig) error {
 		return err
 	}
 
-	if err = yaml.Unmarshal(data, &cfg); err != nil {
+	if err = yaml.Unmarshal(data, cfg); err != nil {
 		return err
 	}
 
 	log.Debugf("%#v", cfg)
-	return nil
+	return cfg
 }

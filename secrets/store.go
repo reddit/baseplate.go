@@ -87,7 +87,8 @@ func (s *Store) getSecrets() *Secrets {
 // but can still access the secrets as they were before Close is called.
 //
 // It's OK to call Close multiple times. Calls after the first one are no-ops.
-// Close doesn't return non-nil errors, but implements io.Closer
+//
+// Close doesn't return non-nil errors, but implements io.Closer.
 func (s *Store) Close() error {
 	s.watcher.Stop()
 	return nil
