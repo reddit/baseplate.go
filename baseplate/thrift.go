@@ -99,7 +99,10 @@ func cleanup(closers []io.Closer) {
 	}
 }
 
-// NewBaseplateThriftServer returns a server that includes the default middleware.
+// NewBaseplateThriftServer returns a server that includes the default middleware needed
+// in order to be a standard Reddit service.
+//
+// At the moment, this includes secrets management, metrics, edge contexts, and spans/tracing.
 func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (Server, error) {
 	afterStop := make([]io.Closer)
 	logger := initLogger(cfg)
