@@ -103,8 +103,13 @@ func cleanup(closers []io.Closer) {
 // in order to be a standard Reddit service.
 //
 // At the moment, this includes secrets management, metrics, edge contexts, and spans/tracing.
-func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (Server, error) {
+func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (Server, err error) {
 	var afterStop []io.Closer
+	defer func() {
+		if err != nil {
+			cleanup(afterStop)
+		}
+	}()
 	logger := initLogger(cfg)
 
 	metricsbp.M = metricsbp.NewStatsd(ctx, metricsbp.StatsdConfig{
@@ -115,18 +120,15 @@ func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor t
 
 	secretsStore, err := initSecrets(ctx, cfg, logger)
 	if err != nil {
-		cleanup(afterStop)
 		return nil, err
 	}
 	afterStop = append(afterStop, secretsStore)
 
 	ecImpl := edgecontext.Init(edgecontext.Config{Store: secretsStore})
 	if err = initTracing(cfg, logger, metricsbp.M); err != nil {
-		cleanup(afterStop)
 		return nil, err
 	}
 	if err = initSentry(cfg); err != nil {
-		cleanup(afterStop)
 		return nil, err
 	}
 	innerCfg := thriftbp.ServerConfig{
@@ -143,7 +145,6 @@ func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor t
 
 	ts, err := thriftbp.NewThriftServer(innerCfg, processor, middlewares...)
 	if err != nil {
-		cleanup(afterStop)
 		return nil, err
 	}
 
