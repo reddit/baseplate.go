@@ -54,18 +54,18 @@ type Server interface {
 func ParseServerConfig(path string) (*ServerConfig, error) {
 	cfg := &ServerConfig{}
 	if path == "" {
-		return errors.New("no config path given")
+		return nil, errors.New("no config path given")
 	}
 
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err = yaml.Unmarshal(data, cfg); err != nil {
-		return err
+		return nil, err
 	}
 
 	log.Debugf("%#v", cfg)
-	return cfg
+	return cfg, nil
 }

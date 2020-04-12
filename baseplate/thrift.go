@@ -104,7 +104,7 @@ func cleanup(closers []io.Closer) {
 //
 // At the moment, this includes secrets management, metrics, edge contexts, and spans/tracing.
 func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (Server, error) {
-	afterStop := make([]io.Closer)
+	var afterStop []io.Closer
 	logger := initLogger(cfg)
 
 	metricsbp.M = metricsbp.NewStatsd(ctx, metricsbp.StatsdConfig{
