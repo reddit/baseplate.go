@@ -5,8 +5,9 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/reddit/baseplate.go/log"
 	"gopkg.in/yaml.v2"
+
+	"github.com/reddit/baseplate.go/log"
 )
 
 // ServerConfig is a general purpose config for assembling a BaseplateServer
@@ -37,7 +38,7 @@ type ServerConfig struct {
 	Tracing struct {
 		Namespace     string
 		Endpoint      string
-		RecordTimeout time.Duration `yaml:"recordTimeout"`
+		RecordTimeout time.Duration
 		SampleRate    float64
 	}
 }
@@ -45,13 +46,12 @@ type ServerConfig struct {
 // Server is the primary interface for baseplate servers.
 type Server interface {
 	Config() ServerConfig
-	Impl() interface{}
 	Serve() error
 	Stop() error
 }
 
 // ParseServerConfig will populate a ServerConfig from a YAML file.
-func ParseServerConfig(path string, cfg interface{}) error {
+func ParseServerConfig(path string, cfg *ServerConfig) error {
 	if path == "" {
 		return errors.New("no config path given")
 	}

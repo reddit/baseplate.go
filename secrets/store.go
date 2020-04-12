@@ -26,7 +26,6 @@ func nopSecretHandlerFunc(sec *Secrets) {}
 // memory so there's little performance impact to doing so and you will be sure
 // to always have the current version in the face of key rotation etc.
 type Store struct {
-	io.Closer
 	watcher *filewatcher.Result
 
 	secretHandlerFunc SecretHandlerFunc
@@ -88,6 +87,7 @@ func (s *Store) getSecrets() *Secrets {
 // but can still access the secrets as they were before Close is called.
 //
 // It's OK to call Close multiple times. Calls after the first one are no-ops.
+// Close doesn't return non-nil errors, but implements io.Closer
 func (s *Store) Close() error {
 	s.watcher.Stop()
 	return nil

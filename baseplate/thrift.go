@@ -18,7 +18,6 @@ import (
 type baseplateThriftServer struct {
 	thriftServer *thrift.TSimpleServer
 	config       ServerConfig
-	beforeStop   []io.Closer
 	afterStop    []io.Closer
 	logger       log.Wrapper
 }
@@ -36,10 +35,7 @@ func (bts *baseplateThriftServer) Serve() error {
 }
 
 func (bts *baseplateThriftServer) Stop() error {
-	var err error = nil
-	for _, c := range bts.beforeStop {
-		c.Close()
-	}
+	var err error
 	bts.thriftServer.Stop()
 	for _, c := range bts.afterStop {
 		c.Close()
@@ -95,10 +91,17 @@ func initSentry(cfg ServerConfig) error {
 	return nil
 }
 
+func cleanup(closers []io.Closer) {
+	for _, c := range closers {
+		if err := c.Close(); err != nil {
+			log.Error("error cleaning up thrift server initialization:", err)
+		}
+	}
+}
+
 // NewBaseplateThriftServer returns a server that includes the default middleware.
 func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (Server, error) {
-	beforeStop := make([]io.Closer, 0)
-	afterStop := make([]io.Closer, 0)
+	afterStop := make([]io.Closer)
 	logger := initLogger(cfg)
 
 	metricsbp.M = metricsbp.NewStatsd(ctx, metricsbp.StatsdConfig{
@@ -109,15 +112,18 @@ func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor t
 
 	secretsStore, err := initSecrets(ctx, cfg, logger)
 	if err != nil {
+		cleanup(afterStop)
 		return nil, err
 	}
 	afterStop = append(afterStop, secretsStore)
 
 	ecImpl := edgecontext.Init(edgecontext.Config{Store: secretsStore})
 	if err = initTracing(cfg, logger, metricsbp.M); err != nil {
+		cleanup(afterStop)
 		return nil, err
 	}
 	if err = initSentry(cfg); err != nil {
+		cleanup(afterStop)
 		return nil, err
 	}
 	innerCfg := thriftbp.ServerConfig{
@@ -134,6 +140,7 @@ func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor t
 
 	ts, err := thriftbp.NewThriftServer(innerCfg, processor, middlewares...)
 	if err != nil {
+		cleanup(afterStop)
 		return nil, err
 	}
 
@@ -141,7 +148,6 @@ func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor t
 		logger:       logger,
 		config:       cfg,
 		afterStop:    afterStop,
-		beforeStop:   beforeStop,
 		thriftServer: ts,
 	}, nil
 }
