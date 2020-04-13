@@ -9,6 +9,17 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
+// BaseplateDefaultMiddlewares returns the default middlewares should be used by
+// a baseplate service.
+//
+// Currently it's:
+// - MonitorClient
+func BaseplateDefaultMiddlewares() []Middleware {
+	return []Middleware{
+		MonitorClient,
+	}
+}
+
 // Middleware can be passed to Wrap in order to wrap thrift.TClient calls with
 // custom middleware.
 type Middleware func(thrift.TClient) thrift.TClient
