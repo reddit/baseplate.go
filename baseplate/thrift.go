@@ -8,6 +8,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/getsentry/raven-go"
 	"github.com/opentracing/opentracing-go"
+	"github.com/reddit/baseplate.go/batcherror"
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
@@ -36,13 +37,14 @@ func (bts *baseplateThriftServer) Serve() error {
 }
 
 func (bts *baseplateThriftServer) Close() error {
-	var err error
-	bts.thriftServer.Stop()
+	errors := &batcherror.BatchError{}
+	errors.Add(bts.thriftServer.Stop())
 	for _, c := range bts.closers {
-		c.Close()
+		errors.Add(c.Close())
 	}
-	return err
+	return errors.Compile()
 }
+
 func initLogger(cfg ServerConfig) log.Wrapper {
 	if cfg.Log.Level == "" {
 		cfg.Log.Level = log.InfoLevel
