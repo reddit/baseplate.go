@@ -20,21 +20,21 @@ type baseplateThriftServer struct {
 	config       ServerConfig
 	afterStop    []io.Closer
 	logger       log.Wrapper
+	secretsStore *secrets.Store
 }
 
 func (bts *baseplateThriftServer) Config() ServerConfig {
 	return bts.config
 }
-
-func (bts *baseplateThriftServer) Impl() interface{} {
-	return bts.thriftServer
+func (bts *baseplateThriftServer) Secrets() *secrets.Store {
+	return bts.secretsStore
 }
 
 func (bts *baseplateThriftServer) Serve() error {
 	return bts.thriftServer.Serve()
 }
 
-func (bts *baseplateThriftServer) Stop() error {
+func (bts *baseplateThriftServer) Close() error {
 	var err error
 	bts.thriftServer.Stop()
 	for _, c := range bts.afterStop {
@@ -99,10 +99,11 @@ func cleanup(closers []io.Closer) {
 	}
 }
 
-// NewBaseplateThriftServer returns a server that includes the default middleware needed
-// in order to be a standard Reddit service.
+// NewBaseplateThriftServer returns a server that initializes and includes the default
+// middleware and cross-cutting concerns needed in order to be a standard Baseplate service.
 //
-// At the moment, this includes secrets management, metrics, edge contexts, and spans/tracing.
+// At the moment, this includes secrets management, metrics, edge contexts
+// (edgecontext.InjectThriftEdgeContext), and spans/tracing (tracing.InjectThriftServerSpan).
 func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (srv Server, err error) {
 	var afterStop []io.Closer
 	defer func() {
@@ -152,6 +153,7 @@ func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor t
 		config:       cfg,
 		afterStop:    afterStop,
 		thriftServer: ts,
+		secretsStore: secretsStore,
 	}
 
 	return srv, nil

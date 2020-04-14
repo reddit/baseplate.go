@@ -2,12 +2,14 @@ package baseplate
 
 import (
 	"errors"
+	"io"
 	"io/ioutil"
 	"time"
 
 	"gopkg.in/yaml.v2"
 
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/secrets"
 )
 
 // ServerConfig is a general purpose config for assembling a BaseplateServer
@@ -45,9 +47,11 @@ type ServerConfig struct {
 
 // Server is the primary interface for baseplate servers.
 type Server interface {
+	io.Closer
+
 	Config() ServerConfig
+	Secrets() *secrets.Store
 	Serve() error
-	Stop() error
 }
 
 // ParseServerConfig will populate a ServerConfig from a YAML file.
