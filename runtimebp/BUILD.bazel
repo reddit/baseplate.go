@@ -6,6 +6,7 @@ go_library(
         "cpu.go",
         "doc.go",
         "ip.go",
+        "signal.go",
     ],
     importpath = "github.com/reddit/baseplate.go/runtimebp",
     visibility = ["//visibility:public"],
@@ -14,6 +15,13 @@ go_library(
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = ["cpu_test.go"],
+    srcs = [
+        "cpu_test.go",
+        "signal_example_test.go",
+    ],
     embed = [":go_default_library"],
+    deps = [
+        "//log:go_default_library",
+        "//thriftbp:go_default_library",
+    ],
 )
