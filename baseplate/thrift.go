@@ -37,7 +37,7 @@ func (bts *baseplateThriftServer) Serve() error {
 }
 
 func (bts *baseplateThriftServer) Close() error {
-	errors := &batcherror.BatchError{}
+	var errors batcherror.BatchError
 	errors.Add(bts.thriftServer.Stop())
 	for _, c := range bts.closers {
 		errors.Add(c.Close())
