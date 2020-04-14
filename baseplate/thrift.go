@@ -7,8 +7,8 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/getsentry/raven-go"
+	"github.com/opentracing/opentracing-go"
 	"github.com/reddit/baseplate.go/edgecontext"
-	"github.com/reddit/baseplate.go/internal"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/secrets"
@@ -19,7 +19,7 @@ import (
 type baseplateThriftServer struct {
 	thriftServer *thrift.TSimpleServer
 	config       ServerConfig
-	afterStop    []io.Closer
+	closers      []io.Closer
 	logger       log.Wrapper
 	secretsStore *secrets.Store
 }
@@ -38,7 +38,7 @@ func (bts *baseplateThriftServer) Serve() error {
 func (bts *baseplateThriftServer) Close() error {
 	var err error
 	bts.thriftServer.Stop()
-	for _, c := range bts.afterStop {
+	for _, c := range bts.closers {
 		c.Close()
 	}
 	return err
@@ -100,20 +100,16 @@ func cleanup(closers []io.Closer) {
 	}
 }
 
-var closeGlobalTracer = internal.NewAnonymousCloser(func() error {
-	return tracing.CloseTracer()
-})
-
 // NewBaseplateThriftServer returns a server that initializes and includes the default
 // middleware and cross-cutting concerns needed in order to be a standard Baseplate service.
 //
 // At the moment, this includes secrets management, metrics, edge contexts
 // (edgecontext.InjectThriftEdgeContext), and spans/tracing (tracing.InjectThriftServerSpan).
 func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (srv Server, err error) {
-	var afterStop []io.Closer
+	var closers []io.Closer
 	defer func() {
 		if err != nil {
-			cleanup(afterStop)
+			cleanup(closers)
 		}
 	}()
 	logger := initLogger(cfg)
@@ -128,11 +124,11 @@ func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor t
 	if err != nil {
 		return nil, err
 	}
-	afterStop = append(afterStop, secretsStore)
+	closers = append(closers, secretsStore)
 
 	ecImpl := edgecontext.Init(edgecontext.Config{Store: secretsStore})
 	if err = initTracing(cfg, logger, metricsbp.M); err != nil {
-		afterStop = append(afterStop, closeGlobalTracer)
+		closers = append(closers, opentracing.GlobalTracer().(*tracing.Tracer))
 		return nil, err
 	}
 	if err = initSentry(cfg); err != nil {
@@ -157,10 +153,9 @@ func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor t
 	srv = &baseplateThriftServer{
 		logger:       logger,
 		config:       cfg,
-		afterStop:    afterStop,
+		closers:      closers,
 		thriftServer: ts,
 		secretsStore: secretsStore,
 	}
-
-	return srv, nil
+	return
 }

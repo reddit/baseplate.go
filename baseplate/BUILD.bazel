@@ -11,7 +11,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//edgecontext:go_default_library",
-        "//internal:go_default_library",
         "//log:go_default_library",
         "//metricsbp:go_default_library",
         "//secrets:go_default_library",
@@ -19,6 +18,7 @@ go_library(
         "//tracing:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
         "@com_github_getsentry_raven_go//:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
         "@in_gopkg_yaml_v2//:go_default_library",
     ],
 )
