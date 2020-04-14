@@ -8,6 +8,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/getsentry/raven-go"
 	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/internal"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/secrets"
@@ -99,6 +100,10 @@ func cleanup(closers []io.Closer) {
 	}
 }
 
+var closeGlobalTracer = internal.NewAnonymousCloser(func() error {
+	return tracing.CloseTracer()
+})
+
 // NewBaseplateThriftServer returns a server that initializes and includes the default
 // middleware and cross-cutting concerns needed in order to be a standard Baseplate service.
 //
@@ -127,6 +132,7 @@ func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor t
 
 	ecImpl := edgecontext.Init(edgecontext.Config{Store: secretsStore})
 	if err = initTracing(cfg, logger, metricsbp.M); err != nil {
+		afterStop = append(afterStop, closeGlobalTracer)
 		return nil, err
 	}
 	if err = initSentry(cfg); err != nil {
