@@ -119,6 +119,7 @@ func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor t
 		Address:  cfg.Metrics.Endpoint,
 		LogLevel: cfg.Log.Level,
 	})
+	closers = append(closers, metricsbp.M)
 
 	secretsStore, err := initSecrets(ctx, cfg, logger)
 	if err != nil {
