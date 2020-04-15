@@ -102,12 +102,12 @@ func cleanup(closers []io.Closer) {
 	}
 }
 
-// NewBaseplateThriftServer returns a server that initializes and includes the default
+// NewThriftServer returns a server that initializes and includes the default
 // middleware and cross-cutting concerns needed in order to be a standard Baseplate service.
 //
 // At the moment, this includes secrets management, metrics, edge contexts
 // (edgecontext.InjectThriftEdgeContext), and spans/tracing (tracing.InjectThriftServerSpan).
-func NewBaseplateThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (srv Server, err error) {
+func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (srv Server, err error) {
 	var closers []io.Closer
 	defer func() {
 		if err != nil {
