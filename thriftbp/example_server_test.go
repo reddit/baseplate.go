@@ -10,8 +10,8 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-// This example demonstrates how to use thriftbp.NewThriftServer.
-func ExampleNewThriftServer() {
+// This example demonstrates how to use thriftbp.NewServer.
+func ExampleNewServer() {
 	// variables should be initialized properly in production
 	var (
 		ecImpl  *edgecontext.Impl
@@ -20,7 +20,7 @@ func ExampleNewThriftServer() {
 	)
 
 	processor := baseplate.NewBaseplateServiceProcessor(handler)
-	server, err := thriftbp.NewThriftServer(
+	server, err := thriftbp.NewServer(
 		thriftbp.ServerConfig{
 			Addr:    "localhost:8080",
 			Timeout: time.Second,

@@ -8,7 +8,7 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
-// ServerConfig is the arg struct for NewThriftServer.
+// ServerConfig is the arg struct for NewServer.
 type ServerConfig struct {
 	// The endpoint address of your thrift service
 	Addr string
@@ -20,10 +20,10 @@ type ServerConfig struct {
 	Logger log.Wrapper
 }
 
-// NewThriftServer returns a thrift.TSimpleServer using the THeader transport
+// NewServer returns a thrift.TSimpleServer using the THeader transport
 // and protocol to serve the given BaseplateProcessor which is wrapped with the
 // given Middlewares.
-func NewThriftServer(cfg ServerConfig, processor BaseplateProcessor, middlewares ...Middleware) (*thrift.TSimpleServer, error) {
+func NewServer(cfg ServerConfig, processor BaseplateProcessor, middlewares ...Middleware) (*thrift.TSimpleServer, error) {
 	transport, err := thrift.NewTServerSocketTimeout(cfg.Addr, cfg.Timeout)
 	if err != nil {
 		return nil, err
