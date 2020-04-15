@@ -74,7 +74,7 @@ type edgecontextRecorder struct {
 }
 
 func edgecontextRecorderMiddleware(recorder *edgecontextRecorder) httpbp.Middleware {
-	return func(next httpbp.HandlerFunc) httpbp.HandlerFunc {
+	return func(name string, next httpbp.HandlerFunc) httpbp.HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 			recorder.EdgeContext, _ = edgecontext.GetEdgeContext(ctx)
 			return next(ctx, w, r)
@@ -125,7 +125,7 @@ func (c *counter) Incr() {
 }
 
 func testMiddleware(c *counter) httpbp.Middleware {
-	return func(next httpbp.HandlerFunc) httpbp.HandlerFunc {
+	return func(name string, next httpbp.HandlerFunc) httpbp.HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 			c.Incr()
 			return next(ctx, w, r)

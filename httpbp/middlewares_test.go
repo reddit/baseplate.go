@@ -36,6 +36,7 @@ func TestWrap(t *testing.T) {
 		func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 			return nil
 		},
+		"test",
 		testMiddleware(c),
 	)
 	handler(context.Background(), nil, nil)
@@ -102,7 +103,8 @@ func TestInjectServerSpan(t *testing.T) {
 			func(t *testing.T) {
 				handle := httpbp.Wrap(
 					newTestHandler(testHandlerPlan{err: c.err}),
-					httpbp.InjectServerSpan("test", c.truster),
+					"name",
+					httpbp.InjectServerSpan(c.truster),
 				)
 				handle(req.Context(), httptest.NewRecorder(), req)
 
@@ -190,6 +192,7 @@ func TestInjectEdgeRequestContext(t *testing.T) {
 				recorder := edgecontextRecorder{}
 				handle := httpbp.Wrap(
 					newTestHandler(testHandlerPlan{}),
+					"test",
 					httpbp.InjectEdgeRequestContext(
 						c.truster,
 						impl,
