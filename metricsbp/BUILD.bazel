@@ -39,6 +39,9 @@ go_test(
         "timer_test.go",
     ],
     embed = [":go_default_library"],
+    # This test is marked as flaky as sometimes the running environment in drone
+    # is just too slow for the context switch in the sleep in TestTimer.
+    flaky = True,
     deps = [
         "//tracing:go_default_library",
         "@com_github_go_kit_kit//metrics:go_default_library",

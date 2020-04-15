@@ -28,10 +28,10 @@ func (m *mockHistogram) Observe(v float64) {
 }
 
 func TestTimer(t *testing.T) {
-	const sleep = time.Millisecond
+	const sleep = time.Millisecond * 100
 	h := mockHistogram{
 		t:        t,
-		expected: 1,
+		expected: float64(sleep / time.Millisecond),
 	}
 	timer := metricsbp.NewTimer(&h)
 	time.Sleep(sleep)
