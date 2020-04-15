@@ -98,3 +98,9 @@ Below are the settings you can use to control the use of the language server. Yo
 }
 ```
 
+## EditorConfig
+
+We also utilize [EditorConfig](https://editorconfig.org/) and have
+[our config file](.editorconfig) committed into this git repository.
+Please install an [EditorConfig plugin](https://editorconfig.org/#download) to
+your favorite editor/IDE.

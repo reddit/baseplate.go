@@ -1,0 +1,10 @@
+# https://EditorConfig.org
+
+root = true
+
+[*]
+indent_size = 2
+
+[{WORKSPACE,BUILD.bazel}]
+indent_style = space
+indent_size = 4
