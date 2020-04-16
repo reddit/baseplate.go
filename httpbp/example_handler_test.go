@@ -40,7 +40,7 @@ func err(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 
 func loggingMiddleware(name string, next httpbp.HandlerFunc) httpbp.HandlerFunc {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		log.Infof("Request <%s>: %#v", name, r)
+		log.Infof("Request %q: %#v", name, r)
 		return next(ctx, w, r)
 	}
 }
