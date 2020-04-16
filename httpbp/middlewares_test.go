@@ -33,10 +33,10 @@ func TestWrap(t *testing.T) {
 		t.Fatal("Unexpected initial count.")
 	}
 	handler := httpbp.Wrap(
+		"test",
 		func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 			return nil
 		},
-		"test",
 		testMiddleware(c),
 	)
 	handler(context.Background(), nil, nil)
@@ -102,8 +102,8 @@ func TestInjectServerSpan(t *testing.T) {
 			c.name,
 			func(t *testing.T) {
 				handle := httpbp.Wrap(
+					"test",
 					newTestHandler(testHandlerPlan{err: c.err}),
-					"name",
 					httpbp.InjectServerSpan(c.truster),
 				)
 				handle(req.Context(), httptest.NewRecorder(), req)
@@ -191,8 +191,8 @@ func TestInjectEdgeRequestContext(t *testing.T) {
 			func(t *testing.T) {
 				recorder := edgecontextRecorder{}
 				handle := httpbp.Wrap(
-					newTestHandler(testHandlerPlan{}),
 					"test",
+					newTestHandler(testHandlerPlan{}),
 					httpbp.InjectEdgeRequestContext(
 						c.truster,
 						impl,

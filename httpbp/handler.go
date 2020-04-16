@@ -53,14 +53,14 @@ var (
 )
 
 // NewHandler returns a new http.Handler with the given HandlerFunc wrapped with
-// the given Middleware.
+// the given Middleware. The given "name" will be passed to all of the middlewares.
 //
 // Most services should not use NewHander and should use a BaseplateHandlerFactory
 // instead.
 // NewHander is provided for those who need to avoid the default Baseplate
 // middleware or for testing purposes.
-func NewHandler(handle HandlerFunc, name string, middlewares ...Middleware) http.Handler {
-	return handler{handle: Wrap(handle, name, middlewares...)}
+func NewHandler(name string, handle HandlerFunc, middlewares ...Middleware) http.Handler {
+	return handler{handle: Wrap(name, handle, middlewares...)}
 }
 
 // BaseplateHandlerFactory can be used to create multiple BaseplateHandlers,
@@ -79,7 +79,8 @@ type BaseplateHandlerFactory struct {
 
 // NewHandler returns a new HandlerFunc that is the result of wrapping `handle`
 // with the default Baseplate Middleware, the list of Middleware given to the
-// factory, and any Middleware passed in.
+// factory, and any Middleware passed in. The given "name" will be passed to all
+// of the middlewares.
 //
 // Middlewares are applied in the following order:
 //		1. httpbp.DefaultMiddleware()
@@ -92,5 +93,5 @@ func (f BaseplateHandlerFactory) NewHandler(name string, handle HandlerFunc, mid
 	wrappers = append(wrappers, defaults...)
 	wrappers = append(wrappers, f.Middlewares...)
 	wrappers = append(wrappers, middlewares...)
-	return NewHandler(handle, name, wrappers...)
+	return NewHandler(name, handle, wrappers...)
 }

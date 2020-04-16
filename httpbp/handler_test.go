@@ -128,7 +128,7 @@ func TestHandler(t *testing.T) {
 			c.name,
 			func(t *testing.T) {
 				t.Parallel()
-				handler := httpbp.NewHandler(newTestHandler(c.plan), "test")
+				handler := httpbp.NewHandler("test", newTestHandler(c.plan))
 				request := httptest.NewRequest(
 					"get",
 					"localhost:9090",

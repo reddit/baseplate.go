@@ -15,7 +15,7 @@ const spanSampledTrue = "1"
 type Middleware func(name string, next HandlerFunc) HandlerFunc
 
 // Wrap wraps the given HandlerFunc with the given Middlewares and returns the
-// wrapped HandlerFunc.
+// wrapped HandlerFunc passing the given name to each middleware in the chain.
 //
 // Middlewares will be called in the order that they are defined:
 //
@@ -27,7 +27,7 @@ type Middleware func(name string, next HandlerFunc) HandlerFunc
 // Wrap is provided for clarity and testing purposes and should not generally be
 // called directly.  Instead use one of the provided Handler constructors which
 // will Wrap the HandlerFunc you pass it for you.
-func Wrap(handle HandlerFunc, name string, middlewares ...Middleware) HandlerFunc {
+func Wrap(name string, handle HandlerFunc, middlewares ...Middleware) HandlerFunc {
 	for i := len(middlewares) - 1; i >= 0; i-- {
 		handle = middlewares[i](name, handle)
 	}
