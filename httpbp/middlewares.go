@@ -11,11 +11,11 @@ import (
 
 const spanSampledTrue = "1"
 
-// Middleware wrapes the given HandlerFunc and returns a new, wrapped, HandlerFunc.
-type Middleware func(HandlerFunc) HandlerFunc
+// Middleware wraps the given HandlerFunc and returns a new, wrapped, HandlerFunc.
+type Middleware func(name string, next HandlerFunc) HandlerFunc
 
 // Wrap wraps the given HandlerFunc with the given Middlewares and returns the
-// wrapped HandlerFunc.
+// wrapped HandlerFunc passing the given name to each middleware in the chain.
 //
 // Middlewares will be called in the order that they are defined:
 //
@@ -27,9 +27,9 @@ type Middleware func(HandlerFunc) HandlerFunc
 // Wrap is provided for clarity and testing purposes and should not generally be
 // called directly.  Instead use one of the provided Handler constructors which
 // will Wrap the HandlerFunc you pass it for you.
-func Wrap(handle HandlerFunc, middlewares ...Middleware) HandlerFunc {
+func Wrap(name string, handle HandlerFunc, middlewares ...Middleware) HandlerFunc {
 	for i := len(middlewares) - 1; i >= 0; i-- {
-		handle = middlewares[i](handle)
+		handle = middlewares[i](name, handle)
 	}
 	return handle
 }
@@ -44,9 +44,9 @@ type DefaultMiddlewareArgs struct {
 
 // DefaultMiddleware returns a slice of all of the default Middleware for a
 // Baseplate HTTP server.
-func DefaultMiddleware(name string, args DefaultMiddlewareArgs) []Middleware {
+func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	return []Middleware{
-		InjectServerSpan(name, args.TrustHandler),
+		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(args.TrustHandler, args.EdgeContextImpl, args.Logger),
 	}
 }
@@ -98,8 +98,8 @@ func StartSpanFromTrustedRequest(
 // InjectServerSpan should generally not be used directly, instead use one of of
 // the NewBaseplateHandler constructor methods which will automatically include
 // InjectServerSpan as one of the Middlewares to wrap your handler in.
-func InjectServerSpan(name string, truster HeaderTrustHandler) Middleware {
-	return func(next HandlerFunc) HandlerFunc {
+func InjectServerSpan(truster HeaderTrustHandler) Middleware {
+	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			ctx, span := StartSpanFromTrustedRequest(ctx, name, truster, r)
 			defer func() {
@@ -146,7 +146,7 @@ func InitializeEdgeContextFromTrustedRequest(
 // automatically include InjectEdgeRequestContext as one of the Middlewares to
 // wrap your handler in.
 func InjectEdgeRequestContext(truster HeaderTrustHandler, impl *edgecontext.Impl, logger log.Wrapper) Middleware {
-	return func(next HandlerFunc) HandlerFunc {
+	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 			ctx = InitializeEdgeContextFromTrustedRequest(ctx, truster, impl, logger, r)
 			return next(ctx, w, r)
