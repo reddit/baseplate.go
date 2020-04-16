@@ -7,13 +7,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/apache/thrift/lib/go/thrift"
+
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
-	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/timebp"
-
-	"github.com/apache/thrift/lib/go/thrift"
 )
 
 // LoIDPrefix is the prefix for all LoIDs.
@@ -22,10 +21,6 @@ const LoIDPrefix = "t2_"
 // ErrLoIDWrongPrefix is an error could be returned by New() when passed in LoID
 // does not have the correct prefix.
 var ErrLoIDWrongPrefix = errors.New("edgecontext: loid should have " + LoIDPrefix + " prefix")
-
-// ErrNoHeader is an error could be returned by FromThriftContext() when passed
-// in context does not have Edge-Request header set.
-var ErrNoHeader = errors.New("edgecontext: no Edge-Request header found")
 
 // An Impl is an initialized edge context implementation.
 //
@@ -68,16 +63,16 @@ const (
 
 // SetEdgeContext sets the given EdgeRequestContext on the context object.
 func SetEdgeContext(ctx context.Context, ec *EdgeRequestContext) context.Context {
+	if ec == nil {
+		return ctx
+	}
 	return context.WithValue(ctx, edgeContextKey, ec)
 }
 
 // GetEdgeContext gets the current EdgeRequestContext from the context object,
 // if set.
 func GetEdgeContext(ctx context.Context) (ec *EdgeRequestContext, ok bool) {
-	if e, success := ctx.Value(edgeContextKey).(*EdgeRequestContext); success {
-		ec = e
-		ok = success
-	}
+	ec, ok = ctx.Value(edgeContextKey).(*EdgeRequestContext)
 	return
 }
 
@@ -155,7 +150,13 @@ func New(ctx context.Context, impl *Impl, args NewArgs) (*EdgeRequestContext, er
 	}, nil
 }
 
-func fromHeader(header string, impl *Impl) (*EdgeRequestContext, error) {
+// FromHeader returns a new EdgeRequestContext from the given header string using
+// the given Impl.
+func FromHeader(header string, impl *Impl) (*EdgeRequestContext, error) {
+	if header == "" {
+		return nil, nil
+	}
+
 	request := baseplate.NewRequest()
 	if err := deserializerPool.ReadString(request, header); err != nil {
 		return nil, err
@@ -180,32 +181,3 @@ func fromHeader(header string, impl *Impl) (*EdgeRequestContext, error) {
 		raw:    raw,
 	}, nil
 }
-
-// ContextFactory builds an *EdgeRequestContext from a context object.
-type ContextFactory func(ctx context.Context, impl *Impl) (*EdgeRequestContext, error)
-
-// FromThriftContext implements the ContextFactory interface and extracts
-// EdgeRequestContext from a thrift context object.
-func FromThriftContext(ctx context.Context, impl *Impl) (*EdgeRequestContext, error) {
-	header, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
-	if !ok {
-		return nil, ErrNoHeader
-	}
-
-	return fromHeader(header, impl)
-}
-
-// FromRawHeader returns a ContextFactory that will return a new
-// EdgeRequestContext using the given string.
-func FromRawHeader(header string) ContextFactory {
-	return func(ctx context.Context, impl *Impl) (*EdgeRequestContext, error) {
-		if header == "" {
-			return nil, ErrNoHeader
-		}
-		return fromHeader(header, impl)
-	}
-}
-
-var (
-	_ ContextFactory = FromThriftContext
-)

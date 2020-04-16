@@ -53,7 +53,6 @@ var (
 func ExampleBaseplateHandlerFactory() {
 	var (
 		ecImpl       *edgecontext.Impl
-		logger       log.Wrapper
 		trustHandler httpbp.HeaderTrustHandler
 	)
 	handlerFactory := httpbp.BaseplateHandlerFactory{
@@ -61,7 +60,6 @@ func ExampleBaseplateHandlerFactory() {
 		Args: httpbp.DefaultMiddlewareArgs{
 			TrustHandler:    trustHandler,
 			EdgeContextImpl: ecImpl,
-			Logger:          logger,
 		},
 		// Middleware that will be applied to each endpoint created by this factory
 		Middlewares: []httpbp.Middleware{

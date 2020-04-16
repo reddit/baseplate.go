@@ -13,6 +13,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//clientpool:go_default_library",
+        "//edgecontext:go_default_library",
         "//log:go_default_library",
         "//metricsbp:go_default_library",
         "//thriftbp:go_default_library",
@@ -36,9 +37,13 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//clientpool:go_default_library",
+        "//edgecontext:go_default_library",
         "//internal/gen-go/reddit/baseplate:go_default_library",
         "//log:go_default_library",
         "//mqsend:go_default_library",
+        "//secrets:go_default_library",
+        "//set:go_default_library",
+        "//thriftbp:go_default_library",
         "//tracing:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",

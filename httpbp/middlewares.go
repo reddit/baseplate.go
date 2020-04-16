@@ -39,7 +39,6 @@ func Wrap(name string, handle HandlerFunc, middlewares ...Middleware) HandlerFun
 type DefaultMiddlewareArgs struct {
 	TrustHandler    HeaderTrustHandler
 	EdgeContextImpl *edgecontext.Impl
-	Logger          log.Wrapper
 }
 
 // DefaultMiddleware returns a slice of all of the default Middleware for a
@@ -47,7 +46,7 @@ type DefaultMiddlewareArgs struct {
 func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	return []Middleware{
 		InjectServerSpan(args.TrustHandler),
-		InjectEdgeRequestContext(args.TrustHandler, args.EdgeContextImpl, args.Logger),
+		InjectEdgeRequestContext(args.TrustHandler, args.EdgeContextImpl),
 	}
 }
 
@@ -127,14 +126,20 @@ func InitializeEdgeContextFromTrustedRequest(
 	ctx context.Context,
 	truster HeaderTrustHandler,
 	impl *edgecontext.Impl,
-	logger log.Wrapper,
 	r *http.Request,
 ) context.Context {
-	if truster.TrustEdgeContext(r) {
-		factory := edgecontext.FromRawHeader(r.Header.Get(EdgeContextHeader))
-		return edgecontext.InitializeEdgeContext(ctx, impl, logger, factory)
+	if !truster.TrustEdgeContext(r) {
+		return ctx
 	}
-	return ctx
+
+	header := r.Header.Get(EdgeContextHeader)
+	ec, err := edgecontext.FromHeader(header, impl)
+	if err != nil {
+		log.Error("Error while parsing EdgeRequestContext: " + err.Error())
+		return ctx
+	}
+
+	return edgecontext.SetEdgeContext(ctx, ec)
 }
 
 // InjectEdgeRequestContext returns a Middleware that will automatically parse
@@ -145,10 +150,10 @@ func InitializeEdgeContextFromTrustedRequest(
 // one of of the NewBaseplateHandler constructor methods which will
 // automatically include InjectEdgeRequestContext as one of the Middlewares to
 // wrap your handler in.
-func InjectEdgeRequestContext(truster HeaderTrustHandler, impl *edgecontext.Impl, logger log.Wrapper) Middleware {
+func InjectEdgeRequestContext(truster HeaderTrustHandler, impl *edgecontext.Impl) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-			ctx = InitializeEdgeContextFromTrustedRequest(ctx, truster, impl, logger, r)
+			ctx = InitializeEdgeContextFromTrustedRequest(ctx, truster, impl, r)
 			return next(ctx, w, r)
 		}
 	}

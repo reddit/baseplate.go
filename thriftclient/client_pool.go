@@ -128,12 +128,15 @@ type TClientFactory func(thrift.TTransport, thrift.TProtocolFactory) thrift.TCli
 //		2. Wraps the TClient objects with BaseplateDefaultMiddlewares plus any
 //		   additional middlewares passed into this function.
 func NewBaseplateClientPool(cfg ClientPoolConfig, ttl time.Duration, middlewares ...Middleware) (ClientPool, error) {
-	middlewares = append(BaseplateDefaultMiddlewares(), middlewares...)
+	defaults := BaseplateDefaultMiddlewares()
+	wrappers := make([]Middleware, 0, len(defaults)+len(middlewares))
+	wrappers = append(wrappers, defaults...)
+	wrappers = append(wrappers, middlewares...)
 	return NewCustomClientPool(
 		cfg,
 		SingleAddressGenerator(cfg.Addr),
 		NewTTLClientFactory(ttl),
-		NewWrappedTClientFactory(StandardTClientFactory, middlewares...),
+		NewWrappedTClientFactory(StandardTClientFactory, wrappers...),
 		thrift.NewTHeaderProtocolFactory(),
 	)
 }

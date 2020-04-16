@@ -6,6 +6,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	opentracing "github.com/opentracing/opentracing-go"
 
+	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -13,11 +14,13 @@ import (
 // BaseplateDefaultMiddlewares returns the default middlewares should be used by
 // a baseplate service.
 //
-// Currently it's:
+// Currently it's (in order):
 // - MonitorClient
+// - ForwardEdgeRequestContext
 func BaseplateDefaultMiddlewares() []Middleware {
 	return []Middleware{
 		MonitorClient,
+		ForwardEdgeRequestContext,
 	}
 }
 
@@ -50,9 +53,8 @@ var (
 //
 // A typical service should not need to call Wrap directly, instead you should
 // be creating ClientPools using NewBaseplateClientPool which will call Wrap
-// using the Baseplate default middleware:
-//		1. MonitorClient
-// along with any additional middleware passed in.
+// using the BaseplateDefaultMiddlewares() along with any additional middleware
+// passed in.
 func Wrap(client thrift.TClient, middlewares ...Middleware) thrift.TClient {
 	for i := len(middlewares) - 1; i >= 0; i-- {
 		client = middlewares[i](client)
@@ -89,6 +91,24 @@ func MonitorClient(next thrift.TClient) thrift.TClient {
 	}
 }
 
+// ForwardEdgeRequestContext forwards the EdgeRequestContext set on the context
+// object to the Thrift service being called if one is set.
+//
+// If you are using a thrift ClientPool created by NewBaseplateClientPool,
+// this will be included automatically and should not be passed in as a
+// Middleware to NewBaseplateClientPool.
+func ForwardEdgeRequestContext(next thrift.TClient) thrift.TClient {
+	return WrappedTClient{
+		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
+			if ec, ok := edgecontext.GetEdgeContext(ctx); ok {
+				ctx = thriftbp.AttachEdgeRequestContext(ctx, ec)
+			}
+			return next.Call(ctx, method, args, result)
+		},
+	}
+}
+
 var (
+	_ Middleware = ForwardEdgeRequestContext
 	_ Middleware = MonitorClient
 )

@@ -23,8 +23,8 @@ func ExampleWrap() {
 		// Use thriftbp.Wrap to wrap the base TProcessor in the middleware
 		thriftbp.Wrap(
 			processor,
-			edgecontext.InjectThriftEdgeContext(ecImpl, logger),
-			thriftbp.InjectThriftServerSpan,
+			thriftbp.InjectServerSpan,
+			thriftbp.InjectEdgeContext(ecImpl),
 		),
 		transport,
 		thrift.NewTHeaderTransportFactory(nil),

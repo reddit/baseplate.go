@@ -2,7 +2,6 @@ package edgecontext_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/experiments"
-	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/timebp"
 )
 
@@ -223,26 +221,23 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx = e.AttachToContext(ctx)
-	if header, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest); !ok {
-		t.Error("Failed to attach header to thrift context")
-	} else {
-		if header != headerWithValidAuth {
-			t.Errorf("Header expected %q, got %q", headerWithValidAuth, header)
-		}
+	if e.Header() != headerWithValidAuth {
+		t.Errorf("Header expected %q, got %q", headerWithValidAuth, e.Header())
 	}
 }
 
-func TestFromThriftContext(t *testing.T) {
+func TestFromHeader(t *testing.T) {
 	const expectedUser = "t2_example"
 
 	t.Run(
 		"no-header",
 		func(t *testing.T) {
-			ctx := context.Background()
-			_, err := edgecontext.FromThriftContext(ctx, globalTestImpl)
-			if !errors.Is(err, edgecontext.ErrNoHeader) {
-				t.Errorf("Expected ErrNoHeader, got %v", err)
+			e, err := edgecontext.FromHeader("", globalTestImpl)
+			if err != nil {
+				t.Error(err)
+			}
+			if e != nil {
+				t.Errorf("Expected EdgeRequestContext to be nil, got %#v", e)
 			}
 		},
 	)
@@ -250,12 +245,8 @@ func TestFromThriftContext(t *testing.T) {
 	t.Run(
 		"no-device-id",
 		func(t *testing.T) {
-			ctx := thrift.SetHeader(
-				context.Background(),
-				thriftbp.HeaderEdgeRequest,
-				headerWithNoAuthNoDevice,
-			)
-			e, err := edgecontext.FromThriftContext(ctx, globalTestImpl)
+
+			e, err := edgecontext.FromHeader(headerWithNoAuthNoDevice, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -304,12 +295,7 @@ func TestFromThriftContext(t *testing.T) {
 	t.Run(
 		"no-auth",
 		func(t *testing.T) {
-			ctx := thrift.SetHeader(
-				context.Background(),
-				thriftbp.HeaderEdgeRequest,
-				headerWithNoAuth,
-			)
-			e, err := edgecontext.FromThriftContext(ctx, globalTestImpl)
+			e, err := edgecontext.FromHeader(headerWithNoAuth, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -408,12 +394,7 @@ func TestFromThriftContext(t *testing.T) {
 	t.Run(
 		"valid-auth",
 		func(t *testing.T) {
-			ctx := thrift.SetHeader(
-				context.Background(),
-				thriftbp.HeaderEdgeRequest,
-				headerWithValidAuth,
-			)
-			e, err := edgecontext.FromThriftContext(ctx, globalTestImpl)
+			e, err := edgecontext.FromHeader(headerWithValidAuth, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -512,12 +493,7 @@ func TestFromThriftContext(t *testing.T) {
 	t.Run(
 		"expired-auth",
 		func(t *testing.T) {
-			ctx := thrift.SetHeader(
-				context.Background(),
-				thriftbp.HeaderEdgeRequest,
-				headerWithExpiredAuth,
-			)
-			e, err := edgecontext.FromThriftContext(ctx, globalTestImpl)
+			e, err := edgecontext.FromHeader(headerWithExpiredAuth, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -623,12 +599,7 @@ func TestFromThriftContext(t *testing.T) {
 	t.Run(
 		"anon-auth",
 		func(t *testing.T) {
-			ctx := thrift.SetHeader(
-				context.Background(),
-				thriftbp.HeaderEdgeRequest,
-				headerWithAnonAuth,
-			)
-			e, err := edgecontext.FromThriftContext(ctx, globalTestImpl)
+			e, err := edgecontext.FromHeader(headerWithAnonAuth, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -707,241 +678,6 @@ func TestFromThriftContext(t *testing.T) {
 						expectedSessionID,
 						emptyDeviceID,
 					)
-				},
-			)
-		},
-	)
-}
-
-func TestFromRawHeader(t *testing.T) {
-	const expectedUser = "t2_example"
-	ctx := context.Background()
-
-	t.Run(
-		"no-header",
-		func(t *testing.T) {
-			_, err := edgecontext.FromRawHeader("")(ctx, globalTestImpl)
-			if !errors.Is(err, edgecontext.ErrNoHeader) {
-				t.Errorf("Expected ErrNoHeader, got %v", err)
-			}
-		},
-	)
-
-	t.Run(
-		"no-auth",
-		func(t *testing.T) {
-			e, err := edgecontext.FromRawHeader(headerWithNoAuth)(ctx, globalTestImpl)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if e.SessionID() != expectedSessionID {
-				t.Errorf(
-					"Expected session id %q, got %q",
-					expectedSessionID,
-					e.SessionID(),
-				)
-			}
-
-			t.Run(
-				"user",
-				func(t *testing.T) {
-					user := e.User()
-					if user.IsLoggedIn() {
-						t.Error("Expected logged out user, IsLoggedIn() returned true")
-					}
-					if loid, ok := user.LoID(); !ok {
-						t.Error("Failed to get loid from user")
-					} else {
-						if loid != expectedLoID {
-							t.Errorf("LoID expected %q, got %q", expectedLoID, loid)
-						}
-					}
-					if ts, ok := user.CookieCreatedAt(); !ok {
-						t.Error("Failed to get cookie created time from user")
-					} else {
-						if !expectedCookieTime.Equal(ts) {
-							t.Errorf(
-								"Expected cookie create timestamp %v, got %v",
-								expectedCookieTime,
-								ts,
-							)
-						}
-					}
-				},
-			)
-
-			t.Run(
-				"auth-token",
-				func(t *testing.T) {
-					token := e.AuthToken()
-					if token != nil {
-						t.Errorf("Expected nil auth token, got %+v", *token)
-					}
-				},
-			)
-		},
-	)
-
-	t.Run(
-		"valid-auth",
-		func(t *testing.T) {
-			e, err := edgecontext.FromRawHeader(headerWithValidAuth)(ctx, globalTestImpl)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if e.SessionID() != expectedSessionID {
-				t.Errorf(
-					"Expected session id %q, got %q",
-					expectedSessionID,
-					e.SessionID(),
-				)
-			}
-
-			t.Run(
-				"user",
-				func(t *testing.T) {
-					user := e.User()
-					if !user.IsLoggedIn() {
-						t.Error("Expected logged in user, IsLoggedIn() returned false")
-					}
-					if user, ok := user.ID(); !ok {
-						t.Error("Failed to get user id")
-					} else {
-						if user != expectedUser {
-							t.Errorf("Expected user id %q, got %q", expectedUser, user)
-						}
-					}
-					if loid, ok := user.LoID(); !ok {
-						t.Error("Failed to get loid from user")
-					} else {
-						if loid != expectedLoID {
-							t.Errorf("LoID expected %q, got %q", expectedLoID, loid)
-						}
-					}
-					if ts, ok := user.CookieCreatedAt(); !ok {
-						t.Error("Failed to get cookie created time from user")
-					} else {
-						if !expectedCookieTime.Equal(ts) {
-							t.Errorf(
-								"Expected cookie create timestamp %v, got %v",
-								expectedCookieTime,
-								ts,
-							)
-						}
-					}
-					if len(user.Roles()) != 0 {
-						t.Errorf("Expected empty roles, got %+v", user.Roles())
-					}
-				},
-			)
-		},
-	)
-
-	t.Run(
-		"expired-auth",
-		func(t *testing.T) {
-			e, err := edgecontext.FromRawHeader(headerWithExpiredAuth)(ctx, globalTestImpl)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if e.SessionID() != expectedSessionID {
-				t.Errorf(
-					"Expected session id %q, got %q",
-					expectedSessionID,
-					e.SessionID(),
-				)
-			}
-
-			t.Run(
-				"user",
-				func(t *testing.T) {
-					user := e.User()
-					if user.IsLoggedIn() {
-						t.Error("Expected logged out user, IsLoggedIn() returned true")
-					}
-					if loid, ok := user.LoID(); !ok {
-						t.Error("Failed to get loid from user")
-					} else {
-						if loid != expectedLoID {
-							t.Errorf("LoID expected %q, got %q", expectedLoID, loid)
-						}
-					}
-					if ts, ok := user.CookieCreatedAt(); !ok {
-						t.Error("Failed to get cookie created time from user")
-					} else {
-						if !expectedCookieTime.Equal(ts) {
-							t.Errorf(
-								"Expected cookie create timestamp %v, got %v",
-								expectedCookieTime,
-								ts,
-							)
-						}
-					}
-				},
-			)
-
-			t.Run(
-				"auth-token",
-				func(t *testing.T) {
-					token := e.AuthToken()
-					if token != nil {
-						t.Errorf("Expected nil auth token, got %+v", *token)
-					}
-				},
-			)
-		},
-	)
-
-	t.Run(
-		"anon-auth",
-		func(t *testing.T) {
-			e, err := edgecontext.FromRawHeader(headerWithAnonAuth)(ctx, globalTestImpl)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if e.SessionID() != expectedSessionID {
-				t.Errorf(
-					"Expected session id %q, got %q",
-					expectedSessionID,
-					e.SessionID(),
-				)
-			}
-
-			t.Run(
-				"user",
-				func(t *testing.T) {
-					user := e.User()
-					if user.IsLoggedIn() {
-						t.Error("Expected logged out user, IsLoggedIn() returned true")
-					}
-					if loid, ok := user.LoID(); !ok {
-						t.Error("Failed to get loid from user")
-					} else {
-						if loid != expectedLoID {
-							t.Errorf("LoID expected %q, got %q", expectedLoID, loid)
-						}
-					}
-					if ts, ok := user.CookieCreatedAt(); !ok {
-						t.Error("Failed to get cookie created time from user")
-					} else {
-						if !expectedCookieTime.Equal(ts) {
-							t.Errorf(
-								"Expected cookie create timestamp %v, got %v",
-								expectedCookieTime,
-								ts,
-							)
-						}
-					}
-					if !user.HasRole("anonymous") {
-						t.Errorf(
-							"Expected user to have anonymous role, got %+v",
-							user.Roles(),
-						)
-					}
 				},
 			)
 		},

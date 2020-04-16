@@ -26,8 +26,8 @@ func ExampleNewServer() {
 			Logger:  logger,
 		},
 		processor,
-		edgecontext.InjectThriftEdgeContext(ecImpl, logger),
-		thriftbp.InjectThriftServerSpan,
+		thriftbp.InjectServerSpan,
+		thriftbp.InjectEdgeContext(ecImpl),
 	)
 	if err != nil {
 		log.Fatal(err)

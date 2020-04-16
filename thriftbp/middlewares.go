@@ -5,6 +5,8 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 
+	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -65,8 +67,8 @@ var (
 //		...
 //		N. Middlewares[n]
 //
-// It is reccomended that you pass in tracing.InjectThriftServerSpan and the
-// Middleware returned by edgecontext.InjectThriftEdgeContext as the first two
+// It is reccomended that you pass in tracing.InjectServerSpan and the
+// Middleware returned by edgecontext.InjectEdgeContext as the first two
 // middlewares.
 func Wrap(processor BaseplateProcessor, middlewares ...Middleware) thrift.TProcessor {
 	for name, processorFunc := range processor.ProcessorMap() {
@@ -118,7 +120,7 @@ func StartSpanFromThriftContext(ctx context.Context, name string) (context.Conte
 	return tracing.StartSpanFromHeaders(ctx, name, headers)
 }
 
-// InjectThriftServerSpan implements thriftbp.Middleware and injects a server
+// InjectServerSpan implements thriftbp.Middleware and injects a server
 // span into the `next` context.
 //
 // Starts the server span before calling the `next` TProcessorFunction and stops
@@ -128,7 +130,7 @@ func StartSpanFromThriftContext(ctx context.Context, name string) (context.Conte
 // Note, the span will be created according to tracing related headers already
 // being set on the context object.
 // These should be automatically injected by your thrift.TSimpleServer.
-func InjectThriftServerSpan(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+func InjectServerSpan(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 	return WrappedTProcessorFunc{
 		Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
 			ctx, span := StartSpanFromThriftContext(ctx, name)
@@ -145,5 +147,44 @@ func InjectThriftServerSpan(name string, next thrift.TProcessorFunction) thrift.
 }
 
 var (
-	_ Middleware = InjectThriftServerSpan
+	_ Middleware = InjectServerSpan
 )
+
+// InitializeEdgeContext sets an edge request context created from the Thrift
+// headers set on the context onto the context and configures Thrift to forward
+// the edge requent context header on any Thrift calls made by the server.
+func InitializeEdgeContext(ctx context.Context, impl *edgecontext.Impl) context.Context {
+	header, ok := thrift.GetHeader(ctx, HeaderEdgeRequest)
+	if !ok {
+		return ctx
+	}
+
+	ec, err := edgecontext.FromHeader(header, impl)
+	if err != nil {
+		log.Error("Error while parsing EdgeRequestContext: " + err.Error())
+		return ctx
+	}
+	if ec == nil {
+		return ctx
+	}
+
+	return edgecontext.SetEdgeContext(ctx, ec)
+}
+
+// InjectEdgeContext returns a Middleware that injects an edge request
+// context created from the Thrift headers set on the context into the `next`
+// thrift.TProcessorFunction.
+//
+// Note, this depends on the edge context headers already being set on the
+// context object.  These should be automatically injected by your
+// thrift.TSimpleServer.
+func InjectEdgeContext(impl *edgecontext.Impl) Middleware {
+	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+		return WrappedTProcessorFunc{
+			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+				ctx = InitializeEdgeContext(ctx, impl)
+				return next.Process(ctx, seqId, in, out)
+			},
+		}
+	}
+}

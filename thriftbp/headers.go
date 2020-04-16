@@ -1,5 +1,14 @@
 package thriftbp
 
+import (
+	"context"
+
+	"github.com/apache/thrift/lib/go/thrift"
+
+	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/set"
+)
+
 // Edge request context propagation related headers, as defined in
 // https://pages.github.snooguts.net/reddit/baseplate.spec/component-apis/thrift#edge-request-context-propagation
 const (
@@ -36,4 +45,18 @@ var HeadersToForward = []string{
 	HeaderTracingParent,
 	HeaderTracingSampled,
 	HeaderTracingFlags,
+}
+
+// AttachEdgeRequestContext returns a context that has the header of the given
+// EdgeRequestContext set to forward using the "Edge-Request" header on any
+// Thrift calls made with that context object.
+func AttachEdgeRequestContext(ctx context.Context, ec *edgecontext.EdgeRequestContext) context.Context {
+	if ec == nil {
+		return ctx
+	}
+
+	ctx = thrift.SetHeader(ctx, HeaderEdgeRequest, ec.Header())
+	headers := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
+	headers.Add(HeaderEdgeRequest)
+	return thrift.SetWriteHeaderList(ctx, headers.ToSlice())
 }

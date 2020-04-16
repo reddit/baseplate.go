@@ -23,7 +23,7 @@ import (
 //     span, clientCtx := opentracing.StartSpanFromContext(
 //       ctx,
 //       "myCall",
-//       tracing.SpanTypeOption{Type: SpanTypeClient},
+//       tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 //     )
 //     result, err := client.MyCall(clientCtx, arg1, arg2)
 //     // Or: span.Stop(ctx, err)
