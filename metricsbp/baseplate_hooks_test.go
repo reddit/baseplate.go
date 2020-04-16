@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
 func runSpan(st *metricsbp.Statsd, spanErr error) (counter string, successCounter string, histogram string, err error) {
-	ctx, span := tracing.StartSpanFromThriftContext(context.Background(), "foo")
+	ctx, span := thriftbp.StartSpanFromThriftContext(context.Background(), "foo")
 	time.Sleep(time.Millisecond)
 	span.AddCounter("bar.count", 1.0)
 	span.Stop(ctx, spanErr)

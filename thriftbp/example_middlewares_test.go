@@ -7,7 +7,6 @@ import (
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/thriftbp"
-	"github.com/reddit/baseplate.go/tracing"
 )
 
 // This example demonstrates how to use thriftbp.Middleware with thriftbp.Wraps.
@@ -25,7 +24,7 @@ func ExampleWrap() {
 		thriftbp.Wrap(
 			processor,
 			edgecontext.InjectThriftEdgeContext(ecImpl, logger),
-			tracing.InjectThriftServerSpan,
+			thriftbp.InjectThriftServerSpan,
 		),
 		transport,
 		thrift.NewTHeaderTransportFactory(nil),

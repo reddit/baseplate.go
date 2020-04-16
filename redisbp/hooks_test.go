@@ -8,11 +8,12 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/redisbp"
+	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
 func TestSpanHook(t *testing.T) {
-	ctx, _ := tracing.StartSpanFromThriftContext(context.Background(), "foo")
+	ctx, _ := thriftbp.StartSpanFromThriftContext(context.Background(), "foo")
 	hooks := redisbp.SpanHook{ClientName: "redis"}
 	cmd := redis.NewStatusCmd("ping")
 

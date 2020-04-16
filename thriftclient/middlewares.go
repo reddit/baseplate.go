@@ -6,6 +6,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	opentracing "github.com/opentracing/opentracing-go"
 
+	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -75,7 +76,7 @@ func MonitorClient(next thrift.TClient) thrift.TClient {
 				tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 			)
 			span := tracing.AsSpan(s)
-			ctx = tracing.CreateThriftContextFromSpan(ctx, span)
+			ctx = thriftbp.CreateThriftContextFromSpan(ctx, span)
 			defer func() {
 				span.FinishWithOptions(tracing.FinishOptions{
 					Ctx: ctx,

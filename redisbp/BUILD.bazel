@@ -27,6 +27,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//thriftbp:go_default_library",
         "//tracing:go_default_library",
         "@com_github_go_redis_redis_v7//:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",

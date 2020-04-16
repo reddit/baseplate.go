@@ -9,11 +9,14 @@ go_library(
         "middlewares.go",
         "server.go",
         "testing.go",
+        "tracing.go",
     ],
     importpath = "github.com/reddit/baseplate.go/thriftbp",
     visibility = ["//visibility:public"],
     deps = [
         "//log:go_default_library",
+        "//set:go_default_library",
+        "//tracing:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
     ],
 )
@@ -24,13 +27,17 @@ go_test(
         "example_middlewares_test.go",
         "example_server_test.go",
         "middlewares_test.go",
+        "tracing_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
         "//edgecontext:go_default_library",
         "//internal/gen-go/reddit/baseplate:go_default_library",
         "//log:go_default_library",
+        "//mqsend:go_default_library",
+        "//set:go_default_library",
         "//tracing:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
     ],
 )
