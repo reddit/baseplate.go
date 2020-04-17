@@ -67,7 +67,7 @@ var (
 //		...
 //		N. Middlewares[n]
 //
-// It is reccomended that you pass in tracing.InjectServerSpan and the
+// It is recomended that you pass in tracing.InjectServerSpan and the
 // Middleware returned by edgecontext.InjectEdgeContext as the first two
 // middlewares.
 func Wrap(processor BaseplateProcessor, middlewares ...Middleware) thrift.TProcessor {
