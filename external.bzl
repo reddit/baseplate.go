@@ -10,8 +10,8 @@ def go_dependencies():
     go_repository(
         name = "com_github_apache_thrift",
         importpath = "github.com/apache/thrift",
-        sum = "h1:CDIR7vVbLpa5KUxigiAn3xv58F3OAikfufnESVu1HR4=",
-        version = "v0.13.1-0.20200118205551-397645ac2487",
+        sum = "h1:MowzNlcM1a2VB1p5YpC1t+r0tSlA5Rf867SgCPP1gAA=",
+        version = "v0.13.1-0.20200417185339-9e864d57026b",
     )
     go_repository(
         name = "com_github_burntsushi_toml",

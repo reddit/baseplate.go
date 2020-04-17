@@ -263,7 +263,7 @@ func newClient(socketTimeout time.Duration, genAddr AddressGenerator, factories 
 	if err != nil {
 		return nil, err
 	}
-	trans, err := thrift.NewTSocketTimeout(addr, socketTimeout)
+	trans, err := thrift.NewTSocketTimeout(addr, socketTimeout, socketTimeout)
 	if err != nil {
 		return nil, err
 	}

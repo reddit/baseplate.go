@@ -8,7 +8,6 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/reddit/baseplate.go/edgecontext"
-	"github.com/reddit/baseplate.go/set"
 	"github.com/reddit/baseplate.go/thriftbp"
 )
 
@@ -24,8 +23,15 @@ func TestAttachEdgeRequestContext(t *testing.T) {
 	}
 
 	ctx := thriftbp.AttachEdgeRequestContext(context.Background(), ec)
-	headers := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
-	if !headers.Contains(thriftbp.HeaderEdgeRequest) {
+	headers := thrift.GetWriteHeaderList(ctx)
+	var found bool
+	for _, key := range headers {
+		if key == thriftbp.HeaderEdgeRequest {
+			found = true
+			break
+		}
+	}
+	if !found {
 		t.Error("header not added to thrift write list")
 	}
 
@@ -44,11 +50,6 @@ func TestAttachEdgeRequestContextNilHeader(t *testing.T) {
 		[]string{thriftbp.HeaderEdgeRequest},
 	)
 	ctx = thriftbp.AttachEdgeRequestContext(ctx, nil)
-
-	headers := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
-	if headers.Contains(thriftbp.HeaderEdgeRequest) {
-		t.Error("header was not removed from the thrift write list")
-	}
 
 	_, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
 	if ok {

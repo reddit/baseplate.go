@@ -6,7 +6,6 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 
-	"github.com/reddit/baseplate.go/set"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -34,28 +33,28 @@ import (
 //       Err: err,
 //     }.Convert())
 func CreateThriftContextFromSpan(ctx context.Context, span *tracing.Span) context.Context {
-	headers := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
+	headers := thrift.GetWriteHeaderList(ctx)
 
 	ctx = thrift.SetHeader(
 		ctx,
 		HeaderTracingTrace,
 		strconv.FormatUint(span.TraceID(), 10),
 	)
-	headers.Add(HeaderTracingTrace)
+	headers = append(headers, HeaderTracingTrace)
 
 	ctx = thrift.SetHeader(
 		ctx,
 		HeaderTracingSpan,
 		strconv.FormatUint(span.ID(), 10),
 	)
-	headers.Add(HeaderTracingSpan)
+	headers = append(headers, HeaderTracingSpan)
 
 	ctx = thrift.SetHeader(
 		ctx,
 		HeaderTracingFlags,
 		strconv.FormatInt(span.Flags(), 10),
 	)
-	headers.Add(HeaderTracingFlags)
+	headers = append(headers, HeaderTracingFlags)
 
 	if span.ParentID() != 0 {
 		ctx = thrift.SetHeader(
@@ -63,9 +62,9 @@ func CreateThriftContextFromSpan(ctx context.Context, span *tracing.Span) contex
 			HeaderTracingParent,
 			strconv.FormatUint(span.ParentID(), 10),
 		)
-		headers.Add(HeaderTracingParent)
+		headers = append(headers, HeaderTracingParent)
 	} else {
-		headers.Remove(HeaderTracingParent)
+		ctx = thrift.UnsetHeader(ctx, HeaderTracingParent)
 	}
 
 	if span.Sampled() {
@@ -74,12 +73,12 @@ func CreateThriftContextFromSpan(ctx context.Context, span *tracing.Span) contex
 			HeaderTracingSampled,
 			HeaderTracingSampledTrue,
 		)
-		headers.Add(HeaderTracingSampled)
+		headers = append(headers, HeaderTracingSampled)
 	} else {
-		headers.Remove(HeaderTracingSampled)
+		ctx = thrift.UnsetHeader(ctx, HeaderTracingSampled)
 	}
 
-	ctx = thrift.SetWriteHeaderList(ctx, headers.ToSlice())
+	ctx = thrift.SetWriteHeaderList(ctx, headers)
 
 	return ctx
 }

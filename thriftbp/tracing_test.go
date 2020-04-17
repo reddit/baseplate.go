@@ -8,7 +8,6 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/reddit/baseplate.go/set"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -33,9 +32,20 @@ func TestCreateThriftContextFromSpan(t *testing.T) {
 	checkContextKey := func(t *testing.T, ctx context.Context, key string) {
 		t.Helper()
 
-		headersSet := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
-		if !headersSet.Contains(key) {
+		if _, ok := thrift.GetHeader(ctx, key); !ok {
 			t.Errorf("context should have %s", key)
+		}
+
+		headers := thrift.GetWriteHeaderList(ctx)
+		var found bool
+		for _, header := range headers {
+			if header == key {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("write header list should have %s", key)
 		}
 	}
 
@@ -111,15 +121,6 @@ func TestCreateThriftContextFromSpan(t *testing.T) {
 				tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 			))
 			ctx = thriftbp.CreateThriftContextFromSpan(ctx, child)
-
-			headers := thrift.GetWriteHeaderList(ctx)
-			headersSet := set.StringSliceToSet(headers)
-			if len(headers) != len(headersSet) {
-				t.Errorf(
-					"Expected no duplications in write header list, got %+v",
-					headers,
-				)
-			}
 
 			checkContextKey(t, ctx, thriftbp.HeaderTracingTrace)
 			if v, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingTrace); !ok || v != traceID {
