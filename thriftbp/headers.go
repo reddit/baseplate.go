@@ -56,7 +56,6 @@ func AttachEdgeRequestContext(ctx context.Context, ec *edgecontext.EdgeRequestCo
 		headers.Remove(HeaderEdgeRequest)
 	} else {
 		ctx = thrift.SetHeader(ctx, HeaderEdgeRequest, ec.Header())
-		headers := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
 		headers.Add(HeaderEdgeRequest)
 	}
 	return thrift.SetWriteHeaderList(ctx, headers.ToSlice())

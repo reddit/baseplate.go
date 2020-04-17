@@ -39,11 +39,15 @@ func TestAttachEdgeRequestContext(t *testing.T) {
 }
 
 func TestAttachEdgeRequestContextNilHeader(t *testing.T) {
-	ctx := thriftbp.AttachEdgeRequestContext(context.Background(), nil)
+	ctx := thrift.SetWriteHeaderList(
+		context.Background(),
+		[]string{thriftbp.HeaderEdgeRequest},
+	)
+	ctx = thriftbp.AttachEdgeRequestContext(ctx, nil)
 
 	headers := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
 	if headers.Contains(thriftbp.HeaderEdgeRequest) {
-		t.Error("header should not be added to thrift write list")
+		t.Error("header was not removed from the thrift write list")
 	}
 
 	_, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
