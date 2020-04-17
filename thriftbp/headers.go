@@ -51,12 +51,13 @@ var HeadersToForward = []string{
 // EdgeRequestContext set to forward using the "Edge-Request" header on any
 // Thrift calls made with that context object.
 func AttachEdgeRequestContext(ctx context.Context, ec *edgecontext.EdgeRequestContext) context.Context {
-	if ec == nil {
-		return ctx
-	}
-
-	ctx = thrift.SetHeader(ctx, HeaderEdgeRequest, ec.Header())
 	headers := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
-	headers.Add(HeaderEdgeRequest)
+	if ec == nil {
+		headers.Remove(HeaderEdgeRequest)
+	} else {
+		ctx = thrift.SetHeader(ctx, HeaderEdgeRequest, ec.Header())
+		headers := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
+		headers.Add(HeaderEdgeRequest)
+	}
 	return thrift.SetWriteHeaderList(ctx, headers.ToSlice())
 }
