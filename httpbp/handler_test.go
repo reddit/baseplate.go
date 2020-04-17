@@ -15,7 +15,6 @@ import (
 
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/httpbp"
-	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -210,7 +209,6 @@ func TestBaseplateHandlerFactory(t *testing.T) {
 		Args: httpbp.DefaultMiddlewareArgs{
 			TrustHandler:    httpbp.AlwaysTrustHeaders{},
 			EdgeContextImpl: edgecontext.Init(edgecontext.Config{Store: store}),
-			Logger:          log.TestWrapper(t),
 		},
 		Middlewares: []httpbp.Middleware{
 			edgecontextRecorderMiddleware(&ecRecorder),

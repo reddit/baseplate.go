@@ -8,6 +8,7 @@ import (
 
 	opentracing "github.com/opentracing/opentracing-go"
 
+	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -78,7 +79,7 @@ func TestHooks(t *testing.T) {
 	tracing.RegisterCreateServerSpanHooks(hook)
 	defer tracing.ResetHooks()
 
-	ctx, span := tracing.StartSpanFromThriftContext(context.Background(), "foo")
+	ctx, span := thriftbp.StartSpanFromThriftContext(context.Background(), "foo")
 	span.SetTag("foo", "bar")
 	opentracing.StartSpanFromContext(
 		ctx,
@@ -108,7 +109,7 @@ func TestHookFailures(t *testing.T) {
 	tracing.RegisterCreateServerSpanHooks(hook)
 	defer tracing.ResetHooks()
 
-	ctx, span := tracing.StartSpanFromThriftContext(context.Background(), "foo")
+	ctx, span := thriftbp.StartSpanFromThriftContext(context.Background(), "foo")
 	span.SetTag("foo", "bar")
 	opentracing.StartSpanFromContext(
 		ctx,

@@ -7,7 +7,6 @@ import (
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/thriftbp"
-	"github.com/reddit/baseplate.go/tracing"
 )
 
 // This example demonstrates how to use thriftbp.NewServer.
@@ -27,8 +26,8 @@ func ExampleNewServer() {
 			Logger:  logger,
 		},
 		processor,
-		edgecontext.InjectThriftEdgeContext(ecImpl, logger),
-		tracing.InjectThriftServerSpan,
+		thriftbp.InjectServerSpan,
+		thriftbp.InjectEdgeContext(ecImpl),
 	)
 	if err != nil {
 		log.Fatal(err)

@@ -1,17 +1,13 @@
 package edgecontext
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
-	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/gofrs/uuid"
 
 	"github.com/reddit/baseplate.go/experiments"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/set"
-	"github.com/reddit/baseplate.go/thriftbp"
 )
 
 // An EdgeRequestContext contains context info about an edge request.
@@ -50,15 +46,6 @@ func (e *EdgeRequestContext) AuthToken() *AuthenticationToken {
 // the header between services.
 func (e *EdgeRequestContext) Header() string {
 	return e.header
-}
-
-// AttachToContext attaches the header to thrift context.
-func (e *EdgeRequestContext) AttachToContext(ctx context.Context) context.Context {
-	ctx = thrift.SetHeader(ctx, thriftbp.HeaderEdgeRequest, e.header)
-	headers := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
-	headers.Add(thriftbp.HeaderEdgeRequest)
-	ctx = thrift.SetWriteHeaderList(ctx, headers.ToSlice())
-	return ctx
 }
 
 // SessionID returns the session id of this request.

@@ -13,7 +13,6 @@ import (
 	"github.com/reddit/baseplate.go/edgecontext"
 
 	"github.com/reddit/baseplate.go/httpbp"
-	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -193,11 +192,7 @@ func TestInjectEdgeRequestContext(t *testing.T) {
 				handle := httpbp.Wrap(
 					"test",
 					newTestHandler(testHandlerPlan{}),
-					httpbp.InjectEdgeRequestContext(
-						c.truster,
-						impl,
-						log.TestWrapper(t),
-					),
+					httpbp.InjectEdgeRequestContext(c.truster, impl),
 					edgecontextRecorderMiddleware(&recorder),
 				)
 				handle(c.request.Context(), httptest.NewRecorder(), c.request)
