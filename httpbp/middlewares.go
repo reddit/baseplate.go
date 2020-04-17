@@ -135,7 +135,7 @@ func InitializeEdgeContextFromTrustedRequest(
 	header := r.Header.Get(EdgeContextHeader)
 	ec, err := edgecontext.FromHeader(header, impl)
 	if err != nil {
-		log.Error("Error while parsing EdgeRequestContext: " + err.Error())
+		log.Errorw("Error while parsing EdgeRequestContext: ", "err", err)
 		return ctx
 	}
 
