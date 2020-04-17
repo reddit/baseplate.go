@@ -15,7 +15,6 @@ import (
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/secrets"
-	"github.com/reddit/baseplate.go/set"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftclient"
 	"github.com/reddit/baseplate.go/tracing"
@@ -253,8 +252,15 @@ func TestForwardEdgeRequestContext(t *testing.T) {
 	}
 
 	ctx = recorder.Calls()[0].Ctx
-	headers := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
-	if !headers.Contains(thriftbp.HeaderEdgeRequest) {
+	headers := thrift.GetWriteHeaderList(ctx)
+	var found bool
+	for _, key := range headers {
+		if key == thriftbp.HeaderEdgeRequest {
+			found = true
+			break
+		}
+	}
+	if !found {
 		t.Error("header not added to thrift write list")
 	}
 
@@ -285,13 +291,8 @@ func TestForwardEdgeRequestContextNotSet(t *testing.T) {
 	}
 
 	ctx := recorder.Calls()[0].Ctx
-	headers := set.StringSliceToSet(thrift.GetWriteHeaderList(ctx))
-	if headers.Contains(thriftbp.HeaderEdgeRequest) {
-		t.Error("header should not be added to thrift write list")
-	}
-
 	_, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
 	if ok {
-		t.Fatal("header should not be set")
+		t.Fatal("edge request header should not be set")
 	}
 }

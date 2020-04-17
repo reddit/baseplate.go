@@ -16,7 +16,6 @@ go_library(
     deps = [
         "//edgecontext:go_default_library",
         "//log:go_default_library",
-        "//set:go_default_library",
         "//tracing:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
     ],
@@ -39,7 +38,6 @@ go_test(
         "//log:go_default_library",
         "//mqsend:go_default_library",
         "//secrets:go_default_library",
-        "//set:go_default_library",
         "//tracing:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",
