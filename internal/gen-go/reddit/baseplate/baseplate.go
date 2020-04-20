@@ -361,6 +361,107 @@ func (p *Device) String() string {
   return fmt.Sprintf("Device(%+v)", *p)
 }
 
+// Metadata about the origin service for a request.
+// 
+// The "origin" service is the service responsible for handling the request from
+// the client.
+// 
+// This model is a component of the "Edge-Request" header.  You should not need to
+// interact with this model directly, but rather through the EdgeRequestContext
+// interface provided by baseplate.
+// 
+// Attributes:
+//  - Name: The name of the origin service.
+// 
+type OriginService struct {
+  Name string `thrift:"name,1" db:"name" json:"name"`
+}
+
+func NewOriginService() *OriginService {
+  return &OriginService{}
+}
+
+
+func (p *OriginService) GetName() string {
+  return p.Name
+}
+func (p *OriginService) Read(iprot thrift.TProtocol) error {
+  if _, err := iprot.ReadStructBegin(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+  }
+
+
+  for {
+    _, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+    if err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+    }
+    if fieldTypeId == thrift.STOP { break; }
+    switch fieldId {
+    case 1:
+      if fieldTypeId == thrift.STRING {
+        if err := p.ReadField1(iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(fieldTypeId); err != nil {
+          return err
+        }
+      }
+    default:
+      if err := iprot.Skip(fieldTypeId); err != nil {
+        return err
+      }
+    }
+    if err := iprot.ReadFieldEnd(); err != nil {
+      return err
+    }
+  }
+  if err := iprot.ReadStructEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+  }
+  return nil
+}
+
+func (p *OriginService)  ReadField1(iprot thrift.TProtocol) error {
+  if v, err := iprot.ReadString(); err != nil {
+  return thrift.PrependError("error reading field 1: ", err)
+} else {
+  p.Name = v
+}
+  return nil
+}
+
+func (p *OriginService) Write(oprot thrift.TProtocol) error {
+  if err := oprot.WriteStructBegin("OriginService"); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
+  if p != nil {
+    if err := p.writeField1(oprot); err != nil { return err }
+  }
+  if err := oprot.WriteFieldStop(); err != nil {
+    return thrift.PrependError("write field stop error: ", err) }
+  if err := oprot.WriteStructEnd(); err != nil {
+    return thrift.PrependError("write struct stop error: ", err) }
+  return nil
+}
+
+func (p *OriginService) writeField1(oprot thrift.TProtocol) (err error) {
+  if err := oprot.WriteFieldBegin("name", thrift.STRING, 1); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:name: ", p), err) }
+  if err := oprot.WriteString(string(p.Name)); err != nil {
+  return thrift.PrependError(fmt.Sprintf("%T.name (1) field write error: ", p), err) }
+  if err := oprot.WriteFieldEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field end error 1:name: ", p), err) }
+  return err
+}
+
+func (p *OriginService) String() string {
+  if p == nil {
+    return "<nil>"
+  }
+  return fmt.Sprintf("OriginService(%+v)", *p)
+}
+
 // Container model for the Edge-Request context header.
 // 
 // Baseplate will automatically parse this from the "Edge-Request" header and
@@ -374,11 +475,13 @@ func (p *Device) String() string {
 //  - Session
 //  - AuthenticationToken
 //  - Device
+//  - OriginService
 type Request struct {
   Loid *Loid `thrift:"loid,1" db:"loid" json:"loid"`
   Session *Session `thrift:"session,2" db:"session" json:"session"`
   AuthenticationToken AuthenticationToken `thrift:"authentication_token,3" db:"authentication_token" json:"authentication_token"`
   Device *Device `thrift:"device,4" db:"device" json:"device"`
+  OriginService *OriginService `thrift:"origin_service,5" db:"origin_service" json:"origin_service"`
 }
 
 func NewRequest() *Request {
@@ -410,6 +513,13 @@ func (p *Request) GetDevice() *Device {
   }
 return p.Device
 }
+var Request_OriginService_DEFAULT *OriginService
+func (p *Request) GetOriginService() *OriginService {
+  if !p.IsSetOriginService() {
+    return Request_OriginService_DEFAULT
+  }
+return p.OriginService
+}
 func (p *Request) IsSetLoid() bool {
   return p.Loid != nil
 }
@@ -420,6 +530,10 @@ func (p *Request) IsSetSession() bool {
 
 func (p *Request) IsSetDevice() bool {
   return p.Device != nil
+}
+
+func (p *Request) IsSetOriginService() bool {
+  return p.OriginService != nil
 }
 
 func (p *Request) Read(iprot thrift.TProtocol) error {
@@ -468,6 +582,16 @@ func (p *Request) Read(iprot thrift.TProtocol) error {
     case 4:
       if fieldTypeId == thrift.STRUCT {
         if err := p.ReadField4(iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(fieldTypeId); err != nil {
+          return err
+        }
+      }
+    case 5:
+      if fieldTypeId == thrift.STRUCT {
+        if err := p.ReadField5(iprot); err != nil {
           return err
         }
       } else {
@@ -524,6 +648,14 @@ func (p *Request)  ReadField4(iprot thrift.TProtocol) error {
   return nil
 }
 
+func (p *Request)  ReadField5(iprot thrift.TProtocol) error {
+  p.OriginService = &OriginService{}
+  if err := p.OriginService.Read(iprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.OriginService), err)
+  }
+  return nil
+}
+
 func (p *Request) Write(oprot thrift.TProtocol) error {
   if err := oprot.WriteStructBegin("Request"); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
@@ -532,6 +664,7 @@ func (p *Request) Write(oprot thrift.TProtocol) error {
     if err := p.writeField2(oprot); err != nil { return err }
     if err := p.writeField3(oprot); err != nil { return err }
     if err := p.writeField4(oprot); err != nil { return err }
+    if err := p.writeField5(oprot); err != nil { return err }
   }
   if err := oprot.WriteFieldStop(); err != nil {
     return thrift.PrependError("write field stop error: ", err) }
@@ -580,6 +713,17 @@ func (p *Request) writeField4(oprot thrift.TProtocol) (err error) {
   }
   if err := oprot.WriteFieldEnd(); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write field end error 4:device: ", p), err) }
+  return err
+}
+
+func (p *Request) writeField5(oprot thrift.TProtocol) (err error) {
+  if err := oprot.WriteFieldBegin("origin_service", thrift.STRUCT, 5); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field begin error 5:origin_service: ", p), err) }
+  if err := p.OriginService.Write(oprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.OriginService), err)
+  }
+  if err := oprot.WriteFieldEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field end error 5:origin_service: ", p), err) }
   return err
 }
 

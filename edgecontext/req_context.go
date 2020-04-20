@@ -65,6 +65,13 @@ func (e *EdgeRequestContext) User() User {
 	}
 }
 
+// OriginService returns the info about the origin of this request.
+func (e *EdgeRequestContext) OriginService() OriginService {
+	return OriginService{
+		raw: e.raw,
+	}
+}
+
 // OAuthClient returns the info about the oauth client of this request.
 //
 // ok will be false if this request does not have a valid auth token.
@@ -122,4 +129,12 @@ func (e *EdgeRequestContext) UpdateExperimentEvent(ee *experiments.ExperimentEve
 	} else {
 		ee.DeviceID = uuid.Nil
 	}
+}
+
+type OriginService struct {
+	raw NewArgs
+}
+
+func (os OriginService) Name() string {
+	return os.raw.OriginServiceName
 }
