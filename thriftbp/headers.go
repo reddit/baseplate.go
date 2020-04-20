@@ -23,7 +23,8 @@ const (
 	HeaderTracingSpan = "Span"
 	// The Parent Span ID, a 64-bit integer encoded in decimal.
 	HeaderTracingParent = "Parent"
-	// The Sampled flag, an ASCII "1" (HeaderTracingSampledTrue) if true, otherwise false.
+	// The Sampled flag, an ASCII "1" (HeaderTracingSampledTrue) if true,
+	// otherwise false.
 	// If not present, defaults to false.
 	HeaderTracingSampled = "Sampled"
 	// Trace flags, a 64-bit integer encoded in decimal.

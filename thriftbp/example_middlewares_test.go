@@ -9,8 +9,9 @@ import (
 	"github.com/reddit/baseplate.go/thriftbp"
 )
 
-// This example demonstrates how to use thriftbp.Middleware with thriftbp.Wraps.
-func ExampleWrap() {
+// This example demonstrates how to use thriftbp.ProcessorMiddleware with
+// thriftbp.WrapProcessor.
+func ExampleWrapProcessor() {
 	// variables should be initialized properly in production
 	var (
 		ecImpl    *edgecontext.Impl
@@ -20,8 +21,8 @@ func ExampleWrap() {
 	)
 	processor := baseplate.NewBaseplateServiceProcessor(handler)
 	server := thrift.NewTSimpleServer4(
-		// Use thriftbp.Wrap to wrap the base TProcessor in the middleware
-		thriftbp.Wrap(
+		// Use thriftbp.WrapProcessor to wrap the base TProcessor in the middleware.
+		thriftbp.WrapProcessor(
 			processor,
 			thriftbp.InjectServerSpan,
 			thriftbp.InjectEdgeContext(ecImpl),

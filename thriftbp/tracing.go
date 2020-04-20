@@ -11,7 +11,7 @@ import (
 
 // CreateThriftContextFromSpan injects span info into a context object that can
 // be used in thrift client code.  If you are using a client pool created using
-// thriftclient.NewBaseplateClientPool, all of your thrift calls will already be
+// thriftbp.NewBaseplateClientPool, all of your thrift calls will already be
 // call this automatically, so there is no need to use it directly.
 //
 // Caller should first create a client child-span for the thrift call as usual,
@@ -19,7 +19,7 @@ import (
 // then use the returned context object in the thrift call.
 // Something like:
 //
-//		 var s opentracing.Span
+//     var s opentracing.Span
 //     span, clientCtx := opentracing.StartSpanFromContext(
 //       ctx,
 //       "myCall",

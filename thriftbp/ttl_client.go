@@ -1,4 +1,4 @@
-package thriftclient
+package thriftbp
 
 import (
 	"time"

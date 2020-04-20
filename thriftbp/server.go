@@ -22,15 +22,19 @@ type ServerConfig struct {
 
 // NewServer returns a thrift.TSimpleServer using the THeader transport
 // and protocol to serve the given BaseplateProcessor which is wrapped with the
-// given Middlewares.
-func NewServer(cfg ServerConfig, processor BaseplateProcessor, middlewares ...Middleware) (*thrift.TSimpleServer, error) {
+// given ProcessorMiddlewares.
+func NewServer(
+	cfg ServerConfig,
+	processor BaseplateProcessor,
+	middlewares ...ProcessorMiddleware,
+) (*thrift.TSimpleServer, error) {
 	transport, err := thrift.NewTServerSocketTimeout(cfg.Addr, cfg.Timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	server := thrift.NewTSimpleServer4(
-		Wrap(processor, middlewares...),
+		WrapProcessor(processor, middlewares...),
 		transport,
 		thrift.NewTHeaderTransportFactory(nil),
 		thrift.NewTHeaderProtocolFactory(),

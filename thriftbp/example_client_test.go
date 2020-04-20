@@ -1,4 +1,4 @@
-package thriftclient_test
+package thriftbp_test
 
 import (
 	"context"
@@ -7,14 +7,14 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/thriftclient"
+	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-// This example illustrates what thriftclient.MonitorClient does specifically
-// and the details of how thriftclient.Wrap works, a typical service will
-// not write code like this and will instead be creating a ClientPool using
-// thriftclient.NewBaseplateClientPool.
+// This example illustrates what thriftbp.MonitorClient does specifically and
+// the details of how thriftbp.WrapClient works,
+// a typical service will not write code like this and will instead be creating
+// a ClientPool using thriftbp.NewBaseplateClientPool.
 func ExampleMonitorClient() {
 	// variables should be properly initialized in production code
 	var (
@@ -24,9 +24,9 @@ func ExampleMonitorClient() {
 	// Create an actual service client
 	client := baseplate.NewBaseplateServiceClient(
 		// Use MonitoredClient to wrap a standard thrift client
-		thriftclient.NewWrappedTClientFactory(
-			thriftclient.StandardTClientFactory,
-			thriftclient.MonitorClient,
+		thriftbp.NewWrappedTClientFactory(
+			thriftbp.StandardTClientFactory,
+			thriftbp.MonitorClient,
 		)(transport, factory),
 	)
 	// Create a context with a server span

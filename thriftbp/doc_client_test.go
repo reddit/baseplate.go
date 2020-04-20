@@ -1,4 +1,4 @@
-package thriftclient_test
+package thriftbp_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/thriftclient"
+	"github.com/reddit/baseplate.go/thriftbp"
 )
 
 // In real code these should be coming from either config file or flags instead.
@@ -43,17 +43,17 @@ func NewMyServiceClient(_ thrift.TClient) MyService {
 // END THRIFT GENERATED CODE SECTION
 
 type Client interface {
-	thriftclient.Client
+	thriftbp.Client
 
 	MyService
 }
 
 type clientImpl struct {
-	thriftclient.Client
+	thriftbp.Client
 	MyService
 }
 
-func newClient(pool thriftclient.ClientPool) (Client, error) {
+func newClient(pool thriftbp.ClientPool) (Client, error) {
 	client, err := pool.GetClient()
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func newClient(pool thriftclient.ClientPool) (Client, error) {
 	}, nil
 }
 
-func callEndpoint(ctx context.Context, pool thriftclient.ClientPool) (*MyEndpointResponse, error) {
+func callEndpoint(ctx context.Context, pool thriftbp.ClientPool) (*MyEndpointResponse, error) {
 	client, err := newClient(pool)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func callEndpoint(ctx context.Context, pool thriftclient.ClientPool) (*MyEndpoin
 }
 
 func LoggingMiddleware(next thrift.TClient) thrift.TClient {
-	return thriftclient.WrappedTClient{
+	return thriftbp.WrappedTClient{
 		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
 			log.Infof("pre: %s", method)
 			log.Infof("args: %#v", args)
@@ -87,11 +87,11 @@ func LoggingMiddleware(next thrift.TClient) thrift.TClient {
 	}
 }
 
-// This example demonstrates a typical use case of thriftclient pool in
+// This example demonstrates a typical use case of thriftbp pool in
 // microservice code with custom middleware.
-func Example() {
-	pool, err := thriftclient.NewBaseplateClientPool(
-		thriftclient.ClientPoolConfig{
+func Example_clientPool() {
+	pool, err := thriftbp.NewBaseplateClientPool(
+		thriftbp.ClientPoolConfig{
 			ServiceSlug:        "my-service",
 			Addr:               remoteAddr,
 			InitialConnections: initialConnections,

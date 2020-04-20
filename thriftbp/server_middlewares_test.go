@@ -18,24 +18,13 @@ import (
 
 const (
 	testTimeout = time.Millisecond * 100
-
-	// copied from https://github.com/reddit/baseplate.py/blob/865ce3e19c549983b383dd49f748599929aab2b5/tests/__init__.py#L55
-	headerWithValidAuth = "\x0c\x00\x01\x0b\x00\x01\x00\x00\x00\x0bt2_deadbeef\n\x00\x02\x00\x00\x00\x00\x00\x01\x86\xa0\x00\x0c\x00\x02\x0b\x00\x01\x00\x00\x00\x08beefdead\x00\x0b\x00\x03\x00\x00\x01\xaeeyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0Ml9leGFtcGxlIiwiZXhwIjoyNTI0NjA4MDAwfQ.dRzzfc9GmzyqfAbl6n_C55JJueraXk9pp3v0UYXw0ic6W_9RVa7aA1zJWm7slX9lbuYldwUtHvqaSsOpjF34uqr0-yMoRDVpIrbkwwJkNuAE8kbXGYFmXf3Ip25wMHtSXn64y2gJN8TtgAAnzjjGs9yzK9BhHILCDZTtmPbsUepxKmWTiEX2BdurUMZzinbcvcKY4Rb_Fl0pwsmBJFs7nmk5PvTyC6qivCd8ZmMc7dwL47mwy_7ouqdqKyUEdLoTEQ_psuy9REw57PRe00XCHaTSTRDCLmy4gAN6J0J056XoRHLfFcNbtzAmqmtJ_D9HGIIXPKq-KaggwK9I4qLX7g\x0c\x00\x04\x0b\x00\x01\x00\x00\x00$becc50f6-ff3d-407a-aa49-fa49531363be\x00\x00"
 )
 
-type counter struct {
-	count int
-}
-
-func (c *counter) Incr() {
-	c.count++
-}
-
-func testMiddleware(c *counter) thriftbp.Middleware {
+func testProcessorMiddleware(c *counter) thriftbp.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thriftbp.WrappedTProcessorFunc{
 			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
-				c.Incr()
+				c.incr()
 				return next.Process(ctx, seqId, in, out)
 			},
 		}
@@ -46,7 +35,7 @@ type edgecontextRecorder struct {
 	EdgeContext *edgecontext.EdgeRequestContext
 }
 
-func edgecontextRecorderMiddleware(recorder *edgecontextRecorder) thriftbp.Middleware {
+func edgecontextRecorderMiddleware(recorder *edgecontextRecorder) thriftbp.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thriftbp.WrappedTProcessorFunc{
 			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
@@ -75,7 +64,7 @@ func TestWrap(t *testing.T) {
 	ctx := context.Background()
 	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
 	ctx = thriftbp.SetMockBaseplateProcessorName(ctx, name)
-	wrapped := thriftbp.Wrap(processor, testMiddleware(c))
+	wrapped := thriftbp.WrapProcessor(processor, testProcessorMiddleware(c))
 	wrapped.Process(ctx, nil, nil)
 	if c.count != 1 {
 		t.Fatalf("Unexpected count value %v", c.count)
@@ -113,7 +102,7 @@ func TestInjectServerSpan(t *testing.T) {
 	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
 	ctx = thriftbp.SetMockBaseplateProcessorName(ctx, name)
 
-	wrapped := thriftbp.Wrap(processor, thriftbp.InjectServerSpan)
+	wrapped := thriftbp.WrapProcessor(processor, thriftbp.InjectServerSpan)
 	wrapped.Process(ctx, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
@@ -239,7 +228,7 @@ func TestInjectEdgeContext(t *testing.T) {
 	)
 	ctx = thriftbp.SetMockBaseplateProcessorName(ctx, name)
 	recorder := edgecontextRecorder{}
-	wrapped := thriftbp.Wrap(
+	wrapped := thriftbp.WrapProcessor(
 		processor,
 		thriftbp.InjectEdgeContext(impl),
 		edgecontextRecorderMiddleware(&recorder),
