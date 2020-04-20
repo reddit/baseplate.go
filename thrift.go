@@ -8,6 +8,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/getsentry/raven-go"
 	"github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/batcherror"
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/log"
@@ -97,7 +98,7 @@ func initSentry(cfg ServerConfig) error {
 func cleanup(closers []io.Closer) {
 	for _, c := range closers {
 		if err := c.Close(); err != nil {
-			log.Error("error cleaning up thrift server initialization:", err)
+			log.Errorw("msg", "err", err)
 		}
 	}
 }
@@ -107,13 +108,14 @@ func cleanup(closers []io.Closer) {
 //
 // At the moment, this includes secrets management, metrics, edge contexts
 // (edgecontext.InjectThriftEdgeContext), and spans/tracing (tracing.InjectThriftServerSpan).
-func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.Middleware) (srv Server, err error) {
+func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.ProcessorMiddleware) (srv Server, err error) {
 	var closers []io.Closer
 	defer func() {
 		if err != nil {
 			cleanup(closers)
 		}
 	}()
+
 	logger := initLogger(cfg)
 
 	metricsbp.M = metricsbp.NewStatsd(ctx, metricsbp.StatsdConfig{
@@ -131,9 +133,9 @@ func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.B
 
 	ecImpl := edgecontext.Init(edgecontext.Config{Store: secretsStore})
 	if err = initTracing(cfg, logger, metricsbp.M); err != nil {
-		closers = append(closers, opentracing.GlobalTracer().(*tracing.Tracer))
 		return nil, err
 	}
+	closers = append(closers, opentracing.GlobalTracer().(*tracing.Tracer))
 	if err = initSentry(cfg); err != nil {
 		return nil, err
 	}
@@ -143,13 +145,13 @@ func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.B
 		Logger:  logger,
 	}
 
-	middlewares := []thriftbp.Middleware{
-		tracing.InjectThriftServerSpan,
-		edgecontext.InjectThriftEdgeContext(ecImpl, logger),
+	middlewares := []thriftbp.ProcessorMiddleware{
+		thriftbp.InjectServerSpan,
+		thriftbp.InjectEdgeContext(ecImpl),
 	}
 	middlewares = append(middlewares, additionalMiddlewares...)
 
-	ts, err := thriftbp.NewThriftServer(innerCfg, processor, middlewares...)
+	ts, err := thriftbp.NewServer(innerCfg, processor, middlewares...)
 	if err != nil {
 		return nil, err
 	}
