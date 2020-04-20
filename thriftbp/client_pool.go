@@ -1,4 +1,4 @@
-package thriftclient
+package thriftbp
 
 import (
 	"context"
@@ -25,9 +25,10 @@ type ClientPoolConfig struct {
 	// remove the 'Service' prefix, if present, and convert from camel case to
 	// all lower case, hyphen separated.
 	//
-	// Example:
-	//		AuthenticationService -> authentication
-	//		ImageUploadService -> image-upload
+	// Examples:
+	//
+	//     AuthenticationService -> authentication
+	//     ImageUploadService -> image-upload
 	ServiceSlug string
 
 	// Addr is the address of a thrift service.  Addr must be in the format
@@ -124,12 +125,12 @@ type TClientFactory func(thrift.TTransport, thrift.TProtocolFactory) thrift.TCli
 // NewBaseplateClientPool returns a standard, baseplate ClientPool.
 //
 // A baseplate ClientPool:
-//		1. Uses a TTLClientPool with the given ttl.
-//		2. Wraps the TClient objects with BaseplateDefaultMiddlewares plus any
-//		   additional middlewares passed into this function.
-func NewBaseplateClientPool(cfg ClientPoolConfig, ttl time.Duration, middlewares ...Middleware) (ClientPool, error) {
-	defaults := BaseplateDefaultMiddlewares()
-	wrappers := make([]Middleware, 0, len(defaults)+len(middlewares))
+// 1. Uses a TTLClientPool with the given ttl.
+// 2. Wraps the TClient objects with BaseplateDefaultClientMiddlewares plus
+//    any additional client middlewares passed into this function.
+func NewBaseplateClientPool(cfg ClientPoolConfig, ttl time.Duration, middlewares ...ClientMiddleware) (ClientPool, error) {
+	defaults := BaseplateDefaultClientMiddlewares()
+	wrappers := make([]ClientMiddleware, 0, len(defaults)+len(middlewares))
 	wrappers = append(wrappers, defaults...)
 	wrappers = append(wrappers, middlewares...)
 	return NewCustomClientPool(
@@ -207,13 +208,13 @@ func StandardTClientFactory(trans thrift.TTransport, protoFactory thrift.TProtoc
 // NewWrappedTClientFactory returns a TClientFactory that returns a standard
 // thrift.TClient wrapped with the given middlewares.
 //
-// Services should generally not have to use NewWrappedTClientFactory
-// directly, instead you should use NewBaseplateClientPool which uses the
-// default TClientFactory for a typical Baseplate Thrift Client.
-func NewWrappedTClientFactory(base TClientFactory, middlewares ...Middleware) TClientFactory {
+// Services should generally not have to use NewWrappedTClientFactory directly,
+// instead you should use NewBaseplateClientPool which uses the default
+// TClientFactory for a typical Baseplate Thrift Client.
+func NewWrappedTClientFactory(base TClientFactory, middlewares ...ClientMiddleware) TClientFactory {
 	return func(trans thrift.TTransport, protoFactory thrift.TProtocolFactory) thrift.TClient {
 		client := base(trans, protoFactory)
-		return Wrap(client, middlewares...)
+		return WrapClient(client, middlewares...)
 	}
 }
 

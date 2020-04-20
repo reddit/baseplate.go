@@ -1,4 +1,4 @@
-package thriftclient_test
+package thriftbp_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/reddit/baseplate.go/clientpool"
-	"github.com/reddit/baseplate.go/thriftclient"
+	"github.com/reddit/baseplate.go/thriftbp"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 func TestSingleAddressGenerator(t *testing.T) {
 	t.Parallel()
 
-	gen := thriftclient.SingleAddressGenerator(addr)
+	gen := thriftbp.SingleAddressGenerator(addr)
 	generated, err := gen()
 	if err != nil {
 		t.Fatal(err)
@@ -33,12 +33,12 @@ func TestSingleAddressGenerator(t *testing.T) {
 func TestTTLClientFactory(t *testing.T) {
 	t.Parallel()
 
-	fact := thriftclient.NewTTLClientFactory(time.Millisecond * 3)
+	fact := thriftbp.NewTTLClientFactory(time.Millisecond * 3)
 	trans := thrift.NewTMemoryBuffer()
 	protoFactory := thrift.NewTBinaryProtocolFactoryDefault()
-	tClientFactory := thriftclient.StandardTClientFactory
+	tClientFactory := thriftbp.StandardTClientFactory
 	client := fact(tClientFactory, trans, protoFactory)
-	if _, ok := client.(*thriftclient.TTLClient); !ok {
+	if _, ok := client.(*thriftbp.TTLClient); !ok {
 		t.Fatal("wrong type for client")
 	}
 }
@@ -48,23 +48,15 @@ func TestStandardTClientFactory(t *testing.T) {
 
 	trans := thrift.NewTMemoryBuffer()
 	protoFact := thrift.NewTBinaryProtocolFactoryDefault()
-	c := thriftclient.StandardTClientFactory(trans, protoFact)
+	c := thriftbp.StandardTClientFactory(trans, protoFact)
 	if _, ok := c.(*thrift.TStandardClient); !ok {
 		t.Fatal("wrong type for client")
 	}
 }
 
-type counter struct {
-	count int
-}
-
-func (c *counter) incr() {
-	c.count++
-}
-
-func testMiddleware(c *counter) thriftclient.Middleware {
+func testClientMiddleware(c *counter) thriftbp.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
-		return thriftclient.WrappedTClient{
+		return thriftbp.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
 				c.incr()
 				return next.Call(ctx, method, args, result)
@@ -77,9 +69,9 @@ func TestNewWrappedTClientFactory(t *testing.T) {
 	t.Parallel()
 
 	count := &counter{}
-	tClientFactory := thriftclient.NewWrappedTClientFactory(
-		thriftclient.NewMockTClientFactory(thriftclient.MockClient{}),
-		testMiddleware(count),
+	tClientFactory := thriftbp.NewWrappedTClientFactory(
+		thriftbp.NewMockTClientFactory(thriftbp.MockClient{}),
+		testClientMiddleware(count),
 	)
 	trans := thrift.NewTMemoryBuffer()
 	protoFactory := thrift.NewTBinaryProtocolFactoryDefault()
@@ -100,8 +92,8 @@ func TestNewBaseplateClientPool(t *testing.T) {
 	}
 	defer ln.Close()
 
-	pool, err := thriftclient.NewBaseplateClientPool(
-		thriftclient.ClientPoolConfig{
+	pool, err := thriftbp.NewBaseplateClientPool(
+		thriftbp.ClientPoolConfig{
 			Addr:               ln.Addr().String(),
 			ServiceSlug:        "test",
 			InitialConnections: 1,
@@ -125,18 +117,18 @@ func TestCustomClientPool(t *testing.T) {
 	}
 	defer ln.Close()
 
-	pool, err := thriftclient.NewCustomClientPool(
-		thriftclient.ClientPoolConfig{
+	pool, err := thriftbp.NewCustomClientPool(
+		thriftbp.ClientPoolConfig{
 			ServiceSlug:        "test",
 			InitialConnections: 1,
 			MaxConnections:     5,
 			SocketTimeout:      time.Millisecond * 10,
 		},
-		thriftclient.SingleAddressGenerator(ln.Addr().String()),
-		func(thriftclient.TClientFactory, thrift.TTransport, thrift.TProtocolFactory) thriftclient.Client {
-			return &thriftclient.MockClient{}
+		thriftbp.SingleAddressGenerator(ln.Addr().String()),
+		func(thriftbp.TClientFactory, thrift.TTransport, thrift.TProtocolFactory) thriftbp.Client {
+			return &thriftbp.MockClient{}
 		},
-		thriftclient.StandardTClientFactory,
+		thriftbp.StandardTClientFactory,
 		thrift.NewTBinaryProtocolFactoryDefault(),
 	)
 	if err != nil {
@@ -154,7 +146,7 @@ func TestCustomClientPool(t *testing.T) {
 }
 
 func TestMockClientPool(t *testing.T) {
-	pool := thriftclient.MockClientPool{}
+	pool := thriftbp.MockClientPool{}
 
 	t.Run(
 		"default",
