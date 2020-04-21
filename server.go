@@ -3,7 +3,7 @@ package baseplate
 import (
 	"errors"
 	"io"
-	"io/ioutil"
+	"os"
 	"time"
 
 	yaml "gopkg.in/yaml.v2"
@@ -63,12 +63,13 @@ func ParseServerConfig(path string) (*ServerConfig, error) {
 		return nil, errors.New("no config path given")
 	}
 
-	data, err := ioutil.ReadFile(path)
+	reader, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = yaml.Unmarshal(data, cfg); err != nil {
+	decoder := yaml.NewDecoder(reader)
+	if err = decoder.Decode(cfg); err != nil {
 		return nil, err
 	}
 
