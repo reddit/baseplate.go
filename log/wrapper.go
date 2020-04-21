@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	stdlog "log"
 	"testing"
 )
@@ -60,3 +61,22 @@ func ZapWrapper(level Level) Wrapper {
 		f(msg)
 	}
 }
+
+// ErrorWithRavenWrapper is a Wrapper implementation that both use Zap logger to
+// log at error level, and send the error to raven.
+//
+// In most cases this should be the one used to pass into Baseplate.go libraries
+// expecting a log.Wrapper.
+//
+// Note that this should not be used as the logger set into thrift.TSimpleServer,
+// as that would use the logger to log network I/O errors,
+// which would be too spammy to be sent to raven.
+func ErrorWithRavenWrapper(msg string) {
+	err := fmt.Errorf("log.ErrorWithRavenWrapper: %s", msg)
+	ErrorWithRaven(msg, err)
+}
+
+var (
+	_ Wrapper = NopWrapper
+	_ Wrapper = ErrorWithRavenWrapper
+)
