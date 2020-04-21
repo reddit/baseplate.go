@@ -64,10 +64,10 @@ func ParseServerConfig(path string) (*ServerConfig, error) {
 	}
 
 	reader, err := os.Open(path)
-	defer reader.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer reader.Close()
 
 	decoder := yaml.NewDecoder(reader)
 	if err = decoder.Decode(cfg); err != nil {
