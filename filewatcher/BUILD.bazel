@@ -20,6 +20,7 @@ go_test(
     srcs = [
         "doc_test.go",
         "filewatcher_test.go",
+        "limit_parser_test.go",
     ],
     embed = [":go_default_library"],
     # This test is marked as flaky as sometimes the running environment in drone

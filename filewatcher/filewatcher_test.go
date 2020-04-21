@@ -70,9 +70,11 @@ func TestFileWatcher(t *testing.T) {
 	defer cancel()
 	data, err := filewatcher.New(
 		ctx,
-		path,
-		parser,
-		log.TestWrapper(t),
+		filewatcher.Config{
+			Path:   path,
+			Parser: parser,
+			Logger: log.TestWrapper(t),
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -113,9 +115,11 @@ func TestFileWatcherTimeout(t *testing.T) {
 	defer cancel()
 	_, err = filewatcher.New(
 		ctx,
-		path,
-		parser,
-		log.TestWrapper(t),
+		filewatcher.Config{
+			Path:   path,
+			Parser: parser,
+			Logger: log.TestWrapper(t),
+		},
 	)
 	if err == nil {
 		t.Error("Expected context cancellation error, got nil.")
@@ -161,9 +165,11 @@ func TestFileWatcherRename(t *testing.T) {
 	defer cancel()
 	data, err := filewatcher.New(
 		ctx,
-		path,
-		parser,
-		log.TestWrapper(t),
+		filewatcher.Config{
+			Path:   path,
+			Parser: parser,
+			Logger: log.TestWrapper(t),
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -228,9 +234,11 @@ func TestParserFailure(t *testing.T) {
 	// Initial call to parser should return 1, nil
 	data, err := filewatcher.New(
 		context.Background(),
-		path,
-		parser,
-		logger,
+		filewatcher.Config{
+			Path:   path,
+			Parser: parser,
+			Logger: logger,
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -282,4 +290,88 @@ func TestParserFailure(t *testing.T) {
 	if value != expected {
 		t.Errorf("data.Get().(int64) expected %d, got %d", expected, value)
 	}
+}
+
+func limitedParser(t *testing.T, expectedSize int) filewatcher.Parser {
+	return func(f io.Reader) (interface{}, error) {
+		buf, err := ioutil.ReadAll(f)
+		if err != nil {
+			t.Error(err)
+			return nil, err
+		}
+		if len(buf) != expectedSize {
+			t.Errorf(
+				"Expected size of %d, got %d, data %q",
+				expectedSize,
+				len(buf),
+				buf,
+			)
+		}
+		return buf, nil
+	}
+}
+
+func TestParserSizeLimit(t *testing.T) {
+	interval := time.Millisecond
+	filewatcher.InitialReadInterval = interval
+	writeDelay := interval * 10
+	timeout := writeDelay * 20
+
+	const size = 3
+	payload1 := []byte("Hello, world!")
+	expectedPayload1 := payload1[:size]
+	payload2 := []byte("Bye, world!")
+	expectedPayload2 := payload2[:size]
+
+	dir, err := ioutil.TempDir("", "filewatcher_test_")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+	path := filepath.Join(dir, "foo")
+
+	// Delay writing the file
+	go func() {
+		time.Sleep(writeDelay)
+		f, err := os.Create(path)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer f.Close()
+		if _, err := f.Write(payload1); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	data, err := filewatcher.New(
+		ctx,
+		filewatcher.Config{
+			Path:        path,
+			Parser:      limitedParser(t, size),
+			Logger:      log.TestWrapper(t),
+			MaxFileSize: size,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer data.Stop()
+	compareBytesData(t, data.Get(), expectedPayload1)
+
+	func() {
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		if _, err := f.Write(payload2); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	// Give it some time to handle the file content change
+	time.Sleep(time.Millisecond * 500)
+	compareBytesData(t, data.Get(), expectedPayload2)
 }

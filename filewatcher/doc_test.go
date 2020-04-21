@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log"
 	"time"
 
 	"github.com/reddit/baseplate.go/filewatcher"
+	"github.com/reddit/baseplate.go/log"
 )
 
 // This example demonstrates how to use filewatcher.
@@ -33,12 +33,14 @@ func Example() {
 	defer cancel()
 	data, err := filewatcher.New(
 		ctx,
-		path,
-		parser,
-		nil, // logger
+		filewatcher.Config{
+			Path:   path,
+			Parser: parser,
+			Logger: log.ZapWrapper(log.ErrorLevel),
+		},
 	)
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 
 	getData := func() dataType {

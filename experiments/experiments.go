@@ -44,7 +44,14 @@ func NewExperiments(ctx context.Context, path string, eventLogger EventLogger, l
 		}
 		return doc, nil
 	}
-	result, err := filewatcher.New(ctx, path, parser, logger)
+	result, err := filewatcher.New(
+		ctx,
+		filewatcher.Config{
+			Path:   path,
+			Parser: parser,
+			Logger: logger,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}

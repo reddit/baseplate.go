@@ -43,7 +43,14 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares 
 	}
 	store.secretHandler(middlewares...)
 
-	result, err := filewatcher.New(ctx, path, store.parser, logger)
+	result, err := filewatcher.New(
+		ctx,
+		filewatcher.Config{
+			Path:   path,
+			Parser: store.parser,
+			Logger: logger,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
