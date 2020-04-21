@@ -20,6 +20,11 @@ import (
 // caller can tweak its value when needed.
 var InitialReadInterval = time.Second / 2
 
+// DefaultMaxFileSize is the default MaxFileSize used when it's <= 0.
+//
+// It's 1MiB, which is following the size limit of Apache ZooKeeper nodes.
+const DefaultMaxFileSize = 1024 * 1024
+
 // A Parser is a callback function to be called when a watched file has its
 // content changed, or is read for the first time.
 //
@@ -60,6 +65,10 @@ func (r *Result) watcherLoop(
 	parser Parser,
 	logger log.Wrapper,
 ) {
+	if logger == nil {
+		logger = log.NopWrapper
+	}
+
 	file := filepath.Base(path)
 	for {
 		select {
@@ -68,9 +77,7 @@ func (r *Result) watcherLoop(
 			return
 
 		case err := <-watcher.Errors:
-			if logger != nil {
-				logger("watcher error: " + err.Error())
-			}
+			logger("watcher error: " + err.Error())
 
 		case ev := <-watcher.Events:
 			if filepath.Base(ev.Name) != file {
@@ -85,22 +92,57 @@ func (r *Result) watcherLoop(
 				func() {
 					f, err := os.Open(path)
 					if err != nil {
-						if logger != nil {
-							logger("parser error: " + err.Error())
-						}
+						logger("parser error: " + err.Error())
 					}
 					defer f.Close()
 					d, err := parser(f)
 					if err != nil {
-						if logger != nil {
-							logger("parser error: " + err.Error())
-						}
+						logger("parser error: " + err.Error())
 					} else {
 						r.data.Store(d)
 					}
 				}()
 			}
 		}
+	}
+}
+
+// Config defines the config to be used in New function.
+type Config struct {
+	// The path to the file to be watched, required.
+	Path string
+
+	// The parser to parse the data load, required.
+	Parser Parser
+
+	// Optional. When non-nil, it will be used to log errors,
+	// either returned by parser or by the underlying file system watcher.
+	// Please note that this does not include errors returned by the first parser
+	// call, which will be returned directly.
+	Logger log.Wrapper
+
+	// Optional. When <=0 DefaultMaxFileSize will be used instead.
+	// This limits the size of the file that will be read into memory and sent to
+	// the parser, to limit memory usage.
+	// If the file content is larger than MaxFileSize,
+	// we don't treat that as an error,
+	// but the parser will only receive the first MaxFileSize bytes of content.
+	//
+	// The reasons behind the decision of not treating them as an error are:
+	// 1. Some parsers only read up to what they need (example: json),
+	//    so extra garbage after that won't cause any problems.
+	// 2. For parsers that won't work when they only receive partial data,
+	//    this will cause them to return an error,
+	//    which will be logged and we won't update the parsed data,
+	//    so it's essentially the same as treating those as errors.
+	// 3. Getting the real size of the content without actually reading them could
+	//    be tricky. Only send partial data to parsers is a more robust solution.
+	MaxFileSize int64
+}
+
+func limitParser(parser Parser, limit int64) Parser {
+	return func(f io.Reader) (interface{}, error) {
+		return parser(io.LimitReader(f, limit))
 	}
 }
 
@@ -114,7 +156,13 @@ func (r *Result) watcherLoop(
 // either returned by parser or by the underlying file system watcher.
 // Please note that this does not include errors returned by the first parser
 // call, which will be returned directly.
-func New(ctx context.Context, path string, parser Parser, logger log.Wrapper) (*Result, error) {
+func New(ctx context.Context, cfg Config) (*Result, error) {
+	limit := cfg.MaxFileSize
+	if limit <= 0 {
+		limit = DefaultMaxFileSize
+	}
+	parser := limitParser(cfg.Parser, limit)
+
 	var f *os.File
 
 	for {
@@ -125,7 +173,7 @@ func New(ctx context.Context, path string, parser Parser, logger log.Wrapper) (*
 		}
 
 		var err error
-		f, err = os.Open(path)
+		f, err = os.Open(cfg.Path)
 		if os.IsNotExist(err) {
 			time.Sleep(InitialReadInterval)
 			continue
@@ -146,7 +194,7 @@ func New(ctx context.Context, path string, parser Parser, logger log.Wrapper) (*
 	// Note: We need to watch the parent directory instead of the file itself,
 	// because only watching the file won't give us CREATE events,
 	// which will happen with atomic renames.
-	err = watcher.Add(filepath.Dir(path))
+	err = watcher.Add(filepath.Dir(cfg.Path))
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +209,7 @@ func New(ctx context.Context, path string, parser Parser, logger log.Wrapper) (*
 	res.data.Store(d)
 	res.ctx, res.cancel = context.WithCancel(context.Background())
 
-	go res.watcherLoop(watcher, path, parser, logger)
+	go res.watcherLoop(watcher, cfg.Path, parser, cfg.Logger)
 
 	return res, nil
 }
