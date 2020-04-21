@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
@@ -23,8 +23,10 @@ type ServerConfig struct {
 	}
 
 	Metrics struct {
-		Namespace string
-		Endpoint  string
+		Namespace           string
+		Endpoint            string
+		CounterSampleRate   float64
+		HistogramSampleRate float64
 	}
 
 	Secrets struct {

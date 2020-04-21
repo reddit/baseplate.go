@@ -119,9 +119,11 @@ func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.B
 	logger := initLogger(cfg)
 
 	metricsbp.M = metricsbp.NewStatsd(ctx, metricsbp.StatsdConfig{
-		Prefix:   cfg.Metrics.Namespace,
-		Address:  cfg.Metrics.Endpoint,
-		LogLevel: cfg.Log.Level,
+		CounterSampleRate:   &cfg.Metrics.CounterSampleRate,
+		HistogramSampleRate: &cfg.Metrics.HistogramSampleRate,
+		Prefix:              cfg.Metrics.Namespace,
+		Address:             cfg.Metrics.Endpoint,
+		LogLevel:            cfg.Log.Level,
 	})
 	closers = append(closers, metricsbp.M)
 
