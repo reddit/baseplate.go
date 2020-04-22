@@ -72,12 +72,15 @@ func ZapWrapper(level Level) Wrapper {
 // Note that this should not be used as the logger set into thrift.TSimpleServer,
 // as that would use the logger to log network I/O errors,
 // which would be too spammy to be sent to Sentry.
-func ErrorWithSentryWrapper(msg string) {
-	Error(msg)
-	sentry.CaptureMessage(msg)
+// For this reason, it's returning a Wrapper instead of being a Wrapper itself,
+// thus forcing an extra typecasting to be used as a thrift.Logger.
+func ErrorWithSentryWrapper() Wrapper {
+	return func(msg string) {
+		Error(msg)
+		sentry.CaptureMessage(msg)
+	}
 }
 
 var (
 	_ Wrapper = NopWrapper
-	_ Wrapper = ErrorWithSentryWrapper
 )

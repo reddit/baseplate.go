@@ -4,8 +4,6 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
-
-	"github.com/reddit/baseplate.go/log"
 )
 
 // ServerConfig is the arg struct for NewServer.
@@ -17,7 +15,12 @@ type ServerConfig struct {
 	Timeout time.Duration
 
 	// A log wrapper that is used by the TSimpleServer.
-	Logger log.Wrapper
+	//
+	// It's compatible with log.Wrapper (with an extra typecasting),
+	// but you should not use log.ErrorWithSentryWrapper for this one,
+	// as it would log all the network I/O errors,
+	// which would be too spammy for sentry.
+	Logger thrift.Logger
 }
 
 // NewServer returns a thrift.TSimpleServer using the THeader transport
@@ -40,6 +43,6 @@ func NewServer(
 		thrift.NewTHeaderProtocolFactory(),
 	)
 	server.SetForwardHeaders(HeadersToForward)
-	server.SetLogger(thrift.Logger(cfg.Logger))
+	server.SetLogger(cfg.Logger)
 	return server, nil
 }

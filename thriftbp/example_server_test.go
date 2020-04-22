@@ -3,6 +3,8 @@ package thriftbp_test
 import (
 	"time"
 
+	"github.com/apache/thrift/lib/go/thrift"
+
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
@@ -23,7 +25,7 @@ func ExampleNewServer() {
 		thriftbp.ServerConfig{
 			Addr:    "localhost:8080",
 			Timeout: time.Second,
-			Logger:  logger,
+			Logger:  thrift.Logger(logger),
 		},
 		processor,
 		thriftbp.InjectServerSpan,
