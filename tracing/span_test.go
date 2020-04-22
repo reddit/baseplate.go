@@ -198,6 +198,10 @@ func TestChildSpan(t *testing.T) {
 	) bool {
 		span := AsSpan(opentracing.StartSpan(string(parentName)))
 		span.trace.flags = flags
+		if span.getHub() == nopHub {
+			t.Error("span.getHub() returned nopHub")
+		}
+
 		var child *Span
 		switch SpanType(childType) {
 		case SpanTypeClient:
@@ -247,6 +251,9 @@ func TestChildSpan(t *testing.T) {
 		}
 		if len(child.trace.counters) > 0 {
 			t.Error("Child should not inherit parent's counters")
+		}
+		if child.getHub() != span.getHub() {
+			t.Errorf("Parent hub %#v != child hub %#v", span.getHub(), child.getHub())
 		}
 		if t.Failed() {
 			t.Logf("parent: %+v, child: %+v", span, child)

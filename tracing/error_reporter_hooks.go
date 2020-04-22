@@ -1,9 +1,5 @@
 package tracing
 
-import (
-	"github.com/getsentry/raven-go"
-)
-
 // ErrorReporterCreateServerSpanHook registers each Server Span with an
 // ErrorReporterSpanHook that will publish errors sent to OnPreStop to Sentry.
 type ErrorReporterCreateServerSpanHook struct{}
@@ -27,7 +23,7 @@ func (h errorReporterSpanHook) OnPostStart(span *Span) error {
 // OnPreStop logs a message and sends err to Sentry if err is non-nil.
 func (h errorReporterSpanHook) OnPreStop(span *Span, err error) error {
 	if err != nil {
-		raven.CaptureError(err, nil)
+		span.getHub().CaptureException(err)
 	}
 	return nil
 }
