@@ -131,10 +131,12 @@ func (e *EdgeRequestContext) UpdateExperimentEvent(ee *experiments.ExperimentEve
 	}
 }
 
+// OriginService holds metadata about the origin of the request.
 type OriginService struct {
 	raw NewArgs
 }
 
+// Name returns the name of the service that serves as the origin of the request.
 func (os OriginService) Name() string {
 	return os.raw.OriginServiceName
 }
