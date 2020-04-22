@@ -1,9 +1,10 @@
 package log
 
 import (
-	"fmt"
 	stdlog "log"
 	"testing"
+
+	sentry "github.com/getsentry/sentry-go"
 )
 
 // Wrapper is a simple wrapper of a logging function.
@@ -62,21 +63,21 @@ func ZapWrapper(level Level) Wrapper {
 	}
 }
 
-// ErrorWithRavenWrapper is a Wrapper implementation that both use Zap logger to
-// log at error level, and send the error to raven.
+// ErrorWithSentryWrapper is a Wrapper implementation that both use Zap logger
+// to log at error level, and also send the message to Sentry.
 //
 // In most cases this should be the one used to pass into Baseplate.go libraries
 // expecting a log.Wrapper.
 //
 // Note that this should not be used as the logger set into thrift.TSimpleServer,
 // as that would use the logger to log network I/O errors,
-// which would be too spammy to be sent to raven.
-func ErrorWithRavenWrapper(msg string) {
-	err := fmt.Errorf("log.ErrorWithRavenWrapper: %s", msg)
-	ErrorWithRaven(msg, err)
+// which would be too spammy to be sent to Sentry.
+func ErrorWithSentryWrapper(msg string) {
+	Error(msg)
+	sentry.CaptureMessage(msg)
 }
 
 var (
 	_ Wrapper = NopWrapper
-	_ Wrapper = ErrorWithRavenWrapper
+	_ Wrapper = ErrorWithSentryWrapper
 )

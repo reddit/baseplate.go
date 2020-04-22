@@ -5,9 +5,7 @@ go 1.14
 require (
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/apache/thrift v0.13.1-0.20200417185339-9e864d57026b
-	github.com/certifi/gocertifi v0.0.0-20191021191039-0944d244cd40 // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
-	github.com/getsentry/raven-go v0.2.0
+	github.com/getsentry/sentry-go v0.6.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-redis/redis/v7 v7.0.0-beta.5

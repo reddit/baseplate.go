@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	sentry "github.com/getsentry/sentry-go"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
 )
@@ -100,6 +101,7 @@ type Span struct {
 	component string
 	hooks     []interface{}
 	spanType  SpanType
+	hub       *sentry.Hub
 }
 
 func (s *Span) onStart() {
@@ -230,11 +232,14 @@ func (s *Span) Component() string {
 	return s.spanType.String()
 }
 
+// initChildSpan do the initialization for the child span to inherit from the
+// parent.
 func (s Span) initChildSpan(child *Span) {
 	child.trace.parentID = s.trace.spanID
 	child.trace.traceID = s.trace.traceID
 	child.trace.sampled = s.trace.sampled
 	child.trace.flags = s.trace.flags
+	child.hub = s.hub
 
 	if child.spanType != SpanTypeServer {
 		// We treat server spans differently. They should only be child to a span
@@ -290,6 +295,31 @@ func (s *Span) preStop(err error) {
 	if s.trace.isDebugSet() {
 		s.trace.setTag(ZipkinBinaryAnnotationKeyDebug, true)
 	}
+}
+
+// getHub returns the *sentry.Hub attached to this span/trace.
+//
+// It's guaranteed to be non-nil.
+func (s Span) getHub() *sentry.Hub {
+	if s.hub != nil {
+		return s.hub
+	}
+	// This shouldn't happen, but just in case to avoid panics.
+	return getNopHub()
+}
+
+// InjectSentryHub injects the sentry hub attached to this span to the context
+// object as the current hub.
+//
+// It's called automatically by StartSpanFromHeaders and thriftbp/httpbp
+// middlewares,
+// so you don't need to call it for spans created automatically from requests.
+// But you should call it if you created a top level span manually.
+//
+// It's also not needed to be called for the child spans,
+// as the hub attached would be the same.
+func (s Span) InjectSentryHub(ctx context.Context) context.Context {
+	return context.WithValue(ctx, sentry.HubContextKey, s.getHub())
 }
 
 // ForeachBaggageItem implements opentracing.SpanContext.
@@ -472,5 +502,43 @@ func StartSpanFromHeaders(ctx context.Context, name string, headers Headers) (co
 		span.trace.sampled = *headers.Sampled
 	}
 
+	initRootSpan(span)
+	ctx = span.InjectSentryHub(ctx)
+
 	return ctx, span
+}
+
+// initRootSpan is the other half of initChildSpan.
+//
+// One of initRootSpan and initChildSpan MUST be called for every span created.
+// This function should be called AFTER we set the trace id correctly.
+//
+// Note that the conception of "root" here is slightly counterintuitive.
+// It includes spans that their parent is not in this process
+// (e.g. the first span created from the request handler,
+// while their parent is on the client side).
+// It doesn't necessarily mean top level traces.
+//
+// It also doesn't necessarily mean the span must be a server span.
+func initRootSpan(s *Span) {
+	hub := sentry.CurrentHub()
+	if hub == nil {
+		// This shouldn't happen, but just in case to avoid panic.
+		hub = getNopHub()
+	} else {
+		hub = hub.Clone()
+	}
+	hub.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetTag("trace_id", strconv.FormatUint(s.TraceID(), 10))
+	})
+	s.hub = hub
+}
+
+var nopHub = sentry.NewHub(nil, sentry.NewScope())
+
+func getNopHub() *sentry.Hub {
+	// Whenever this function is called, it means we had a bug that didn't
+	// initialize the spans correctly.
+	globalTracer.getLogger()("getNopHub called.")
+	return nopHub
 }

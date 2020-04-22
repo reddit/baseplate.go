@@ -1,7 +1,9 @@
 package log
 
 import (
-	"github.com/getsentry/raven-go"
+	"context"
+
+	sentry "github.com/getsentry/sentry-go"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -27,39 +29,9 @@ const (
 	ZapNopLevel zapcore.Level = zapcore.FatalLevel + 1
 )
 
-// InitLogger provides a quick way to start or replace a logger
-// Pass in debug as log level enables development mode (which makes DPanicLevel logs panic).
-func InitLogger(logLevel Level) {
-	config := zap.NewProductionConfig()
-	lvl := StringToAtomicLevel(logLevel)
-	config.Encoding = "console"
-	config.EncoderConfig.EncodeCaller = ShortCallerEncoder
-	config.EncoderConfig.EncodeTime = TimeEncoder
-	config.EncoderConfig.EncodeLevel = CapitalLevelEncoder
-	config.Level = zap.NewAtomicLevelAt(lvl)
-
-	if lvl == zap.DebugLevel {
-		config.Development = true
-	}
-	InitLoggerWithConfig(logLevel, config)
-}
-
-// InitLoggerWithConfig provides a quick way to start or replace a logger
-// Pass in debug as log level enables development mode (which makes DPanicLevel logs panic).
-// Pass in a cfg to provide a logger with custom setting
-func InitLoggerWithConfig(logLevel Level, cfg zap.Config) {
-	if logLevel == NopLevel {
-		logger = zap.NewNop().Sugar()
-		return
-	}
-	// TODO: error handling
-	l, _ := cfg.Build(zap.AddCallerSkip(2))
-	logger = l.Sugar()
-}
-
-// StringToAtomicLevel converts in to a zap acceptable atomic level struct
-func StringToAtomicLevel(loglevel Level) zapcore.Level {
-	switch loglevel {
+// ToZapLevel converts Level to a zap acceptable atomic level struct
+func (l Level) ToZapLevel() zapcore.Level {
+	switch l {
 	default:
 		return ZapNopLevel
 	case DebugLevel:
@@ -75,6 +47,46 @@ func StringToAtomicLevel(loglevel Level) zapcore.Level {
 	case FatalLevel:
 		return zapcore.FatalLevel
 	}
+}
+
+// InitLogger provides a quick way to start or replace a logger.
+//
+// Pass in debug as log level enables development mode,
+// which makes DPanicLevel logs panic.
+func InitLogger(logLevel Level) {
+	config := zap.NewProductionConfig()
+	lvl := logLevel.ToZapLevel()
+	config.Encoding = "console"
+	config.EncoderConfig.EncodeCaller = ShortCallerEncoder
+	config.EncoderConfig.EncodeTime = TimeEncoder
+	config.EncoderConfig.EncodeLevel = CapitalLevelEncoder
+	config.Level = zap.NewAtomicLevelAt(lvl)
+
+	if lvl == zap.DebugLevel {
+		config.Development = true
+	}
+	if err := InitLoggerWithConfig(logLevel, config); err != nil {
+		// shouldn't happen, but just in case
+		panic(err)
+	}
+}
+
+// InitLoggerWithConfig provides a quick way to start or replace a logger.
+//
+// Pass in debug as log level enables development mode,
+// which makes DPanicLevel logs panic.
+// Pass in a cfg to provide a logger with custom setting
+func InitLoggerWithConfig(logLevel Level, cfg zap.Config) error {
+	if logLevel == NopLevel {
+		logger = zap.NewNop().Sugar()
+		return nil
+	}
+	l, err := cfg.Build(zap.AddCallerSkip(2))
+	if err != nil {
+		return err
+	}
+	logger = l.Sugar()
+	return nil
 }
 
 // Debug uses fmt.Sprint to construct and log a message.
@@ -97,16 +109,9 @@ func Error(args ...interface{}) {
 	logger.Error(args...)
 }
 
-// ErrorWithRaven logs a message with some additional context, then sends the error to Sentry.
-// The variadic key-value pairs are treated as they are in With.
-func ErrorWithRaven(msg string, err error, keysAndValues ...interface{}) {
-	keysAndValues = append(keysAndValues, "err", err)
-	logger.Errorw(msg, keysAndValues...)
-	raven.CaptureError(err, nil)
-}
-
-// DPanic uses fmt.Sprint to construct and log a message. In development, the
-// logger then panics. (See DPanicLevel for details.)
+// DPanic uses fmt.Sprint to construct and log a message.
+//
+// In development, the logger then panics. (See DPanicLevel for details.)
 func DPanic(args ...interface{}) {
 	logger.DPanic(args...)
 }
@@ -141,8 +146,9 @@ func Errorf(template string, args ...interface{}) {
 	logger.Errorf(template, args...)
 }
 
-// DPanicf uses fmt.Sprintf to log a templated message. In development, the
-// logger then panics. (See DPanicLevel for details.)
+// DPanicf uses fmt.Sprintf to log a templated message.
+//
+// In development, the logger then panics. (See DPanicLevel for details.)
 func DPanicf(template string, args ...interface{}) {
 	logger.DPanicf(template, args...)
 }
@@ -157,48 +163,57 @@ func Fatalf(template string, args ...interface{}) {
 	logger.Fatalf(template, args...)
 }
 
-// Debugw logs a message with some additional context. The variadic key-value
-// pairs are treated as they are in With.
+// Debugw logs a message with some additional context.
+//
+// The variadic key-value pairs are treated as they are in With.
 //
 // When debug-level logging is disabled, this is much faster than
-//  s.With(keysAndValues).Debug(msg)
+//
+//     With(keysAndValues).Debug(msg)
 func Debugw(msg string, keysAndValues ...interface{}) {
 	logger.Debugw(msg, keysAndValues...)
 }
 
-// Infow logs a message with some additional context. The variadic key-value
-// pairs are treated as they are in With.
+// Infow logs a message with some additional context.
+//
+// The variadic key-value pairs are treated as they are in With.
 func Infow(msg string, keysAndValues ...interface{}) {
 	logger.Infow(msg, keysAndValues...)
 }
 
-// Warnw logs a message with some additional context. The variadic key-value
-// pairs are treated as they are in With.
+// Warnw logs a message with some additional context.
+//
+// The variadic key-value pairs are treated as they are in With.
 func Warnw(msg string, keysAndValues ...interface{}) {
 	logger.Warnw(msg, keysAndValues...)
 }
 
-// Errorw logs a message with some additional context. The variadic key-value
-// pairs are treated as they are in With.
+// Errorw logs a message with some additional context.
+//
+// The variadic key-value pairs are treated as they are in With.
 func Errorw(msg string, keysAndValues ...interface{}) {
 	logger.Errorw(msg, keysAndValues...)
 }
 
-// DPanicw logs a message with some additional context. In development, the
-// logger then panics. (See DPanicLevel for details.) The variadic key-value
-// pairs are treated as they are in With.
+// DPanicw logs a message with some additional context.
+//
+// In development, the logger then panics. (See DPanicLevel for details.)
+//
+// The variadic key-value pairs are treated as they are in With.
 func DPanicw(msg string, keysAndValues ...interface{}) {
 	logger.DPanicw(msg, keysAndValues...)
 }
 
-// Panicw logs a message with some additional context, then panics. The
-// variadic key-value pairs are treated as they are in With.
+// Panicw logs a message with some additional context, then panics.
+//
+// The variadic key-value pairs are treated as they are in With.
 func Panicw(msg string, keysAndValues ...interface{}) {
 	logger.Panicw(msg, keysAndValues...)
 }
 
-// Fatalw logs a message with some additional context, then calls os.Exit. The
-// variadic key-value pairs are treated as they are in With.
+// Fatalw logs a message with some additional context, then calls os.Exit.
+//
+// The variadic key-value pairs are treated as they are in With.
 func Fatalw(msg string, keysAndValues ...interface{}) {
 	logger.Fatalw(msg, keysAndValues...)
 }
@@ -208,7 +223,27 @@ func Sync() error {
 	return logger.Sync()
 }
 
-// With wraps around the underline logger's With
+// With wraps around the underline logger's With.
 func With(args ...interface{}) *zap.SugaredLogger {
 	return logger.With(args...)
+}
+
+// ErrorWithSentry logs a message with some additional context,
+// then sends the error to Sentry.
+//
+// The variadic key-value pairs are treated as they are in With.
+//
+// If a sentry hub is attached to the context object passed in
+// (it will be if the context object is from baseplate hooked request context),
+// that hub will be used to do the reporting.
+// Otherwise the global sentry hub will be used instead.
+func ErrorWithSentry(ctx context.Context, msg string, err error, keysAndValues ...interface{}) {
+	keysAndValues = append(keysAndValues, "err", err)
+	logger.Errorw(msg, keysAndValues...)
+
+	if hub := sentry.GetHubFromContext(ctx); hub != nil {
+		hub.CaptureException(err)
+	} else {
+		sentry.CaptureException(err)
+	}
 }

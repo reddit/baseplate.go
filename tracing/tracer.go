@@ -224,8 +224,9 @@ func (t *Tracer) StartSpan(operationName string, opts ...opentracing.StartSpanOp
 	if parent != nil {
 		parent.initChildSpan(span)
 	} else {
-		span.trace.traceID = randbp.R.Uint64()
+		span.trace.traceID = nonZeroRandUint64()
 		span.trace.sampled = randbp.ShouldSampleWithRate(t.sampleRate)
+		initRootSpan(span)
 	}
 
 	switch span.spanType {

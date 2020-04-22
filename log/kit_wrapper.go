@@ -32,5 +32,5 @@ func (w KitWrapper) Log(keyvals ...interface{}) error {
 
 // KitLogger returns a go-kit compatible logger.
 func KitLogger(level Level) KitWrapper {
-	return KitWrapper(StringToAtomicLevel(level))
+	return KitWrapper(level.ToZapLevel())
 }

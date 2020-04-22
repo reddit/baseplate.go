@@ -49,8 +49,8 @@ func newTrace(tracer *Tracer, name string) *trace {
 		tracer: tracer,
 
 		name:    name,
-		traceID: randbp.R.Uint64(),
-		spanID:  randbp.R.Uint64(),
+		traceID: nonZeroRandUint64(),
+		spanID:  nonZeroRandUint64(),
 		start:   time.Now(),
 
 		counters: make(map[string]float64),
@@ -152,4 +152,17 @@ func (t *trace) publish(ctx context.Context) error {
 		return nil
 	}
 	return t.tracer.Record(ctx, t.toZipkinSpan())
+}
+
+// In opentracing spec, zero trace/span/parent ids have special meanings.
+// So we should use this function to generate non-zero random ids.
+func nonZeroRandUint64() uint64 {
+	for {
+		// NOTE: theoretically this could be an infinite loop.
+		// In reality go's pseudo rand number generator won't keep giving us 0
+		// uint64 so we should be fine.
+		if id := randbp.R.Uint64(); id != 0 {
+			return id
+		}
+	}
 }
