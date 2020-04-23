@@ -142,10 +142,11 @@ func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.B
 	if err = initSentry(cfg); err != nil {
 		return nil, err
 	}
+
 	innerCfg := thriftbp.ServerConfig{
 		Addr:    cfg.Addr,
 		Timeout: cfg.Timeout,
-		Logger:  logger,
+		Logger:  thrift.Logger(logger),
 	}
 
 	middlewares := []thriftbp.ProcessorMiddleware{
