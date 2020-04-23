@@ -1,0 +1,410 @@
+package httpbp_test
+
+import (
+	"encoding/json"
+	"errors"
+	"html/template"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/reddit/baseplate.go/httpbp"
+)
+
+func TestErrorResponse(t *testing.T) {
+	t.Parallel()
+
+	cause := errors.New("test")
+	tmpl, err := httpbp.RegisterDefaultErrorTemplate(template.New("test"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type expectation struct {
+		code int
+	}
+
+	cases := []struct {
+		resp *httpbp.ErrorResponse
+		code int
+	}{
+		// 4xx
+		{
+			resp: httpbp.BadRequest(),
+			code: http.StatusBadRequest,
+		},
+		{
+			resp: httpbp.Unauthorized(),
+			code: http.StatusUnauthorized,
+		},
+		{
+			resp: httpbp.PaymentRequired(),
+			code: http.StatusPaymentRequired,
+		},
+		{
+			resp: httpbp.Forbidden(),
+			code: http.StatusForbidden,
+		},
+		{
+			resp: httpbp.NotFound(),
+			code: http.StatusNotFound,
+		},
+		{
+			resp: httpbp.Conflict(),
+			code: http.StatusConflict,
+		},
+		{
+			resp: httpbp.Gone(),
+			code: http.StatusGone,
+		},
+		{
+			resp: httpbp.PayloadTooLarge(),
+			code: http.StatusRequestEntityTooLarge,
+		},
+		{
+			resp: httpbp.UnsupportedMediaType(),
+			code: http.StatusUnsupportedMediaType,
+		},
+		{
+			resp: httpbp.Teapot(),
+			code: http.StatusTeapot,
+		},
+		{
+			resp: httpbp.UnprocessableEntity(),
+			code: http.StatusUnprocessableEntity,
+		},
+		{
+			resp: httpbp.TooEarly(),
+			code: http.StatusTooEarly,
+		},
+		{
+			resp: httpbp.TooManyRequests(),
+			code: http.StatusTooManyRequests,
+		},
+		{
+			resp: httpbp.LegalBlock(),
+			code: http.StatusUnavailableForLegalReasons,
+		},
+		// 5xx
+		{
+			resp: httpbp.InternalServerError(),
+			code: http.StatusInternalServerError,
+		},
+		{
+			resp: httpbp.NotImplemented(),
+			code: http.StatusNotImplemented,
+		},
+		{
+			resp: httpbp.BadGateway(),
+			code: http.StatusBadGateway,
+		},
+		{
+			resp: httpbp.ServiceUnavailable(),
+			code: http.StatusServiceUnavailable,
+		},
+		{
+			resp: httpbp.GatewayTimeout(),
+			code: http.StatusGatewayTimeout,
+		},
+	}
+
+	for _, _c := range cases {
+		c := _c
+		t.Run(
+			c.resp.Reason,
+			func(t *testing.T) {
+				t.Run(
+					"HTTPError",
+					func(t *testing.T) {
+						err := httpbp.JSONError(c.resp, cause)
+
+						code := err.Response().Code
+						if code != c.code {
+							t.Errorf("code mismatch, expected %d, got %d", c.code, code)
+						}
+
+						// This is testing HTTPError.Unwrap under the hood.
+						if !errors.Is(err, cause) {
+							t.Error("Unwrap should result in errors.Is(HTTPErr, cause) to return true")
+						}
+					},
+				)
+
+				t.Run(
+					"JSON",
+					func(t *testing.T) {
+						err := httpbp.JSONError(c.resp, cause)
+
+						cw := err.ContentWriter()
+						if cw.ContentType() != httpbp.JSONContentType {
+							t.Fatal("wrong content writer")
+						}
+
+						w := httptest.NewRecorder()
+						httpbp.WriteResponse(w, cw, err.Response())
+
+						resp := httpbp.ErrorResponseJSONWrapper{}
+						body := w.Body.String()
+						if err := json.NewDecoder(strings.NewReader(body)).Decode(&resp); err != nil {
+							t.Fatal(err)
+						}
+
+						if resp.Success {
+							t.Error("success should be false")
+						}
+						if resp.Error.Reason != c.resp.Reason {
+							t.Error(w.Body.String())
+							t.Errorf(
+								"reason mismatch, expected %q, got %q",
+								c.resp.Reason,
+								resp.Error.Reason,
+							)
+						}
+						if resp.Error.Explanation != c.resp.Explanation {
+							t.Errorf(
+								"explanation mismatch, expected %q, got %q",
+								c.resp.Explanation,
+								resp.Error.Explanation,
+							)
+						}
+						if resp.Error.Details == nil {
+							resp.Error.Details = make(map[string]string)
+						}
+						if !reflect.DeepEqual(resp.Error.Details, c.resp.Details) {
+							t.Errorf(
+								"details mismatch, expected %#v, got %#v",
+								c.resp.Details,
+								resp.Error.Details,
+							)
+						}
+					},
+				)
+
+				t.Run(
+					"HTML",
+					func(t *testing.T) {
+						err := httpbp.HTMLError(c.resp, cause, tmpl)
+
+						cw := err.ContentWriter()
+						if cw.ContentType() != httpbp.HTMLContentType {
+							t.Fatal("wrong content writer")
+						}
+
+						w := httptest.NewRecorder()
+						httpbp.WriteResponse(w, cw, err.Response())
+
+						body := w.Body.String()
+						if i := strings.Index(body, c.resp.Reason); i == -1 {
+							t.Errorf("reason missing from response")
+						}
+						if i := strings.Index(body, c.resp.Explanation); i == -1 {
+							t.Errorf("explanation missing from response")
+						}
+					},
+				)
+
+				t.Run(
+					"Raw",
+					func(t *testing.T) {
+						err := httpbp.RawError(c.resp, cause, httpbp.PlainTextContentType)
+
+						cw := err.ContentWriter()
+						if cw.ContentType() != httpbp.PlainTextContentType {
+							t.Fatal("wrong content writer")
+						}
+
+						w := httptest.NewRecorder()
+						httpbp.WriteResponse(w, cw, err.Response())
+
+						body := w.Body.String()
+						if body != c.resp.String() {
+							t.Errorf("body mismatch, expected %q, got %q", c.resp, body)
+						}
+					},
+				)
+			},
+		)
+	}
+}
+
+func TestWithDetails(t *testing.T) {
+	key := "foo"
+	value := "bar"
+	tmpl, err := httpbp.RegisterDefaultErrorTemplate(template.New("test"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp := httpbp.BadRequest().WithDetails(map[string]string{
+		key: value,
+	})
+	if v, ok := resp.Details[key]; !ok || v != value {
+		t.Fatal("key not set in details properly")
+	}
+
+	t.Run(
+		"JSON",
+		func(t *testing.T) {
+			err := httpbp.JSONError(resp, nil)
+			w := httptest.NewRecorder()
+			httpbp.WriteResponse(w, err.ContentWriter(), err.Response())
+
+			got := httpbp.ErrorResponseJSONWrapper{}
+			body := w.Body.String()
+			if err := json.NewDecoder(strings.NewReader(body)).Decode(&got); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got.Error.Details, resp.Details) {
+				t.Errorf(
+					"details mismatch, expected %#v, got %#v",
+					resp.Details,
+					got.Error.Details,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"HTML",
+		func(t *testing.T) {
+			err := httpbp.HTMLError(resp, nil, tmpl)
+			w := httptest.NewRecorder()
+			httpbp.WriteResponse(w, err.ContentWriter(), err.Response())
+
+			body := w.Body.String()
+			if i := strings.Index(body, key); i == -1 {
+				t.Errorf("details.key missing from response")
+			}
+			if i := strings.Index(body, value); i == -1 {
+				t.Errorf("details.value missing from response")
+			}
+		},
+	)
+}
+
+func TestWithRawResponse(t *testing.T) {
+	t.Parallel()
+
+	raw := "test"
+	resp := httpbp.InternalServerError().WithRawResponse(raw)
+	if resp.String() != raw {
+		t.Errorf("raw response mismatch, expected %q, got %q", raw, resp.String())
+	}
+
+	err := httpbp.RawError(resp, nil, httpbp.PlainTextContentType)
+	w := httptest.NewRecorder()
+	httpbp.WriteResponse(w, err.ContentWriter(), err.Response())
+
+	body := w.Body.String()
+	if body != raw {
+		t.Errorf("body mismatch, expected %q, got %q", raw, body)
+	}
+}
+
+func TestWithTemplateName(t *testing.T) {
+	t.Parallel()
+
+	name := "test"
+	text := "foo"
+	resp := httpbp.InternalServerError().WithTemplateName(name)
+	if resp.TemplateName() != name {
+		t.Errorf("template name mismatch, expected %q, got %q", name, resp.TemplateName())
+	}
+
+	tmpl, err := template.New(name).Parse(text)
+	tmpl, err = httpbp.RegisterDefaultErrorTemplate(tmpl)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	htmlErr := httpbp.HTMLError(resp, nil, tmpl)
+	w := httptest.NewRecorder()
+	httpbp.WriteResponse(w, htmlErr.ContentWriter(), htmlErr.Response())
+	body := w.Body.String()
+	if body != text {
+		t.Errorf("body mismatch, expected %q, got %q", text, body)
+	}
+}
+
+func TestRegisterCustomDefaultErrorTemplate(t *testing.T) {
+	t.Parallel()
+
+	text := "foo"
+	resp := httpbp.InternalServerError()
+	if resp.TemplateName() != httpbp.DefaultErrorTemplateName {
+		t.Errorf(
+			"template name mismatch, expected %q, got %q",
+			httpbp.DefaultErrorTemplateName,
+			resp.TemplateName(),
+		)
+	}
+
+	tmpl, err := httpbp.RegisterCustomDefaultErrorTemplate(template.New("test"), text)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	htmlErr := httpbp.HTMLError(resp, nil, tmpl)
+	w := httptest.NewRecorder()
+	httpbp.WriteResponse(w, htmlErr.ContentWriter(), htmlErr.Response())
+	body := w.Body.String()
+	if body != text {
+		t.Errorf("body mismatch, expected %q, got %q", text, body)
+	}
+}
+
+func TestRetryable(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		duration time.Duration
+		expected string
+	}{
+		{
+			name:     "Millisecond",
+			duration: time.Millisecond,
+			expected: "0.001",
+		},
+		{
+			name:     "Hundred-Milliseconds",
+			duration: time.Millisecond * 100,
+			expected: "0.1",
+		},
+		{
+			name:     "Second",
+			duration: time.Second,
+			expected: "1",
+		},
+		{
+			name:     "Minute",
+			duration: time.Minute,
+			expected: "60",
+		},
+		{
+			name:     "Hour",
+			duration: time.Hour,
+			expected: "3600",
+		},
+	}
+
+	for _, _c := range cases {
+		c := _c
+		t.Run(
+			c.name,
+			func(t *testing.T) {
+
+				w := httptest.NewRecorder()
+				httpbp.TooManyRequests().Retryable(w, c.duration)
+
+				duration := w.Header().Get(httpbp.RetryAfterHeader)
+				if duration != c.expected {
+					t.Errorf("headers do not match, expected %q, got %q", c.expected, duration)
+				}
+			},
+		)
+	}
+}

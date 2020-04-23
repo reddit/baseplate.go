@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/httpbp"
@@ -31,11 +32,14 @@ func home(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 }
 
 func err(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-	body := errorResponse{
-		Reason:  "BAD_REQUEST",
-		Message: "this endpoint always returns an error",
-	}
-	return httpbp.NewJSONError(http.StatusBadRequest, body, errors.New("example"))
+	return httpbp.JSONError(httpbp.InternalServerError(), errors.New("example"))
+}
+
+func ratelimit(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	return httpbp.JSONError(
+		httpbp.TooManyRequests().Retryable(w, time.Minute),
+		errors.New("rate-limit"),
+	)
 }
 
 func loggingMiddleware(name string, next httpbp.HandlerFunc) httpbp.HandlerFunc {
@@ -69,5 +73,6 @@ func ExampleBaseplateHandlerFactory() {
 	handler := http.NewServeMux()
 	handler.Handle("/", handlerFactory.NewHandler("home", home))
 	handler.Handle("/err", handlerFactory.NewHandler("err", err))
+	handler.Handle("/ratelimit", handlerFactory.NewHandler("ratelimit", ratelimit))
 	log.Fatal(http.ListenAndServe(":8080", handler))
 }

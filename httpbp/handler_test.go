@@ -34,7 +34,7 @@ func TestHandler(t *testing.T) {
 	t.Parallel()
 
 	body := jsonResponseBody{X: 1}
-	errBody := jsonResponseBody{X: 2}
+	errResp := httpbp.BadGateway()
 	headers := make(http.Header)
 	headers.Add("foo", "bar")
 	expectedCookie := &http.Cookie{Name: "fizz", Value: "buzz"}
@@ -47,7 +47,9 @@ func TestHandler(t *testing.T) {
 	}
 
 	var jsonErrBody bytes.Buffer
-	err = json.NewEncoder(&jsonErrBody).Encode(errBody)
+	err = json.NewEncoder(&jsonErrBody).Encode(
+		httpbp.ErrorResponseJSONWrapper{Error: errResp},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,11 +107,7 @@ func TestHandler(t *testing.T) {
 				body:    body,
 				headers: headers,
 				cookies: cookies,
-				err: httpbp.NewJSONError(
-					http.StatusBadGateway,
-					errBody,
-					errors.New("test"),
-				),
+				err:     httpbp.JSONError(errResp, errors.New("test")),
 			},
 			expected: expectation{
 				code:        http.StatusBadGateway,
