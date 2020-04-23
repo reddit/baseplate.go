@@ -1,5 +1,30 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@bazel_gazelle//:def.bzl", "gazelle")
 
 # gazelle:prefix github.com/reddit/baseplate.go
 # gazelle:exclude bazel-baseplate.go
 gazelle(name = "gazelle")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "server.go",
+        "thrift.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//batcherror:go_default_library",
+        "//edgecontext:go_default_library",
+        "//log:go_default_library",
+        "//metricsbp:go_default_library",
+        "//secrets:go_default_library",
+        "//thriftbp:go_default_library",
+        "//tracing:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+        "@com_github_getsentry_raven_go//:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
+        "@in_gopkg_yaml_v2//:go_default_library",
+    ],
+)
