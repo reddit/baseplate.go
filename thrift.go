@@ -46,13 +46,12 @@ func (bts *baseplateThriftServer) Close() error {
 	return errors.Compile()
 }
 
-func initLogger(cfg ServerConfig) log.Wrapper {
+func initLogger(cfg ServerConfig) {
 	if cfg.Log.Level == "" {
 		cfg.Log.Level = log.InfoLevel
 	}
 	level := cfg.Log.Level
 	log.InitLogger(level)
-	return log.ZapWrapper(level)
 }
 
 func initSecrets(ctx context.Context, cfg ServerConfig, logger log.Wrapper) (*secrets.Store, error) {
@@ -116,7 +115,9 @@ func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.B
 		}
 	}()
 
-	logger := initLogger(cfg)
+	initLogger(cfg)
+	logger := log.ZapWrapper(cfg.Log.Level)
+	bootstrapLogger := log.ZapWrapper(log.ErrorLevel)
 
 	metricsbp.M = metricsbp.NewStatsd(ctx, metricsbp.StatsdConfig{
 		CounterSampleRate:   &cfg.Metrics.CounterSampleRate,
@@ -127,14 +128,14 @@ func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.B
 	})
 	closers = append(closers, metricsbp.M)
 
-	secretsStore, err := initSecrets(ctx, cfg, logger)
+	secretsStore, err := initSecrets(ctx, cfg, bootstrapLogger)
 	if err != nil {
 		return nil, err
 	}
 	closers = append(closers, secretsStore)
 
 	ecImpl := edgecontext.Init(edgecontext.Config{Store: secretsStore})
-	if err = initTracing(cfg, logger, metricsbp.M); err != nil {
+	if err = initTracing(cfg, bootstrapLogger, metricsbp.M); err != nil {
 		return nil, err
 	}
 	closers = append(closers, opentracing.GlobalTracer().(*tracing.Tracer))
