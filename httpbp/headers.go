@@ -1,12 +1,14 @@
 package httpbp
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/signing"
 )
@@ -66,10 +68,24 @@ type EdgeContextHeaders struct {
 
 // NewEdgeContextHeaders returns a new EdgeContextHeaders object from the given
 // HTTP headers.
+//
+// The edge context header using base64 encoding for http transport, so it needs decode first
 func NewEdgeContextHeaders(h http.Header) EdgeContextHeaders {
-	return EdgeContextHeaders{
-		EdgeRequest: h.Get(EdgeContextHeader),
+	ec, err := base64.StdEncoding.DecodeString(h.Get(EdgeContextHeader))
+	if err != nil {
+		ec = []byte("")
 	}
+	return EdgeContextHeaders{
+		EdgeRequest: string(ec),
+	}
+}
+
+// AttachEdgeContextHeaders attach EdgeRequestContext into request/response header
+//
+// The base64 encoding is only for http transport
+func AttachEdgeContextHeaders(ec *edgecontext.EdgeRequestContext, h http.Header) {
+	ecencoded := base64.StdEncoding.EncodeToString([]byte(ec.Header()))
+	h.Set(EdgeContextHeader, ecencoded)
 }
 
 // AsMap returns the EdgeContextHeaders as a map of header keys to header

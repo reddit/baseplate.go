@@ -1,6 +1,7 @@
 package httpbp_test
 
 import (
+	"encoding/base64"
 	"net/http"
 	"os"
 	"testing"
@@ -16,8 +17,10 @@ const (
 	spanID      = "90123"
 	flags       = "0"
 	sampled     = "1"
-	edgeContext = "edge-context"
+	edgeContext = "edge-context!?$*&()'-=@~"
 )
+
+var b64EdgeContext = base64.StdEncoding.EncodeToString([]byte(edgeContext))
 
 func getHeaders() http.Header {
 	headers := make(http.Header)
@@ -27,7 +30,7 @@ func getHeaders() http.Header {
 		httpbp.SpanIDHeader:      spanID,
 		httpbp.SpanFlagsHeader:   flags,
 		httpbp.SpanSampledHeader: sampled,
-		httpbp.EdgeContextHeader: edgeContext,
+		httpbp.EdgeContextHeader: b64EdgeContext,
 	} {
 		headers.Add(k, v)
 	}
@@ -183,6 +186,7 @@ func TestNewEdgeContextHeaders(t *testing.T) {
 		)
 	}
 }
+
 func TestAlwaysTrustHeaders(t *testing.T) {
 	t.Parallel()
 
