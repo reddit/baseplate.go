@@ -90,9 +90,6 @@ func Init(cfg Config) *Impl {
 		store:  cfg.Store,
 		logger: cfg.Logger,
 	}
-	if impl.logger == nil {
-		impl.logger = log.NopWrapper
-	}
 	impl.store.AddMiddlewares(impl.validatorMiddleware)
 	return impl
 }

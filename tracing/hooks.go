@@ -88,7 +88,7 @@ func ResetHooks() {
 
 func onCreateServerSpan(span *Span) {
 	if span.SpanType() != SpanTypeServer {
-		span.LogError(
+		span.logError(
 			"OnCreateServerSpan called on non-server Span: ",
 			&InvalidSpanTypeError{
 				ExpectedSpanType: SpanTypeServer,
@@ -100,7 +100,7 @@ func onCreateServerSpan(span *Span) {
 
 	for _, hook := range createServerSpanHooks {
 		if err := hook.OnCreateServerSpan(span); err != nil {
-			span.LogError("OnCreateServerSpan hook error: ", err)
+			span.logError("OnCreateServerSpan hook error: ", err)
 		}
 	}
 }

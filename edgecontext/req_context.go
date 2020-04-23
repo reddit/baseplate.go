@@ -118,13 +118,11 @@ func (e *EdgeRequestContext) UpdateExperimentEvent(ee *experiments.ExperimentEve
 		ee.DeviceID, err = uuid.FromString(deviceID)
 		if err != nil {
 			ee.DeviceID = uuid.Nil
-			if e.impl.logger != nil {
-				e.impl.logger(fmt.Sprintf(
-					"Failed to parse device id %q into uuid: %v",
-					deviceID,
-					err,
-				))
-			}
+			log.FallbackWrapper(e.impl.logger)(fmt.Sprintf(
+				"Failed to parse device id %q into uuid: %v",
+				deviceID,
+				err,
+			))
 		}
 	} else {
 		ee.DeviceID = uuid.Nil

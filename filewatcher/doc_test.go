@@ -36,7 +36,7 @@ func Example() {
 		filewatcher.Config{
 			Path:   path,
 			Parser: parser,
-			Logger: log.ZapWrapper(log.ErrorLevel),
+			Logger: log.ErrorWithSentryWrapper(),
 		},
 	)
 	if err != nil {

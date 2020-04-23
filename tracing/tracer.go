@@ -258,10 +258,7 @@ func (t *Tracer) Extract(format interface{}, carrier interface{}) (opentracing.S
 }
 
 func (t *Tracer) getLogger() log.Wrapper {
-	if t.logger != nil {
-		return t.logger
-	}
-	return log.NopWrapper
+	return log.FallbackWrapper(t.logger)
 }
 
 func findFirstParentReference(refs []opentracing.SpanReference) *Span {

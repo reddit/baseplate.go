@@ -108,7 +108,7 @@ func (s *Span) onStart() {
 	for _, h := range s.hooks {
 		if hook, ok := h.(StartStopSpanHook); ok {
 			if err := hook.OnPostStart(s); err != nil {
-				s.LogError("OnPostStart hook error: ", err)
+				s.logError("OnPostStart hook error: ", err)
 			}
 		}
 	}
@@ -149,11 +149,11 @@ func (s Span) Sampled() bool {
 	return s.trace.sampled
 }
 
-// LogError is a helper method to log an error plus a message.
+// logError is a helper method to log an error plus a message.
 //
 // This uses the the logger provided by the underlying tracing.Tracer used to
 // publish the Span.
-func (s Span) LogError(msg string, err error) {
+func (s Span) logError(msg string, err error) {
 	s.trace.tracer.getLogger()(msg + err.Error())
 }
 
@@ -170,7 +170,7 @@ func (s *Span) AddHooks(hooks ...interface{}) {
 		if IsSpanHook(hook) {
 			s.hooks = append(s.hooks, hook)
 		} else {
-			s.LogError(
+			s.logError(
 				"AddHooks error: ",
 				fmt.Errorf(
 					"tracing.Span.AddHooks: attempting to add non-SpanHook object into span's hook registry: %#v",
@@ -193,7 +193,7 @@ func (s *Span) SetTag(key string, value interface{}) opentracing.Span {
 	for _, h := range s.hooks {
 		if hook, ok := h.(SetSpanTagHook); ok {
 			if err := hook.OnSetTag(s, key, value); err != nil {
-				s.LogError("OnSetTag hook error: ", err)
+				s.logError("OnSetTag hook error: ", err)
 			}
 		}
 	}
@@ -207,7 +207,7 @@ func (s *Span) AddCounter(key string, delta float64) {
 	for _, h := range s.hooks {
 		if hook, ok := h.(AddSpanCounterHook); ok {
 			if err := hook.OnAddCounter(s, key, delta); err != nil {
-				s.LogError("OnAddCounter hook error: ", err)
+				s.logError("OnAddCounter hook error: ", err)
 			}
 		}
 	}
@@ -248,7 +248,7 @@ func (s Span) initChildSpan(child *Span) {
 		for _, h := range s.hooks {
 			if hook, ok := h.(CreateChildSpanHook); ok {
 				if err := hook.OnCreateChild(&s, child); err != nil {
-					s.LogError("OnCreateChild hook error: ", err)
+					s.logError("OnCreateChild hook error: ", err)
 				}
 			}
 		}
@@ -268,7 +268,7 @@ func (s *Span) Stop(ctx context.Context, err error) error {
 	for _, h := range s.hooks {
 		if hook, ok := h.(StartStopSpanHook); ok {
 			if hookErr := hook.OnPreStop(s, err); hookErr != nil {
-				s.LogError("OnPreStop hook error: ", hookErr)
+				s.logError("OnPreStop hook error: ", hookErr)
 			}
 		}
 	}
@@ -348,7 +348,7 @@ func (s *Span) BaggageItem(restrictedKey string) string {
 // If Stop returns an error, it will also be logged with the tracer's logger.
 func (s *Span) Finish() {
 	if err := s.Stop(context.Background(), nil); err != nil {
-		s.LogError("Span.Stop returned error: ", err)
+		s.logError("Span.Stop returned error: ", err)
 	}
 }
 
@@ -380,7 +380,7 @@ func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
 		}
 	}
 	if stopErr := s.Stop(ctx, err); stopErr != nil {
-		s.LogError("Span.Stop returned error: ", stopErr)
+		s.logError("Span.Stop returned error: ", stopErr)
 	}
 }
 
