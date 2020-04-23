@@ -83,9 +83,9 @@ func NewEdgeContextHeaders(h http.Header) EdgeContextHeaders {
 // AttachEdgeContextHeaders attach EdgeRequestContext into request/response header
 //
 // The base64 encoding is only for http transport
-func AttachEdgeContextHeaders(ec *edgecontext.EdgeRequestContext, h http.Header) {
+func AttachEdgeContextHeaders(ec *edgecontext.EdgeRequestContext, w http.ResponseWriter) {
 	ecencoded := base64.StdEncoding.EncodeToString([]byte(ec.Header()))
-	h.Set(EdgeContextHeader, ecencoded)
+	w.Header().Set(EdgeContextHeader, ecencoded)
 }
 
 // AsMap returns the EdgeContextHeaders as a map of header keys to header
