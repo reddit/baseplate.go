@@ -110,6 +110,8 @@ type NewArgs struct {
 	DeviceID string
 
 	AuthToken string
+
+	OriginServiceName string
 }
 
 // New creates a new EdgeRequestContext from scratch.
@@ -135,6 +137,11 @@ func New(ctx context.Context, impl *Impl, args NewArgs) (*EdgeRequestContext, er
 	if args.DeviceID != "" {
 		request.Device = &baseplate.Device{
 			ID: args.DeviceID,
+		}
+	}
+	if args.OriginServiceName != "" {
+		request.OriginService = &baseplate.OriginService{
+			Name: args.OriginServiceName,
 		}
 	}
 	request.AuthenticationToken = baseplate.AuthenticationToken(args.AuthToken)
@@ -174,6 +181,9 @@ func FromHeader(header string, impl *Impl) (*EdgeRequestContext, error) {
 	if request.Loid != nil {
 		raw.LoID = request.Loid.ID
 		raw.LoIDCreatedAt = timebp.MillisecondsToTime(request.Loid.CreatedMs)
+	}
+	if request.OriginService != nil {
+		raw.OriginServiceName = request.OriginService.Name
 	}
 	return &EdgeRequestContext{
 		impl:   impl,
