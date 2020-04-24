@@ -12,16 +12,16 @@ import (
 // As principles, library code should
 //
 // 1. Not do any logging.
-//    The library code should communicate errors back to the caller,
-//    and let the caller decide how to deal with them
-//    (log them, ignore them, panic, etc.)
+// The library code should communicate errors back to the caller,
+// and let the caller decide how to deal with them
+// (log them, ignore them, panic, etc.)
 //
 // 2. In some rare cases, 1 is not possible,
-//    for example the error might happen in a background goroutine.
-//    In those cases some logging is necessary,
-//    but those should be kept at minimal,
-//    and the library code should provide control to the caller on how to do
-//    those logging.
+// for example the error might happen in a background goroutine.
+// In those cases some logging is necessary,
+// but those should be kept at minimal,
+// and the library code should provide control to the caller on how to do those
+// logging.
 //
 // This interface is meant to solve Principle 2 above.
 // In reality we might actually use different logging libraries in different
@@ -34,13 +34,13 @@ import (
 //
 // 1. A bad thing happened.
 //
-// 2. This is unexpected. For expected errors,
-//    the library should either handle it by itself (e.g. retry),
-//    or communicate it back to the caller and let them handle it.
+// 2. This is unexpected.
+// For expected errors,
+// the library should either handle it by itself (e.g. retry),
+// or communicate it back to the caller and let them handle it.
 //
 // 3. This is also recoverable.
-//    Unrecoverable errors should also be communicated back to the caller to
-//    handle.
+// Unrecoverable errors should also be communicated back to the caller to handle.
 //
 // Baseplate services should use direct logging functions for their logging
 // needs, instead of using Wrapper interface.
