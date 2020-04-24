@@ -1,6 +1,7 @@
 package httpbp_test
 
 import (
+	"encoding/base64"
 	"net/http"
 	"os"
 	"testing"
@@ -16,8 +17,10 @@ const (
 	spanID      = "90123"
 	flags       = "0"
 	sampled     = "1"
-	edgeContext = "edge-context"
+	edgeContext = "edge-context!?$*&()'-=@~"
 )
+
+var b64EdgeContext = base64.StdEncoding.EncodeToString([]byte(edgeContext))
 
 func getHeaders() http.Header {
 	headers := make(http.Header)
@@ -27,7 +30,7 @@ func getHeaders() http.Header {
 		httpbp.SpanIDHeader:      spanID,
 		httpbp.SpanFlagsHeader:   flags,
 		httpbp.SpanSampledHeader: sampled,
-		httpbp.EdgeContextHeader: edgeContext,
+		httpbp.EdgeContextHeader: b64EdgeContext,
 	} {
 		headers.Add(k, v)
 	}
@@ -129,7 +132,10 @@ func TestNewEdgeContextHeaders(t *testing.T) {
 	t.Parallel()
 
 	headers := getHeaders()
-	edgeContextHeaders := httpbp.NewEdgeContextHeaders(headers)
+	edgeContextHeaders, err := httpbp.NewEdgeContextHeaders(headers)
+	if err != nil {
+		t.Fatalf("Got an unexpected error while getting new edge context header: %v", err)
+	}
 
 	cases := []struct {
 		name     string
@@ -183,6 +189,7 @@ func TestNewEdgeContextHeaders(t *testing.T) {
 		)
 	}
 }
+
 func TestAlwaysTrustHeaders(t *testing.T) {
 	t.Parallel()
 
@@ -225,16 +232,20 @@ func TestTrustHeaderSignatureSignAndVerify(t *testing.T) {
 		func(t *testing.T) {
 			request := http.Request{Header: getHeaders()}
 			trustHandler := getTrustHeaderSignature(store)
+			ech, _ := httpbp.NewEdgeContextHeaders(request.Header)
 			signature, err := trustHandler.SignEdgeContextHeader(
-				httpbp.NewEdgeContextHeaders(request.Header),
+				ech,
 				time.Minute,
 			)
 			if err != nil {
 				t.Fatalf("Got an unexpected error while trying to sign headers: %v", err)
 			}
-
+			ech, err = httpbp.NewEdgeContextHeaders(request.Header)
+			if err != nil {
+				t.Errorf("Got an unexpected error while decoding the edge context: %w", err)
+			}
 			ok, err := trustHandler.VerifyEdgeContextHeader(
-				httpbp.NewEdgeContextHeaders(request.Header),
+				ech,
 				signature,
 			)
 			if err != nil {
@@ -279,6 +290,30 @@ func TestTrustHeaderSignatureSignAndVerify(t *testing.T) {
 	)
 }
 
+func TestInvalidEdgeContextHeader(t *testing.T) {
+	store, dir := newSecretsStore(t)
+	defer os.RemoveAll(dir)
+	defer store.Close()
+
+	invalidEdgeContextHeader := &http.Request{Header: getHeaders()}
+	invalidEdgeContextHeader.Header.Set(httpbp.EdgeContextHeader, "==")
+
+	truster := getTrustHeaderSignature(store)
+	_, err := httpbp.NewEdgeContextHeaders(invalidEdgeContextHeader.Header)
+	if err == nil {
+		t.Fatal("Not raising expected decoding error")
+	}
+	ecSignature, err := truster.SignEdgeContextHeader(
+		httpbp.EdgeContextHeaders{EdgeRequest: "=="},
+		time.Minute,
+	)
+	invalidEdgeContextHeader.Header.Set(httpbp.EdgeContextSignatureHeader, ecSignature)
+
+	if truster.TrustEdgeContext(invalidEdgeContextHeader) {
+		t.Error("trust mismatch, expected False, got True")
+	}
+}
+
 func TestTrustHeaderSignature(t *testing.T) {
 	t.Parallel()
 
@@ -289,8 +324,12 @@ func TestTrustHeaderSignature(t *testing.T) {
 	baseRequest := &http.Request{Header: getHeaders()}
 
 	truster := getTrustHeaderSignature(store)
+	ech, err := httpbp.NewEdgeContextHeaders(baseRequest.Header)
+	if err != nil {
+		t.Fatalf("Got an unexpected error while getting new edge context header: %v", err)
+	}
 	ecSignature, err := truster.SignEdgeContextHeader(
-		httpbp.NewEdgeContextHeaders(baseRequest.Header),
+		ech,
 		time.Minute,
 	)
 	if err != nil {
