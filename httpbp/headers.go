@@ -70,22 +70,17 @@ type EdgeContextHeaders struct {
 // HTTP headers.
 //
 // The edge context header using base64 encoding for http transport, so it needs decode first
-func NewEdgeContextHeaders(h http.Header) EdgeContextHeaders {
+func NewEdgeContextHeaders(h http.Header) (EdgeContextHeaders, error) {
 	ec, err := base64.StdEncoding.DecodeString(h.Get(EdgeContextHeader))
-	if err != nil {
-		ec = []byte("")
-	}
-	return EdgeContextHeaders{
-		EdgeRequest: string(ec),
-	}
+	return EdgeContextHeaders{EdgeRequest: string(ec)}, err
 }
 
-// AttachEdgeContextHeaders attach EdgeRequestContext into request/response header
+// SetEdgeContextHeader attach EdgeRequestContext into request/response header
 //
 // The base64 encoding is only for http transport
-func AttachEdgeContextHeaders(ec *edgecontext.EdgeRequestContext, w http.ResponseWriter) {
-	ecencoded := base64.StdEncoding.EncodeToString([]byte(ec.Header()))
-	w.Header().Set(EdgeContextHeader, ecencoded)
+func SetEdgeContextHeader(ec *edgecontext.EdgeRequestContext, w http.ResponseWriter) {
+	encoded := base64.StdEncoding.EncodeToString([]byte(ec.Header()))
+	w.Header().Set(EdgeContextHeader, encoded)
 }
 
 // AsMap returns the EdgeContextHeaders as a map of header keys to header
@@ -306,7 +301,11 @@ func (h TrustHeaderSignature) VerifySpanHeaders(headers SpanHeaders, signature s
 //		"X-Edge-Request:{headerValue}"
 func (h TrustHeaderSignature) TrustEdgeContext(r *http.Request) bool {
 	signature := r.Header.Get(EdgeContextSignatureHeader)
-	ok, err := h.VerifyEdgeContextHeader(NewEdgeContextHeaders(r.Header), signature)
+	edgeContextHeader, err := NewEdgeContextHeaders(r.Header)
+	if err != nil {
+		return false
+	}
+	ok, err := h.VerifyEdgeContextHeader(edgeContextHeader, signature)
 	if err != nil {
 		return false
 	}
