@@ -75,7 +75,7 @@ func NewEdgeContextHeaders(h http.Header) (EdgeContextHeaders, error) {
 	return EdgeContextHeaders{EdgeRequest: string(ec)}, err
 }
 
-// SetEdgeContextHeader attach EdgeRequestContext into request/response header
+// SetEdgeContextHeader attach EdgeRequestContext into response header
 //
 // The base64 encoding is only for http transport
 func SetEdgeContextHeader(ec *edgecontext.EdgeRequestContext, w http.ResponseWriter) {

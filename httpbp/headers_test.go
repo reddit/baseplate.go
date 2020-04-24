@@ -289,6 +289,7 @@ func TestTrustHeaderSignatureSignAndVerify(t *testing.T) {
 		},
 	)
 }
+
 func TestInvalidEdgeContextHeader(t *testing.T) {
 	store, dir := newSecretsStore(t)
 	defer os.RemoveAll(dir)
@@ -312,6 +313,7 @@ func TestInvalidEdgeContextHeader(t *testing.T) {
 		t.Error("trust mismatch, expected False, got True")
 	}
 }
+
 func TestTrustHeaderSignature(t *testing.T) {
 	t.Parallel()
 
