@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	opentracing "github.com/opentracing/opentracing-go"
@@ -141,6 +142,24 @@ func InitGlobalTracer(cfg TracerConfig) error {
 
 	opentracing.SetGlobalTracer(&globalTracer)
 	return nil
+}
+
+type closer struct{}
+
+func (closer) Close() error {
+	return CloseTracer()
+}
+
+// InitGlobalTracerWithCloser is the combination of InitGlobalTracer and
+// CloseTracer.
+//
+// After successful initialization,
+// the returned Closer would delegate to CloseTracer upon called.
+func InitGlobalTracerWithCloser(cfg TracerConfig) (io.Closer, error) {
+	if err := InitGlobalTracer(cfg); err != nil {
+		return nil, err
+	}
+	return closer{}, nil
 }
 
 // Close closes the tracer's reporting.

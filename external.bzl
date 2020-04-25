@@ -921,18 +921,6 @@ def go_dependencies():
         version = "v2.0.0-20180705113604-9856a29383ce",
     )
     go_repository(
-        name = "com_github_certifi_gocertifi",
-        importpath = "github.com/certifi/gocertifi",
-        sum = "h1:JLaf/iINcLyjwbtTsCJjc6rtlASgHeIJPrB6QmwURnA=",
-        version = "v0.0.0-20200211180108-c7c1fbc02894",
-    )
-    go_repository(
-        name = "com_github_getsentry_raven_go",
-        importpath = "github.com/getsentry/raven-go",
-        sum = "h1:no+xWJRb5ZI7eE8TWgIq1jLulQiIoLG0IfYxv5JYMGs=",
-        version = "v0.2.0",
-    )
-    go_repository(
         name = "com_github_yuin_goldmark",
         importpath = "github.com/yuin/goldmark",
         sum = "h1:nqDD4MMMQA0lmWq03Z2/myGPYLQoXtmi0rGVs95ntbo=",

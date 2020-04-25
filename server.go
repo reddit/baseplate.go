@@ -25,8 +25,8 @@ type ServerConfig struct {
 	Metrics struct {
 		Namespace           string
 		Endpoint            string
-		CounterSampleRate   float64
-		HistogramSampleRate float64
+		CounterSampleRate   *float64
+		HistogramSampleRate *float64
 	}
 
 	Secrets struct {
@@ -36,7 +36,7 @@ type ServerConfig struct {
 	Sentry struct {
 		DSN         string
 		Environment string
-		SampleRate  float64
+		SampleRate  *float64
 	}
 
 	Tracing struct {
@@ -44,6 +44,7 @@ type ServerConfig struct {
 		Endpoint      string
 		RecordTimeout time.Duration
 		SampleRate    float64
+		QueueName     string
 	}
 }
 
@@ -57,23 +58,26 @@ type Server interface {
 }
 
 // ParseServerConfig will populate a ServerConfig from a YAML file.
-func ParseServerConfig(path string) (*ServerConfig, error) {
-	cfg := &ServerConfig{}
+func ParseServerConfig(path string) (ServerConfig, error) {
 	if path == "" {
-		return nil, errors.New("no config path given")
+		return ServerConfig{}, errors.New("baseplate.ParseServerConfig: no config path given")
 	}
 
-	reader, err := os.Open(path)
+	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return ServerConfig{}, err
 	}
-	defer reader.Close()
+	defer f.Close()
 
+	return parseConfigYaml(f)
+}
+
+func parseConfigYaml(reader io.Reader) (cfg ServerConfig, err error) {
 	decoder := yaml.NewDecoder(reader)
-	if err = decoder.Decode(cfg); err != nil {
-		return nil, err
+	if err = decoder.Decode(&cfg); err != nil {
+		return
 	}
 
 	log.Debugf("%#v", cfg)
-	return cfg, nil
+	return
 }
