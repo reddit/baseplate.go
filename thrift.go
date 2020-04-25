@@ -2,12 +2,11 @@ package baseplate
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	"github.com/getsentry/raven-go"
-	"github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/batcherror"
 	"github.com/reddit/baseplate.go/edgecontext"
@@ -22,7 +21,6 @@ type baseplateThriftServer struct {
 	thriftServer *thrift.TSimpleServer
 	config       ServerConfig
 	closers      []io.Closer
-	logger       log.Wrapper
 	secretsStore *secrets.Store
 }
 
@@ -54,52 +52,42 @@ func initLogger(cfg ServerConfig) {
 	log.InitLogger(level)
 }
 
-func initSecrets(ctx context.Context, cfg ServerConfig, logger log.Wrapper) (*secrets.Store, error) {
+func initSecrets(ctx context.Context, cfg ServerConfig) (*secrets.Store, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
-	secretsStore, err := secrets.NewStore(ctx, cfg.Secrets.Path, logger)
+	secretsStore, err := secrets.NewStore(ctx, cfg.Secrets.Path, log.ErrorWithSentryWrapper())
 	if err != nil {
 		return nil, err
 	}
 	return secretsStore, nil
 }
 
-func initTracing(cfg ServerConfig, logger log.Wrapper, metrics *metricsbp.Statsd) error {
-	if err := tracing.InitGlobalTracer(tracing.TracerConfig{
+func initTracing(cfg ServerConfig) (io.Closer, error) {
+	closer, err := tracing.InitGlobalTracerWithCloser(tracing.TracerConfig{
 		ServiceName:      cfg.Tracing.Namespace,
 		SampleRate:       cfg.Tracing.SampleRate,
-		Logger:           logger,
 		MaxRecordTimeout: cfg.Tracing.RecordTimeout,
-		QueueName:        "main",
-	}); err != nil {
-		return err
+		QueueName:        cfg.Tracing.QueueName,
+		Logger:           log.ErrorWithSentryWrapper(),
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	tracing.RegisterCreateServerSpanHooks(
-		metricsbp.CreateServerSpanHook{Metrics: metrics},
+		metricsbp.CreateServerSpanHook{},
 		tracing.ErrorReporterCreateServerSpanHook{},
 	)
-	return nil
+	return closer, nil
 }
 
-func initSentry(cfg ServerConfig) error {
-	if err := raven.SetDSN(cfg.Sentry.DSN); err != nil {
-		return err
-	}
-	if err := raven.SetSampleRate(float32(cfg.Sentry.SampleRate)); err != nil {
-		return err
-	}
-	raven.SetEnvironment(cfg.Sentry.Environment)
-	return nil
-}
-
-func cleanup(closers []io.Closer) {
-	for _, c := range closers {
-		if err := c.Close(); err != nil {
-			log.Errorw("msg", "err", err)
-		}
-	}
+func initSentry(cfg ServerConfig) (io.Closer, error) {
+	return log.InitSentry(log.SentryConfig{
+		DSN:         cfg.Sentry.DSN,
+		SampleRate:  cfg.Sentry.SampleRate,
+		Environment: cfg.Sentry.Environment,
+	})
 }
 
 // NewThriftServer returns a server that initializes and includes the default
@@ -111,42 +99,53 @@ func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.B
 	var closers []io.Closer
 	defer func() {
 		if err != nil {
-			cleanup(closers)
+			for _, c := range closers {
+				if err := c.Close(); err != nil {
+					log.Errorw(
+						"Failed to close closer",
+						"err", err,
+						"closer", fmt.Sprintf("%#v", c),
+					)
+				}
+			}
 		}
 	}()
 
 	initLogger(cfg)
-	logger := log.ZapWrapper(cfg.Log.Level)
-	bootstrapLogger := log.ZapWrapper(log.ErrorLevel)
+
+	closer, err := initSentry(cfg)
+	if err != nil {
+		return nil, err
+	}
+	closers = append(closers, closer)
 
 	metricsbp.M = metricsbp.NewStatsd(ctx, metricsbp.StatsdConfig{
-		CounterSampleRate:   &cfg.Metrics.CounterSampleRate,
-		HistogramSampleRate: &cfg.Metrics.HistogramSampleRate,
+		CounterSampleRate:   cfg.Metrics.CounterSampleRate,
+		HistogramSampleRate: cfg.Metrics.HistogramSampleRate,
 		Prefix:              cfg.Metrics.Namespace,
 		Address:             cfg.Metrics.Endpoint,
-		LogLevel:            cfg.Log.Level,
+		LogLevel:            log.ErrorLevel,
 	})
 	closers = append(closers, metricsbp.M)
 
-	secretsStore, err := initSecrets(ctx, cfg, bootstrapLogger)
+	secretsStore, err := initSecrets(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 	closers = append(closers, secretsStore)
 
 	ecImpl := edgecontext.Init(edgecontext.Config{Store: secretsStore})
-	if err = initTracing(cfg, bootstrapLogger, metricsbp.M); err != nil {
+
+	closer, err = initTracing(cfg)
+	if err != nil {
 		return nil, err
 	}
-	closers = append(closers, opentracing.GlobalTracer().(*tracing.Tracer))
-	if err = initSentry(cfg); err != nil {
-		return nil, err
-	}
+	closers = append(closers, closer)
 
 	innerCfg := thriftbp.ServerConfig{
 		Addr:    cfg.Addr,
 		Timeout: cfg.Timeout,
-		Logger:  thrift.Logger(logger),
+		Logger:  thrift.Logger(log.ZapWrapper(log.ErrorLevel)),
 	}
 
 	middlewares := []thriftbp.ProcessorMiddleware{
@@ -160,7 +159,6 @@ func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.B
 		return nil, err
 	}
 	srv = &baseplateThriftServer{
-		logger:       logger,
 		config:       cfg,
 		closers:      closers,
 		thriftServer: ts,
