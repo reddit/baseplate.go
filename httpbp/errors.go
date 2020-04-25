@@ -130,8 +130,8 @@ type ErrorResponseJSONWrapper struct {
 // ones have been provided for each of the common 4xx and 5xx errors but it is
 // made available for custom scenarios.
 type ErrorResponse struct {
-	// A standard, machine readable string representing the error.  Should be all
-	// upper case and underscores.
+	// A standard, machine readable string representing the error.  Should be
+	// UPPER_SNAKE_CASE.
 	//
 	// Ex: "INTERNAL_SERVER_ERROR"
 	Reason string `json:"reason"`
@@ -234,10 +234,10 @@ func (r *ErrorResponse) Retryable(w http.ResponseWriter, retryAfter time.Duratio
 	return r
 }
 
-// String fufills the fmt.Stringer interface by returning b.RawResponse if it is
-// set, otherwise returns b.Reason.
+// String implements the fmt.Stringer interface which allows ErrorResponse to be
+// used as a Raw response.
 //
-// This will be used if you are using returning this as a Raw error.
+// Returns r.Reason by default, this can be customized by using ErrorResponse.WithRawResponse.
 func (r ErrorResponse) String() string {
 	if r.raw != "" {
 		return r.raw
@@ -245,11 +245,11 @@ func (r ErrorResponse) String() string {
 	return r.Reason
 }
 
-// TemplateName fufills the httpbp.HTMLBody interface by returning the name of
-// the template to use to render the error page when using an HTML response.
+// TemplateName implements the httpbp.HTMLBody interface which allows ErrorResponse
+// to be used as an HTML response.
 //
-// Return DefaultErrorTemplateName by default, this can be customized by using
-// ErrorResponse.WithTemplateName.
+// Return httpbp.DefaultErrorTemplateName by default, this can be customized by
+// using ErrorResponse.WithTemplateName.
 func (r ErrorResponse) TemplateName() string {
 	if r.templateName != "" {
 		return r.templateName
