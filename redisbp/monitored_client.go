@@ -7,7 +7,7 @@ import (
 )
 
 // MonitoredCmdable wraps the redis.Cmdable interface and adds additional methods
-// to support integrating with baseplate.go SpanHooks.
+// to support integrating with Baseplate.go SpanHooks.
 type MonitoredCmdable interface {
 	redis.Cmdable
 

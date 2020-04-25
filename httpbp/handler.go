@@ -83,10 +83,13 @@ type BaseplateHandlerFactory struct {
 // of the middlewares.
 //
 // Middlewares are applied in the following order:
-//		1. httpbp.DefaultMiddleware()
-//		2. BaseplateHandlerFactory.Middlewares
-//		3. Additional, per-handler middleware passed into
-//		   BaseplateHandlerFactory.NewHandler
+//
+// 1. httpbp.DefaultMiddleware()
+//
+// 2. BaseplateHandlerFactory.Middlewares
+//
+// 3. Additional, per-handler middleware passed into
+// BaseplateHandlerFactory.NewHandler
 func (f BaseplateHandlerFactory) NewHandler(name string, handle HandlerFunc, middlewares ...Middleware) http.Handler {
 	defaults := DefaultMiddleware(f.Args)
 	wrappers := make([]Middleware, 0, len(defaults)+len(f.Middlewares)+len(middlewares))

@@ -75,7 +75,7 @@ type TracerConfig struct {
 	MaxRecordTimeout time.Duration
 
 	// The name of the message queue to be used to actually send sampled spans to
-	// backend service (requires baseplate.py tracing publishing sidecar with the
+	// backend service (requires Baseplate.py tracing publishing sidecar with the
 	// same name configured).
 	//
 	// QueueName should not contain "traces-" prefix, it will be auto added.
