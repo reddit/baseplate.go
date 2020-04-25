@@ -42,6 +42,16 @@ func ratelimit(ctx context.Context, w http.ResponseWriter, r *http.Request) erro
 	)
 }
 
+func invalidInput(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	return httpbp.JSONError(
+		httpbp.BadRequest().WithDetails(map[string]string{
+			"foo": "must be >= 0",
+			"bar": "must be non-nil",
+		}),
+		errors.New("invalid-input"),
+	)
+}
+
 func loggingMiddleware(name string, next httpbp.HandlerFunc) httpbp.HandlerFunc {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		log.Infof("Request %q: %#v", name, r)
@@ -74,5 +84,9 @@ func ExampleBaseplateHandlerFactory() {
 	handler.Handle("/", handlerFactory.NewHandler("home", home))
 	handler.Handle("/err", handlerFactory.NewHandler("err", err))
 	handler.Handle("/ratelimit", handlerFactory.NewHandler("ratelimit", ratelimit))
+	handler.Handle(
+		"/invalid-input",
+		handlerFactory.NewHandler("invalid-input", invalidInput),
+	)
 	log.Fatal(http.ListenAndServe(":8080", handler))
 }
