@@ -14,7 +14,9 @@ import (
 // should be used by a baseplate service.
 //
 // Currently they are (in order):
+//
 // 1. MonitorClient
+//
 // 2. ForwardEdgeRequestContext
 func BaseplateDefaultClientMiddlewares() []ClientMiddleware {
 	return []ClientMiddleware{

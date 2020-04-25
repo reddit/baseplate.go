@@ -12,7 +12,7 @@ import (
 // This example demonstrates how to use SpanHook to automatically add Spans
 // around Redis commands using go-redis
 //
-// baseplate.go also provides the MonitoredCmdableFactory object that you can
+// Baseplate.go also provides the MonitoredCmdableFactory object that you can
 // use to create Redis clients with a SpanHook already attached.
 func ExampleSpanHook() {
 	// variables should be properly initialized in production code

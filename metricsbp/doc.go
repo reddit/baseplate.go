@@ -1,11 +1,14 @@
 // Package metricsbp provides metrics related features for baseplate.go,
 // based on go-kit metrics package.
 //
-// There are two parts of this package:
+// There are three main parts of this package:
+//
 // 1. Wrappers of go-kit metrics to provide easy to use create on-the-fly
-// metrics, similar to what we have in baseplate.py, but they are usually
-// between 2x and 3x slower compare to using pre-created metrics.
+// metrics, similar to what we have in Baseplate.py.
+//
 // 2. Helper function for use cases of pre-create the metrics before using them.
+//
+// 3. Sampled counter/histogram implementations.
 //
 // This package comes with benchmark test to show the performance difference
 // between pre-created metrics, on-the-fly metrics, and on-the-fly with
