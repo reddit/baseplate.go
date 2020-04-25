@@ -587,7 +587,7 @@ var errorFuncsByCode = map[int]func() *ErrorResponse{
 //
 // This is intended to be used in cases where you have multiple potential error
 // codes and want to return the appropriate error response.  If you are only
-// returning a particular error, you're code will likely be cleaner using the
+// returning a particular error, your code will likely be cleaner using the
 // specific functions provided rather than using ErrorForCode.
 //
 // Supported codes are as follows:
