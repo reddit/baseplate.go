@@ -117,6 +117,35 @@ func TestErrorResponse(t *testing.T) {
 			c.resp.Reason,
 			func(t *testing.T) {
 				t.Run(
+					"ErrorForCode",
+					func(t *testing.T) {
+						resp := httpbp.ErrorForCode(c.code)
+
+						if len(resp.Details) != 0 {
+							t.Error("details should be empty by default")
+						}
+
+						err := httpbp.JSONError(resp, cause)
+
+						code := err.Response().Code
+						if code != c.code {
+							t.Errorf("code mismatch, expected %d, got %d", c.code, code)
+						}
+
+						reasonEqual := strings.Compare(resp.Reason, c.resp.Reason) == 0
+						explanationEqual := strings.Compare(resp.Explanation, c.resp.Explanation) == 0
+
+						if !reasonEqual || !explanationEqual {
+							t.Errorf(
+								"ErrorForCode did not return the expected error response, expected %#v, got %#v",
+								c.resp,
+								resp,
+							)
+						}
+					},
+				)
+
+				t.Run(
 					"HTTPError",
 					func(t *testing.T) {
 						err := httpbp.JSONError(c.resp, cause)

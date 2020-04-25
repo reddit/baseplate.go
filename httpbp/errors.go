@@ -558,3 +558,64 @@ func GatewayTimeout() *ErrorResponse {
 		"The server timed out waiting for a response from an upstream service.",
 	)
 }
+
+var errorFuncsByCode = map[int]func() *ErrorResponse{
+	http.StatusBadRequest:                 BadRequest,
+	http.StatusUnauthorized:               Unauthorized,
+	http.StatusPaymentRequired:            PaymentRequired,
+	http.StatusForbidden:                  Forbidden,
+	http.StatusNotFound:                   NotFound,
+	http.StatusConflict:                   Conflict,
+	http.StatusGone:                       Gone,
+	http.StatusRequestEntityTooLarge:      PayloadTooLarge,
+	http.StatusUnsupportedMediaType:       UnsupportedMediaType,
+	http.StatusTeapot:                     Teapot,
+	http.StatusUnprocessableEntity:        UnprocessableEntity,
+	http.StatusTooEarly:                   TooEarly,
+	http.StatusTooManyRequests:            TooManyRequests,
+	http.StatusUnavailableForLegalReasons: LegalBlock,
+	http.StatusInternalServerError:        InternalServerError,
+	http.StatusNotImplemented:             NotImplemented,
+	http.StatusBadGateway:                 BadGateway,
+	http.StatusServiceUnavailable:         ServiceUnavailable,
+	http.StatusGatewayTimeout:             GatewayTimeout,
+}
+
+// ErrorForCode returns a new *ErrorResponse for the given HTTP status code if
+// one is configured and falls back to returning InternalServerError() if the
+// given code is not configured.
+//
+// This is intended to be used in cases where you have multiple potential error
+// codes and want to return the appropriate error response.  If you are only
+// returning a particular error, you're code will likely be cleaner using the
+// specific functions provided rather than using ErrorForCode.
+//
+// Supported codes are as follows:
+//
+//	// 4xx
+//	http.StatusBadRequest:                 httpbp.BadRequest
+//	http.StatusUnauthorized:               httpbp.Unauthorized
+//	http.StatusPaymentRequired:            httpbp.PaymentRequired
+//	http.StatusForbidden:                  httpbp.Forbidden
+//	http.StatusNotFound:                   httpbp.NotFound
+//	http.StatusConflict:                   httpbp.Conflict
+//	http.StatusGone:                       httpbp.Gone
+//	http.StatusRequestEntityTooLarge:      httpbp.PayloadTooLarge
+//	http.StatusUnsupportedMediaType:       httpbp.UnsupportedMediaType
+//	http.StatusTeapot:                     httpbp.Teapot
+//	http.StatusUnprocessableEntity:        httpbp.UnprocessableEntity
+//	http.StatusTooEarly:                   httpbp.TooEarly
+//	http.StatusTooManyRequests:            httpbp.TooManyRequests
+//	http.StatusUnavailableForLegalReasons: httpbp.LegalBlock
+//	// 5xx
+//	http.StatusInternalServerError: httpbp.InternalServerError
+//	http.StatusNotImplemented:      httpbp.NotImplemented
+//	http.StatusBadGateway:          httpbp.BadGateway
+//	http.StatusServiceUnavailable:  httpbp.ServiceUnavailable
+//	http.StatusGatewayTimeout:      httpbp.GatewayTimeout
+func ErrorForCode(code int) *ErrorResponse {
+	if f, ok := errorFuncsByCode[code]; ok {
+		return f()
+	}
+	return InternalServerError()
+}
