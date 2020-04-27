@@ -95,7 +95,7 @@ func initSentry(cfg ServerConfig) (io.Closer, error) {
 //
 // At the moment, this includes secrets management, metrics, edge contexts
 // (edgecontext.InjectThriftEdgeContext), and spans/tracing (tracing.InjectThriftServerSpan).
-func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.BaseplateProcessor, additionalMiddlewares ...thriftbp.ProcessorMiddleware) (srv Server, err error) {
+func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thrift.TProcessor, additionalMiddlewares ...thrift.ProcessorMiddleware) (srv Server, err error) {
 	var closers []io.Closer
 	defer func() {
 		if err != nil {
@@ -148,7 +148,7 @@ func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thriftbp.B
 		Logger:  thrift.Logger(log.ZapWrapper(log.ErrorLevel)),
 	}
 
-	middlewares := []thriftbp.ProcessorMiddleware{
+	middlewares := []thrift.ProcessorMiddleware{
 		thriftbp.InjectServerSpan,
 		thriftbp.InjectEdgeContext(ecImpl),
 	}

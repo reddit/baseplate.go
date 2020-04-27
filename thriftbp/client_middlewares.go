@@ -72,14 +72,12 @@ func WrapClient(client thrift.TClient, middlewares ...ClientMiddleware) thrift.T
 func MonitorClient(next thrift.TClient) thrift.TClient {
 	return WrappedTClient{
 		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
-			var s opentracing.Span
-			s, ctx = opentracing.StartSpanFromContext(
+			span, ctx := opentracing.StartSpanFromContext(
 				ctx,
 				method,
 				tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 			)
-			span := tracing.AsSpan(s)
-			ctx = CreateThriftContextFromSpan(ctx, span)
+			ctx = CreateThriftContextFromSpan(ctx, tracing.AsSpan(span))
 			defer func() {
 				span.FinishWithOptions(tracing.FinishOptions{
 					Ctx: ctx,

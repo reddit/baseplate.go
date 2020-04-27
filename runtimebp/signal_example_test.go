@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 
+	"github.com/apache/thrift/lib/go/thrift"
+
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/runtimebp"
 	"github.com/reddit/baseplate.go/thriftbp"
@@ -14,7 +16,7 @@ import (
 func ExampleHandleShutdown() {
 	var (
 		// TODO: In real code this should be coming from thrift compiled go files.
-		processor thriftbp.BaseplateProcessor
+		processor thrift.TProcessor
 	)
 	server, err := thriftbp.NewServer(
 		thriftbp.ServerConfig{
