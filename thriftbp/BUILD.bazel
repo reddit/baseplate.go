@@ -35,7 +35,6 @@ go_test(
         "client_pool_test.go",
         "doc_client_test.go",
         "example_client_test.go",
-        "example_middlewares_test.go",
         "example_server_test.go",
         "fixtures_test.go",
         "headers_test.go",

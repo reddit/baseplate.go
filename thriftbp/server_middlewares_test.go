@@ -20,54 +20,18 @@ const (
 	testTimeout = time.Millisecond * 100
 )
 
-func testProcessorMiddleware(c *counter) thriftbp.ProcessorMiddleware {
-	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
-		return thriftbp.WrappedTProcessorFunc{
-			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
-				c.incr()
-				return next.Process(ctx, seqId, in, out)
-			},
-		}
-	}
-}
-
 type edgecontextRecorder struct {
 	EdgeContext *edgecontext.EdgeRequestContext
 }
 
-func edgecontextRecorderMiddleware(recorder *edgecontextRecorder) thriftbp.ProcessorMiddleware {
+func edgecontextRecorderMiddleware(recorder *edgecontextRecorder) thrift.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
-		return thriftbp.WrappedTProcessorFunc{
+		return thrift.WrappedTProcessorFunction{
 			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
 				recorder.EdgeContext, _ = edgecontext.GetEdgeContext(ctx)
 				return next.Process(ctx, seqId, in, out)
 			},
 		}
-	}
-}
-
-func TestWrap(t *testing.T) {
-	name := "test"
-	processor := thriftbp.NewMockBaseplateProcessor(
-		map[string]thrift.TProcessorFunction{
-			name: thriftbp.WrappedTProcessorFunc{
-				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
-					return true, nil
-				},
-			},
-		},
-	)
-	c := &counter{}
-	if c.count != 0 {
-		t.Fatal("Unexpected initial count.")
-	}
-	ctx := context.Background()
-	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
-	ctx = thriftbp.SetMockBaseplateProcessorName(ctx, name)
-	wrapped := thriftbp.WrapProcessor(processor, testProcessorMiddleware(c))
-	wrapped.Process(ctx, nil, nil)
-	if c.count != 1 {
-		t.Fatalf("Unexpected count value %v", c.count)
 	}
 }
 
@@ -89,9 +53,10 @@ func TestInjectServerSpan(t *testing.T) {
 	})
 	startFailing()
 	name := "test"
-	processor := thriftbp.NewMockBaseplateProcessor(
+	processor := thriftbp.NewMockTProcessor(
+		t,
 		map[string]thrift.TProcessorFunction{
-			name: thriftbp.WrappedTProcessorFunc{
+			name: thrift.WrappedTProcessorFunction{
 				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
 					return false, errors.New("TError")
 				},
@@ -100,9 +65,9 @@ func TestInjectServerSpan(t *testing.T) {
 	)
 	ctx := context.Background()
 	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
-	ctx = thriftbp.SetMockBaseplateProcessorName(ctx, name)
+	ctx = thriftbp.SetMockTProcessorName(ctx, name)
 
-	wrapped := thriftbp.WrapProcessor(processor, thriftbp.InjectServerSpan)
+	wrapped := thrift.WrapProcessor(processor, thriftbp.InjectServerSpan)
 	wrapped.Process(ctx, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
@@ -211,9 +176,10 @@ func TestInjectEdgeContext(t *testing.T) {
 	impl := edgecontext.Init(edgecontext.Config{Store: store})
 
 	name := "test"
-	processor := thriftbp.NewMockBaseplateProcessor(
+	processor := thriftbp.NewMockTProcessor(
+		t,
 		map[string]thrift.TProcessorFunction{
-			name: thriftbp.WrappedTProcessorFunc{
+			name: thrift.WrappedTProcessorFunction{
 				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
 					return true, nil
 				},
@@ -226,9 +192,9 @@ func TestInjectEdgeContext(t *testing.T) {
 		thriftbp.HeaderEdgeRequest,
 		headerWithValidAuth,
 	)
-	ctx = thriftbp.SetMockBaseplateProcessorName(ctx, name)
+	ctx = thriftbp.SetMockTProcessorName(ctx, name)
 	recorder := edgecontextRecorder{}
-	wrapped := thriftbp.WrapProcessor(
+	wrapped := thrift.WrapProcessor(
 		processor,
 		thriftbp.InjectEdgeContext(impl),
 		edgecontextRecorderMiddleware(&recorder),

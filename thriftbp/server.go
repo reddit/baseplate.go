@@ -24,12 +24,12 @@ type ServerConfig struct {
 }
 
 // NewServer returns a thrift.TSimpleServer using the THeader transport
-// and protocol to serve the given BaseplateProcessor which is wrapped with the
+// and protocol to serve the given TProcessor which is wrapped with the
 // given ProcessorMiddlewares.
 func NewServer(
 	cfg ServerConfig,
-	processor BaseplateProcessor,
-	middlewares ...ProcessorMiddleware,
+	processor thrift.TProcessor,
+	middlewares ...thrift.ProcessorMiddleware,
 ) (*thrift.TSimpleServer, error) {
 	transport, err := thrift.NewTServerSocketTimeout(cfg.Addr, cfg.Timeout)
 	if err != nil {
@@ -37,7 +37,7 @@ func NewServer(
 	}
 
 	server := thrift.NewTSimpleServer4(
-		WrapProcessor(processor, middlewares...),
+		thrift.WrapProcessor(processor, middlewares...),
 		transport,
 		thrift.NewTHeaderTransportFactory(nil),
 		thrift.NewTHeaderProtocolFactory(),
