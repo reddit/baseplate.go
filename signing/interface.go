@@ -16,7 +16,8 @@ type SignArgs struct {
 	// The message to sign. Required.
 	Message []byte
 
-	// The secret used to sign the message. Required.
+	// The secret used to sign the message. Required.  The message will be signed
+	// using the Current secret.
 	Secret secrets.VersionedSecret
 
 	// Signature expiring time.
