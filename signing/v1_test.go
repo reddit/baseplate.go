@@ -127,8 +127,8 @@ func TestV1(t *testing.T) {
 					"key-rotation",
 					func(t *testing.T) {
 						rotating := secrets.VersionedSecret{
-							Current: invalidSecret.Current,
-							Next:    secret.Current,
+							Current:  invalidSecret.Current,
+							Previous: secret.Current,
 						}
 						err := verify(msg, validSig, rotating)
 						if err != nil {
