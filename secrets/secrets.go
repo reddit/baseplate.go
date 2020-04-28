@@ -81,6 +81,14 @@ func newSimpleSecret(secret *GenericSecret) (SimpleSecret, error) {
 	}, nil
 }
 
+// AsVersioned returns the SimpleSecret as a VersionedSecret.
+//
+// The Value of the SimpleSecret will be set as the Current value on the
+// VersionedSecret.
+func (s SimpleSecret) AsVersioned() VersionedSecret {
+	return VersionedSecret{Current: s.Value}
+}
+
 // VersionedSecret represent secrets like signing keys that can be rotated
 // gracefully.
 //

@@ -39,9 +39,10 @@ var (
 
 func TestV1Quick(t *testing.T) {
 	f := func(msg, key randomByteSlice, expiresIn randomDuration) bool {
+		secret := secrets.VersionedSecret{Current: secrets.Secret(key)}
 		args := signing.SignArgs{
 			Message:   []byte(msg),
-			Key:       secrets.Secret(key),
+			Secret:    secret,
 			ExpiresIn: time.Duration(expiresIn),
 		}
 		signature, err := signing.V1.Sign(args)
@@ -49,7 +50,7 @@ func TestV1Quick(t *testing.T) {
 			t.Error(err)
 			return false
 		}
-		err = signing.V1.Verify([]byte(msg), signature, secrets.Secret(key))
+		err = signing.V1.Verify([]byte(msg), signature, secret)
 		if err != nil {
 			t.Error(err)
 			return false

@@ -34,7 +34,8 @@ type headerV1 struct {
 }
 
 func (v1) Sign(args SignArgs) (sig string, err error) {
-	if args.Key.IsEmpty() {
+	key := args.Secret.Current
+	if key.IsEmpty() {
 		err = errors.New("signing: empty key")
 		return
 	}
@@ -64,14 +65,14 @@ func (v1) Sign(args SignArgs) (sig string, err error) {
 
 	raw := make([]byte, V1SignatureRawLength)
 	copy(raw, header.Bytes())
-	mac := hmac.New(sha256.New, []byte(args.Key))
+	mac := hmac.New(sha256.New, []byte(key))
 	mac.Write(header.Bytes())
 	mac.Write(args.Message)
 	copy(raw[V1HeaderLength:], mac.Sum(nil))
 	return base64.URLEncoding.EncodeToString(raw), nil
 }
 
-func (v1) Verify(message []byte, signature string, keys ...secrets.Secret) error {
+func (v1) Verify(message []byte, signature string, secret secrets.VersionedSecret) error {
 	if len(signature) != V1SignatureLength {
 		return VerifyError{
 			Data: "signature length mismatch",
@@ -86,7 +87,7 @@ func (v1) Verify(message []byte, signature string, keys ...secrets.Secret) error
 		}
 	}
 
-	return v1Verify(message, buf, keys, time.Now())
+	return v1Verify(message, buf, secret.GetAll(), time.Now())
 }
 
 func v1Verify(

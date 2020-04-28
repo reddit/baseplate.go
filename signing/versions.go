@@ -29,11 +29,8 @@ var versions = map[Version]internalVerifyFunc{
 // signature should be urlsafe base64 encoded signature, instead of the raw
 // one.
 //
-// keys should contain at least one non-empty secret.
-// multiple keys will be tried in the order they are passed in.
-//
 // If this function returns an error, it will be in the type of VerifyError.
-func Verify(message []byte, signature string, keys ...secrets.Secret) error {
+func Verify(message []byte, signature string, secret secrets.VersionedSecret) error {
 	buf, err := base64.URLEncoding.DecodeString(signature)
 	if err != nil {
 		return VerifyError{
@@ -51,5 +48,5 @@ func Verify(message []byte, signature string, keys ...secrets.Secret) error {
 		}
 	}
 
-	return verify(message, buf, keys, time.Now())
+	return verify(message, buf, secret.GetAll(), time.Now())
 }
