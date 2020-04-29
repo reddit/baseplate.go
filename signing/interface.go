@@ -16,8 +16,9 @@ type SignArgs struct {
 	// The message to sign. Required.
 	Message []byte
 
-	// The secret used to sign the message. Required.
-	Key secrets.Secret
+	// The secret used to sign the message. Required.  The message will be signed
+	// using the Current secret.
+	Secret secrets.VersionedSecret
 
 	// Signature expiring time.
 	//
@@ -40,11 +41,8 @@ type Interface interface {
 	// signature should be urlsafe base64 encoded signature, instead of the raw
 	// one.
 	//
-	// keys should contain at least one non-empty secret.
-	// multiple keys will be tried in the order they are passed in.
-	//
 	// If this function returns an error, it will be in the type of VerifyError.
-	Verify(message []byte, signature string, keys ...secrets.Secret) error
+	Verify(message []byte, signature string, secret secrets.VersionedSecret) error
 }
 
 // VerifyError is the error type returned by Version.Verify.

@@ -9,14 +9,14 @@ import (
 	"github.com/reddit/baseplate.go/secrets"
 )
 
-type verifyFunc func(message []byte, signature string, keys ...secrets.Secret) error
+type verifyFunc func(message []byte, signature string, secret secrets.VersionedSecret) error
 
 func TestV1(t *testing.T) {
 	var e VerifyError
 
 	msg := []byte("Hello, world!")
-	key := secrets.Secret("hunter2")
-	invalidKey := secrets.Secret("hunter0")
+	secret := secrets.VersionedSecret{Current: secrets.Secret("hunter2")}
+	invalidSecret := secrets.VersionedSecret{Current: secrets.Secret("hunter0")}
 	expiration := time.Now().Add(time.Hour * 24)
 
 	var validSig string
@@ -26,7 +26,7 @@ func TestV1(t *testing.T) {
 		func(t *testing.T) {
 			sig, err := V1.Sign(SignArgs{
 				Message:   msg,
-				Key:       key,
+				Secret:    secret,
 				ExpiresAt: expiration,
 			})
 			if err != nil {
@@ -47,7 +47,7 @@ func TestV1(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = v1Verify(msg, rawSig, []secrets.Secret{key}, expiration.Add(time.Second))
+			err = v1Verify(msg, rawSig, secret.GetAll(), expiration.Add(time.Second))
 			if !errors.As(err, &e) {
 				t.Errorf("Expected VerifyError, got %v", err)
 			}
@@ -74,7 +74,7 @@ func TestV1(t *testing.T) {
 							func(t *testing.T) {
 								// This signature should still be base64 decodable.
 								sig := validSig[:V1SignatureLength-4]
-								err := verify(msg, sig, key)
+								err := verify(msg, sig, secret)
 								if !errors.As(err, &e) {
 									t.Errorf("Expected VerifyError, got %v", err)
 								}
@@ -86,7 +86,7 @@ func TestV1(t *testing.T) {
 							func(t *testing.T) {
 								// This signature should still be base64 decodable.
 								sig := validSig + "===="
-								err := verify(msg, sig, key)
+								err := verify(msg, sig, secret)
 								if !errors.As(err, &e) {
 									t.Errorf("Expected VerifyError, got %v", err)
 								}
@@ -100,7 +100,7 @@ func TestV1(t *testing.T) {
 					func(t *testing.T) {
 						// Replace the last character of validSig to "/"
 						sig := validSig[:V1SignatureLength-1] + "/"
-						err := verify(msg, sig, key)
+						err := verify(msg, sig, secret)
 						if !errors.As(err, &e) {
 							t.Errorf("Expected VerifyError, got %v", err)
 						}
@@ -113,7 +113,7 @@ func TestV1(t *testing.T) {
 				t.Run(
 					"mismatch",
 					func(t *testing.T) {
-						err := verify(msg, validSig, invalidKey)
+						err := verify(msg, validSig, invalidSecret)
 						if !errors.As(err, &e) {
 							t.Errorf("Expected VerifyError, got %v", err)
 						}
@@ -126,7 +126,11 @@ func TestV1(t *testing.T) {
 				t.Run(
 					"key-rotation",
 					func(t *testing.T) {
-						err := verify(msg, validSig, invalidKey, key)
+						rotating := secrets.VersionedSecret{
+							Current:  invalidSecret.Current,
+							Previous: secret.Current,
+						}
+						err := verify(msg, validSig, rotating)
 						if err != nil {
 							t.Errorf("Expected nil error, got %v", err)
 						}
@@ -143,7 +147,7 @@ func TestV1(t *testing.T) {
 						// Change the version byte.
 						rawSig[0] = 2
 						sig := base64.URLEncoding.EncodeToString(rawSig)
-						err = verify(msg, sig, invalidKey)
+						err = verify(msg, sig, invalidSecret)
 						if !errors.As(err, &e) {
 							t.Errorf("Expected VerifyError, got %v", err)
 						}
@@ -159,7 +163,7 @@ func TestV1(t *testing.T) {
 
 func BenchmarkV1(b *testing.B) {
 	msg := []byte("Hello, world!")
-	key := secrets.Secret("hunter2")
+	secret := secrets.VersionedSecret{Current: secrets.Secret("hunter2")}
 	expiration := time.Now().Add(time.Hour * 24)
 
 	var sig string
@@ -171,7 +175,7 @@ func BenchmarkV1(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				sig, err = V1.Sign(SignArgs{
 					Message:   msg,
-					Key:       key,
+					Secret:    secret,
 					ExpiresAt: expiration,
 				})
 				if err != nil {
@@ -185,7 +189,7 @@ func BenchmarkV1(b *testing.B) {
 		"verify",
 		func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				err = V1.Verify(msg, sig, key)
+				err = V1.Verify(msg, sig, secret)
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -193,17 +197,17 @@ func BenchmarkV1(b *testing.B) {
 		},
 	)
 
-	keys := []secrets.Secret{
-		secrets.Secret("hunter0"),
-		secrets.Secret("hunter1"),
-		secrets.Secret("hunter2"),
+	rotated := secrets.VersionedSecret{
+		Current:  secrets.Secret("hunter0"),
+		Previous: secrets.Secret("hunter1"),
+		Next:     secrets.Secret("hunter2"),
 	}
 
 	b.Run(
 		"verify-3keys",
 		func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				err = V1.Verify(msg, sig, keys...)
+				err = V1.Verify(msg, sig, rotated)
 				if err != nil {
 					b.Fatal(err)
 				}

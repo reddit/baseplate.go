@@ -241,7 +241,7 @@ func (h TrustHeaderSignature) signHeaders(headers Headers, secretPath string, ex
 	}
 	return signing.Sign(signing.SignArgs{
 		Message:   headerMessage(headers),
-		Key:       secret.Current,
+		Secret:    secret,
 		ExpiresIn: expiresIn,
 	})
 }
@@ -256,7 +256,7 @@ func (h TrustHeaderSignature) verifyHeaders(headers Headers, signature string, s
 		return false, err
 	}
 
-	if err = signing.Verify(headerMessage(headers), signature, secret.GetAll()...); err != nil {
+	if err = signing.Verify(headerMessage(headers), signature, secret); err != nil {
 		return false, err
 	}
 	return true, nil

@@ -23,12 +23,12 @@ func Example() {
 	// Sign
 	signature, _ := signing.Sign(signing.SignArgs{
 		Message:   []byte(msg),
-		Key:       secret.Current,
+		Secret:    secret,
 		ExpiresIn: time.Hour,
 	})
 
 	// Verify
-	err := signing.Verify([]byte(msg), signature, secret.GetAll()...)
+	err := signing.Verify([]byte(msg), signature, secret)
 	if err != nil {
 		metricsbp.M.Counter("invalid-signature").Add(1)
 		var e signing.VerifyError
