@@ -2,12 +2,19 @@ package thriftbp
 
 import (
 	"context"
+	"strconv"
+	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"
+)
+
+var (
+	_ thrift.ProcessorMiddleware = InjectServerSpan
+	_ thrift.ProcessorMiddleware = ExtractDeadlineBudget
 )
 
 // StartSpanFromThriftContext creates a server span from thrift context object.
@@ -61,7 +68,7 @@ func StartSpanFromThriftContext(ctx context.Context, name string) (context.Conte
 // These should be automatically injected by your thrift.TSimpleServer.
 func InjectServerSpan(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 	return thrift.WrappedTProcessorFunction{
-		Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
+		Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
 			ctx, span := StartSpanFromThriftContext(ctx, name)
 			defer func() {
 				span.FinishWithOptions(tracing.FinishOptions{
@@ -70,14 +77,10 @@ func InjectServerSpan(name string, next thrift.TProcessorFunction) thrift.TProce
 				}.Convert())
 			}()
 
-			return next.Process(ctx, seqId, in, out)
+			return next.Process(ctx, seqID, in, out)
 		},
 	}
 }
-
-var (
-	_ thrift.ProcessorMiddleware = InjectServerSpan
-)
 
 // InitializeEdgeContext sets an edge request context created from the Thrift
 // headers set on the context onto the context and configures Thrift to forward
@@ -110,10 +113,30 @@ func InitializeEdgeContext(ctx context.Context, impl *edgecontext.Impl) context.
 func InjectEdgeContext(impl *edgecontext.Impl) thrift.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
-			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
 				ctx = InitializeEdgeContext(ctx, impl)
-				return next.Process(ctx, seqId, in, out)
+				return next.Process(ctx, seqID, in, out)
 			},
 		}
+	}
+}
+
+// ExtractDeadlineBudget is the server middleware implementing Phase 1 of
+// Baseplate deadline propagation.
+//
+// It only sets the timeout if the passed in deadline is at least 1ms.
+func ExtractDeadlineBudget(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+	return thrift.WrappedTProcessorFunction{
+		Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+			if s, ok := thrift.GetHeader(ctx, HeaderDeadlineBudget); ok {
+				v, err := strconv.ParseInt(s, 10, 64)
+				if err == nil && v >= 1 {
+					var cancel context.CancelFunc
+					ctx, cancel = context.WithTimeout(ctx, time.Millisecond*time.Duration(v))
+					defer cancel()
+				}
+			}
+			return next.Process(ctx, seqID, in, out)
+		},
 	}
 }

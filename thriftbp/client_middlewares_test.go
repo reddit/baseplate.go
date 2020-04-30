@@ -248,3 +248,59 @@ func TestForwardEdgeRequestContextNotSet(t *testing.T) {
 		t.Fatal("edge request header should not be set")
 	}
 }
+
+func TesetSetDeadlineBudget(t *testing.T) {
+	mock, recorder, client := initClients()
+	mock.AddMockCall(
+		method,
+		func(ctx context.Context, args, result thrift.TStruct) error {
+			return nil
+		},
+	)
+
+	t.Run(
+		"already-passed",
+		func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			err := client.Call(ctx, method, nil, nil)
+			if err == nil {
+				t.Error("Expect error when ctx is already cancelled, got nil")
+			}
+
+			if len(recorder.Calls()) != 0 {
+				t.Fatalf("Wrong number of calls: %d", len(recorder.Calls()))
+			}
+		},
+	)
+
+	t.Run(
+		"less-than-1ms",
+		func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond-1)
+			defer cancel()
+
+			if err := client.Call(ctx, method, nil, nil); err != nil {
+				t.Fatal(err)
+			}
+
+			if len(recorder.Calls()) != 1 {
+				t.Fatalf("Wrong number of calls: %d", len(recorder.Calls()))
+			}
+
+			ctx = recorder.Calls()[0].Ctx
+			v, ok := thrift.GetHeader(ctx, thriftbp.HeaderDeadlineBudget)
+			if !ok {
+				t.Fatalf("%s header not set", thriftbp.HeaderDeadlineBudget)
+			}
+			if v != "1" {
+				t.Errorf(
+					"Expected 1 in header %s, got %q",
+					thriftbp.HeaderDeadlineBudget,
+					v,
+				)
+			}
+		},
+	)
+}

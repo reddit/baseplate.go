@@ -93,8 +93,10 @@ func initSentry(cfg ServerConfig) (io.Closer, error) {
 // NewThriftServer returns a server that initializes and includes the default
 // middleware and cross-cutting concerns needed in order to be a standard Baseplate service.
 //
-// At the moment, this includes secrets management, metrics, edge contexts
-// (edgecontext.InjectThriftEdgeContext), and spans/tracing (tracing.InjectThriftServerSpan).
+// At the moment, this includes secrets management, metrics,
+// edge contexts (InjectThriftEdgeContext),
+// spans/tracing (InjectThriftServerSpan),
+// and deadline propagation (ExtractDeadlineBudget).
 func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thrift.TProcessor, additionalMiddlewares ...thrift.ProcessorMiddleware) (srv Server, err error) {
 	var closers []io.Closer
 	defer func() {
@@ -149,6 +151,7 @@ func NewThriftServer(ctx context.Context, cfg ServerConfig, processor thrift.TPr
 	}
 
 	middlewares := []thrift.ProcessorMiddleware{
+		thriftbp.ExtractDeadlineBudget,
 		thriftbp.InjectServerSpan,
 		thriftbp.InjectEdgeContext(ecImpl),
 	}
