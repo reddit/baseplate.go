@@ -2,6 +2,8 @@ package thriftbp
 
 import (
 	"context"
+	"strconv"
+	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
 	opentracing "github.com/opentracing/opentracing-go"
@@ -22,6 +24,7 @@ func BaseplateDefaultClientMiddlewares() []thrift.ClientMiddleware {
 	return []thrift.ClientMiddleware{
 		MonitorClient,
 		ForwardEdgeRequestContext,
+		SetDeadlineBudget,
 	}
 }
 
@@ -69,7 +72,39 @@ func ForwardEdgeRequestContext(next thrift.TClient) thrift.TClient {
 	}
 }
 
+// SetDeadlineBudget is the client middleware implementing Phase 1 of Baseplate
+// deadline propogation.
+func SetDeadlineBudget(next thrift.TClient) thrift.TClient {
+	return thrift.WrappedTClient{
+		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
+			if ctx.Err() != nil {
+				// Deadline already passed, no need to even try
+				return ctx.Err()
+			}
+
+			if deadline, ok := ctx.Deadline(); ok {
+				// Round up to the next millisecond.
+				// In the scenario that the caller set an 10ms timeout and send the
+				// request, by the time we get into this middleware function it's
+				// definitely gonna be less than 10ms.
+				// If we use round down then we are only gonna send 9 over the wire.
+				timeout := deadline.Sub(time.Now()) + time.Millisecond - 1
+				ms := timeout.Milliseconds()
+				if ms < 1 {
+					// Make sure we give it at least 1ms.
+					ms = 1
+				}
+				value := strconv.FormatInt(ms, 10)
+				ctx = thrift.SetHeader(ctx, HeaderDeadlineBudget, value)
+			}
+
+			return next.Call(ctx, method, args, result)
+		},
+	}
+}
+
 var (
 	_ thrift.ClientMiddleware = ForwardEdgeRequestContext
 	_ thrift.ClientMiddleware = MonitorClient
+	_ thrift.ClientMiddleware = SetDeadlineBudget
 )

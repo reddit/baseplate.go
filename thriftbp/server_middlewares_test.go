@@ -27,9 +27,9 @@ type edgecontextRecorder struct {
 func edgecontextRecorderMiddleware(recorder *edgecontextRecorder) thrift.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
-			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
 				recorder.EdgeContext, _ = edgecontext.GetEdgeContext(ctx)
-				return next.Process(ctx, seqId, in, out)
+				return next.Process(ctx, seqID, in, out)
 			},
 		}
 	}
@@ -57,7 +57,7 @@ func TestInjectServerSpan(t *testing.T) {
 		t,
 		map[string]thrift.TProcessorFunction{
 			name: thrift.WrappedTProcessorFunction{
-				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+				Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
 					return false, errors.New("TError")
 				},
 			},
@@ -180,7 +180,7 @@ func TestInjectEdgeContext(t *testing.T) {
 		t,
 		map[string]thrift.TProcessorFunction{
 			name: thrift.WrappedTProcessorFunction{
-				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+				Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
 					return true, nil
 				},
 			},
@@ -211,4 +211,92 @@ func TestInjectEdgeContext(t *testing.T) {
 	if userID != expectedID {
 		t.Fatalf("user ID does not match, expected %q, got %q", expectedID, userID)
 	}
+}
+
+func TestExtractDeadlineBudget(t *testing.T) {
+	name := "test"
+	processor := func(checker func(context.Context)) thrift.TProcessor {
+		return thriftbp.NewMockTProcessor(
+			t,
+			map[string]thrift.TProcessorFunction{
+				name: thrift.WrappedTProcessorFunction{
+					Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+						checker(ctx)
+						return true, nil
+					},
+				},
+			},
+		)
+	}
+
+	t.Run(
+		"invalid",
+		func(t *testing.T) {
+			ctx := thrift.SetHeader(
+				context.Background(),
+				thriftbp.HeaderDeadlineBudget,
+				"foobar",
+			)
+			ctx = thriftbp.SetMockTProcessorName(ctx, name)
+			wrapped := thrift.WrapProcessor(
+				processor(func(ctx context.Context) {
+					deadline, ok := ctx.Deadline()
+					if ok {
+						t.Errorf("Expected no deadline set, got %v", deadline.Sub(time.Now()))
+					}
+				}),
+				thriftbp.ExtractDeadlineBudget,
+			)
+			wrapped.Process(ctx, nil, nil)
+		},
+	)
+
+	t.Run(
+		"<1",
+		func(t *testing.T) {
+			ctx := thrift.SetHeader(
+				context.Background(),
+				thriftbp.HeaderDeadlineBudget,
+				"0",
+			)
+			ctx = thriftbp.SetMockTProcessorName(ctx, name)
+			wrapped := thrift.WrapProcessor(
+				processor(func(ctx context.Context) {
+					deadline, ok := ctx.Deadline()
+					if ok {
+						t.Errorf("Expected no deadline set, got %v", deadline.Sub(time.Now()))
+					}
+				}),
+				thriftbp.ExtractDeadlineBudget,
+			)
+			wrapped.Process(ctx, nil, nil)
+		},
+	)
+
+	t.Run(
+		"50",
+		func(t *testing.T) {
+			ctx := thrift.SetHeader(
+				context.Background(),
+				thriftbp.HeaderDeadlineBudget,
+				"50",
+			)
+			ctx = thriftbp.SetMockTProcessorName(ctx, name)
+			wrapped := thrift.WrapProcessor(
+				processor(func(ctx context.Context) {
+					deadline, ok := ctx.Deadline()
+					if !ok {
+						t.Fatal("Deadline not set")
+					}
+
+					duration := deadline.Sub(time.Now())
+					if duration.Round(time.Millisecond).Milliseconds() != 50 {
+						t.Errorf("Expected deadline to be 50ms, got %v", duration)
+					}
+				}),
+				thriftbp.ExtractDeadlineBudget,
+			)
+			wrapped.Process(ctx, nil, nil)
+		},
+	)
 }

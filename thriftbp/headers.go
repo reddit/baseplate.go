@@ -36,6 +36,12 @@ const (
 // should be sampled.
 const HeaderTracingSampledTrue = "1"
 
+// Deadline propagation related headers.
+const (
+	// Number of milliseconds, 64-bit integer encoded in decimal.
+	HeaderDeadlineBudget = "Deadline-Budget"
+)
+
 // HeadersToForward are the headers that should always be forwarded to upstream
 // thrift servers, to be used in thrift.TSimpleServer.SetForwardHeaders.
 var HeadersToForward = []string{
