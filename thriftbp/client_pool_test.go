@@ -54,9 +54,9 @@ func TestStandardTClientFactory(t *testing.T) {
 	}
 }
 
-func testClientMiddleware(c *counter) thriftbp.ClientMiddleware {
+func testClientMiddleware(c *counter) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
-		return thriftbp.WrappedTClient{
+		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
 				c.incr()
 				return next.Call(ctx, method, args, result)
