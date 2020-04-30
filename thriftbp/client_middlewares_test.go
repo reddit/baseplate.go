@@ -22,7 +22,7 @@ const method = "testMethod"
 func initClients() (*thriftbp.MockClient, *thriftbp.RecordedClient, thrift.TClient) {
 	mock := &thriftbp.MockClient{FailUnregisteredMethods: true}
 	recorder := thriftbp.NewRecordedClient(mock)
-	client := thriftbp.WrapClient(recorder, thriftbp.BaseplateDefaultClientMiddlewares()...)
+	client := thrift.WrapClient(recorder, thriftbp.BaseplateDefaultClientMiddlewares()...)
 	return mock, recorder, client
 }
 

@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
-	github.com/apache/thrift v0.13.1-0.20200427183224-00c039adeb55
+	github.com/apache/thrift v0.13.1-0.20200430141240-5cffef964a08
 	github.com/getsentry/sentry-go v0.6.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-logfmt/logfmt v0.4.0 // indirect

@@ -74,7 +74,7 @@ func callEndpoint(ctx context.Context, pool thriftbp.ClientPool) (*MyEndpointRes
 }
 
 func LoggingMiddleware(next thrift.TClient) thrift.TClient {
-	return thriftbp.WrappedTClient{
+	return thrift.WrappedTClient{
 		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
 			log.Infof("pre: %s", method)
 			log.Infof("args: %#v", args)
