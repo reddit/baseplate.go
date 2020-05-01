@@ -1,39 +1,30 @@
 package thriftbp_test
 
 import (
-	"time"
+	"context"
 
-	"github.com/apache/thrift/lib/go/thrift"
-
-	"github.com/reddit/baseplate.go/edgecontext"
-	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+	baseplate "github.com/reddit/baseplate.go"
+	bpgen "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/thriftbp"
 )
 
 // This example demonstrates how to use thriftbp.NewServer.
-func ExampleNewServer() {
+func ExampleNewBaseplateServer() {
 	// variables should be initialized properly in production
-	var (
-		ecImpl  *edgecontext.Impl
-		handler baseplate.BaseplateService
-		logger  log.Wrapper
-	)
+	var handler bpgen.BaseplateService
+	ctx := context.Background()
+	bp, err := baseplate.New(ctx, "example.yaml")
+	if err != nil {
+		panic(err)
+	}
+	defer bp.Close()
 
-	processor := baseplate.NewBaseplateServiceProcessor(handler)
-	server, err := thriftbp.NewServer(
-		thriftbp.ServerConfig{
-			Addr:    "localhost:8080",
-			Timeout: time.Second,
-			Logger:  thrift.Logger(logger),
-		},
-		processor,
-		thriftbp.InjectServerSpan,
-		thriftbp.InjectEdgeContext(ecImpl),
-	)
+	processor := bpgen.NewBaseplateServiceProcessor(handler)
+	server, err := thriftbp.NewBaseplateServer(bp, processor)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Fatal(server.Serve())
+	log.Info(baseplate.Serve(ctx, server))
 }
