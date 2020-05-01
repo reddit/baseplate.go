@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/httpbp"
@@ -42,9 +43,13 @@ const (
 		"token": "17213328-36d4-11e7-8459-525400f56d04"
 	}
 }`
+
+	testTimeout = time.Millisecond * 100
 )
 
 func newSecretsStore(t testing.TB) (store *secrets.Store, dir string) {
+	t.Helper()
+
 	dir, err := ioutil.TempDir("", "edge_context_test_")
 	if err != nil {
 		t.Fatal(err)
@@ -133,7 +138,9 @@ func testMiddleware(c *counter) httpbp.Middleware {
 	}
 }
 
-func newRequest(t *testing.T) *http.Request {
+func newRequest(t testing.TB) *http.Request {
+	t.Helper()
+
 	req, err := http.NewRequest("get", "localhost:9090", strings.NewReader("test"))
 	if err != nil {
 		t.Fatal(err)

@@ -20,6 +20,8 @@ import (
 // 1. MonitorClient
 //
 // 2. ForwardEdgeRequestContext
+//
+// 3. SetDeadlineBudget
 func BaseplateDefaultClientMiddlewares() []thrift.ClientMiddleware {
 	return []thrift.ClientMiddleware{
 		MonitorClient,

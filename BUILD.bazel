@@ -8,9 +8,8 @@ gazelle(name = "gazelle")
 go_library(
     name = "go_default_library",
     srcs = [
+        "baseplate.go",
         "doc.go",
-        "server.go",
-        "thrift.go",
     ],
     importpath = "github.com/reddit/baseplate.go",
     visibility = ["//visibility:public"],
@@ -19,17 +18,21 @@ go_library(
         "//edgecontext:go_default_library",
         "//log:go_default_library",
         "//metricsbp:go_default_library",
+        "//runtimebp:go_default_library",
         "//secrets:go_default_library",
-        "//thriftbp:go_default_library",
         "//tracing:go_default_library",
-        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
         "@in_gopkg_yaml_v2//:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
-    srcs = ["server_test.go"],
+    srcs = ["baseplate_test.go"],
     embed = [":go_default_library"],
-    deps = ["//log:go_default_library"],
+    deps = [
+        "//log:go_default_library",
+        "//metricsbp:go_default_library",
+        "//secrets:go_default_library",
+        "//tracing:go_default_library",
+    ],
 )

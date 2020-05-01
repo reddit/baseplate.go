@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "baseplate_hooks.go",
+        "config.go",
         "doc.go",
         "labels.go",
         "nil_check.go",
@@ -29,6 +30,7 @@ go_test(
     size = "small",
     srcs = [
         "baseplate_hooks_test.go",
+        "config_test.go",
         "example_baseplate_hooks_test.go",
         "example_nil_check_test.go",
         "example_timer_test.go",
@@ -43,8 +45,8 @@ go_test(
     # is just too slow for the context switch in the sleep in TestTimer.
     flaky = True,
     deps = [
-        "//thriftbp:go_default_library",
         "//tracing:go_default_library",
         "@com_github_go_kit_kit//metrics:go_default_library",
+        "@in_gopkg_yaml_v2//:go_default_library",
     ],
 )

@@ -62,39 +62,3 @@ var (
 func NewHandler(name string, handle HandlerFunc, middlewares ...Middleware) http.Handler {
 	return handler{handle: Wrap(name, handle, middlewares...)}
 }
-
-// BaseplateHandlerFactory can be used to create multiple BaseplateHandlers,
-// HandlerFuncs wrapped with the default Baseplate middleware as well as any
-// additional middleware supplied.
-type BaseplateHandlerFactory struct {
-	// Args is the arguments for the default baseplate Middleware that will be
-	// supplide to each handler.
-	Args DefaultMiddlewareArgs
-
-	// Middlewares are middleware that will wrap all HandlerFuncs created by the
-	// BaseplateHandlerFactory.  These are applied after the default Baseplate
-	// Middlewares and before the per-handler Middleware passed to NewHandler.
-	Middlewares []Middleware
-}
-
-// NewHandler returns a new HandlerFunc that is the result of wrapping `handle`
-// with the default Baseplate Middleware, the list of Middleware given to the
-// factory, and any Middleware passed in. The given "name" will be passed to all
-// of the middlewares.
-//
-// Middlewares are applied in the following order:
-//
-// 1. httpbp.DefaultMiddleware()
-//
-// 2. BaseplateHandlerFactory.Middlewares
-//
-// 3. Additional, per-handler middleware passed into
-// BaseplateHandlerFactory.NewHandler
-func (f BaseplateHandlerFactory) NewHandler(name string, handle HandlerFunc, middlewares ...Middleware) http.Handler {
-	defaults := DefaultMiddleware(f.Args)
-	wrappers := make([]Middleware, 0, len(defaults)+len(f.Middlewares)+len(middlewares))
-	wrappers = append(wrappers, defaults...)
-	wrappers = append(wrappers, f.Middlewares...)
-	wrappers = append(wrappers, middlewares...)
-	return NewHandler(name, handle, wrappers...)
-}

@@ -2,21 +2,16 @@ package httpbp_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
 
-	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/httpbp"
-	"github.com/reddit/baseplate.go/mqsend"
-	"github.com/reddit/baseplate.go/tracing"
 )
 
 func simplifyCookies(cookies []*http.Cookie) map[string][]string {
@@ -173,85 +168,5 @@ func TestHandler(t *testing.T) {
 				}
 			},
 		)
-	}
-}
-
-func TestBaseplateHandlerFactory(t *testing.T) {
-	defer func() {
-		tracing.CloseTracer()
-		tracing.InitGlobalTracer(tracing.TracerConfig{})
-	}()
-
-	const expectedID = "t2_example"
-
-	mmq := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
-		MaxQueueSize:   100,
-		MaxMessageSize: 1024,
-	})
-	logger, startFailing := tracing.TestWrapper(t)
-	tracing.InitGlobalTracer(tracing.TracerConfig{
-		SampleRate:               1,
-		MaxRecordTimeout:         testTimeout,
-		Logger:                   logger,
-		TestOnlyMockMessageQueue: mmq,
-	})
-	startFailing()
-
-	store, dir := newSecretsStore(t)
-	defer os.RemoveAll(dir)
-	defer store.Close()
-
-	c := counter{}
-	ecRecorder := edgecontextRecorder{}
-	factory := httpbp.BaseplateHandlerFactory{
-		Args: httpbp.DefaultMiddlewareArgs{
-			TrustHandler:    httpbp.AlwaysTrustHeaders{},
-			EdgeContextImpl: edgecontext.Init(edgecontext.Config{Store: store}),
-		},
-		Middlewares: []httpbp.Middleware{
-			edgecontextRecorderMiddleware(&ecRecorder),
-			testMiddleware(&c),
-		},
-	}
-
-	handle := newTestHandler(testHandlerPlan{
-		body: jsonResponseBody{X: 1},
-	})
-	// include an additional counter middleware here to test that both middlewares
-	// are applied
-	handler := factory.NewHandler("test", handle, testMiddleware(&c))
-	handler.ServeHTTP(httptest.NewRecorder(), newRequest(t))
-
-	// c.count should be 2 since we applied the "counting" middleware twice
-	if c.count != 2 {
-		t.Errorf("wrong counter %d", c.count)
-	}
-
-	// verify that the Span middleware was applied
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-	msg, err := mmq.Receive(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var trace tracing.ZipkinSpan
-	err = json.Unmarshal(msg, &trace)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(trace.BinaryAnnotations) == 0 {
-		t.Fatal("no binary annotations")
-	}
-
-	// verify that the EdgeContext middleware was applied
-	if ecRecorder.EdgeContext == nil {
-		t.Fatal("edge request context not set")
-	}
-	userID, ok := ecRecorder.EdgeContext.User().ID()
-	if !ok {
-		t.Error("user should be logged in")
-	}
-	if userID != expectedID {
-		t.Errorf("user ID mismatch, expected %q, got %q", expectedID, userID)
 	}
 }

@@ -17,6 +17,24 @@ var (
 	_ thrift.ProcessorMiddleware = ExtractDeadlineBudget
 )
 
+// BaseplateDefaultProcessorMiddlewares returns the default processor
+//  middlewares that should be used by a baseplate Thrift service.
+//
+// Currently they are (in order):
+//
+// 1. ExtractDeadlineBudget
+//
+// 2. InjectServerSpan
+//
+// 3. InjectEdgeContext
+func BaseplateDefaultProcessorMiddlewares(ecImpl *edgecontext.Impl) []thrift.ProcessorMiddleware {
+	return []thrift.ProcessorMiddleware{
+		ExtractDeadlineBudget,
+		InjectServerSpan,
+		InjectEdgeContext(ecImpl),
+	}
+}
+
 // StartSpanFromThriftContext creates a server span from thrift context object.
 //
 // This span would usually be used as the span of the whole thrift endpoint
