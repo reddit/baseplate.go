@@ -24,7 +24,7 @@ import (
 //       "myCall",
 //       tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 //     )
-//		 clientCtx = thriftbp.CreateThriftContextFromSpan(clientCtx, tracing.AsSpan(span))
+//     clientCtx = thriftbp.CreateThriftContextFromSpan(clientCtx, tracing.AsSpan(span))
 //     result, err := client.MyCall(clientCtx, arg1, arg2)
 //     span.FinishWithOptions(tracing.FinishOptions{
 //       Ctx: clientCtx,
