@@ -12,7 +12,7 @@ require (
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/opentracing/opentracing-go v1.1.0
-	go.uber.org/zap v1.13.0
+	go.uber.org/zap v1.15.0
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
 	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449
 	golang.org/x/tools v0.0.0-20200410194907-79a7a3126eef // indirect

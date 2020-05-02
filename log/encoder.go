@@ -31,3 +31,10 @@ func TimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 func CapitalLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString("level=" + l.CapitalString())
 }
+
+// JSONTimeEncoder encodes time in RFC3339Nano without extra information.
+//
+// It's suitable to be used in the full JSON format.
+func JSONTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(t.UTC().Format(time.RFC3339Nano))
+}

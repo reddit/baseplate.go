@@ -50,21 +50,35 @@ func (l Level) ToZapLevel() zapcore.Level {
 }
 
 // InitLogger provides a quick way to start or replace a logger.
-//
-// Pass in debug as log level enables development mode,
-// which makes DPanicLevel logs panic.
 func InitLogger(logLevel Level) {
 	config := zap.NewProductionConfig()
-	lvl := logLevel.ToZapLevel()
+	config.Level = zap.NewAtomicLevelAt(logLevel.ToZapLevel())
 	config.Encoding = "console"
 	config.EncoderConfig.EncodeCaller = ShortCallerEncoder
 	config.EncoderConfig.EncodeTime = TimeEncoder
 	config.EncoderConfig.EncodeLevel = CapitalLevelEncoder
-	config.Level = zap.NewAtomicLevelAt(lvl)
 
-	if lvl == zap.DebugLevel {
-		config.Development = true
+	if err := InitLoggerWithConfig(logLevel, config); err != nil {
+		// shouldn't happen, but just in case
+		panic(err)
 	}
+}
+
+// InitLoggerJSON initializes global logger with full json format.
+//
+// The JSON format is also compatible with logdna's ingestion format:
+// https://docs.logdna.com/docs/ingestion
+func InitLoggerJSON(logLevel Level) {
+	config := zap.NewProductionConfig()
+	config.Level = zap.NewAtomicLevelAt(logLevel.ToZapLevel())
+	config.Encoding = "json"
+	config.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+	config.EncoderConfig.EncodeTime = JSONTimeEncoder
+	config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	// json keys expected by logdna:
+	config.EncoderConfig.MessageKey = "message"
+	config.EncoderConfig.TimeKey = "timestamp"
+
 	if err := InitLoggerWithConfig(logLevel, config); err != nil {
 		// shouldn't happen, but just in case
 		panic(err)
@@ -73,8 +87,6 @@ func InitLogger(logLevel Level) {
 
 // InitLoggerWithConfig provides a quick way to start or replace a logger.
 //
-// Pass in debug as log level enables development mode,
-// which makes DPanicLevel logs panic.
 // Pass in a cfg to provide a logger with custom setting
 func InitLoggerWithConfig(logLevel Level, cfg zap.Config) error {
 	if logLevel == NopLevel {
