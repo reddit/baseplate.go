@@ -86,29 +86,50 @@ type Server interface {
 // This is the recommended way to run a Baseplate Server rather than calling
 // server.Start/Stop directly.
 func Serve(ctx context.Context, server Server) error {
+	// Initialize a channel to pass the response from server.Close() back to Serve
+	// in order to return it to the caller of Serve.
 	shutdownChannel := make(chan error)
+
+	// Listen for a shutdown command.  This is a blocking call so it is in a
+	// separate goroutine.
 	go runtimebp.HandleShutdown(
 		ctx,
 		func(signal os.Signal) {
-			timeout := server.Baseplate().Config().StopTimeout
+			// Initialize a context to potentially control the length of time we wait
+			// for the server to close.
 			ctx := context.Background()
+
+			// Check if the server has a StopTimeout configured, if it does, use that.
+			//
+			// If one is not set, we will wait indefinetly for the server to stop.
+			timeout := server.Baseplate().Config().StopTimeout
 			if timeout > 0 {
 				var cancel context.CancelFunc
 				ctx, cancel = context.WithTimeout(ctx, timeout)
 				defer cancel()
 			}
 
-			var err error
+			// Initialize a channel to pass the result of server.Close() back to the
+			// current goroutine.
 			closeChannel := make(chan error)
+
+			// Tell the server to close.  This is a blocking call, so it is in a
+			// separate goroutine.
 			go func() {
 				closeChannel <- server.Close()
 			}()
 
-			// Wait for either the context to timeout or Stop() to finish.
+			// Declare the error variable we will use later here so we can set it to
+			// the result of the switch statement below.
+			var err error
+			// Wait for either the context to timeout or server.Close() to return.
 			select {
 			case <-ctx.Done():
+				// The context timed-out or was cancelled so use that error.
 				err = ctx.Err()
 			case e := <-closeChannel:
+				// server.Close() completed and passed it's result to closeChannel, so
+				// use that value.
 				err = e
 			}
 
@@ -117,10 +138,17 @@ func Serve(ctx context.Context, server Server) error {
 				"signal", signal,
 				"close error", err,
 			)
+
+			// Pass the final, potentially nil, error to the shutdown channel.
 			shutdownChannel <- err
 		},
 	)
+	// Start the server. This is a blocking command and will run until the server
+	// is closed.
 	log.Info(server.Serve())
+
+	// Return the error passed via shutdownChannel to the caller.  This will block
+	// until a value is put on the channel.
 	return <-shutdownChannel
 }
 
