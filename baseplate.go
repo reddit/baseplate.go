@@ -44,17 +44,6 @@ type Config struct {
 	Tracing tracing.Config   `yaml:"tracing"`
 }
 
-// Args is the argument struct for baseplate.New
-type Args struct {
-	// Path is the path to the configuration file for the service.
-	Path string
-
-	// ServiceCfg is an optional value that can be used to parse additional,
-	// service-specific configuration values from the configuration file for the
-	// service.
-	ServiceCfg interface{}
-}
-
 // Baseplate is the general purpose object that you build a Server on.
 type Baseplate interface {
 	io.Closer
@@ -179,11 +168,16 @@ func (c cancelCloser) Close() error {
 	return nil
 }
 
-// New parses the config file at the args.Path, initializes the monitoring and
+// New parses the config file at the path, initializes the monitoring and
 // logging frameworks, and returns the "serve" context and a new Baseplate to
 // run your service on.
-func New(ctx context.Context, args Args) (Baseplate, error) {
-	cfg, err := ParseConfig(args.Path, args.ServiceCfg)
+//
+// serviceCfg is optional, if it is non-nil, it should be a pointer and New
+// will also decode the config file at the path to set it up.  This can be used
+// to parse additional, service specific config values from the same config
+// file.
+func New(ctx context.Context, path string, serviceCfg interface{}) (Baseplate, error) {
+	cfg, err := ParseConfig(path, serviceCfg)
 	if err != nil {
 		return nil, err
 	}

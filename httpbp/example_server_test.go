@@ -74,7 +74,7 @@ var (
 
 func ExampleNewBaseplateServer() {
 	ctx := context.Background()
-	bp, err := baseplate.New(ctx, baseplate.Args{Path: "example.yaml"})
+	bp, err := baseplate.New(ctx, "example.yaml", nil)
 	if err != nil {
 		panic(err)
 	}

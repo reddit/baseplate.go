@@ -14,7 +14,7 @@ func ExampleNewBaseplateServer() {
 	// variables should be initialized properly in production
 	var handler bpgen.BaseplateService
 	ctx := context.Background()
-	bp, err := baseplate.New(ctx, baseplate.Args{Path: "example.yaml"})
+	bp, err := baseplate.New(ctx, "example.yaml", nil)
 	if err != nil {
 		panic(err)
 	}
