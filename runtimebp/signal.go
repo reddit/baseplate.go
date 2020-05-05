@@ -23,6 +23,9 @@ var defaultSignals = []os.Signal{
 // or a signal happens, whichever comes first.
 // So it should usually be started in its own goroutine.
 //
+// Baseplate services should use baseplate.Serve which will manage this for you
+// rather than using HandleShutdown directly.
+//
 // SIGTERM, as specified in
 // https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods,
 // and os.Interrupt as for handling ^C in command line,
