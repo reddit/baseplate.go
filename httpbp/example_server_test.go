@@ -12,13 +12,20 @@ import (
 	"github.com/reddit/baseplate.go/secrets"
 )
 
+type config struct {
+	Redis struct {
+		Addrs []string `yaml:"addrs"`
+	} `yaml:"redis"`
+}
+
 type body struct {
 	X int `json:"x"`
 	Y int `json:"y"`
 }
 
 type Handlers struct {
-	secrets *secrets.Store
+	secrets    *secrets.Store
+	redisAddrs []string
 }
 
 func (h Handlers) Home(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
@@ -73,14 +80,18 @@ var (
 )
 
 func ExampleNewBaseplateServer() {
+	var cfg config
 	ctx := context.Background()
-	bp, err := baseplate.New(ctx, "example.yaml")
+	bp, err := baseplate.New(ctx, "example.yaml", &cfg)
 	if err != nil {
 		panic(err)
 	}
 	defer bp.Close()
 
-	handlers := Handlers{bp.Secrets()}
+	handlers := Handlers{
+		secrets:    bp.Secrets(),
+		redisAddrs: cfg.Redis.Addrs,
+	}
 	server, err := httpbp.NewBaseplateServer(httpbp.ServerArgs{
 		Baseplate:   bp,
 		Endpoints:   handlers.Endpoints(),

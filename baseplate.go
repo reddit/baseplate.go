@@ -38,6 +38,7 @@ type Config struct {
 
 	Log     log.Config       `yaml:"log"`
 	Metrics metricsbp.Config `yaml:"metrics"`
+	Runtime runtimebp.Config `yaml:"runtime"`
 	Secrets secrets.Config   `yaml:"secrets"`
 	Sentry  log.SentryConfig `yaml:"setry"`
 	Tracing tracing.Config   `yaml:"tracing"`
@@ -124,7 +125,7 @@ func Serve(ctx context.Context, server Server) error {
 }
 
 // ParseConfig returns a new Config parsed from the YAML file at the given path.
-func ParseConfig(path string) (Config, error) {
+func ParseConfig(path string, serviceCfg interface{}) (Config, error) {
 	cfg := Config{}
 	if path == "" {
 		return cfg, errors.New("baseplate.ParseConfig: no config path given")
@@ -136,18 +137,25 @@ func ParseConfig(path string) (Config, error) {
 	}
 	defer f.Close()
 
-	return DecodeConfigYAML(f)
+	return DecodeConfigYAML(f, serviceCfg)
 }
 
 // DecodeConfigYAML returns a new Config built from decoding the YAML read from
 // the given Reader.
-func DecodeConfigYAML(reader io.Reader) (Config, error) {
+func DecodeConfigYAML(reader io.ReadSeeker, serviceCfg interface{}) (Config, error) {
 	cfg := Config{}
 	if err := yaml.NewDecoder(reader).Decode(&cfg); err != nil {
 		return cfg, err
 	}
 
 	log.Debugf("%#v", cfg)
+
+	if serviceCfg != nil {
+		reader.Seek(0, io.SeekStart)
+		if err := yaml.NewDecoder(reader).Decode(serviceCfg); err != nil {
+			return cfg, err
+		}
+	}
 	return cfg, nil
 }
 
@@ -163,12 +171,19 @@ func (c cancelCloser) Close() error {
 // New parses the config file at the given path, initializes the monitoring and
 // logging frameworks, and returns the "serve" context and a new Baseplate to
 // run your service on.
-func New(ctx context.Context, path string) (Baseplate, error) {
-	cfg, err := ParseConfig(path)
+//
+// serviceCfg is optional, if it is non-nil, it should be a pointer and New
+// will also decode the config file at the path to set it up.  This can be used
+// to parse additional, service specific config values from the same config
+// file.
+func New(ctx context.Context, path string, serviceCfg interface{}) (Baseplate, error) {
+	cfg, err := ParseConfig(path, serviceCfg)
 	if err != nil {
 		return nil, err
 	}
 	bp := impl{cfg: cfg}
+
+	runtimebp.InitFromConfig(cfg.Runtime)
 
 	ctx, cancel := context.WithCancel(ctx)
 	bp.closers = append(bp.closers, cancelCloser{cancel})
