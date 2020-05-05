@@ -92,7 +92,7 @@ func Serve(ctx context.Context, server Server) error {
 		func(signal os.Signal) {
 			timeout := server.Baseplate().Config().StopTimeout
 			ctx := context.Background()
-			if timeout != 0 {
+			if timeout > 0 {
 				var cancel context.CancelFunc
 				ctx, cancel = context.WithTimeout(ctx, timeout)
 				defer cancel()

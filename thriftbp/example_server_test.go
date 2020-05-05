@@ -9,10 +9,9 @@ import (
 	"github.com/reddit/baseplate.go/thriftbp"
 )
 
-// This example demonstrates how to use thriftbp.NewServer.
+// This example demonstrates what a typical main function should look like for a
+// Baseplate thrift service.
 func ExampleNewBaseplateServer() {
-	// variables should be initialized properly in production
-	var handler bpgen.BaseplateService
 	ctx := context.Background()
 	bp, err := baseplate.New(ctx, "example.yaml", nil)
 	if err != nil {
@@ -20,7 +19,11 @@ func ExampleNewBaseplateServer() {
 	}
 	defer bp.Close()
 
+	// In real prod code, you should define your thrift endpoints and create this
+	// handler instead.
+	var handler bpgen.BaseplateService
 	processor := bpgen.NewBaseplateServiceProcessor(handler)
+
 	server, err := thriftbp.NewBaseplateServer(bp, processor)
 	if err != nil {
 		log.Fatal(err)
