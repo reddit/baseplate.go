@@ -43,6 +43,17 @@ type Config struct {
 	Tracing tracing.Config   `yaml:"tracing"`
 }
 
+// Args is the argument struct for baseplate.New
+type Args struct {
+	// Path is the path to the configuration file for the service.
+	Path string
+
+	// ServiceCfg is an optional value that can be used to parse additional,
+	// service-specific configuration values from the configuration file for the
+	// service.
+	ServiceCfg interface{}
+}
+
 // Baseplate is the general purpose object that you build a Server on.
 type Baseplate interface {
 	io.Closer
@@ -124,7 +135,7 @@ func Serve(ctx context.Context, server Server) error {
 }
 
 // ParseConfig returns a new Config parsed from the YAML file at the given path.
-func ParseConfig(path string) (Config, error) {
+func ParseConfig(path string, serviceCfg interface{}) (Config, error) {
 	cfg := Config{}
 	if path == "" {
 		return cfg, errors.New("baseplate.ParseConfig: no config path given")
@@ -136,18 +147,25 @@ func ParseConfig(path string) (Config, error) {
 	}
 	defer f.Close()
 
-	return DecodeConfigYAML(f)
+	return DecodeConfigYAML(f, serviceCfg)
 }
 
 // DecodeConfigYAML returns a new Config built from decoding the YAML read from
 // the given Reader.
-func DecodeConfigYAML(reader io.Reader) (Config, error) {
+func DecodeConfigYAML(reader io.ReadSeeker, serviceCfg interface{}) (Config, error) {
 	cfg := Config{}
 	if err := yaml.NewDecoder(reader).Decode(&cfg); err != nil {
 		return cfg, err
 	}
 
 	log.Debugf("%#v", cfg)
+
+	if serviceCfg != nil {
+		reader.Seek(0, io.SeekStart)
+		if err := yaml.NewDecoder(reader).Decode(serviceCfg); err != nil {
+			return cfg, err
+		}
+	}
 	return cfg, nil
 }
 
@@ -160,11 +178,11 @@ func (c cancelCloser) Close() error {
 	return nil
 }
 
-// New parses the config file at the given path, initializes the monitoring and
+// New parses the config file at the args.Path, initializes the monitoring and
 // logging frameworks, and returns the "serve" context and a new Baseplate to
 // run your service on.
-func New(ctx context.Context, path string) (Baseplate, error) {
-	cfg, err := ParseConfig(path)
+func New(ctx context.Context, args Args) (Baseplate, error) {
+	cfg, err := ParseConfig(args.Path, args.ServiceCfg)
 	if err != nil {
 		return nil, err
 	}

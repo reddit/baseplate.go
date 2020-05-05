@@ -192,6 +192,12 @@ func float64Ptr(v float64) *float64 {
 	return &v
 }
 
+type serviceConfig struct {
+	Redis struct {
+		Addrs []string
+	}
+}
+
 func TestDecodeConfigYAML(t *testing.T) {
 	const raw = `
 addr: :8080
@@ -214,6 +220,11 @@ tracing:
  queueName: test
  recordTimeout: 1ms
  sampleRate: 0.01
+
+redis:
+ addrs:
+  - redis:8000
+  - redis:8001
 `
 
 	expected := baseplate.Config{
@@ -243,11 +254,28 @@ tracing:
 			SampleRate:    0.01,
 		},
 	}
-	cfg, err := baseplate.DecodeConfigYAML(strings.NewReader(raw))
+
+	expectedServiceCfg := serviceConfig{
+		struct{ Addrs []string }{
+			Addrs: []string{
+				"redis:8000",
+				"redis:8001",
+			},
+		},
+	}
+	var serviceCfg serviceConfig
+	cfg, err := baseplate.DecodeConfigYAML(strings.NewReader(raw), &serviceCfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(cfg, expected) {
 		t.Fatalf("config mismatch, expected %#v, got %#v", expected, cfg)
+	}
+	if !reflect.DeepEqual(serviceCfg, expectedServiceCfg) {
+		t.Fatalf(
+			"service config mismatch, expected %#v, got %#v",
+			expectedServiceCfg,
+			serviceCfg,
+		)
 	}
 }
