@@ -11,9 +11,11 @@ type Config struct {
 	// NumProcesses can be used to set the maximum and minimum number of Go
 	// Processes.
 	NumProcesses struct {
-		// Max controls the maximum number of Go processes.
+		// Max controls the maximum number of Go processes.  This is the ceiling,
+		// the final maximum number will depend on the number of CPUs available to
+		// your service.
 		//
-		// Defaults to 50 if not set.
+		// Defaults to 64 if not set.
 		Max int `yaml:"max"`
 
 		// Max controls the minimum number of Go processes.
@@ -25,7 +27,7 @@ type Config struct {
 
 // InitFromConfig sets GOMAXPROCS using the given config.
 func InitFromConfig(cfg Config) {
-	max := 50
+	max := 64
 	min := 1
 	if cfg.NumProcesses.Max != 0 {
 		max = cfg.NumProcesses.Max
