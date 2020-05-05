@@ -79,6 +79,8 @@ var (
 	_ httpbp.Middleware = loggingMiddleware
 )
 
+// This example demonstrates what a typical main function should look like for a
+// Baseplate HTTP service.
 func ExampleNewBaseplateServer() {
 	var cfg config
 	ctx := context.Background()
