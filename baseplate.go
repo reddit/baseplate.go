@@ -86,12 +86,15 @@ type Server interface {
 // This is the recommended way to run a Baseplate Server rather than calling
 // server.Start/Stop directly.
 func Serve(ctx context.Context, server Server) error {
-	// Initialize a channel to pass the response from server.Close() back to Serve
-	// in order to return it to the caller of Serve.
+	// Initialize a channel to return the response from server.Close() as our
+	// return value.
 	shutdownChannel := make(chan error)
 
-	// Listen for a shutdown command.  This is a blocking call so it is in a
-	// separate goroutine.
+	// Listen for a shutdown command.
+	//
+	// This is a blocking call so it is in a separate goroutine.  It will exit
+	// either when it is triggered via a shutdown command or if the context passed
+	// in is cancelled.
 	go runtimebp.HandleShutdown(
 		ctx,
 		func(signal os.Signal) {
@@ -104,17 +107,20 @@ func Serve(ctx context.Context, server Server) error {
 			// If one is not set, we will wait indefinetly for the server to stop.
 			timeout := server.Baseplate().Config().StopTimeout
 			if timeout > 0 {
+				// Declare cancel in advance so we can just use `=` when calling
+				// context.WithTimeout.  If we used `:=` it would bind `ctx` to the scope
+				// of this `if` statement rather than updating the value declared before.
 				var cancel context.CancelFunc
 				ctx, cancel = context.WithTimeout(ctx, timeout)
 				defer cancel()
 			}
 
-			// Initialize a channel to pass the result of server.Close() back to the
-			// current goroutine.
+			// Initialize a channel to pass the result of server.Close().
 			closeChannel := make(chan error)
 
-			// Tell the server to close.  This is a blocking call, so it is in a
-			// separate goroutine.
+			// Tell the server to close.
+			//
+			// This is a blocking call, so it is called in a separate goroutine.
 			go func() {
 				closeChannel <- server.Close()
 			}()
@@ -122,6 +128,7 @@ func Serve(ctx context.Context, server Server) error {
 			// Declare the error variable we will use later here so we can set it to
 			// the result of the switch statement below.
 			var err error
+
 			// Wait for either the context to timeout or server.Close() to return.
 			select {
 			case <-ctx.Done():
@@ -143,12 +150,15 @@ func Serve(ctx context.Context, server Server) error {
 			shutdownChannel <- err
 		},
 	)
-	// Start the server. This is a blocking command and will run until the server
-	// is closed.
+
+	// Start the server.
+	//
+	// This is a blocking command and will run until the server is closed.
 	log.Info(server.Serve())
 
-	// Return the error passed via shutdownChannel to the caller.  This will block
-	// until a value is put on the channel.
+	// Return the error passed via shutdownChannel to the caller.
+	//
+	// This will block until a value is put on the channel.
 	return <-shutdownChannel
 }
 
