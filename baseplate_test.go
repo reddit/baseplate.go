@@ -15,6 +15,7 @@ import (
 	baseplate "github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/reddit/baseplate.go/runtimebp"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -212,6 +213,10 @@ metrics:
  endpoint: metrics:8125
  histogramSampleRate: 0.01
 
+runtime:
+ numProcesses:
+  max: 100
+
 secrets:
  path: /tmp/secrets.json
 
@@ -241,6 +246,16 @@ redis:
 			Endpoint:            "metrics:8125",
 			CounterSampleRate:   nil,
 			HistogramSampleRate: float64Ptr(0.01),
+		},
+
+		Runtime: runtimebp.Config{
+			NumProcesses: struct {
+				Max int `yaml:"max"`
+				Min int `yaml:"min"`
+			}{
+				Max: 100,
+				Min: 0,
+			},
 		},
 
 		Secrets: secrets.Config{

@@ -32,6 +32,7 @@ go_test(
     deps = [
         "//log:go_default_library",
         "//metricsbp:go_default_library",
+        "//runtimebp:go_default_library",
         "//secrets:go_default_library",
         "//tracing:go_default_library",
     ],

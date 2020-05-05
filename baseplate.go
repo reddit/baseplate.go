@@ -38,6 +38,7 @@ type Config struct {
 
 	Log     log.Config       `yaml:"log"`
 	Metrics metricsbp.Config `yaml:"metrics"`
+	Runtime runtimebp.Config `yaml:"runtime"`
 	Secrets secrets.Config   `yaml:"secrets"`
 	Sentry  log.SentryConfig `yaml:"setry"`
 	Tracing tracing.Config   `yaml:"tracing"`
@@ -187,6 +188,8 @@ func New(ctx context.Context, args Args) (Baseplate, error) {
 		return nil, err
 	}
 	bp := impl{cfg: cfg}
+
+	runtimebp.InitFromConfig(cfg.Runtime)
 
 	ctx, cancel := context.WithCancel(ctx)
 	bp.closers = append(bp.closers, cancelCloser{cancel})
