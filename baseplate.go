@@ -168,7 +168,7 @@ func (c cancelCloser) Close() error {
 	return nil
 }
 
-// New parses the config file at the path, initializes the monitoring and
+// New parses the config file at the given path, initializes the monitoring and
 // logging frameworks, and returns the "serve" context and a new Baseplate to
 // run your service on.
 //
