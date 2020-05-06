@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"net/http"
 	"reflect"
 	"strings"
 	"testing"
@@ -250,5 +251,19 @@ func TestRawContentWriterFactory(t *testing.T) {
 				}
 			},
 		)
+	}
+}
+
+func TestResponseWithCode(t *testing.T) {
+	t.Parallel()
+
+	r := httpbp.NewResponse("test")
+	if r.Code != 0 {
+		t.Errorf("wrong code, expected %d, got %d", 0, r.Code)
+	}
+
+	r = r.WithCode(http.StatusAccepted)
+	if r.Code != http.StatusAccepted {
+		t.Errorf("wrong code, expected %d, got %d", http.StatusAccepted, r.Code)
 	}
 }

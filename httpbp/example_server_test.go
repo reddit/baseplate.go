@@ -29,13 +29,7 @@ type Handlers struct {
 }
 
 func (h Handlers) Home(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-	response := httpbp.Response{
-		Body: body{
-			X: 1,
-			Y: 2,
-		},
-	}
-	return httpbp.WriteJSON(w, response)
+	return httpbp.WriteJSON(w, httpbp.NewResponse(body{X: 1, Y: 2}))
 }
 
 func (h Handlers) ServerErr(ctx context.Context, w http.ResponseWriter, r *http.Request) error {

@@ -40,6 +40,12 @@ type ContentWriter interface {
 	WriteBody(w io.Writer, v interface{}) error
 }
 
+// NewResponse returns a new Response with the given body and default status
+// code.
+func NewResponse(body interface{}) Response {
+	return Response{Body: body}
+}
+
 // Response is the non-header content to be written in an HTTP response.
 type Response struct {
 	// Body is the response body to write using a ContentWriter.  You should
@@ -50,6 +56,22 @@ type Response struct {
 	// Code is the status code to set on the response, this is optional and only
 	// should be set if you want to return something other than http.StatusOK (200).
 	Code int
+}
+
+// WithCode can be used to set the Code on a Response in a way that can be
+// chained in a call to one of the Write methods.
+//
+// Ex:
+//	httpbp.WriteRawContent(
+//		w,
+//		httpbp.NewResponse(nil).WithCode(http.StatusAccepted),
+//		httpbp.PlainTextContentType,
+//	)
+//
+// This is provided as syntactic sugar and is not required to set Code.
+func (r Response) WithCode(code int) Response {
+	r.Code = code
+	return r
 }
 
 // WriteResponse writes the given Response to the given ResponseWriter using the
