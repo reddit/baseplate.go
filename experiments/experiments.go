@@ -111,7 +111,7 @@ func (e *Experiments) experiment(name string) (*SimpleExperiment, error) {
 // variants.
 type Experiment struct {
 	ExperimentVersion int                          `json:"experiment_version"`
-	ShuffleVersion    string                       `json:"shuffle_version"`
+	ShuffleVersion    int                          `json:"shuffle_version"`
 	BucketVal         string                       `json:"bucket_val"`
 	Variants          []Variant                    `json:"variants"`
 	BucketSeed        string                       `json:"bucket_seed"`
@@ -193,10 +193,6 @@ type SimpleExperiment struct {
 // NewSimpleExperiment returns a new instance of SimpleExperiment. Default
 // values if not otherwise provided by the ExperimentConfig will be assumed.
 func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error) {
-	shuffleVersion := experiment.Experiment.ShuffleVersion
-	if shuffleVersion == "" {
-		shuffleVersion = "None"
-	}
 	bucketVal := experiment.Experiment.BucketVal
 	if bucketVal == "" {
 		bucketVal = "user_id"
@@ -207,7 +203,7 @@ func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error
 	}
 	bucketSeed := experiment.Experiment.BucketSeed
 	if experiment.Experiment.BucketSeed == "" {
-		bucketSeed = fmt.Sprintf("%d.%s.%s", experiment.ID, experiment.Name, shuffleVersion)
+		bucketSeed = fmt.Sprintf("%d.%s.%d", experiment.ID, experiment.Name, experiment.Experiment.ShuffleVersion)
 	}
 	variantSet, err := FromExperimentType(experiment.Type, experiment.Experiment.Variants, 0)
 	if err != nil {
