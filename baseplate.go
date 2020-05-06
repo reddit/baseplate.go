@@ -98,10 +98,6 @@ func Serve(ctx context.Context, server Server) error {
 	go runtimebp.HandleShutdown(
 		ctx,
 		func(signal os.Signal) {
-			// Initialize a context to potentially control the length of time we wait
-			// for the server to close.
-			ctx := context.Background()
-
 			// Check if the server has a StopTimeout configured.
 			//
 			// If one is set, we will only wait for that duration for the server to
