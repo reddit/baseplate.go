@@ -131,7 +131,8 @@ func Serve(ctx context.Context, server Server) error {
 			// the result of the switch statement below.
 			var err error
 
-			// Wait for either the context to timeout or server.Close() to return.
+			// Wait for either ctx.Done() to be closed (indicating that the context
+			// was cancelled or it's deadline was exeeded) or server.Close() to return.
 			select {
 			case <-ctx.Done():
 				// The context timed-out or was cancelled so use that error.
