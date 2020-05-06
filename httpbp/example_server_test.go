@@ -77,8 +77,7 @@ var (
 // Baseplate HTTP service.
 func ExampleNewBaseplateServer() {
 	var cfg config
-	ctx := context.Background()
-	bp, err := baseplate.New(ctx, "example.yaml", &cfg)
+	ctx, bp, err := baseplate.New(context.Background(), "example.yaml", &cfg)
 	if err != nil {
 		panic(err)
 	}

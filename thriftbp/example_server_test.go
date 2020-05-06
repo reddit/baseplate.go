@@ -12,8 +12,7 @@ import (
 // This example demonstrates what a typical main function should look like for a
 // Baseplate thrift service.
 func ExampleNewBaseplateServer() {
-	ctx := context.Background()
-	bp, err := baseplate.New(ctx, "example.yaml", nil)
+	ctx, bp, err := baseplate.New(context.Background(), "example.yaml", nil)
 	if err != nil {
 		panic(err)
 	}

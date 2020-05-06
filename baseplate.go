@@ -207,16 +207,17 @@ func (c cancelCloser) Close() error {
 
 // New parses the config file at the given path, initializes the monitoring and
 // logging frameworks, and returns the "serve" context and a new Baseplate to
-// run your service on.
+// run your service on.  The returned context will be cancelled when the
+// Baseplate is closed.
 //
 // serviceCfg is optional, if it is non-nil, it should be a pointer and New
 // will also decode the config file at the path to set it up.  This can be used
 // to parse additional, service specific config values from the same config
 // file.
-func New(ctx context.Context, path string, serviceCfg interface{}) (Baseplate, error) {
+func New(ctx context.Context, path string, serviceCfg interface{}) (context.Context, Baseplate, error) {
 	cfg, err := ParseConfig(path, serviceCfg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	bp := impl{cfg: cfg}
 
@@ -231,21 +232,21 @@ func New(ctx context.Context, path string, serviceCfg interface{}) (Baseplate, e
 	closer, err := log.InitSentry(cfg.Sentry)
 	if err != nil {
 		bp.Close()
-		return nil, err
+		return nil, nil, err
 	}
 	bp.closers = append(bp.closers, closer)
 
 	bp.secrets, err = secrets.InitFromConfig(ctx, cfg.Secrets)
 	if err != nil {
 		bp.Close()
-		return nil, err
+		return nil, nil, err
 	}
 	bp.closers = append(bp.closers, bp.secrets)
 
 	closer, err = tracing.InitFromConfig(cfg.Tracing)
 	if err != nil {
 		bp.Close()
-		return nil, err
+		return nil, nil, err
 	}
 	bp.closers = append(bp.closers, closer)
 
@@ -253,7 +254,7 @@ func New(ctx context.Context, path string, serviceCfg interface{}) (Baseplate, e
 		Store:  bp.secrets,
 		Logger: log.ErrorWithSentryWrapper(),
 	})
-	return bp, nil
+	return ctx, bp, nil
 }
 
 type impl struct {
