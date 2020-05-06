@@ -220,6 +220,11 @@ func TestRawContentWriterFactory(t *testing.T) {
 			expected: expectation{body: content},
 		},
 		{
+			name:     "nil",
+			body:     nil,
+			expected: expectation{body: ""},
+		},
+		{
 			name:     "wrong-type",
 			body:     1,
 			expected: expectation{err: true},
