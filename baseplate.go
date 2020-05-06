@@ -146,7 +146,7 @@ func Serve(ctx context.Context, server Server) error {
 				"close error", err,
 			)
 
-			// Pass the final, potentially nil, error to the shutdown channel.
+			// Pass the final, potentially nil, error to shutdownChannel.
 			shutdownChannel <- err
 		},
 	)
