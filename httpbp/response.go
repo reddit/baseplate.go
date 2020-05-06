@@ -166,6 +166,8 @@ func RawContentWriter(contentType string) ContentWriter {
 				r = strings.NewReader(b)
 			case []byte:
 				r = bytes.NewReader(b)
+			case nil:
+				r = strings.NewReader("")
 			}
 			_, err := io.Copy(w, r)
 			return err
