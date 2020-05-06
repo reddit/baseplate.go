@@ -332,10 +332,7 @@ func (name UnknownExperimentError) Error() string {
 
 func isSimpleExperiment(experimentType string) bool {
 	switch experimentType {
-	case "single_variant":
-	case "multi_variant":
-	case "feature_rollout":
-	case "range_variant":
+	case "single_variant", "multi_variant", "feature_rollout", "range_variant":
 		return true
 	}
 	return false
