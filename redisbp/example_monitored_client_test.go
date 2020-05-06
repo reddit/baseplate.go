@@ -90,24 +90,4 @@ func ExampleMonitoredCmdableFactory() {
 		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
 	)
 	svc.Endpoint(ctx)
-
-	// Create service with a factory using a redis.Ring client.
-	svc = Service{
-		RedisFactory: redisbp.NewMonitoredRingFactory(
-			"redis",
-			redis.NewRing(&redis.RingOptions{
-				Addrs: map[string]string{
-					"shard0": ":7000",
-					"shard1": ":7001",
-					"shard2": ":7002",
-				},
-			}),
-		),
-	}
-	_, ctx = opentracing.StartSpanFromContext(
-		context.Background(),
-		"test",
-		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
-	)
-	svc.Endpoint(ctx)
 }

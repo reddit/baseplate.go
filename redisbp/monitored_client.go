@@ -43,14 +43,6 @@ func (c *monitoredCluster) WithMonitoredContext(ctx context.Context) MonitoredCm
 	return &monitoredCluster{ClusterClient: c.ClusterClient.WithContext(ctx)}
 }
 
-type monitoredRing struct {
-	*redis.Ring
-}
-
-func (c *monitoredRing) WithMonitoredContext(ctx context.Context) MonitoredCmdable {
-	return &monitoredRing{Ring: c.Ring.WithContext(ctx)}
-}
-
 // MonitoredCmdableFactory is used to create Redis clients that are monitored by
 // a SpanHook.
 //
@@ -84,12 +76,6 @@ func NewMonitoredClusterFactory(name string, client *redis.ClusterClient) Monito
 	return newMonitoredCmdableFactory(name, &monitoredCluster{ClusterClient: client})
 }
 
-// NewMonitoredRingFactory creates a MonitoredCmdableFactory for a redis.Ring
-// object.
-func NewMonitoredRingFactory(name string, client *redis.Ring) MonitoredCmdableFactory {
-	return newMonitoredCmdableFactory(name, &monitoredRing{Ring: client})
-}
-
 // BuildClient returns a new MonitoredCmdable with its context set to the
 // provided one.
 func (f MonitoredCmdableFactory) BuildClient(ctx context.Context) MonitoredCmdable {
@@ -99,5 +85,4 @@ func (f MonitoredCmdableFactory) BuildClient(ctx context.Context) MonitoredCmdab
 var (
 	_ MonitoredCmdable = (*monitoredClient)(nil)
 	_ MonitoredCmdable = (*monitoredCluster)(nil)
-	_ MonitoredCmdable = (*monitoredRing)(nil)
 )
