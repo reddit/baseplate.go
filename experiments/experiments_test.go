@@ -43,7 +43,7 @@ func TestCalculateBucketValue(t *testing.T) {
 		config         *ExperimentConfig
 		id             string
 		name           string
-		shuffleVersion string
+		shuffleVersion int
 		expectedBucket int
 	}{
 		{
@@ -51,7 +51,7 @@ func TestCalculateBucketValue(t *testing.T) {
 				ID:   1,
 				Name: "test_experiment",
 				Experiment: Experiment{
-					ShuffleVersion: "",
+					ShuffleVersion: 0,
 					BucketSeed:     "some new seed",
 					Variants: []Variant{
 						{
@@ -307,7 +307,7 @@ func TestExperimentDisabled(t *testing.T) {
 func TestChangeShuffleVersionChangesBucketing(t *testing.T) {
 	shuffleConfig := *simpleConfig
 	shuffleConfig.Experiment.BucketSeed = ""
-	shuffleConfig.Experiment.ShuffleVersion = "2"
+	shuffleConfig.Experiment.ShuffleVersion = 2
 
 	experiment1, err := NewSimpleExperiment(simpleConfig)
 	if err != nil {
