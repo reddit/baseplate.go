@@ -102,8 +102,10 @@ func Serve(ctx context.Context, server Server) error {
 			// for the server to close.
 			ctx := context.Background()
 
-			// Check if the server has a StopTimeout configured, if it does, use that.
+			// Check if the server has a StopTimeout configured.
 			//
+			// If one is set, we will only wait for that duration for the server to
+			// stop gracefully and will exit after the deadline is exceeded.
 			// If one is not set, we will wait indefinetly for the server to stop.
 			timeout := server.Baseplate().Config().StopTimeout
 			if timeout > 0 {
