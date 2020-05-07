@@ -33,7 +33,7 @@ type Config struct {
 
 	// StopTimeout is the timeout for the Stop command for the service.
 	//
-	// If this is not set, then a default value of 30 seconds will be used.
+	// If this is not set, then a default value of 10 seconds will be used.
 	// If this is less than 0, then no timeout will be set on the Stop command.
 	StopTimeout time.Duration `yaml:"stopTimeout"`
 
@@ -105,9 +105,9 @@ func Serve(ctx context.Context, server Server) error {
 			// stop gracefully and will exit after the deadline is exceeded.
 			timeout := server.Baseplate().Config().StopTimeout
 
-			// Default to 30 seconds if not set.
+			// Default to 10 seconds if not set.
 			if timeout == 0 {
-				timeout = time.Second * 30
+				timeout = time.Second * 10
 			}
 
 			// If timeout is < 0, we will wait indefinetly for the server to close.
