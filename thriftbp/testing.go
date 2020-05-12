@@ -110,14 +110,6 @@ type MockClient struct {
 	methods map[string]MockCall
 }
 
-// NewMockTClientFactory returns a TClientFactory that always returns the
-// given MockClient.
-func NewMockTClientFactory(client MockClient) TClientFactory {
-	return func(thrift.TTransport, thrift.TProtocolFactory) thrift.TClient {
-		return &client
-	}
-}
-
 func nopMockCall(ctx context.Context, args, result thrift.TStruct) error {
 	return nil
 }
@@ -240,15 +232,24 @@ func (m MockClientPool) IsExhausted() bool {
 	return m.Exhausted
 }
 
-// GetClient implements ClientPool interface.
+// Call implements TClient.
 //
 // If Exhausted is set to true,
 // it returns clientpool.ErrExhausted as the error.
 //
 // If Exhausted is set to false,
-// it calls CreateClient field if it's set,
-// or return a default MockClient otherwise.
-func (m MockClientPool) GetClient() (Client, error) {
+// it creates a new client using the CreateClient field if it's set
+// or uses default MockClient otherwise
+// and uses that to implement Call.
+func (m MockClientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) error {
+	client, err := m.getClient()
+	if err != nil {
+		return PoolError{Cause: err}
+	}
+	return client.Call(ctx, method, args, result)
+}
+
+func (m MockClientPool) getClient() (Client, error) {
 	if m.Exhausted {
 		return nil, clientpool.ErrExhausted
 	}
@@ -257,9 +258,6 @@ func (m MockClientPool) GetClient() (Client, error) {
 	}
 	return &MockClient{}, nil
 }
-
-// ReleaseClient is nop.
-func (MockClientPool) ReleaseClient(Client) {}
 
 // CopyTStruct is a helper function that can be used to implement MockCall.
 //
@@ -293,8 +291,8 @@ func CopyTStruct(from, to thrift.TStruct) error {
 }
 
 var (
-	_ thrift.TClient = (*MockClient)(nil)
-	_ thrift.TClient = (*RecordedClient)(nil)
-	_ Client         = (*MockClient)(nil)
-	_ ClientPool     = MockClientPool{}
+	_ thrift.TClient    = (*MockClient)(nil)
+	_ thrift.TClient    = (*RecordedClient)(nil)
+	_ ClientPool        = MockClientPool{}
+	_ clientpool.Client = (*MockClient)(nil)
 )

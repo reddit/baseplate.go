@@ -3,6 +3,7 @@ package thriftbp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -17,6 +18,26 @@ import (
 // DefaultPoolGaugeInterval is the fallback value to be used when
 // ClientPoolConfig.PoolGaugeInterval <= 0.
 const DefaultPoolGaugeInterval = time.Second * 10
+
+// PoolError is returned by ClientPool.Call when it fails to get a client from
+// its pool.
+type PoolError struct {
+	// Cause is the inner error wrapped by PoolError.
+	Cause error
+}
+
+func (err PoolError) Error() string {
+	return "thriftpb: error getting a client from the pool. " + err.Cause.Error()
+}
+
+func (err PoolError) Unwrap() error {
+	return err.Cause
+}
+
+var (
+	_ error = PoolError{}
+	_ error = (*PoolError)(nil)
+)
 
 // ClientPoolConfig is the configuration struct for creating a new ClientPool.
 type ClientPoolConfig struct {
@@ -39,9 +60,18 @@ type ClientPoolConfig struct {
 	// the client pool.
 	InitialConnections int
 
-	// MinConnections is the maximum number of thrift connections the client
+	// MaxConnections is the maximum number of thrift connections the client
 	// pool can maintain.
 	MaxConnections int
+
+	// MaxConnectionAge is the maximum duration that a pooled connection will be
+	// kept before closing in favor of a new one.
+	//
+	// If this is not set, the default duration is 5 minutes.
+	//
+	// To disable this and keep connections in the pool indefinetly, set this to
+	// a negative value.
+	MaxConnectionAge time.Duration
 
 	// SocketTimeout is the timeout on the underling thrift.TSocket.
 	SocketTimeout time.Duration
@@ -83,19 +113,16 @@ type Client interface {
 	thrift.TClient
 }
 
-// ClientPool defines an object that can be used to manage a pool of
+// ClientPool defines an object that implements thrift.TClient using a pool of
 // Client objects.
 type ClientPool interface {
+	// ClientPool implements TClient by grabbing a Client from it's pool and
+	// releasing that Client after it's Call method completes.
+	thrift.TClient
+
 	// Passthrough APIs from clientpool.Pool:
 	io.Closer
 	IsExhausted() bool
-
-	// GetClient returns a Client from the pool or creates a new one if
-	// needed.
-	GetClient() (Client, error)
-
-	// ReleaseClient returns the given client to the pool.
-	ReleaseClient(Client)
 }
 
 // AddressGenerator defines a function that returns the address of a thrift
@@ -105,71 +132,6 @@ type ClientPool interface {
 // instead you should use NewBaseplateClientPool which uses the default
 // AddressGenerator for a typical Baseplate Thrift Client.
 type AddressGenerator func() (string, error)
-
-// ClientFactory defines a function that builds a Client object using a
-// the thrift primitives required to create a thrift.TClient.
-//
-// Services should generally not have to use ClientFactories directly,
-// instead you should use NewBaseplateClientPool which uses the default
-// ClientFactory for a typical Baseplate Thrift Client.
-type ClientFactory func(TClientFactory, thrift.TTransport, thrift.TProtocolFactory) Client
-
-// TClientFactory is used by ClientFactory to create the underlying TClient
-// used by the Baseplate Client.
-//
-// Services should generally not have to use TClientFactories directly,
-// instead you should use NewBaseplateClientPool which uses the default
-// TClientFactory for a typical Baseplate Thrift Client.
-type TClientFactory func(thrift.TTransport, thrift.TProtocolFactory) thrift.TClient
-
-// NewBaseplateClientPool returns a standard, baseplate ClientPool.
-//
-// A baseplate ClientPool:
-//
-// 1. Uses a TTLClientPool with the given ttl.
-//
-// 2. Wraps the TClient objects with BaseplateDefaultClientMiddlewares plus any
-// additional client middlewares passed into this function.
-func NewBaseplateClientPool(cfg ClientPoolConfig, ttl time.Duration, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
-	defaults := BaseplateDefaultClientMiddlewares()
-	wrappers := make([]thrift.ClientMiddleware, 0, len(defaults)+len(middlewares))
-	wrappers = append(wrappers, defaults...)
-	wrappers = append(wrappers, middlewares...)
-	return NewCustomClientPool(
-		cfg,
-		SingleAddressGenerator(cfg.Addr),
-		NewTTLClientFactory(ttl),
-		NewWrappedTClientFactory(StandardTClientFactory, wrappers...),
-		thrift.NewTHeaderProtocolFactory(),
-	)
-}
-
-// NewCustomClientPool creates a ClientPool that uses a custom AddressGenerator
-// and ClientFactory.
-//
-// Most services will want to just use NewBaseplateClientPool, this has been
-// provided to support services that have non-standard and/or legacy needs.
-func NewCustomClientPool(
-	cfg ClientPoolConfig,
-	genAddr AddressGenerator,
-	clientFactory ClientFactory,
-	tClientFactory TClientFactory,
-	protoFactory thrift.TProtocolFactory,
-) (ClientPool, error) {
-	if cfg.Addr != "" {
-		log.Warnw(
-			"NewCustomClientPool received a non-empty cfg.Addr, "+
-				"this will be ignored in favor of what is returned by genAddr",
-			"addr",
-			cfg.Addr,
-		)
-	}
-	return newClientPool(cfg, genAddr, factories{
-		Client:   clientFactory,
-		TClient:  tClientFactory,
-		Protocol: protoFactory,
-	})
-}
 
 // SingleAddressGenerator returns an AddressGenerator that always returns addr.
 //
@@ -182,63 +144,58 @@ func SingleAddressGenerator(addr string) AddressGenerator {
 	}
 }
 
-// NewTTLClientFactory returns a ClientFactory that creates TTLClients using the
-// given TClientFactory.
-//
-// Services should generally not have to use NewTTLClientFactory directly,
-// instead you should use NewBaseplateClientPool which uses the default
-// ClientFactory for a typical Baseplate Thrift Client.
-func NewTTLClientFactory(ttl time.Duration) ClientFactory {
-	return func(clientFact TClientFactory, trans thrift.TTransport, protoFactory thrift.TProtocolFactory) Client {
-		return NewTTLClient(trans, clientFact(trans, protoFactory), ttl)
-	}
-}
-
-// StandardTClientFactory returns a standard thrift.TClient using the given
-// thrift.TTransport and thrift.TProtocolFactory
-//
-// Services should generally not have to use StandardTClientFactory
-// directly, instead you should use NewBaseplateClientPool which uses the
-// default TClientFactory for a typical Baseplate Thrift Client.
-func StandardTClientFactory(trans thrift.TTransport, protoFactory thrift.TProtocolFactory) thrift.TClient {
-	return thrift.NewTStandardClient(
-		protoFactory.GetProtocol(trans),
-		protoFactory.GetProtocol(trans),
+// NewBaseplateClientPool returns a standard ClientPool wrapped with the
+// BaseplateDefaultClientMiddlewares plus any additional client middlewares
+// passed into this function.
+func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
+	defaults := BaseplateDefaultClientMiddlewares()
+	wrappers := make([]thrift.ClientMiddleware, 0, len(defaults)+len(middlewares))
+	wrappers = append(wrappers, defaults...)
+	wrappers = append(wrappers, middlewares...)
+	return NewCustomClientPool(
+		cfg,
+		SingleAddressGenerator(cfg.Addr),
+		thrift.NewTHeaderProtocolFactory(),
+		wrappers...,
 	)
 }
 
-// NewWrappedTClientFactory returns a TClientFactory that returns a standard
-// thrift.TClient wrapped with the given middlewares.
+// NewCustomClientPool creates a ClientPool that uses a custom AddressGenerator
+// and TProtocolFactory wrapped with the given middleware.
 //
-// Services should generally not have to use NewWrappedTClientFactory directly,
-// instead you should use NewBaseplateClientPool which uses the default
-// TClientFactory for a typical Baseplate Thrift Client.
-func NewWrappedTClientFactory(base TClientFactory, middlewares ...thrift.ClientMiddleware) TClientFactory {
-	return func(trans thrift.TTransport, protoFactory thrift.TProtocolFactory) thrift.TClient {
-		client := base(trans, protoFactory)
-		return thrift.WrapClient(client, middlewares...)
-	}
+// Most services will want to just use NewBaseplateClientPool, this has been
+// provided to support services that have non-standard and/or legacy needs.
+func NewCustomClientPool(
+	cfg ClientPoolConfig,
+	genAddr AddressGenerator,
+	protoFactory thrift.TProtocolFactory,
+	middlewares ...thrift.ClientMiddleware,
+) (ClientPool, error) {
+	return newClientPool(cfg, genAddr, protoFactory, middlewares...)
 }
 
-// convenience struct for passing around the different factories needed to
-// create a Client.
-type factories struct {
-	Client   ClientFactory
-	TClient  TClientFactory
-	Protocol thrift.TProtocolFactory
-}
-
-func newClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, factories factories) (*clientPool, error) {
+func newClientPool(
+	cfg ClientPoolConfig,
+	genAddr AddressGenerator,
+	proto thrift.TProtocolFactory,
+	middlewares ...thrift.ClientMiddleware,
+) (*clientPool, error) {
 	labels := cfg.MetricsLabels.AsStatsdLabels()
 	pool, err := clientpool.NewChannelPool(
 		cfg.InitialConnections,
 		cfg.MaxConnections,
 		func() (clientpool.Client, error) {
-			return newClient(cfg.SocketTimeout, genAddr, factories)
+			return newClient(
+				cfg.SocketTimeout,
+				cfg.MaxConnectionAge,
+				genAddr,
+				proto,
+				middlewares...,
+			)
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("thriftbp: error initializing thrift clientpool. %w", err)
 	}
 	if cfg.ReportPoolStats {
 		go reportPoolStats(
@@ -261,20 +218,35 @@ func newClientPool(cfg ClientPoolConfig, genAddr AddressGenerator, factories fac
 	}, nil
 }
 
-func newClient(socketTimeout time.Duration, genAddr AddressGenerator, factories factories) (Client, error) {
+func newClient(
+	socketTimeout time.Duration,
+	maxConnectionAge time.Duration,
+	genAddr AddressGenerator,
+	protoFactory thrift.TProtocolFactory,
+	middlewares ...thrift.ClientMiddleware,
+) (*ttlClient, error) {
 	addr, err := genAddr()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client. %w", err)
 	}
+
 	trans, err := thrift.NewTSocketTimeout(addr, socketTimeout, socketTimeout)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("thriftbp: error building TSocket new Thrift client. %w", err)
 	}
+
 	err = trans.Open()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("thriftbp: error opening TSocket new Thrift client. %w", err)
 	}
-	return factories.Client(factories.TClient, trans, factories.Protocol), nil
+
+	var client thrift.TClient
+	client = thrift.NewTStandardClient(
+		protoFactory.GetProtocol(trans),
+		protoFactory.GetProtocol(trans),
+	)
+	client = thrift.WrapClient(client, middlewares...)
+	return newTTLClient(trans, client, maxConnectionAge), nil
 }
 
 func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration, labels []string) {
@@ -303,18 +275,29 @@ type clientPool struct {
 	releaseErrorCounter  metrics.Counter
 }
 
-func (p *clientPool) GetClient() (Client, error) {
+func (p *clientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) error {
+	client, err := p.getClient()
+	if err != nil {
+		return PoolError{Cause: err}
+	}
+	defer p.releaseClient(client)
+
+	return client.Call(ctx, method, args, result)
+}
+
+func (p *clientPool) getClient() (Client, error) {
 	c, err := p.Pool.Get()
 	if err != nil {
 		if errors.Is(err, clientpool.ErrExhausted) {
 			p.poolExhaustedCounter.Add(1)
 		}
+		log.Errorw("Failed to get client from pool", "err", err)
 		return nil, err
 	}
 	return c.(Client), nil
 }
 
-func (p *clientPool) ReleaseClient(c Client) {
+func (p *clientPool) releaseClient(c Client) {
 	if err := p.Pool.Release(c); err != nil {
 		log.Errorw("Failed to release client back to pool", "err", err)
 		p.releaseErrorCounter.Add(1)

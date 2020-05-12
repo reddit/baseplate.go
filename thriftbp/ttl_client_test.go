@@ -1,10 +1,8 @@
-package thriftbp_test
+package thriftbp
 
 import (
 	"testing"
 	"time"
-
-	"github.com/reddit/baseplate.go/thriftbp"
 
 	"github.com/apache/thrift/lib/go/thrift"
 )
@@ -18,7 +16,7 @@ func TestTTLClient(t *testing.T) {
 	)
 	ttl := time.Millisecond
 
-	client := thriftbp.NewTTLClient(trans, tc, ttl)
+	client := newTTLClient(trans, tc, ttl)
 	if !client.IsOpen() {
 		t.Error("Expected immediate IsOpen call to return true, got false.")
 	}
