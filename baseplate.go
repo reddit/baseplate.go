@@ -132,7 +132,7 @@ func Serve(ctx context.Context, server Server) error {
 			select {
 			case <-ctx.Done():
 				// The context timed-out or was cancelled so use that error.
-				err = ctx.Err()
+				err = fmt.Errorf("baseplate: context cancelled while waiting for server.Close(). %w", ctx.Err())
 			case e := <-closeChannel:
 				// server.Close() completed and passed it's result to closeChannel, so
 				// use that value.
