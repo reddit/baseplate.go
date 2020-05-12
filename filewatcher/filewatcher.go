@@ -2,6 +2,7 @@ package filewatcher
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -165,7 +166,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		select {
 		default:
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, fmt.Errorf("filewatcher: context cancelled while waiting for file to load. %w", ctx.Err())
 		}
 
 		var err error
