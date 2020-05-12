@@ -42,37 +42,6 @@ func NewMyServiceClient(_ thrift.TClient) MyService {
 
 // END THRIFT GENERATED CODE SECTION
 
-type Client interface {
-	thriftbp.Client
-
-	MyService
-}
-
-type clientImpl struct {
-	thriftbp.Client
-	MyService
-}
-
-func newClient(pool thriftbp.ClientPool) (Client, error) {
-	client, err := pool.GetClient()
-	if err != nil {
-		return nil, err
-	}
-	return &clientImpl{
-		MyService: NewMyServiceClient(client),
-		Client:    client,
-	}, nil
-}
-
-func callEndpoint(ctx context.Context, pool thriftbp.ClientPool) (*MyEndpointResponse, error) {
-	client, err := newClient(pool)
-	if err != nil {
-		return nil, err
-	}
-	defer pool.ReleaseClient(client)
-	return client.MyEndpoint(ctx, &MyEndpointRequest{})
-}
-
 func LoggingMiddleware(next thrift.TClient) thrift.TClient {
 	return thrift.WrappedTClient{
 		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
@@ -96,18 +65,20 @@ func Example_clientPool() {
 			Addr:               remoteAddr,
 			InitialConnections: initialConnections,
 			MaxConnections:     maxConnections,
+			MaxConnectionAge:   clientTTL,
 			SocketTimeout:      socketTimeout,
 			ReportPoolStats:    true,
 			PoolGaugeInterval:  poolGaugeInterval,
 		},
-		clientTTL,
 		LoggingMiddleware,
 	)
 	if err != nil {
 		panic(err)
 	}
+	defer pool.Close()
 
-	if _, err = callEndpoint(context.Background(), pool); err != nil {
+	client := NewMyServiceClient(pool)
+	if _, err = client.MyEndpoint(context.Background(), &MyEndpointRequest{}); err != nil {
 		panic(err)
 	}
 }

@@ -6,22 +6,25 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 )
 
-var _ Client = (*TTLClient)(nil)
+// DefaultMaxConnectionAge is the default max age for a Thrift client connection.
+const DefaultMaxConnectionAge = time.Minute * 5
 
-// TTLClient is a Client implementation wrapping thrift's TTransport with a TTL.
-//
-// It's intended to be managed by a ClientPool rather than created directly.
-type TTLClient struct {
+var _ Client = (*ttlClient)(nil)
+
+// ttlClient is a Client implementation wrapping thrift's TTransport with a TTL.
+type ttlClient struct {
 	thrift.TClient
 
-	trans      thrift.TTransport
-	expiration time.Time
+	trans thrift.TTransport
+
+	// if expiration is nil, then the client will be kept open indefinetly.
+	expiration *time.Time
 }
 
 // Close implements Client interface.
 //
 // It calls underlying TTransport's Close function.
-func (c *TTLClient) Close() error {
+func (c *ttlClient) Close() error {
 	return c.trans.Close()
 }
 
@@ -29,22 +32,29 @@ func (c *TTLClient) Close() error {
 //
 // If TTL has passed, it closes the underlying TTransport and returns false.
 // Otherwise it just calls the underlying TTransport's IsOpen function.
-func (c *TTLClient) IsOpen() bool {
+func (c *ttlClient) IsOpen() bool {
 	if !c.trans.IsOpen() {
 		return false
 	}
-	if time.Now().After(c.expiration) {
+	if c.expiration != nil && time.Now().After(*c.expiration) {
 		c.trans.Close()
 		return false
 	}
 	return true
 }
 
-// NewTTLClient creates a TTLClient with a thrift TTransport and a ttl.
-func NewTTLClient(trans thrift.TTransport, client thrift.TClient, ttl time.Duration) *TTLClient {
-	return &TTLClient{
+// newTTLClient creates a ttlClient with a thrift TTransport and a ttl.
+func newTTLClient(trans thrift.TTransport, client thrift.TClient, ttl time.Duration) *ttlClient {
+	var expiration time.Time
+	if ttl == 0 {
+		ttl = DefaultMaxConnectionAge
+	}
+	if ttl > 0 {
+		expiration = time.Now().Add(ttl)
+	}
+	return &ttlClient{
 		TClient:    client,
 		trans:      trans,
-		expiration: time.Now().Add(ttl),
+		expiration: &expiration,
 	}
 }

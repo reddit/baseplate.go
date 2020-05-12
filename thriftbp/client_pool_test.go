@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
-
 	"github.com/reddit/baseplate.go/clientpool"
 	"github.com/reddit/baseplate.go/thriftbp"
 )
@@ -30,61 +29,6 @@ func TestSingleAddressGenerator(t *testing.T) {
 	}
 }
 
-func TestTTLClientFactory(t *testing.T) {
-	t.Parallel()
-
-	fact := thriftbp.NewTTLClientFactory(time.Millisecond * 3)
-	trans := thrift.NewTMemoryBuffer()
-	protoFactory := thrift.NewTBinaryProtocolFactoryDefault()
-	tClientFactory := thriftbp.StandardTClientFactory
-	client := fact(tClientFactory, trans, protoFactory)
-	if _, ok := client.(*thriftbp.TTLClient); !ok {
-		t.Fatal("wrong type for client")
-	}
-}
-
-func TestStandardTClientFactory(t *testing.T) {
-	t.Parallel()
-
-	trans := thrift.NewTMemoryBuffer()
-	protoFact := thrift.NewTBinaryProtocolFactoryDefault()
-	c := thriftbp.StandardTClientFactory(trans, protoFact)
-	if _, ok := c.(*thrift.TStandardClient); !ok {
-		t.Fatal("wrong type for client")
-	}
-}
-
-func testClientMiddleware(c *counter) thrift.ClientMiddleware {
-	return func(next thrift.TClient) thrift.TClient {
-		return thrift.WrappedTClient{
-			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
-				c.incr()
-				return next.Call(ctx, method, args, result)
-			},
-		}
-	}
-}
-
-func TestNewWrappedTClientFactory(t *testing.T) {
-	t.Parallel()
-
-	count := &counter{}
-	tClientFactory := thriftbp.NewWrappedTClientFactory(
-		thriftbp.NewMockTClientFactory(thriftbp.MockClient{}),
-		testClientMiddleware(count),
-	)
-	trans := thrift.NewTMemoryBuffer()
-	protoFactory := thrift.NewTBinaryProtocolFactoryDefault()
-	c := tClientFactory(trans, protoFactory)
-	if count.count != 0 {
-		t.Errorf("Wrong count value: %d, expected 0", count.count)
-	}
-	_ = c.Call(context.Background(), "test", nil, nil)
-	if count.count != 1 {
-		t.Errorf("Wrong count value: %d, expected 1", count.count)
-	}
-}
-
 func TestNewBaseplateClientPool(t *testing.T) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -92,20 +36,16 @@ func TestNewBaseplateClientPool(t *testing.T) {
 	}
 	defer ln.Close()
 
-	pool, err := thriftbp.NewBaseplateClientPool(
+	if _, err = thriftbp.NewBaseplateClientPool(
 		thriftbp.ClientPoolConfig{
 			Addr:               ln.Addr().String(),
 			ServiceSlug:        "test",
 			InitialConnections: 1,
 			MaxConnections:     5,
+			MaxConnectionAge:   time.Minute,
 			SocketTimeout:      time.Millisecond * 10,
-		}, time.Minute,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err = pool.GetClient(); err != nil {
+		},
+	); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -117,7 +57,7 @@ func TestCustomClientPool(t *testing.T) {
 	}
 	defer ln.Close()
 
-	pool, err := thriftbp.NewCustomClientPool(
+	if _, err := thriftbp.NewCustomClientPool(
 		thriftbp.ClientPoolConfig{
 			ServiceSlug:        "test",
 			InitialConnections: 1,
@@ -125,22 +65,8 @@ func TestCustomClientPool(t *testing.T) {
 			SocketTimeout:      time.Millisecond * 10,
 		},
 		thriftbp.SingleAddressGenerator(ln.Addr().String()),
-		func(thriftbp.TClientFactory, thrift.TTransport, thrift.TProtocolFactory) thriftbp.Client {
-			return &thriftbp.MockClient{}
-		},
-		thriftbp.StandardTClientFactory,
 		thrift.NewTBinaryProtocolFactoryDefault(),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	c, err := pool.GetClient()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = c.Call(context.Background(), "test", nil, nil); err != nil {
+	); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -155,12 +81,7 @@ func TestMockClientPool(t *testing.T) {
 				t.Error("Expected default MockClientPool to report not exhausted.")
 			}
 
-			c, err := pool.GetClient()
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if err = c.Call(context.Background(), "test", nil, nil); err != nil {
+			if err := pool.Call(context.Background(), "test", nil, nil); err != nil {
 				t.Fatal(err)
 			}
 		},
@@ -175,9 +96,9 @@ func TestMockClientPool(t *testing.T) {
 				t.Error("Expected MockClientPool to report exhausted when set to true")
 			}
 
-			_, err := pool.GetClient()
+			err := pool.Call(context.Background(), "test", nil, nil)
 			if !errors.Is(err, clientpool.ErrExhausted) {
-				t.Errorf("Expected GetClient to return exhausted error, got %v", err)
+				t.Errorf("Expected returned error to wrap exhausted error, got %v", err)
 			}
 		},
 	)

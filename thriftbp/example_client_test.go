@@ -24,10 +24,13 @@ func ExampleMonitorClient() {
 	// Create an actual service client
 	client := baseplate.NewBaseplateServiceClient(
 		// Use MonitoredClient to wrap a standard thrift client
-		thriftbp.NewWrappedTClientFactory(
-			thriftbp.StandardTClientFactory,
+		thrift.WrapClient(
+			thrift.NewTStandardClient(
+				factory.GetProtocol(transport),
+				factory.GetProtocol(transport),
+			),
 			thriftbp.MonitorClient,
-		)(transport, factory),
+		),
 	)
 	// Create a context with a server span
 	_, ctx := opentracing.StartSpanFromContext(
