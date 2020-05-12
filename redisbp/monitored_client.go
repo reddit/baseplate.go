@@ -2,6 +2,7 @@ package redisbp
 
 import (
 	"context"
+	"io"
 
 	"github.com/go-redis/redis/v7"
 )
@@ -9,6 +10,11 @@ import (
 // MonitoredCmdable wraps the redis.Cmdable interface and adds additional methods
 // to support integrating with Baseplate.go SpanHooks.
 type MonitoredCmdable interface {
+	// Close should generally not be called directly on a MonitoredCmdable, since
+	// they are meant to be shared and long lived.  It will be called by
+	// MonitoredCmdableFactory.Close which should be called when a server is shut
+	// down.
+	io.Closer
 	redis.Cmdable
 
 	// AddHook adds a hook onto the object.
@@ -43,6 +49,21 @@ func (c *monitoredCluster) WithMonitoredContext(ctx context.Context) MonitoredCm
 	return &monitoredCluster{ClusterClient: c.ClusterClient.WithContext(ctx)}
 }
 
+// NewMonitoredClientFactory creates a MonitoredCmdableFactory for a redis.Client
+// object.
+//
+// This may connect to a single redis instance, or be a failover client using
+// Redis Sentinel.
+func NewMonitoredClientFactory(name string, client *redis.Client) MonitoredCmdableFactory {
+	return newMonitoredCmdableFactory(name, &monitoredClient{Client: client})
+}
+
+// NewMonitoredClusterFactory creates a MonitoredCmdableFactory for a
+// redis.ClusterClient object.
+func NewMonitoredClusterFactory(name string, client *redis.ClusterClient) MonitoredCmdableFactory {
+	return newMonitoredCmdableFactory(name, &monitoredCluster{ClusterClient: client})
+}
+
 // MonitoredCmdableFactory is used to create Redis clients that are monitored by
 // a SpanHook.
 //
@@ -61,28 +82,21 @@ func newMonitoredCmdableFactory(name string, client MonitoredCmdable) MonitoredC
 	return MonitoredCmdableFactory{client: client}
 }
 
-// NewMonitoredClientFactory creates a MonitoredCmdableFactory for a redis.Client
-// object.
-//
-// This may connect to a single redis instance, or be a failover client using
-// Redis Sentinel.
-func NewMonitoredClientFactory(name string, client *redis.Client) MonitoredCmdableFactory {
-	return newMonitoredCmdableFactory(name, &monitoredClient{Client: client})
-}
-
-// NewMonitoredClusterFactory creates a MonitoredCmdableFactory for a
-// redis.ClusterClient object.
-func NewMonitoredClusterFactory(name string, client *redis.ClusterClient) MonitoredCmdableFactory {
-	return newMonitoredCmdableFactory(name, &monitoredCluster{ClusterClient: client})
-}
-
 // BuildClient returns a new MonitoredCmdable with its context set to the
 // provided one.
 func (f MonitoredCmdableFactory) BuildClient(ctx context.Context) MonitoredCmdable {
 	return f.client.WithMonitoredContext(ctx)
 }
 
+// Close closes the underlying MonitoredCmdable, which will close the underlying
+// connection pool, closing out any clients created with the factory.
+func (f MonitoredCmdableFactory) Close() error {
+	return f.client.Close()
+}
+
 var (
 	_ MonitoredCmdable = (*monitoredClient)(nil)
 	_ MonitoredCmdable = (*monitoredCluster)(nil)
+	_ io.Closer        = MonitoredCmdableFactory{}
+	_ io.Closer        = (*MonitoredCmdableFactory)(nil)
 )

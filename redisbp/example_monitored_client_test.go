@@ -33,13 +33,35 @@ func EndpointHandler(_ context.Context, client redisbp.MonitoredCmdable) error {
 
 // This example demonstrates how to use a MonitoredCmdableFactory.
 func ExampleMonitoredCmdableFactory() {
-	// Create a service with a factory using a basic redis.Client
-	svc := Service{
-		RedisFactory: redisbp.NewMonitoredClientFactory(
-			"redis",
-			redis.NewClient(&redis.Options{Addr: ":6379"}),
-		),
-	}
+	// Create a factory for basic, monitored redis.Client objects.
+	clientFactory := redisbp.NewMonitoredClientFactory(
+		"redis",
+		redis.NewClient(&redis.Options{Addr: ":6379"}),
+	)
+	// Create a factory for monitored redis.Client objects that implements
+	// failover with Redis Sentinel.
+	failoverFactory := redisbp.NewMonitoredClientFactory(
+		"redis",
+		redis.NewFailoverClient(&redis.FailoverOptions{
+			MasterName:    "master",
+			SentinelAddrs: []string{":6379"},
+		}),
+	)
+	// Create a factory for monitored redis.ClusterClient objects.
+	clusterFactory := redisbp.NewMonitoredClusterFactory(
+		"redis",
+		redis.NewClusterClient(&redis.ClusterOptions{
+			Addrs: []string{":7000", ":7001", ":7002"},
+		}),
+	)
+	defer func() {
+		clientFactory.Close()
+		failoverFactory.Close()
+		clusterFactory.Close()
+	}()
+
+	// Create a "service" with a monitored client factory.
+	svc := Service{RedisFactory: clientFactory}
 	// Create a server span and attach it to a context object.
 	//
 	// In production, this will be handled by service middleware rather than
@@ -54,40 +76,5 @@ func ExampleMonitoredCmdableFactory() {
 	//
 	// In production, the service framework will call these endpoints in
 	// response to requests from clients rather than you calling it manually.
-	svc.Endpoint(ctx)
-
-	// Create service with a factory using a redis.Client that implements failover
-	// with Redis Sentinel.
-	svc = Service{
-		RedisFactory: redisbp.NewMonitoredClientFactory(
-			"redis",
-			redis.NewFailoverClient(&redis.FailoverOptions{
-				MasterName:    "master",
-				SentinelAddrs: []string{":6379"},
-			}),
-		),
-	}
-	_, ctx = opentracing.StartSpanFromContext(
-		context.Background(),
-		"test",
-		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
-	)
-	svc.Endpoint(ctx)
-
-	// Create service with a factory using a redis.ClusterClient to connect to
-	// Redis Cluster.
-	svc = Service{
-		RedisFactory: redisbp.NewMonitoredClusterFactory(
-			"redis",
-			redis.NewClusterClient(&redis.ClusterOptions{
-				Addrs: []string{":7000", ":7001", ":7002"},
-			}),
-		),
-	}
-	_, ctx = opentracing.StartSpanFromContext(
-		context.Background(),
-		"test",
-		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
-	)
 	svc.Endpoint(ctx)
 }

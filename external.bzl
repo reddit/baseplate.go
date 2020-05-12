@@ -52,8 +52,8 @@ def go_dependencies():
     go_repository(
         name = "com_github_go_redis_redis_v7",
         importpath = "github.com/go-redis/redis/v7",
-        sum = "h1:7bdbDkv2nKZm6Tydrvmay3xOvVaxpAT4ZsNTrSDMZUE=",
-        version = "v7.0.0-beta.5",
+        sum = "h1:CrCexy/jYWZjW0AyVoHlcJUeZN19VWlbepTh1Vq6dJs=",
+        version = "v7.2.0",
     )
     go_repository(
         name = "com_github_go_stack_stack",
@@ -925,4 +925,40 @@ def go_dependencies():
         importpath = "github.com/yuin/goldmark",
         sum = "h1:nqDD4MMMQA0lmWq03Z2/myGPYLQoXtmi0rGVs95ntbo=",
         version = "v1.1.27",
+    )
+    go_repository(
+        name = "com_github_alicebob_gopher_json",
+        importpath = "github.com/alicebob/gopher-json",
+        sum = "h1:45bxf7AZMwWcqkLzDAQugVEwedisr5nRJ1r+7LYnv0U=",
+        version = "v0.0.0-20180125190556-5a6b3ba71ee6",
+    )
+    go_repository(
+        name = "com_github_alicebob_miniredis",
+        importpath = "github.com/alicebob/miniredis",
+        sum = "h1:yBHoLpsyjupjz3NL3MhKMVkR41j82Yjf3KFv7ApYzUI=",
+        version = "v2.5.0+incompatible",
+    )
+    go_repository(
+        name = "com_github_chzyer_logex",
+        importpath = "github.com/chzyer/logex",
+        sum = "h1:Swpa1K6QvQznwJRcfTfQJmTE72DqScAa40E+fbHEXEE=",
+        version = "v1.1.10",
+    )
+    go_repository(
+        name = "com_github_chzyer_readline",
+        importpath = "github.com/chzyer/readline",
+        sum = "h1:fY5BOSpyZCqRo5OhCuC+XN+r/bBCmeuuJtjz+bCNIf8=",
+        version = "v0.0.0-20180603132655-2972be24d48e",
+    )
+    go_repository(
+        name = "com_github_chzyer_test",
+        importpath = "github.com/chzyer/test",
+        sum = "h1:q763qf9huN11kDQavWsoZXJNW3xEE4JJyHa5Q25/sd8=",
+        version = "v0.0.0-20180213035817-a1ea475d72b1",
+    )
+    go_repository(
+        name = "com_github_yuin_gopher_lua",
+        importpath = "github.com/yuin/gopher-lua",
+        sum = "h1:ZkM6LRnq40pR1Ox0hTHlnpkcOTuFIDQpZ1IN8rKKhX0=",
+        version = "v0.0.0-20191220021717-ab39c6098bdb",
     )
