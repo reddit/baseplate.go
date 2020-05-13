@@ -76,47 +76,47 @@ func (cfg ClusterConfig) Options() *redis.ClusterOptions {
 // Can be deserialized from YAML.
 type PoolOptions struct {
 	// Maps to PoolSize on the redis-go options.
-	Size *int `yaml:"size"`
+	Size int `yaml:"size"`
 
 	// Maps to MinIdleConnections on the redis-go options.
-	MinIdleConnections *int `yaml:"minIdleConnetions"`
+	MinIdleConnections int `yaml:"minIdleConnections"`
 
 	// Maps to MaxConnAge on the redis-go options.
-	MaxConnectionAge *time.Duration `yaml:"maxConnectionAge"`
+	MaxConnectionAge time.Duration `yaml:"maxConnectionAge"`
 
 	// Maps to PoolTimeout on the redis-go options.
-	Timeout *time.Duration `yaml:"timeout"`
+	Timeout time.Duration `yaml:"timeout"`
 }
 
 // ApplyOptions applies the PoolOptions to the redis.Options.
 func (opts PoolOptions) ApplyOptions(options *redis.Options) {
-	if opts.MinIdleConnections != nil {
-		options.MinIdleConns = *opts.MinIdleConnections
+	if opts.MinIdleConnections != 0 {
+		options.MinIdleConns = opts.MinIdleConnections
 	}
-	if opts.MaxConnectionAge != nil {
-		options.MaxConnAge = *opts.MaxConnectionAge
+	if opts.MaxConnectionAge != 0 {
+		options.MaxConnAge = opts.MaxConnectionAge
 	}
-	if opts.Size != nil {
-		options.PoolSize = *opts.Size
+	if opts.Size != 0 {
+		options.PoolSize = opts.Size
 	}
-	if opts.Timeout != nil {
-		options.PoolTimeout = *opts.Timeout
+	if opts.Timeout != 0 {
+		options.PoolTimeout = opts.Timeout
 	}
 }
 
 // ApplyClusterOptions applies the PoolOptions to the redis.ClusterOptions.
 func (opts PoolOptions) ApplyClusterOptions(options *redis.ClusterOptions) {
-	if opts.MinIdleConnections != nil {
-		options.MinIdleConns = *opts.MinIdleConnections
+	if opts.MinIdleConnections != 0 {
+		options.MinIdleConns = opts.MinIdleConnections
 	}
-	if opts.MaxConnectionAge != nil {
-		options.MaxConnAge = *opts.MaxConnectionAge
+	if opts.MaxConnectionAge != 0 {
+		options.MaxConnAge = opts.MaxConnectionAge
 	}
-	if opts.Size != nil {
-		options.PoolSize = *opts.Size
+	if opts.Size != 0 {
+		options.PoolSize = opts.Size
 	}
-	if opts.Timeout != nil {
-		options.PoolTimeout = *opts.Timeout
+	if opts.Timeout != 0 {
+		options.PoolTimeout = opts.Timeout
 	}
 }
 
@@ -129,40 +129,40 @@ func (opts PoolOptions) ApplyClusterOptions(options *redis.ClusterOptions) {
 // Can be deserialized from YAML.
 type RetryOptions struct {
 	// Maps to MaxRetries on the redis-go options.
-	Max *int `yaml:"max"`
+	Max int `yaml:"max"`
 
 	Backoff struct {
 		// Maps to MinRetryBackoff on the redis-go options.
-		Min *time.Duration `yaml:"min"`
+		Min time.Duration `yaml:"min"`
 
 		// Maps to MaxRetryBackoff on the redis-go options.
-		Max *time.Duration `yaml:"max"`
+		Max time.Duration `yaml:"max"`
 	} `yaml:"backoff"`
 }
 
 // ApplyOptions applies the RetryOptions to the redis.Options.
 func (opts RetryOptions) ApplyOptions(options *redis.Options) {
-	if opts.Max != nil {
-		options.MaxRetries = *opts.Max
+	if opts.Max != 0 {
+		options.MaxRetries = opts.Max
 	}
-	if opts.Backoff.Min != nil {
-		options.MinRetryBackoff = *opts.Backoff.Min
+	if opts.Backoff.Min != 0 {
+		options.MinRetryBackoff = opts.Backoff.Min
 	}
-	if opts.Backoff.Max != nil {
-		options.MaxRetryBackoff = *opts.Backoff.Max
+	if opts.Backoff.Max != 0 {
+		options.MaxRetryBackoff = opts.Backoff.Max
 	}
 }
 
 // ApplyClusterOptions applies the RetryOptions to the redis.ClusterOptions.
 func (opts RetryOptions) ApplyClusterOptions(options *redis.ClusterOptions) {
-	if opts.Max != nil {
-		options.MaxRetries = *opts.Max
+	if opts.Max != 0 {
+		options.MaxRetries = opts.Max
 	}
-	if opts.Backoff.Min != nil {
-		options.MinRetryBackoff = *opts.Backoff.Min
+	if opts.Backoff.Min != 0 {
+		options.MinRetryBackoff = opts.Backoff.Min
 	}
-	if opts.Backoff.Max != nil {
-		options.MaxRetryBackoff = *opts.Backoff.Max
+	if opts.Backoff.Max != 0 {
+		options.MaxRetryBackoff = opts.Backoff.Max
 	}
 }
 
@@ -174,33 +174,33 @@ func (opts RetryOptions) ApplyClusterOptions(options *redis.ClusterOptions) {
 //
 // Can be deserialized from YAML.
 type TimeoutOptions struct {
-	Dial  *time.Duration `yaml:"dial"`
-	Read  *time.Duration `yaml:"read"`
-	Write *time.Duration `yaml:"write"`
+	Dial  time.Duration `yaml:"dial"`
+	Read  time.Duration `yaml:"read"`
+	Write time.Duration `yaml:"write"`
 }
 
 // ApplyOptions applies the TimeoutOptions to the redis.Options.
 func (opts TimeoutOptions) ApplyOptions(options *redis.Options) {
-	if opts.Dial != nil {
-		options.DialTimeout = *opts.Dial
+	if opts.Dial != 0 {
+		options.DialTimeout = opts.Dial
 	}
-	if opts.Read != nil {
-		options.ReadTimeout = *opts.Read
+	if opts.Read != 0 {
+		options.ReadTimeout = opts.Read
 	}
-	if opts.Write != nil {
-		options.WriteTimeout = *opts.Write
+	if opts.Write != 0 {
+		options.WriteTimeout = opts.Write
 	}
 }
 
 // ApplyClusterOptions applies the TimeoutOptions to the redis.ClusterOptions.
 func (opts TimeoutOptions) ApplyClusterOptions(options *redis.ClusterOptions) {
-	if opts.Dial != nil {
-		options.DialTimeout = *opts.Dial
+	if opts.Dial != 0 {
+		options.DialTimeout = opts.Dial
 	}
-	if opts.Read != nil {
-		options.ReadTimeout = *opts.Read
+	if opts.Read != 0 {
+		options.ReadTimeout = opts.Read
 	}
-	if opts.Write != nil {
-		options.WriteTimeout = *opts.Write
+	if opts.Write != 0 {
+		options.WriteTimeout = opts.Write
 	}
 }
