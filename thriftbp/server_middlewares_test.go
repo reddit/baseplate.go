@@ -13,6 +13,7 @@ import (
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/thriftbp"
+	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -53,7 +54,7 @@ func TestInjectServerSpan(t *testing.T) {
 	})
 	startFailing()
 	name := "test"
-	processor := thriftbp.NewMockTProcessor(
+	processor := thrifttest.NewMockTProcessor(
 		t,
 		map[string]thrift.TProcessorFunction{
 			name: thrift.WrappedTProcessorFunction{
@@ -65,7 +66,7 @@ func TestInjectServerSpan(t *testing.T) {
 	)
 	ctx := context.Background()
 	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
-	ctx = thriftbp.SetMockTProcessorName(ctx, name)
+	ctx = thrifttest.SetMockTProcessorName(ctx, name)
 
 	wrapped := thrift.WrapProcessor(processor, thriftbp.InjectServerSpan)
 	wrapped.Process(ctx, nil, nil)
@@ -176,7 +177,7 @@ func TestInjectEdgeContext(t *testing.T) {
 	impl := edgecontext.Init(edgecontext.Config{Store: store})
 
 	name := "test"
-	processor := thriftbp.NewMockTProcessor(
+	processor := thrifttest.NewMockTProcessor(
 		t,
 		map[string]thrift.TProcessorFunction{
 			name: thrift.WrappedTProcessorFunction{
@@ -192,7 +193,7 @@ func TestInjectEdgeContext(t *testing.T) {
 		thriftbp.HeaderEdgeRequest,
 		headerWithValidAuth,
 	)
-	ctx = thriftbp.SetMockTProcessorName(ctx, name)
+	ctx = thrifttest.SetMockTProcessorName(ctx, name)
 	recorder := edgecontextRecorder{}
 	wrapped := thrift.WrapProcessor(
 		processor,
@@ -216,7 +217,7 @@ func TestInjectEdgeContext(t *testing.T) {
 func TestExtractDeadlineBudget(t *testing.T) {
 	name := "test"
 	processor := func(checker func(context.Context)) thrift.TProcessor {
-		return thriftbp.NewMockTProcessor(
+		return thrifttest.NewMockTProcessor(
 			t,
 			map[string]thrift.TProcessorFunction{
 				name: thrift.WrappedTProcessorFunction{
@@ -237,7 +238,7 @@ func TestExtractDeadlineBudget(t *testing.T) {
 				thriftbp.HeaderDeadlineBudget,
 				"foobar",
 			)
-			ctx = thriftbp.SetMockTProcessorName(ctx, name)
+			ctx = thrifttest.SetMockTProcessorName(ctx, name)
 			wrapped := thrift.WrapProcessor(
 				processor(func(ctx context.Context) {
 					deadline, ok := ctx.Deadline()
@@ -259,7 +260,7 @@ func TestExtractDeadlineBudget(t *testing.T) {
 				thriftbp.HeaderDeadlineBudget,
 				"0",
 			)
-			ctx = thriftbp.SetMockTProcessorName(ctx, name)
+			ctx = thrifttest.SetMockTProcessorName(ctx, name)
 			wrapped := thrift.WrapProcessor(
 				processor(func(ctx context.Context) {
 					deadline, ok := ctx.Deadline()
@@ -281,7 +282,7 @@ func TestExtractDeadlineBudget(t *testing.T) {
 				thriftbp.HeaderDeadlineBudget,
 				"50",
 			)
-			ctx = thriftbp.SetMockTProcessorName(ctx, name)
+			ctx = thrifttest.SetMockTProcessorName(ctx, name)
 			wrapped := thrift.WrapProcessor(
 				processor(func(ctx context.Context) {
 					deadline, ok := ctx.Deadline()
