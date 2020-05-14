@@ -149,7 +149,7 @@ func (c *MockClient) Call(ctx context.Context, method string, args, result thrif
 		return m(ctx, args, result)
 	}
 	if c.FailUnregisteredMethods {
-		return errors.New("thriftbp.MockClient: unregistered method: " + method)
+		return errors.New("thrifttest.MockClient: unregistered method: " + method)
 	}
 	return nil
 }
@@ -273,7 +273,7 @@ func (m MockClientPool) getClient() (thriftbp.Client, error) {
 //     myMockClient.AddMockCall(
 //       "myEndpoint",
 //       func(ctx context.Context, args, result thrift.TStruct) error {
-//         return thriftbp.CopyTStruct(
+//         return thrifttest.CopyTStruct(
 //           &myservice.MyServiceMyEndpointResult{
 //             Success: &myservice.MyEndpointResponse{
 //               // Set the response fields.
