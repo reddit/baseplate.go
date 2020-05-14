@@ -44,9 +44,8 @@ pool:
  timeout: 10s
 retries:
  max: 2
- backoff:
-  min: 1ms
-  max: 10ms
+ minBackoff: 1ms
+ maxBackoff: 10ms
 timeouts:
  dial: 1s
  read: 100ms
@@ -63,14 +62,9 @@ timeouts:
 				},
 
 				Retries: redisbp.RetryOptions{
-					Max: 2,
-					Backoff: struct {
-						Min time.Duration `yaml:"min"`
-						Max time.Duration `yaml:"max"`
-					}{
-						Min: time.Millisecond,
-						Max: time.Millisecond * 10,
-					},
+					Max:        2,
+					MinBackoff: time.Millisecond,
+					MaxBackoff: time.Millisecond * 10,
 				},
 
 				Timeouts: redisbp.TimeoutOptions{
@@ -160,9 +154,8 @@ pool:
  timeout: 10s
 retries:
  max: 2
- backoff:
-  min: 1ms
-  max: 10ms
+ minBackoff: 1ms
+ maxBackoff: 10ms
 timeouts:
  dial: 1s
  read: 100ms
@@ -179,14 +172,9 @@ timeouts:
 				},
 
 				Retries: redisbp.RetryOptions{
-					Max: 2,
-					Backoff: struct {
-						Min time.Duration `yaml:"min"`
-						Max time.Duration `yaml:"max"`
-					}{
-						Min: time.Millisecond,
-						Max: time.Millisecond * 10,
-					},
+					Max:        2,
+					MinBackoff: time.Millisecond,
+					MaxBackoff: time.Millisecond * 10,
 				},
 
 				Timeouts: redisbp.TimeoutOptions{

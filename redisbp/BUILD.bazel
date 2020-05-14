@@ -23,6 +23,7 @@ go_test(
     size = "small",
     srcs = [
         "config_test.go",
+        "example_config_test.go",
         "example_hooks_test.go",
         "example_monitored_client_test.go",
         "hooks_test.go",
@@ -30,6 +31,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//:go_default_library",
         "//mqsend:go_default_library",
         "//thriftbp:go_default_library",
         "//tracing:go_default_library",

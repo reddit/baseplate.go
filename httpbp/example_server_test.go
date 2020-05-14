@@ -9,13 +9,12 @@ import (
 	baseplate "github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/redisbp"
 	"github.com/reddit/baseplate.go/secrets"
 )
 
 type config struct {
-	Redis struct {
-		Addrs []string `yaml:"addrs"`
-	} `yaml:"redis"`
+	Redis redisbp.ClusterConfig `yaml:"redis"`
 }
 
 type body struct {

@@ -13,8 +13,34 @@ import (
 // https://pkg.go.dev/github.com/go-redis/redis/v7?tab=doc#Options
 //
 // Can be deserialized from YAML.
+//
+// Examples:
+//
+// Minimal YAML:
+//
+//	redis:
+//	 url: redis://localhost:6379
+//
+// Full YAML:
+//
+//	redis:
+//	 url: redis://localhost:6379
+//	 pool:
+//	  size: 10
+//	  minIdleConnections: 5
+//	  maxConnectionAge: 1m
+//	  timeout: 10s
+//	 retries:
+//	  max: 2
+//	  minBackoff: 1ms
+//	  maxBackoff: 10ms
+//	 timeouts:
+//	  dial: 1s
+//	  read: 100ms
+//	  write: 200ms
 type ClientConfig struct {
-	// URL is passed to redis.ParseURL to initialize the client options.
+	// URL is passed to redis.ParseURL to initialize the client options.  This is
+	// a required field.
 	//
 	// https://pkg.go.dev/github.com/go-redis/redis/v7?tab=doc#ParseURL
 	URL string `yaml:"url"`
@@ -43,8 +69,38 @@ func (cfg ClientConfig) Options() (*redis.Options, error) {
 // https://pkg.go.dev/github.com/go-redis/redis/v7?tab=doc#ClusterOptions
 //
 // Can be deserialized from YAML.
+//
+// Examples:
+//
+// Minimal YAML:
+//
+//	redis:
+//	 addrs:
+//	  - localhost:6379
+//	  - localhost:6380
+//
+// Full YAML:
+//
+//	redis:
+//	 addrs:
+//	  - localhost:6379
+//	  - localhost:6380
+//	 pool:
+//	  size: 10
+//	  minIdleConnections: 5
+//	  maxConnectionAge: 1m
+//	  timeout: 10s
+//	 retries:
+//	  max: 2
+//	  minBackoff: 1ms
+//	  maxBackoff: 10ms
+//	 timeouts:
+//	  dial: 1s
+//	  read: 100ms
+//	  write: 200ms
 type ClusterConfig struct {
-	// Addrs is the seed list of cluster nodes in the format "host:port".
+	// Addrs is the seed list of cluster nodes in the format "host:port". This is
+	// a required field.
 	//
 	// Maps to Addrs on redis.ClusterClient.
 	Addrs []string `yaml:"addrs"`
@@ -131,13 +187,11 @@ type RetryOptions struct {
 	// Maps to MaxRetries on the redis-go options.
 	Max int `yaml:"max"`
 
-	Backoff struct {
-		// Maps to MinRetryBackoff on the redis-go options.
-		Min time.Duration `yaml:"min"`
+	// Maps to MinRetryBackoff on the redis-go options.
+	MinBackoff time.Duration `yaml:"minBackoff"`
 
-		// Maps to MaxRetryBackoff on the redis-go options.
-		Max time.Duration `yaml:"max"`
-	} `yaml:"backoff"`
+	// Maps to MaxRetryBackoff on the redis-go options.
+	MaxBackoff time.Duration `yaml:"maxBackoff"`
 }
 
 // ApplyOptions applies the RetryOptions to the redis.Options.
@@ -145,11 +199,11 @@ func (opts RetryOptions) ApplyOptions(options *redis.Options) {
 	if opts.Max != 0 {
 		options.MaxRetries = opts.Max
 	}
-	if opts.Backoff.Min != 0 {
-		options.MinRetryBackoff = opts.Backoff.Min
+	if opts.MinBackoff != 0 {
+		options.MinRetryBackoff = opts.MinBackoff
 	}
-	if opts.Backoff.Max != 0 {
-		options.MaxRetryBackoff = opts.Backoff.Max
+	if opts.MaxBackoff != 0 {
+		options.MaxRetryBackoff = opts.MaxBackoff
 	}
 }
 
@@ -158,11 +212,11 @@ func (opts RetryOptions) ApplyClusterOptions(options *redis.ClusterOptions) {
 	if opts.Max != 0 {
 		options.MaxRetries = opts.Max
 	}
-	if opts.Backoff.Min != 0 {
-		options.MinRetryBackoff = opts.Backoff.Min
+	if opts.MinBackoff != 0 {
+		options.MinRetryBackoff = opts.MinBackoff
 	}
-	if opts.Backoff.Max != 0 {
-		options.MaxRetryBackoff = opts.Backoff.Max
+	if opts.MaxBackoff != 0 {
+		options.MaxRetryBackoff = opts.MaxBackoff
 	}
 }
 
@@ -203,4 +257,19 @@ func (opts TimeoutOptions) ApplyClusterOptions(options *redis.ClusterOptions) {
 	if opts.Write != 0 {
 		options.WriteTimeout = opts.Write
 	}
+}
+
+// OptionsMust can be combine with ClientOptions.Options() to either return
+// the *redis.Options object or panic if an error was returned.  This allows
+// you to just pass this into redis.NewClient.
+//
+// Ex:
+//
+//	var opts redisbp.ClientOptions
+//	client := redis.NewClient(redisbp.OptionsMust(opts.Options()))
+func OptionsMust(options *redis.Options, err error) *redis.Options {
+	if err != nil {
+		panic(err)
+	}
+	return options
 }
