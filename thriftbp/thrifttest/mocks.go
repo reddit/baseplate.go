@@ -283,7 +283,7 @@ func (m MockClientPool) getClient() (thriftbp.Client, error) {
 //         )
 //       },
 //     )
-func CopyTStruct(dts, src thrift.TStruct) error {
+func CopyTStruct(dst, src thrift.TStruct) error {
 	proto := thrift.NewTBinaryProtocolTransport(thrift.NewTMemoryBuffer())
 	if err := src.Write(proto); err != nil {
 		return err
