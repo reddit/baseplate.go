@@ -6,5 +6,5 @@ import (
 
 func TestZapLogger(t *testing.T) {
 	InitLogger(DebugLevel)
-	logger.Debug("printing flag values")
+	globalLogger.Debug("printing flag values")
 }

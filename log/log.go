@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	logger = zap.NewNop().Sugar()
+	globalLogger = zap.NewNop().Sugar()
 )
 
 // Level is the verbose representation of log level
@@ -49,7 +49,7 @@ func (l Level) ToZapLevel() zapcore.Level {
 	}
 }
 
-// InitLogger provides a quick way to start or replace a logger.
+// InitLogger provides a quick way to start or replace the global logger.
 func InitLogger(logLevel Level) {
 	config := zap.NewProductionConfig()
 	config.Level = zap.NewAtomicLevelAt(logLevel.ToZapLevel())
@@ -85,94 +85,95 @@ func InitLoggerJSON(logLevel Level) {
 	}
 }
 
-// InitLoggerWithConfig provides a quick way to start or replace a logger.
+// InitLoggerWithConfig provides a quick way to start or replace the global
+// logger.
 //
 // Pass in a cfg to provide a logger with custom setting
 func InitLoggerWithConfig(logLevel Level, cfg zap.Config) error {
 	if logLevel == NopLevel {
-		logger = zap.NewNop().Sugar()
+		globalLogger = zap.NewNop().Sugar()
 		return nil
 	}
 	l, err := cfg.Build(zap.AddCallerSkip(2))
 	if err != nil {
 		return err
 	}
-	logger = l.Sugar()
+	globalLogger = l.Sugar()
 	return nil
 }
 
 // Debug uses fmt.Sprint to construct and log a message.
 func Debug(args ...interface{}) {
-	logger.Debug(args...)
+	globalLogger.Debug(args...)
 }
 
 // Info uses fmt.Sprint to construct and log a message.
 func Info(args ...interface{}) {
-	logger.Info(args...)
+	globalLogger.Info(args...)
 }
 
 // Warn uses fmt.Sprint to construct and log a message.
 func Warn(args ...interface{}) {
-	logger.Warn(args...)
+	globalLogger.Warn(args...)
 }
 
 // Error uses fmt.Sprint to construct and log a message.
 func Error(args ...interface{}) {
-	logger.Error(args...)
+	globalLogger.Error(args...)
 }
 
 // DPanic uses fmt.Sprint to construct and log a message.
 //
 // In development, the logger then panics. (See DPanicLevel for details.)
 func DPanic(args ...interface{}) {
-	logger.DPanic(args...)
+	globalLogger.DPanic(args...)
 }
 
 // Panic uses fmt.Sprint to construct and log a message, then panics.
 func Panic(args ...interface{}) {
-	logger.Panic(args...)
+	globalLogger.Panic(args...)
 }
 
 // Fatal uses fmt.Sprint to construct and log a message, then calls os.Exit.
 func Fatal(args ...interface{}) {
-	logger.Fatal(args...)
+	globalLogger.Fatal(args...)
 }
 
 // Debugf uses fmt.Sprintf to log a templated message.
 func Debugf(template string, args ...interface{}) {
-	logger.Debugf(template, args...)
+	globalLogger.Debugf(template, args...)
 }
 
 // Infof uses fmt.Sprintf to log a templated message.
 func Infof(template string, args ...interface{}) {
-	logger.Infof(template, args...)
+	globalLogger.Infof(template, args...)
 }
 
 // Warnf uses fmt.Sprintf to log a templated message.
 func Warnf(template string, args ...interface{}) {
-	logger.Warnf(template, args...)
+	globalLogger.Warnf(template, args...)
 }
 
 // Errorf uses fmt.Sprintf to log a templated message.
 func Errorf(template string, args ...interface{}) {
-	logger.Errorf(template, args...)
+	globalLogger.Errorf(template, args...)
 }
 
 // DPanicf uses fmt.Sprintf to log a templated message.
 //
 // In development, the logger then panics. (See DPanicLevel for details.)
 func DPanicf(template string, args ...interface{}) {
-	logger.DPanicf(template, args...)
+	globalLogger.DPanicf(template, args...)
 }
 
 // Panicf uses fmt.Sprintf to log a templated message, then panics.
 func Panicf(template string, args ...interface{}) {
-	logger.Panicf(template, args...)
+	globalLogger.Panicf(template, args...)
 }
 
 // Fatalf uses fmt.Sprintf to log a templated message, then calls os.Exit.
 func Fatalf(template string, args ...interface{}) {
-	logger.Fatalf(template, args...)
+	globalLogger.Fatalf(template, args...)
 }
 
 // Debugw logs a message with some additional context.
@@ -183,28 +184,28 @@ func Fatalf(template string, args ...interface{}) {
 //
 //     With(keysAndValues).Debug(msg)
 func Debugw(msg string, keysAndValues ...interface{}) {
-	logger.Debugw(msg, keysAndValues...)
+	globalLogger.Debugw(msg, keysAndValues...)
 }
 
 // Infow logs a message with some additional context.
 //
 // The variadic key-value pairs are treated as they are in With.
 func Infow(msg string, keysAndValues ...interface{}) {
-	logger.Infow(msg, keysAndValues...)
+	globalLogger.Infow(msg, keysAndValues...)
 }
 
 // Warnw logs a message with some additional context.
 //
 // The variadic key-value pairs are treated as they are in With.
 func Warnw(msg string, keysAndValues ...interface{}) {
-	logger.Warnw(msg, keysAndValues...)
+	globalLogger.Warnw(msg, keysAndValues...)
 }
 
 // Errorw logs a message with some additional context.
 //
 // The variadic key-value pairs are treated as they are in With.
 func Errorw(msg string, keysAndValues ...interface{}) {
-	logger.Errorw(msg, keysAndValues...)
+	globalLogger.Errorw(msg, keysAndValues...)
 }
 
 // DPanicw logs a message with some additional context.
@@ -213,31 +214,31 @@ func Errorw(msg string, keysAndValues ...interface{}) {
 //
 // The variadic key-value pairs are treated as they are in With.
 func DPanicw(msg string, keysAndValues ...interface{}) {
-	logger.DPanicw(msg, keysAndValues...)
+	globalLogger.DPanicw(msg, keysAndValues...)
 }
 
 // Panicw logs a message with some additional context, then panics.
 //
 // The variadic key-value pairs are treated as they are in With.
 func Panicw(msg string, keysAndValues ...interface{}) {
-	logger.Panicw(msg, keysAndValues...)
+	globalLogger.Panicw(msg, keysAndValues...)
 }
 
 // Fatalw logs a message with some additional context, then calls os.Exit.
 //
 // The variadic key-value pairs are treated as they are in With.
 func Fatalw(msg string, keysAndValues ...interface{}) {
-	logger.Fatalw(msg, keysAndValues...)
+	globalLogger.Fatalw(msg, keysAndValues...)
 }
 
 // Sync flushes any buffered log entries.
 func Sync() error {
-	return logger.Sync()
+	return globalLogger.Sync()
 }
 
 // With wraps around the underline logger's With.
 func With(args ...interface{}) *zap.SugaredLogger {
-	return logger.With(args...)
+	return globalLogger.With(args...)
 }
 
 // ErrorWithSentry logs a message with some additional context,
@@ -251,7 +252,7 @@ func With(args ...interface{}) *zap.SugaredLogger {
 // Otherwise the global sentry hub will be used instead.
 func ErrorWithSentry(ctx context.Context, msg string, err error, keysAndValues ...interface{}) {
 	keysAndValues = append(keysAndValues, "err", err)
-	logger.Errorw(msg, keysAndValues...)
+	C(ctx).Errorw(msg, keysAndValues...)
 
 	if hub := sentry.GetHubFromContext(ctx); hub != nil {
 		hub.CaptureException(err)

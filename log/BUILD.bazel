@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "config.go",
+        "context.go",
         "doc.go",
         "encoder.go",
         "kit_wrapper.go",
