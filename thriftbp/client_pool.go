@@ -118,6 +118,23 @@ type Client interface {
 type ClientPool interface {
 	// ClientPool implements TClient by grabbing a Client from it's pool and
 	// releasing that Client after it's Call method completes.
+	//
+	// If Call fails to get a client from the pool, it will return PoolError.
+	// You can check the error returned by Call using:
+	//
+	//     var poolErr thriftbp.PoolError
+	//     if errors.As(err, &poolErr) {
+	//       // It's unable to get a client from the pool
+	//     } else {
+	//       // It's error from the actual thrift call
+	//     }
+	//
+	// If the error is not of type PoolError that means it's returned by the
+	// Call from the actual client.
+	//
+	// If Call fails to release the client back to the pool,
+	// it will log the error on error level but not return it to the caller.
+	// It also increase ServiceSlug+".pool-release-error" counter.
 	thrift.TClient
 
 	// Passthrough APIs from clientpool.Pool:
