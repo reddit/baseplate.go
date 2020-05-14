@@ -274,21 +274,21 @@ func (m MockClientPool) getClient() (thriftbp.Client, error) {
 //       "myEndpoint",
 //       func(ctx context.Context, args, result thrift.TStruct) error {
 //         return thrifttest.CopyTStruct(
+//           result,
 //           &myservice.MyServiceMyEndpointResult{
 //             Success: &myservice.MyEndpointResponse{
 //               // Set the response fields.
 //             },
 //           },
-//           result,
 //         )
 //       },
 //     )
-func CopyTStruct(from, to thrift.TStruct) error {
+func CopyTStruct(dts, src thrift.TStruct) error {
 	proto := thrift.NewTBinaryProtocolTransport(thrift.NewTMemoryBuffer())
-	if err := from.Write(proto); err != nil {
+	if err := src.Write(proto); err != nil {
 		return err
 	}
-	return to.Read(proto)
+	return dst.Read(proto)
 }
 
 var (
