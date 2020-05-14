@@ -14,14 +14,15 @@ import (
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/thriftbp"
+	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
 const method = "testMethod"
 
-func initClients() (*thriftbp.MockClient, *thriftbp.RecordedClient, thrift.TClient) {
-	mock := &thriftbp.MockClient{FailUnregisteredMethods: true}
-	recorder := thriftbp.NewRecordedClient(mock)
+func initClients() (*thrifttest.MockClient, *thrifttest.RecordedClient, thrift.TClient) {
+	mock := &thrifttest.MockClient{FailUnregisteredMethods: true}
+	recorder := thrifttest.NewRecordedClient(mock)
 	client := thrift.WrapClient(recorder, thriftbp.BaseplateDefaultClientMiddlewares()...)
 	return mock, recorder, client
 }
@@ -72,7 +73,7 @@ func drainRecorder(recorder *mqsend.MockMessageQueue) ([]byte, error) {
 func TestWrapMonitoredClient(t *testing.T) {
 	cases := []struct {
 		name          string
-		call          thriftbp.MockCall
+		call          thrifttest.MockCall
 		errorExpected bool
 		initSpan      func(context.Context, *testing.T) (context.Context, *mqsend.MockMessageQueue)
 	}{

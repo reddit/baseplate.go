@@ -1,4 +1,4 @@
-package thriftbp
+package thrifttest
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/reddit/baseplate.go/clientpool"
+	"github.com/reddit/baseplate.go/thriftbp"
 )
 
 type mockContextKey int
@@ -219,7 +220,7 @@ func (c *RecordedClient) Call(ctx context.Context, method string, args, result t
 // MockClientPool is a ClientPool implementation can be used in test code.
 type MockClientPool struct {
 	Exhausted    bool
-	CreateClient func() (Client, error)
+	CreateClient func() (thriftbp.Client, error)
 }
 
 // Close is nop and always returns nil error.
@@ -244,12 +245,12 @@ func (m MockClientPool) IsExhausted() bool {
 func (m MockClientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) error {
 	client, err := m.getClient()
 	if err != nil {
-		return PoolError{Cause: err}
+		return thriftbp.PoolError{Cause: err}
 	}
 	return client.Call(ctx, method, args, result)
 }
 
-func (m MockClientPool) getClient() (Client, error) {
+func (m MockClientPool) getClient() (thriftbp.Client, error) {
 	if m.Exhausted {
 		return nil, clientpool.ErrExhausted
 	}
@@ -291,8 +292,8 @@ func CopyTStruct(from, to thrift.TStruct) error {
 }
 
 var (
-	_ thrift.TClient    = (*MockClient)(nil)
-	_ thrift.TClient    = (*RecordedClient)(nil)
-	_ ClientPool        = MockClientPool{}
-	_ clientpool.Client = (*MockClient)(nil)
+	_ thrift.TClient      = (*MockClient)(nil)
+	_ thrift.TClient      = (*RecordedClient)(nil)
+	_ thriftbp.ClientPool = MockClientPool{}
+	_ clientpool.Client   = (*MockClient)(nil)
 )
