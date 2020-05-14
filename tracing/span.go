@@ -9,7 +9,9 @@ import (
 
 	sentry "github.com/getsentry/sentry-go"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
+	otlog "github.com/opentracing/opentracing-go/log"
+
+	"github.com/reddit/baseplate.go/log"
 )
 
 var (
@@ -308,8 +310,8 @@ func (s Span) getHub() *sentry.Hub {
 	return getNopHub()
 }
 
-// InjectSentryHub injects the sentry hub attached to this span to the context
-// object as the current hub.
+// InjectTraceContext injects the sentry hub and logger with trace id
+// information to the context object.
 //
 // It's called automatically by StartSpanFromHeaders and thriftbp/httpbp
 // middlewares,
@@ -317,9 +319,13 @@ func (s Span) getHub() *sentry.Hub {
 // But you should call it if you created a top level span manually.
 //
 // It's also not needed to be called for the child spans,
-// as the hub attached would be the same.
-func (s Span) InjectSentryHub(ctx context.Context) context.Context {
-	return context.WithValue(ctx, sentry.HubContextKey, s.getHub())
+// as the trace id attached would be the same.
+func (s Span) InjectTraceContext(ctx context.Context) context.Context {
+	ctx = context.WithValue(ctx, sentry.HubContextKey, s.getHub())
+	ctx = log.Attach(ctx, log.AttachArgs{
+		TraceID: s.TraceID(),
+	})
+	return ctx
 }
 
 // ForeachBaggageItem implements opentracing.SpanContext.
@@ -405,7 +411,7 @@ func (s *Span) Tracer() opentracing.Tracer {
 // LogFields implements opentracing.Span.
 //
 // In this implementation it's a no-op.
-func (s *Span) LogFields(fields ...log.Field) {}
+func (s *Span) LogFields(fields ...otlog.Field) {}
 
 // LogKV implements opentracing.Span.
 //
@@ -438,7 +444,7 @@ func StartTopLevelServerSpan(ctx context.Context, name string) (context.Context,
 		SpanTypeOption{Type: SpanTypeServer},
 	)
 	span := AsSpan(otSpan)
-	return span.InjectSentryHub(ctx), span
+	return span.InjectTraceContext(ctx), span
 }
 
 // Headers is the argument struct for starting a Span from upstream headers.
@@ -594,7 +600,7 @@ func StartSpanFromHeaders(ctx context.Context, name string, headers Headers) (co
 	}
 
 	initRootSpan(span)
-	ctx = span.InjectSentryHub(ctx)
+	ctx = span.InjectTraceContext(ctx)
 
 	return ctx, span
 }
