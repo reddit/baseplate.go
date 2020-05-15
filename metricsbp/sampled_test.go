@@ -1,4 +1,4 @@
-package metricsbp_test
+package metricsbp
 
 import (
 	"bufio"
@@ -10,57 +10,55 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/reddit/baseplate.go/metricsbp"
-
 	"github.com/go-kit/kit/metrics"
 )
 
 func TestSampledHistogram(t *testing.T) {
 	const rate = 0.3
 
-	statsd := metricsbp.NewStatsd(
+	statsd := NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{},
+		StatsdConfig{},
 	)
-	statsdSampled := metricsbp.NewStatsd(
+	statsdSampled := NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
-			HistogramSampleRate: metricsbp.Float64Ptr(rate),
+		StatsdConfig{
+			HistogramSampleRate: Float64Ptr(rate),
 		},
 	)
-	statsdWithLabels := metricsbp.NewStatsd(
+	statsdWithLabels := NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
+		StatsdConfig{
 			Labels: map[string]string{
 				"foo": "bar",
 			},
 		},
 	)
-	statsdWithLabelsSampled := metricsbp.NewStatsd(
+	statsdWithLabelsSampled := NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
-			HistogramSampleRate: metricsbp.Float64Ptr(rate),
+		StatsdConfig{
+			HistogramSampleRate: Float64Ptr(rate),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
 		},
 	)
 
-	type histoFunc = func(statsd *metricsbp.Statsd) metrics.Histogram
-	histoNoLabel := func(statsd *metricsbp.Statsd) metrics.Histogram {
+	type histoFunc = func(statsd *Statsd) metrics.Histogram
+	histoNoLabel := func(statsd *Statsd) metrics.Histogram {
 		return statsd.Histogram("histo")
 	}
-	histoLabel := func(statsd *metricsbp.Statsd) metrics.Histogram {
+	histoLabel := func(statsd *Statsd) metrics.Histogram {
 		return statsd.Histogram("histo").With("key", "value")
 	}
-	histoOverrideRate := func(statsd *metricsbp.Statsd) metrics.Histogram {
+	histoOverrideRate := func(statsd *Statsd) metrics.Histogram {
 		return statsd.HistogramWithRate("histo", rate)
 	}
 
 	cases := []struct {
 		label    string
 		sampled  bool
-		statsd   *metricsbp.Statsd
+		statsd   *Statsd
 		newHisto histoFunc
 	}{
 		{
@@ -129,7 +127,7 @@ func TestSampledHistogram(t *testing.T) {
 				for i := 0; i < n; i++ {
 					histo.Observe(1)
 				}
-				_, err := c.statsd.Statsd.WriteTo(&buf)
+				_, err := c.statsd.statsd.WriteTo(&buf)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -169,51 +167,51 @@ func TestSampledCounter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	statsd := metricsbp.NewStatsd(
+	statsd := NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
-			CounterSampleRate: metricsbp.Float64Ptr(1.5),
+		StatsdConfig{
+			CounterSampleRate: Float64Ptr(1.5),
 		},
 	)
-	statsdSampled := metricsbp.NewStatsd(
+	statsdSampled := NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
-			CounterSampleRate: metricsbp.Float64Ptr(rate),
+		StatsdConfig{
+			CounterSampleRate: Float64Ptr(rate),
 		},
 	)
-	statsdWithLabels := metricsbp.NewStatsd(
+	statsdWithLabels := NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
+		StatsdConfig{
 			Labels: map[string]string{
 				"foo": "bar",
 			},
 		},
 	)
-	statsdWithLabelsSampled := metricsbp.NewStatsd(
+	statsdWithLabelsSampled := NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
-			CounterSampleRate: metricsbp.Float64Ptr(rate),
+		StatsdConfig{
+			CounterSampleRate: Float64Ptr(rate),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
 		},
 	)
 
-	type counterFunc = func(statsd *metricsbp.Statsd) metrics.Counter
-	counterNoLabel := func(statsd *metricsbp.Statsd) metrics.Counter {
+	type counterFunc = func(statsd *Statsd) metrics.Counter
+	counterNoLabel := func(statsd *Statsd) metrics.Counter {
 		return statsd.Counter("counter")
 	}
-	counterLabel := func(statsd *metricsbp.Statsd) metrics.Counter {
+	counterLabel := func(statsd *Statsd) metrics.Counter {
 		return statsd.Counter("counter").With("key", "value")
 	}
-	counterOverrideRate := func(statsd *metricsbp.Statsd) metrics.Counter {
+	counterOverrideRate := func(statsd *Statsd) metrics.Counter {
 		return statsd.CounterWithRate("counter", rate)
 	}
 
 	cases := []struct {
 		label      string
 		sampled    bool
-		statsd     *metricsbp.Statsd
+		statsd     *Statsd
 		newCounter counterFunc
 	}{
 		{
@@ -284,7 +282,7 @@ func TestSampledCounter(t *testing.T) {
 				for i := 0; i < n; i++ {
 					counter.Add(1)
 				}
-				_, err := c.statsd.Statsd.WriteTo(&buf)
+				_, err := c.statsd.statsd.WriteTo(&buf)
 				if err != nil {
 					t.Fatal(err)
 				}
