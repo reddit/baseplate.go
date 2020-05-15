@@ -54,7 +54,7 @@ func TestInjectServerSpan(t *testing.T) {
 	})
 	logger, startFailing := tracing.TestWrapper(t)
 	tracing.InitGlobalTracer(tracing.TracerConfig{
-		SampleRate:               1,
+		SampleRate:               0,
 		MaxRecordTimeout:         testTimeout,
 		Logger:                   logger,
 		TestOnlyMockMessageQueue: mmq,
