@@ -427,6 +427,20 @@ func (s *Span) LogEventWithPayload(event string, payload interface{}) {}
 // it's deprecated in the interface and is a no-op here.
 func (s *Span) Log(data opentracing.LogData) {}
 
+// StartTopLevelServerSpan initializes a new, top level server span.
+//
+// This span will have a new TraceID and will be sampled based on your configured
+// sample rate.
+func StartTopLevelServerSpan(ctx context.Context, name string) (context.Context, *Span) {
+	otSpan, ctx := opentracing.StartSpanFromContext(
+		ctx,
+		name,
+		SpanTypeOption{Type: SpanTypeServer},
+	)
+	span := AsSpan(otSpan)
+	return span.InjectSentryHub(ctx), span
+}
+
 // Headers is the argument struct for starting a Span from upstream headers.
 type Headers struct {
 	// TraceID is the trace ID passed via upstream headers.
@@ -443,7 +457,105 @@ type Headers struct {
 	Sampled *bool
 }
 
-// StartSpanFromHeaders creates a server span from the passed in Headers.
+// AnySet returns true if any of the values in the Headers are set, false otherwise.
+func (h Headers) AnySet() bool {
+	return h.TraceID != "" ||
+		h.SpanID != "" ||
+		h.Flags != "" ||
+		h.Sampled != nil
+}
+
+// ParseTraceID attempts to convert h.TraceID into a uint64, if it succeeds it
+// returns the value and 'true'.  If it fails, either because h.TraceID is not
+// set or it is malformed, ok will be 'false' and you should not rely on the ID
+// returned.
+//
+// If h.TraceID was malformed, an error will be logged using the global tracer's
+// logger but no error will be returned.
+func (h Headers) ParseTraceID() (id uint64, ok bool) {
+	if h.TraceID == "" {
+		return
+	}
+
+	var err error
+	id, err = strconv.ParseUint(h.TraceID, 10, 64)
+	if err != nil {
+		globalTracer.getLogger()(fmt.Sprintf(
+			"Malformed trace id in http ctx: %q, %v",
+			h.TraceID,
+			err,
+		))
+		return
+	}
+	ok = true
+	return
+}
+
+// ParseSpanID attempts to convert h.SpanID into a uint64, if it succeeds it
+// returns the value and 'true'.  If it fails, either because h.SpanID is not
+// set or it is malformed, ok will be 'false' and you should not rely on the ID
+// returned.
+//
+// If h.SpanID was malformed, an error will be logged using the global tracer's
+// logger but no error will be returned.
+func (h Headers) ParseSpanID() (id uint64, ok bool) {
+	if h.SpanID == "" {
+		return
+	}
+
+	var err error
+	id, err = strconv.ParseUint(h.SpanID, 10, 64)
+	if err != nil {
+		globalTracer.getLogger()(fmt.Sprintf(
+			"Malformed span id in http ctx: %q, %v",
+			h.SpanID,
+			err,
+		))
+		return
+	}
+	ok = true
+	return
+}
+
+// ParseFlags attempts to convert h.Flags into an int64, if it succeeds it
+// returns the value and 'true'.  If it fails, either because h.Flags is not
+// set or it is malformed, ok will be 'false' and you should not rely on the ID
+// returned.
+//
+// If h.Flags was malformed, an error will be logged using the global tracer's
+// logger but no error will be returned.
+func (h Headers) ParseFlags() (flags int64, ok bool) {
+	if h.Flags == "" {
+		return
+	}
+
+	var err error
+	flags, err = strconv.ParseInt(h.Flags, 10, 64)
+	if err != nil {
+		globalTracer.getLogger()(fmt.Sprintf(
+			"Malformed flags in http ctx: %q, %v",
+			h.Flags,
+			err,
+		))
+		return
+	}
+	ok = true
+	return
+}
+
+// ParseSampled returns the boolean value of h.Sampled and a flag specifying
+// whether h.Sampled was set or not.  If it not set, both "sampled" and "ok"
+// will return "false" but that does not mean that "sampled" should be false, you
+// should only used the returned value for "sampled" if "ok" is true.
+func (h Headers) ParseSampled() (sampled bool, ok bool) {
+	if h.Sampled == nil {
+		return false, false
+	}
+	return *h.Sampled, true
+}
+
+// StartSpanFromHeaders creates a server span from the passed in Headers. If no
+// headers are set, then a new top-level server span will be created and returned.
 //
 // Please note that "Sampled" header is default to false according to baseplate
 // spec, so if the headers are incorrect, this span (and all its child-spans)
@@ -453,7 +565,10 @@ type Headers struct {
 // Malformed headers will be logged if InitGlobalTracer was last called with a
 // non-nil logger.
 func StartSpanFromHeaders(ctx context.Context, name string, headers Headers) (context.Context, *Span) {
-	logger := globalTracer.getLogger()
+	if !headers.AnySet() {
+		return StartTopLevelServerSpan(ctx, name)
+	}
+
 	span := newSpan(nil, name, SpanTypeServer)
 	defer func() {
 		onCreateServerSpan(span)
@@ -462,44 +577,20 @@ func StartSpanFromHeaders(ctx context.Context, name string, headers Headers) (co
 
 	ctx = opentracing.ContextWithSpan(ctx, span)
 
-	if headers.TraceID != "" {
-		if id, err := strconv.ParseUint(headers.TraceID, 10, 64); err != nil {
-			logger(fmt.Sprintf(
-				"Malformed trace id in http ctx: %q, %v",
-				headers.TraceID,
-				err,
-			))
-		} else {
-			span.trace.traceID = id
-		}
+	if id, ok := headers.ParseTraceID(); ok {
+		span.trace.traceID = id
 	}
 
-	if headers.SpanID != "" {
-		if id, err := strconv.ParseUint(headers.SpanID, 10, 64); err != nil {
-			logger(fmt.Sprintf(
-				"Malformed parent id in http ctx: %q, %v",
-				headers.SpanID,
-				err,
-			))
-		} else {
-			span.trace.parentID = id
-		}
+	if id, ok := headers.ParseSpanID(); ok {
+		span.trace.parentID = id
 	}
 
-	if headers.Flags != "" {
-		if flags, err := strconv.ParseInt(headers.Flags, 10, 64); err != nil {
-			logger(fmt.Sprintf(
-				"Malformed flags in http ctx: %q, %v",
-				headers.Flags,
-				err,
-			))
-		} else {
-			span.trace.flags = flags
-		}
+	if flags, ok := headers.ParseFlags(); ok {
+		span.trace.flags = flags
 	}
 
-	if headers.Sampled != nil {
-		span.trace.sampled = *headers.Sampled
+	if sampled, ok := headers.ParseSampled(); ok {
+		span.trace.sampled = sampled
 	}
 
 	initRootSpan(span)

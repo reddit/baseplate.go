@@ -307,3 +307,375 @@ func TestSpanTypeStrings(t *testing.T) {
 		)
 	}
 }
+
+func TestHeadersAnySet(t *testing.T) {
+	t.Parallel()
+
+	sampled := true
+	notSampled := false
+
+	const (
+		traceID       = "1"
+		spanID        = "2"
+		flags         = "0"
+		invalidIntVal = "invalid"
+	)
+
+	cases := []struct {
+		name     string
+		headers  Headers
+		expected bool
+	}{
+		// Typical cases, generally you will either have all the headers set or
+		// none of them.
+		{
+			name:     "none-set",
+			headers:  Headers{},
+			expected: false,
+		},
+		{
+			name: "all-set",
+			headers: Headers{
+				TraceID: traceID,
+				SpanID:  spanID,
+				Flags:   flags,
+				Sampled: &sampled,
+			},
+			expected: true,
+		},
+		{
+			name: "all-set-sampled-false",
+			headers: Headers{
+				TraceID: traceID,
+				SpanID:  spanID,
+				Flags:   flags,
+				Sampled: &notSampled,
+			},
+			expected: true,
+		},
+
+		// Test only a single value set, but set to a value you would expect.
+		{
+			name: "trace-id-set",
+			headers: Headers{
+				TraceID: traceID,
+			},
+			expected: true,
+		},
+		{
+			name: "span-id-set",
+			headers: Headers{
+				SpanID: spanID,
+			},
+			expected: true,
+		},
+		{
+			name: "flags-set",
+			headers: Headers{
+				Flags: flags,
+			},
+			expected: true,
+		},
+		{
+			name: "sampled-set",
+			headers: Headers{
+				Sampled: &sampled,
+			},
+			expected: true,
+		},
+
+		// Test having values set, but to something that is either invalid or could
+		// be trickier.  Headers.AnySet should only care that something is set, not
+		// what it is set to or if it is valid.
+		{
+			name: "trace-id-set",
+			headers: Headers{
+				TraceID: invalidIntVal,
+			},
+			expected: true,
+		},
+		{
+			name: "span-id-set",
+			headers: Headers{
+				SpanID: invalidIntVal,
+			},
+			expected: true,
+		},
+		{
+			name: "flags-set",
+			headers: Headers{
+				Flags: invalidIntVal,
+			},
+			expected: true,
+		},
+		{
+			name: "sampled-set-but-false",
+			headers: Headers{
+				Sampled: &notSampled,
+			},
+			expected: true,
+		},
+		{
+			name: "all-set-invalid",
+			headers: Headers{
+				TraceID: invalidIntVal,
+				SpanID:  invalidIntVal,
+				Flags:   invalidIntVal,
+				Sampled: &notSampled,
+			},
+			expected: true,
+		},
+	}
+
+	for _, _c := range cases {
+		c := _c
+		t.Run(
+			c.name,
+			func(t *testing.T) {
+				if c.headers.AnySet() != c.expected {
+					t.Fatalf("AnySet did not match, expected %v, got %v", c.expected, c.headers.AnySet())
+				}
+			},
+		)
+	}
+}
+
+func TestHeadersParseTraceID(t *testing.T) {
+	t.Parallel()
+
+	type expectation struct {
+		id uint64
+		ok bool
+	}
+	cases := []struct {
+		name     string
+		headers  Headers
+		expected expectation
+	}{
+		{
+			name:    "ok",
+			headers: Headers{TraceID: "1"},
+			expected: expectation{
+				id: 1,
+				ok: true,
+			},
+		},
+		{
+			name:    "invalid",
+			headers: Headers{TraceID: "foo"},
+			expected: expectation{
+				ok: false,
+			},
+		},
+		{
+			name:    "not-set",
+			headers: Headers{},
+			expected: expectation{
+				ok: false,
+			},
+		},
+	}
+	for _, _c := range cases {
+		c := _c
+		t.Run(
+			c.name,
+			func(t *testing.T) {
+				id, ok := c.headers.ParseTraceID()
+				if ok != c.expected.ok {
+					t.Errorf("ok mismatch, expected %v, got %v", c.expected.ok, ok)
+				}
+				// Don't test the value for "id" if ok is false because it should not
+				// be relied on.
+				if !ok {
+					return
+				}
+
+				if id != c.expected.id {
+					t.Errorf("parsed ID mismatch, expected %d, got %d", c.expected.id, id)
+				}
+			},
+		)
+	}
+}
+
+func TestHeadersParseSpanID(t *testing.T) {
+	t.Parallel()
+
+	type expectation struct {
+		id uint64
+		ok bool
+	}
+	cases := []struct {
+		name     string
+		headers  Headers
+		expected expectation
+	}{
+		{
+			name:    "ok",
+			headers: Headers{SpanID: "1"},
+			expected: expectation{
+				id: 1,
+				ok: true,
+			},
+		},
+		{
+			name:    "invalid",
+			headers: Headers{SpanID: "foo"},
+			expected: expectation{
+				ok: false,
+			},
+		},
+		{
+			name:    "not-set",
+			headers: Headers{},
+			expected: expectation{
+				ok: false,
+			},
+		},
+	}
+	for _, _c := range cases {
+		c := _c
+		t.Run(
+			c.name,
+			func(t *testing.T) {
+				id, ok := c.headers.ParseSpanID()
+				if ok != c.expected.ok {
+					t.Errorf("ok mismatch, expected %v, got %v", c.expected.ok, ok)
+				}
+				// Don't test the value for "id" if ok is false because it should not
+				// be relied on.
+				if !ok {
+					return
+				}
+
+				if id != c.expected.id {
+					t.Errorf("parsed ID mismatch, expected %d, got %d", c.expected.id, id)
+				}
+			},
+		)
+	}
+}
+
+func TestHeadersParseFlags(t *testing.T) {
+	t.Parallel()
+
+	type expectation struct {
+		id int64
+		ok bool
+	}
+	cases := []struct {
+		name     string
+		headers  Headers
+		expected expectation
+	}{
+		{
+			name:    "ok",
+			headers: Headers{Flags: "1"},
+			expected: expectation{
+				id: 1,
+				ok: true,
+			},
+		},
+		{
+			name:    "invalid",
+			headers: Headers{Flags: "foo"},
+			expected: expectation{
+				ok: false,
+			},
+		},
+		{
+			name:    "not-set",
+			headers: Headers{},
+			expected: expectation{
+				ok: false,
+			},
+		},
+	}
+	for _, _c := range cases {
+		c := _c
+		t.Run(
+			c.name,
+			func(t *testing.T) {
+				id, ok := c.headers.ParseFlags()
+				if ok != c.expected.ok {
+					t.Errorf("ok mismatch, expected %v, got %v", c.expected.ok, ok)
+				}
+				// Don't test the value for "flags" if ok is false because it should not
+				// be relied on.
+				if !ok {
+					return
+				}
+
+				if id != c.expected.id {
+					t.Errorf("parsed ID mismatch, expected %d, got %d", c.expected.id, id)
+				}
+			},
+		)
+	}
+}
+
+func TestHeadersParseSampled(t *testing.T) {
+	t.Parallel()
+
+	sampled := true
+	notSampled := false
+
+	type expectation struct {
+		sampled bool
+		ok      bool
+	}
+	cases := []struct {
+		name     string
+		headers  Headers
+		expected expectation
+	}{
+		{
+			name:    "true",
+			headers: Headers{Sampled: &sampled},
+			expected: expectation{
+				sampled: true,
+				ok:      true,
+			},
+		},
+		{
+			name:    "false",
+			headers: Headers{Sampled: &notSampled},
+			expected: expectation{
+				sampled: false,
+				ok:      true,
+			},
+		},
+		{
+			name:    "not-set",
+			headers: Headers{},
+			expected: expectation{
+				ok: false,
+			},
+		},
+	}
+	for _, _c := range cases {
+		c := _c
+		t.Run(
+			c.name,
+			func(t *testing.T) {
+				sampled, ok := c.headers.ParseSampled()
+				if ok != c.expected.ok {
+					t.Errorf("ok mismatch, expected %v, got %v", c.expected.ok, ok)
+				}
+				// Don't test the value for "sampled" if ok is false because it should not
+				// be relied on.
+				if !ok {
+					return
+				}
+
+				if sampled != c.expected.sampled {
+					t.Errorf(
+						"parsed sampled mismatch, expected %v, got %v",
+						c.expected.sampled,
+						sampled,
+					)
+				}
+			},
+		)
+	}
+}
