@@ -43,6 +43,7 @@ go_test(
         "//edgecontext:go_default_library",
         "//log:go_default_library",
         "//mqsend:go_default_library",
+        "//redisbp:go_default_library",
         "//secrets:go_default_library",
         "//tracing:go_default_library",
     ],
