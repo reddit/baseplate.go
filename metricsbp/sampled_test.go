@@ -7,6 +7,7 @@ import (
 	"math"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/reddit/baseplate.go/metricsbp"
@@ -15,6 +16,8 @@ import (
 )
 
 func TestSampledHistogram(t *testing.T) {
+	const rate = 0.3
+
 	statsd := metricsbp.NewStatsd(
 		context.Background(),
 		metricsbp.StatsdConfig{},
@@ -22,7 +25,7 @@ func TestSampledHistogram(t *testing.T) {
 	statsdSampled := metricsbp.NewStatsd(
 		context.Background(),
 		metricsbp.StatsdConfig{
-			HistogramSampleRate: metricsbp.Float64Ptr(0.3),
+			HistogramSampleRate: metricsbp.Float64Ptr(rate),
 		},
 	)
 	statsdWithLabels := metricsbp.NewStatsd(
@@ -36,7 +39,7 @@ func TestSampledHistogram(t *testing.T) {
 	statsdWithLabelsSampled := metricsbp.NewStatsd(
 		context.Background(),
 		metricsbp.StatsdConfig{
-			HistogramSampleRate: metricsbp.Float64Ptr(0.3),
+			HistogramSampleRate: metricsbp.Float64Ptr(rate),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
@@ -49,6 +52,9 @@ func TestSampledHistogram(t *testing.T) {
 	}
 	histoLabel := func(statsd *metricsbp.Statsd) metrics.Histogram {
 		return statsd.Histogram("histo").With("key", "value")
+	}
+	histoOverrideRate := func(statsd *metricsbp.Statsd) metrics.Histogram {
+		return statsd.HistogramWithRate("histo", rate)
 	}
 
 	cases := []struct {
@@ -105,6 +111,12 @@ func TestSampledHistogram(t *testing.T) {
 			statsd:   statsdWithLabelsSampled,
 			newHisto: histoLabel,
 		},
+		{
+			label:    "override-sampled",
+			sampled:  true,
+			statsd:   statsd,
+			newHisto: histoOverrideRate,
+		},
 	}
 
 	for _, c := range cases {
@@ -143,6 +155,8 @@ func TestSampledHistogram(t *testing.T) {
 }
 
 func TestSampledCounter(t *testing.T) {
+	const rate = 0.3
+
 	// Line examples:
 	// counter:20.000000|c
 	// counter,foo=bar,key=value:3.000000|c|@0.100000
@@ -150,15 +164,21 @@ func TestSampledCounter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	rateParser, err := regexp.Compile(`\|c\|@(.*)$`)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	statsd := metricsbp.NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{},
+		metricsbp.StatsdConfig{
+			CounterSampleRate: metricsbp.Float64Ptr(1.5),
+		},
 	)
 	statsdSampled := metricsbp.NewStatsd(
 		context.Background(),
 		metricsbp.StatsdConfig{
-			CounterSampleRate: metricsbp.Float64Ptr(0.3),
+			CounterSampleRate: metricsbp.Float64Ptr(rate),
 		},
 	)
 	statsdWithLabels := metricsbp.NewStatsd(
@@ -172,7 +192,7 @@ func TestSampledCounter(t *testing.T) {
 	statsdWithLabelsSampled := metricsbp.NewStatsd(
 		context.Background(),
 		metricsbp.StatsdConfig{
-			CounterSampleRate: metricsbp.Float64Ptr(0.3),
+			CounterSampleRate: metricsbp.Float64Ptr(rate),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
@@ -185,6 +205,9 @@ func TestSampledCounter(t *testing.T) {
 	}
 	counterLabel := func(statsd *metricsbp.Statsd) metrics.Counter {
 		return statsd.Counter("counter").With("key", "value")
+	}
+	counterOverrideRate := func(statsd *metricsbp.Statsd) metrics.Counter {
+		return statsd.CounterWithRate("counter", rate)
 	}
 
 	cases := []struct {
@@ -241,6 +264,12 @@ func TestSampledCounter(t *testing.T) {
 			statsd:     statsdWithLabelsSampled,
 			newCounter: counterLabel,
 		},
+		{
+			label:      "override-sampled",
+			sampled:    true,
+			statsd:     statsd,
+			newCounter: counterOverrideRate,
+		},
 	}
 
 	for _, c := range cases {
@@ -259,7 +288,7 @@ func TestSampledCounter(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				line := buf.String()
+				line := strings.TrimSpace(buf.String())
 				matches := lineParser.FindStringSubmatch(line)
 				if len(matches) < 2 {
 					t.Fatalf("Unexpected line: %q", line)
@@ -268,6 +297,7 @@ func TestSampledCounter(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to parse value %v: %v", matches[1], err)
 				}
+				rateMatches := rateParser.FindStringSubmatch(line)
 				if c.sampled {
 					if value >= n {
 						t.Errorf(
@@ -277,12 +307,53 @@ func TestSampledCounter(t *testing.T) {
 							line,
 						)
 					}
+					if len(rateMatches) < 2 {
+						t.Fatalf("Sample rate not found in line: %q", line)
+					}
+					value, err := strconv.ParseFloat(rateMatches[1], 64)
+					if err != nil {
+						t.Fatalf(
+							"Failed to parse rate value %v: %v, line: %q",
+							rateMatches[1],
+							err,
+							line,
+						)
+					}
+					if math.Abs(value-rate) > epsilon {
+						t.Errorf(
+							"Expected sample rate %v, got %v, line: %q",
+							rate,
+							value,
+							line,
+						)
+					}
 				} else {
 					if math.Abs(value-n) > epsilon {
 						t.Errorf(
 							"Expected not sampled counter, got value %v (vs. %v), line: %q",
 							value,
 							n,
+							line,
+						)
+					}
+					if len(rateMatches) < 2 {
+						// No rate reported, which is fine for 100% samples
+						return
+					}
+					value, err := strconv.ParseFloat(rateMatches[1], 64)
+					if err != nil {
+						t.Fatalf(
+							"Failed to parse rate value %v: %v, line: %q",
+							rateMatches[1],
+							err,
+							line,
+						)
+					}
+					if math.Abs(value-1) > epsilon {
+						t.Errorf(
+							"Expected sample rate %v, got %v, line: %q",
+							1,
+							value,
 							line,
 						)
 					}
