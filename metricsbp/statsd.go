@@ -68,7 +68,7 @@ var M = NewStatsd(context.Background(), StatsdConfig{})
 //
 //     st := (*metricsbp.Statsd)(nil)
 //     st.Counter("my-counter").Add(1) // does not panic unless metricsbp.M is nil
-//     st.Statsd.NewCounter("my-counter", 0.5).Add(1) // panics
+//     st.Statsd.WriteTo(buf) // panics
 type Statsd struct {
 	Statsd *influxstatsd.Influxstatsd
 
@@ -94,6 +94,9 @@ type StatsdConfig struct {
 	//
 	// Use Float64Ptr to convert literals or other values that you can't get the
 	// pointer directly.
+	//
+	// To override global sample rate set here for particular counters/histograms,
+	// use CounterWithRate/HistogramWithRate/TimingWithRate.
 	CounterSampleRate   *float64
 	HistogramSampleRate *float64
 
@@ -167,13 +170,20 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 // with sample rate inherited from StatsdConfig.
 func (st *Statsd) Counter(name string) metrics.Counter {
 	st = st.fallback()
-	counter := st.Statsd.NewCounter(name, st.counterSampleRate)
-	if st.counterSampleRate >= 1 {
+	return st.CounterWithRate(name, st.counterSampleRate)
+}
+
+// CounterWithRate returns a counter metrics to the name,
+// with sample rate passed in instead of inherited from StatsdConfig.
+func (st *Statsd) CounterWithRate(name string, rate float64) metrics.Counter {
+	st = st.fallback()
+	counter := st.Statsd.NewCounter(name, rate)
+	if rate >= 1 {
 		return counter
 	}
 	return SampledCounter{
 		Counter: counter,
-		Rate:    st.counterSampleRate,
+		Rate:    rate,
 	}
 }
 
@@ -181,13 +191,20 @@ func (st *Statsd) Counter(name string) metrics.Counter {
 // with sample rate inherited from StatsdConfig.
 func (st *Statsd) Histogram(name string) metrics.Histogram {
 	st = st.fallback()
-	histogram := st.Statsd.NewHistogram(name, st.histogramSampleRate)
-	if st.histogramSampleRate >= 1 {
+	return st.HistogramWithRate(name, st.histogramSampleRate)
+}
+
+// HistogramWithRate returns a histogram metrics to the name with no specific
+// unit, with sample rate passed in instead of inherited from StatsdConfig.
+func (st *Statsd) HistogramWithRate(name string, rate float64) metrics.Histogram {
+	st = st.fallback()
+	histogram := st.Statsd.NewHistogram(name, rate)
+	if rate >= 1 {
 		return histogram
 	}
 	return SampledHistogram{
 		Histogram: histogram,
-		Rate:      st.histogramSampleRate,
+		Rate:      rate,
 	}
 }
 
@@ -195,13 +212,20 @@ func (st *Statsd) Histogram(name string) metrics.Histogram {
 // with sample rate inherited from StatsdConfig.
 func (st *Statsd) Timing(name string) metrics.Histogram {
 	st = st.fallback()
-	histogram := st.Statsd.NewTiming(name, st.histogramSampleRate)
-	if st.histogramSampleRate >= 1 {
+	return st.TimingWithRate(name, st.histogramSampleRate)
+}
+
+// TimingWithRate returns a histogram metrics to the name with milliseconds as
+// the unit, with sample rate passed in instead of inherited from StatsdConfig.
+func (st *Statsd) TimingWithRate(name string, rate float64) metrics.Histogram {
+	st = st.fallback()
+	histogram := st.Statsd.NewTiming(name, rate)
+	if rate >= 1 {
 		return histogram
 	}
 	return SampledHistogram{
 		Histogram: histogram,
-		Rate:      st.histogramSampleRate,
+		Rate:      rate,
 	}
 }
 
