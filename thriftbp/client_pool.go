@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -249,12 +250,12 @@ func newClient(
 
 	trans, err := thrift.NewTSocketTimeout(addr, socketTimeout, socketTimeout)
 	if err != nil {
-		return nil, fmt.Errorf("thriftbp: error building TSocket new Thrift client. %w", err)
+		return nil, fmt.Errorf("thriftbp: error building TSocket for new Thrift client. %w", err)
 	}
 
 	err = trans.Open()
 	if err != nil {
-		return nil, fmt.Errorf("thriftbp: error opening TSocket new Thrift client. %w", err)
+		return nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client. %w", err)
 	}
 
 	var client thrift.TClient
@@ -292,12 +293,20 @@ type clientPool struct {
 	releaseErrorCounter  metrics.Counter
 }
 
-func (p *clientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) error {
+func (p *clientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
 	client, err := p.getClient()
 	if err != nil {
 		return PoolError{Cause: err}
 	}
-	defer p.releaseClient(client)
+	defer func() {
+		if err != nil && errors.As(err, new(net.Error)) {
+			// Close the client to avoid reusing it if it's a network error.
+			if e := client.Close(); e != nil {
+				log.Errorw("Failed to close client", "origErr", err, "closeErr", e)
+			}
+		}
+		p.releaseClient(client)
+	}()
 
 	return client.Call(ctx, method, args, result)
 }
