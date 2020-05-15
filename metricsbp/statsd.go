@@ -58,19 +58,19 @@ var M = NewStatsd(context.Background(), StatsdConfig{})
 // It can be used to create metrics,
 // and also maintains the background reporting goroutine,
 //
+// It supports metrics labels in Influxstatsd format.
+//
 // Please use NewStatsd to initialize it.
 //
 // When a *Statsd is nil,
 // any function calls to it will fallback to use M instead,
-// so they are safe to use (unless M was explicitly overridden as nil),
-// but accessing the fields will still cause panic.
+// so they are gonna be safe to use (unless M was explicitly overridden as nil).
 // For example:
 //
 //     st := (*metricsbp.Statsd)(nil)
 //     st.Counter("my-counter").Add(1) // does not panic unless metricsbp.M is nil
-//     st.Statsd.WriteTo(buf) // panics
 type Statsd struct {
-	Statsd *influxstatsd.Influxstatsd
+	statsd *influxstatsd.Influxstatsd
 
 	cfg                 StatsdConfig
 	ctx                 context.Context
@@ -147,7 +147,7 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 	}
 	labels := cfg.Labels.AsStatsdLabels()
 	st := &Statsd{
-		Statsd:              influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), labels...),
+		statsd:              influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), labels...),
 		cfg:                 cfg,
 		counterSampleRate:   convertSampleRate(cfg.CounterSampleRate),
 		histogramSampleRate: convertSampleRate(cfg.HistogramSampleRate),
@@ -159,7 +159,7 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 			ticker := time.NewTicker(ReporterTickerInterval)
 			defer ticker.Stop()
 
-			st.Statsd.SendLoop(st.ctx, ticker.C, "udp", cfg.Address)
+			st.statsd.SendLoop(st.ctx, ticker.C, "udp", cfg.Address)
 		}()
 	}
 
@@ -177,7 +177,7 @@ func (st *Statsd) Counter(name string) metrics.Counter {
 // with sample rate passed in instead of inherited from StatsdConfig.
 func (st *Statsd) CounterWithRate(name string, rate float64) metrics.Counter {
 	st = st.fallback()
-	counter := st.Statsd.NewCounter(name, rate)
+	counter := st.statsd.NewCounter(name, rate)
 	if rate >= 1 {
 		return counter
 	}
@@ -198,7 +198,7 @@ func (st *Statsd) Histogram(name string) metrics.Histogram {
 // unit, with sample rate passed in instead of inherited from StatsdConfig.
 func (st *Statsd) HistogramWithRate(name string, rate float64) metrics.Histogram {
 	st = st.fallback()
-	histogram := st.Statsd.NewHistogram(name, rate)
+	histogram := st.statsd.NewHistogram(name, rate)
 	if rate >= 1 {
 		return histogram
 	}
@@ -219,7 +219,7 @@ func (st *Statsd) Timing(name string) metrics.Histogram {
 // the unit, with sample rate passed in instead of inherited from StatsdConfig.
 func (st *Statsd) TimingWithRate(name string, rate float64) metrics.Histogram {
 	st = st.fallback()
-	histogram := st.Statsd.NewTiming(name, rate)
+	histogram := st.statsd.NewTiming(name, rate)
 	if rate >= 1 {
 		return histogram
 	}
@@ -230,11 +230,9 @@ func (st *Statsd) TimingWithRate(name string, rate float64) metrics.Histogram {
 }
 
 // Gauge returns a gauge metrics to the name.
-//
-// It's a shortcut to st.Statsd.NewGauge(name).
 func (st *Statsd) Gauge(name string) metrics.Gauge {
 	st = st.fallback()
-	return st.Statsd.NewGauge(name)
+	return st.statsd.NewGauge(name)
 }
 
 func (st *Statsd) fallback() *Statsd {
@@ -297,7 +295,7 @@ func (st *Statsd) Close() error {
 		return nil
 	}
 
-	_, err := st.Statsd.WriteTo(conn.NewDefaultManager(
+	_, err := st.statsd.WriteTo(conn.NewDefaultManager(
 		"udp",
 		st.cfg.Address,
 		log.KitLogger(st.cfg.LogLevel),
