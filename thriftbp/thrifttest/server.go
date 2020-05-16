@@ -12,7 +12,32 @@ import (
 	"github.com/reddit/baseplate.go/thriftbp"
 )
 
-const loopbackAddr = "127.0.0.1:0"
+const (
+	// DefaultClientMaxConnections is used when ServerConfig.ClientConfig.MaxConnections
+	// is not set.
+	DefaultClientMaxConnections = 10
+
+	// DefaultClientSocketTimeout is used when ServerConfig.ClientConfig.SocketTimeout
+	// is not set.
+	DefaultClientSocketTimeout = 10 * time.Millisecond
+
+	// DefaultServiceSlug is used when ServerConfig.ClientConfig.ServiceSlug
+	// is not set.
+	DefaultServiceSlug = "testing"
+
+	// InitialClientConnections is the value that is always used for
+	// ServerConfig.ClientConfig.InitialConnections.
+	//
+	// We default to 0 becaues the service is not started in NewBaseplateServer so
+	// we do not want to try to connect to it when initializing the ClientPool.
+	InitialClientConnections = 0
+
+	// ReportClientPoolStats is the value that is always used for
+	// ServerConfig.ClientConfig.ReportPoolStats.
+	ReportClientPoolStats = false
+
+	loopbackAddr = "127.0.0.1:0"
+)
 
 // ServerConfig can be used to pass in custom configuration options for the
 // server and/or client created by NewBaseplateServer.
@@ -28,10 +53,6 @@ type ServerConfig struct {
 	// appropriate.
 	//
 	// Addr will always be set to the address of the test server.
-	// ReportPoolStats will always be set to false.
-	// InitialConnections will always be set to 0 since the test server will not
-	// be started yet.
-	// MaxConnections will be 10 if it is not set.
 	ClientConfig thriftbp.ClientPoolConfig
 
 	// Optional, additional ClientMiddleware to wrap the client with.
@@ -56,8 +77,8 @@ type Server struct {
 // Start starts the server using baseplate.Serve in a background goroutine and
 // waits for a short period of time to give the server time to start up.
 //
-// The server can be closed manually, with shutdown commands, or by cancelling
-// the given context.
+// The server can be shut down manually using server.Close, with the shutdown
+// commands defined in runtimebp, or by cancelling the given context.
 func (s *Server) Start(ctx context.Context) {
 	go baseplate.Serve(ctx, s)
 	time.Sleep(10 * time.Millisecond)
@@ -120,16 +141,17 @@ func NewBaseplateServer(
 	server := &Server{Server: thriftbp.ApplyBaseplate(bp, srv)}
 
 	cfg.ClientConfig.Addr = server.Baseplate().Config().Addr
-	cfg.ClientConfig.ReportPoolStats = false
-	cfg.ClientConfig.InitialConnections = 0
+	cfg.ClientConfig.ReportPoolStats = ReportClientPoolStats
+	cfg.ClientConfig.InitialConnections = InitialClientConnections
+
 	if cfg.ClientConfig.SocketTimeout == 0 {
-		cfg.ClientConfig.SocketTimeout = 10 * time.Millisecond
+		cfg.ClientConfig.SocketTimeout = DefaultClientSocketTimeout
 	}
 	if cfg.ClientConfig.ServiceSlug == "" {
-		cfg.ClientConfig.ServiceSlug = "testing"
+		cfg.ClientConfig.ServiceSlug = DefaultServiceSlug
 	}
 	if cfg.ClientConfig.MaxConnections == 0 {
-		cfg.ClientConfig.MaxConnections = 10
+		cfg.ClientConfig.MaxConnections = DefaultClientMaxConnections
 	}
 	pool, err := thriftbp.NewBaseplateClientPool(cfg.ClientConfig, cfg.ClientMiddlewares...)
 	if err != nil {
