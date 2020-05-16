@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/go-redis/redis/v7"
 	opentracing "github.com/opentracing/opentracing-go"
 
@@ -49,7 +48,10 @@ func (h SpanHook) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmder) 
 			errs.Add(cmd.Err())
 		}
 	}
-	return h.endChildSpan(ctx, errs.Compile())
+	_ = h.endChildSpan(ctx, errs.Compile())
+	// NOTE: returning non-nil error from the hook changes the error the caller gets, and that's something we want to avoid.
+	// see: https://github.com/go-redis/redis/blob/v7.2.0/redis.go#L101
+	return nil
 }
 
 func (h SpanHook) startChildSpan(ctx context.Context, cmdName string) context.Context {
