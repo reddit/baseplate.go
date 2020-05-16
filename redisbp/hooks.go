@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/go-redis/redis/v7"
 	opentracing "github.com/opentracing/opentracing-go"
 
@@ -69,7 +70,7 @@ func (h SpanHook) startChildSpan(ctx context.Context, cmdName string) context.Co
 	return ctx
 }
 
-func (h SpanHook) endChildSpan(ctx context.Context, err error)  {
+func (h SpanHook) endChildSpan(ctx context.Context, err error) {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
