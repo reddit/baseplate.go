@@ -11,10 +11,14 @@ import (
 
 // ServerConfig is the arg struct for NewServer.
 type ServerConfig struct {
-	// The endpoint address of your thrift service
+	// The endpoint address of your thrift service.
+	//
+	// This is ignored if Socket is non-nil.
 	Addr string
 
 	// The timeout for the underlying thrift.TServerSocket transport.
+	//
+	// This is ignored if Socket is non-nil.
 	Timeout time.Duration
 
 	// A log wrapper that is used by the TSimpleServer.
@@ -24,6 +28,10 @@ type ServerConfig struct {
 	// as it would log all the network I/O errors,
 	// which would be too spammy for sentry.
 	Logger thrift.Logger
+
+	// Optional TServerSocket you can use instead of setting one up using Addr
+	// plus timeout.  If provided, this will be used rather than Addr and Timeout.
+	Socket *thrift.TServerSocket
 }
 
 // NewServer returns a thrift.TSimpleServer using the THeader transport
@@ -34,9 +42,15 @@ func NewServer(
 	processor thrift.TProcessor,
 	middlewares ...thrift.ProcessorMiddleware,
 ) (*thrift.TSimpleServer, error) {
-	transport, err := thrift.NewTServerSocketTimeout(cfg.Addr, cfg.Timeout)
-	if err != nil {
-		return nil, err
+	var transport *thrift.TServerSocket
+	if cfg.Socket == nil {
+		var err error
+		transport, err = thrift.NewTServerSocketTimeout(cfg.Addr, cfg.Timeout)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		transport = cfg.Socket
 	}
 
 	server := thrift.NewTSimpleServer4(
@@ -71,7 +85,16 @@ func NewBaseplateServer(
 	if err != nil {
 		return nil, err
 	}
-	return impl{bp: bp, srv: srv}, nil
+	return ApplyBaseplate(bp, srv), nil
+}
+
+// ApplyBaseplate returns the given TSimpleServer as a baseplate Server with the
+// given Baseplate.
+//
+// You generally don't need to use this, instead use NewBaseplateServer, which
+// will take care of this for you.
+func ApplyBaseplate(bp baseplate.Baseplate, server *thrift.TSimpleServer) baseplate.Server {
+	return impl{bp: bp, srv: server}
 }
 
 type impl struct {
