@@ -140,7 +140,7 @@ func TestNewBaseplateServer(t *testing.T) {
 				defer cancel()
 
 				processor := baseplatethrift.NewBaseplateServiceProcessor(c.handler)
-				server, err := thrifttest.NewBaseplateServer(store, processor, nil)
+				server, err := thrifttest.NewBaseplateServer(store, processor, thrifttest.ServerConfig{})
 				if err != nil {
 					t.Fatal(err)
 				}

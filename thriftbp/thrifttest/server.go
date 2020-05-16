@@ -104,7 +104,7 @@ func (s *Server) Close() error {
 // This is inspired by httptest.NewServer from the go standard library and can
 // be used to test a thrift service.
 //
-// "cfg" may be nil, if it is, sane defaults will be chosen.
+// "cfg" may be empty, if it is, sane defaults will be chosen.
 // The server and pool that are returned should be closed when done, but the
 // Baseplate used by the server does not need to be.
 //
@@ -137,7 +137,7 @@ func (s *Server) Close() error {
 //		defer cancel()
 //
 //		processor := baseplatethrift.NewBaseplateServiceProcessor(BaseplateService{})
-//		server, err := thrifttest.NewBaseplateServer(store, processor, nil)
+//		server, err := thrifttest.NewBaseplateServer(store, processor, thrifttest.ServerConfig{})
 //		if err != nil {
 //			t.Fatal(err)
 //		}
@@ -158,12 +158,8 @@ func (s *Server) Close() error {
 func NewBaseplateServer(
 	store *secrets.Store,
 	processor thrift.TProcessor,
-	cfg *ServerConfig,
+	cfg ServerConfig,
 ) (*Server, error) {
-	if cfg == nil {
-		cfg = &ServerConfig{}
-	}
-
 	socket, err := thrift.NewTServerSocket(loopbackAddr)
 	if err != nil {
 		return nil, err
