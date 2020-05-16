@@ -2,6 +2,7 @@ package redisbp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-redis/redis/v7"
@@ -44,7 +45,7 @@ func (h SpanHook) BeforeProcessPipeline(ctx context.Context, cmds []redis.Cmder)
 func (h SpanHook) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmder) error {
 	var errs batcherror.BatchError
 	for _, cmd := range cmds {
-		if cmd.Err() != redis.Nil {
+		if !errors.Is(cmd.Err(), redis.Nil) {
 			errs.Add(cmd.Err())
 		}
 	}
