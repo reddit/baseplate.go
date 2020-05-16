@@ -29,7 +29,12 @@ func (h SpanHook) BeforeProcess(ctx context.Context, cmd redis.Cmder) (context.C
 // time the Redis command took to complete, and a metric indicating whether the
 // command was a "success" or "fail"
 func (h SpanHook) AfterProcess(ctx context.Context, cmd redis.Cmder) error {
-	return h.endChildSpan(ctx, cmd.Err())
+	h.endChildSpan(ctx, cmd.Err())
+	// NOTE: returning non-nil error from the hook changes the error the caller gets.
+	// for this particular case if we return cmd.Err(), it will not change the client error,
+	// but anyway it's not necessary
+	// see: https://github.com/go-redis/redis/blob/v7.2.0/redis.go#L60
+	return nil
 }
 
 // BeforeProcessPipeline starts a client span before processing a Redis pipeline
@@ -48,7 +53,7 @@ func (h SpanHook) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmder) 
 			errs.Add(cmd.Err())
 		}
 	}
-	_ = h.endChildSpan(ctx, errs.Compile())
+	h.endChildSpan(ctx, errs.Compile())
 	// NOTE: returning non-nil error from the hook changes the error the caller gets, and that's something we want to avoid.
 	// see: https://github.com/go-redis/redis/blob/v7.2.0/redis.go#L101
 	return nil
@@ -64,12 +69,11 @@ func (h SpanHook) startChildSpan(ctx context.Context, cmdName string) context.Co
 	return ctx
 }
 
-func (h SpanHook) endChildSpan(ctx context.Context, err error) error {
+func (h SpanHook) endChildSpan(ctx context.Context, err error)  {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
 			Err: err,
 		}.Convert())
 	}
-	return err
 }
