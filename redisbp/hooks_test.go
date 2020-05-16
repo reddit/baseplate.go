@@ -15,12 +15,14 @@ import (
 func TestSpanHook(t *testing.T) {
 	ctx, _ := thriftbp.StartSpanFromThriftContext(context.Background(), "foo")
 	hooks := redisbp.SpanHook{ClientName: "redis"}
-	cmd := redis.NewStatusCmd("ping")
+	statusCmd := redis.NewStatusCmd("ping")
+	stringCmd := redis.NewStringCmd("get", "1")
+	stringCmd.SetErr(redis.Nil)
 
 	t.Run(
 		"Before/AfterProcess",
 		func(t *testing.T) {
-			ctx, err := hooks.BeforeProcess(ctx, cmd)
+			ctx, err := hooks.BeforeProcess(ctx, statusCmd)
 			if err != nil {
 				t.Fatalf("Unexpected error: %s", err)
 			}
@@ -32,7 +34,7 @@ func TestSpanHook(t *testing.T) {
 				t.Fatalf("Incorrect span name %q", name)
 			}
 
-			if err = hooks.AfterProcess(ctx, cmd); err != nil {
+			if err = hooks.AfterProcess(ctx, statusCmd); err != nil {
 				t.Fatalf("Unexpected error: %s", err)
 			}
 		},
@@ -41,7 +43,7 @@ func TestSpanHook(t *testing.T) {
 	t.Run(
 		"Before/AfterProcessPipeline",
 		func(t *testing.T) {
-			cmds := []redis.Cmder{cmd}
+			cmds := []redis.Cmder{statusCmd, stringCmd}
 			ctx, err := hooks.BeforeProcessPipeline(ctx, cmds)
 			if err != nil {
 				t.Fatalf("Unexpected error: %s", err)

@@ -44,7 +44,9 @@ func (h SpanHook) BeforeProcessPipeline(ctx context.Context, cmds []redis.Cmder)
 func (h SpanHook) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmder) error {
 	var errs batcherror.BatchError
 	for _, cmd := range cmds {
-		errs.Add(cmd.Err())
+		if cmd.Err() != redis.Nil {
+			errs.Add(cmd.Err())
+		}
 	}
 	return h.endChildSpan(ctx, errs.Compile())
 }
