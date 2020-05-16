@@ -107,6 +107,54 @@ func (s *Server) Close() error {
 // "cfg" may be nil, if it is, sane defaults will be chosen.
 // The server and pool that are returned should be closed when done, but the
 // Baseplate used by the server does not need to be.
+//
+// Here is an example usage of NewBaseplateServer:
+//
+//	import (
+//		"context"
+//		"testing"
+//
+//		"github.com/reddit/baseplate.go/batcherror"
+//		baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+//		"github.com/reddit/baseplate.go/secrets"
+//		"github.com/reddit/baseplate.go/thriftbp/thrifttest"
+//	)
+//
+//	type BaseplateService struct {
+//		Fail bool
+//		Err  error
+//	}
+//
+//	func (srv BaseplateService) IsHealthy(ctx context.Context) (r bool, err error) {
+//		return !srv.Fail, srv.Err
+//	}
+//
+//	func TestService(t *testing.T){
+//		// Initialize this properly in a real test
+//		var secrets *secrets.Store
+//
+//		ctx, cancel := context.WithCancel(context.Background())
+//		defer cancel()
+//
+//		processor := baseplatethrift.NewBaseplateServiceProcessor(BaseplateService{})
+//		server, err := thrifttest.NewBaseplateServer(store, processor, nil)
+//		if err != nil {
+//			t.Fatal(err)
+//		}
+//		// cancelling the context will close the server.
+//		server.Start(ctx)
+//
+//		client := baseplatethrift.NewBaseplateServiceClient(server.ClientPool)
+//		success, err := client.IsHealthy(ctx)
+//
+//		if err != nil {
+//			t.Errorf("expected no error, got %v", err)
+//		}
+//
+//		if !success {
+// 			t.Errorf("result mismatch, expected %v, got %v", c.expected.result, result)
+//		}
+//	}
 func NewBaseplateServer(
 	store *secrets.Store,
 	processor thrift.TProcessor,
