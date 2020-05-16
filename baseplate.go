@@ -10,6 +10,7 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
+	"github.com/reddit/baseplate.go/batchcloser"
 	"github.com/reddit/baseplate.go/batcherror"
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/log"
@@ -203,15 +204,6 @@ func DecodeConfigYAML(reader io.ReadSeeker, serviceCfg interface{}) (Config, err
 	return cfg, nil
 }
 
-type cancelCloser struct {
-	cancel context.CancelFunc
-}
-
-func (c cancelCloser) Close() error {
-	c.cancel()
-	return nil
-}
-
 // New parses the config file at the given path, initializes the monitoring and
 // logging frameworks, and returns the "serve" context and a new Baseplate to
 // run your service on.  The returned context will be cancelled when the
@@ -226,36 +218,36 @@ func New(ctx context.Context, path string, serviceCfg interface{}) (context.Cont
 	if err != nil {
 		return nil, nil, err
 	}
-	bp := impl{cfg: cfg}
+	bp := impl{cfg: cfg, closers: batchcloser.New()}
 
 	runtimebp.InitFromConfig(cfg.Runtime)
 
 	ctx, cancel := context.WithCancel(ctx)
-	bp.closers = append(bp.closers, cancelCloser{cancel})
+	bp.closers.Add(batchcloser.WrapCancel(cancel))
 
 	log.InitFromConfig(cfg.Log)
-	bp.closers = append(bp.closers, metricsbp.InitFromConfig(ctx, cfg.Metrics))
+	bp.closers.Add(metricsbp.InitFromConfig(ctx, cfg.Metrics))
 
 	closer, err := log.InitSentry(cfg.Sentry)
 	if err != nil {
 		bp.Close()
 		return nil, nil, err
 	}
-	bp.closers = append(bp.closers, closer)
+	bp.closers.Add(closer)
 
 	bp.secrets, err = secrets.InitFromConfig(ctx, cfg.Secrets)
 	if err != nil {
 		bp.Close()
 		return nil, nil, err
 	}
-	bp.closers = append(bp.closers, bp.secrets)
+	bp.closers.Add(bp.secrets)
 
 	closer, err = tracing.InitFromConfig(cfg.Tracing)
 	if err != nil {
 		bp.Close()
 		return nil, nil, err
 	}
-	bp.closers = append(bp.closers, closer)
+	bp.closers.Add(closer)
 
 	bp.ecImpl = edgecontext.Init(edgecontext.Config{
 		Store:  bp.secrets,
@@ -265,8 +257,8 @@ func New(ctx context.Context, path string, serviceCfg interface{}) (context.Cont
 }
 
 type impl struct {
+	closers *batchcloser.BatchCloser
 	cfg     Config
-	closers []io.Closer
 	ecImpl  *edgecontext.Impl
 	secrets *secrets.Store
 }
@@ -284,18 +276,32 @@ func (bp impl) EdgeContextImpl() *edgecontext.Impl {
 }
 
 func (bp impl) Close() error {
-	batch := &batcherror.BatchError{}
-	for _, c := range bp.closers {
-		if err := c.Close(); err != nil {
+	err := bp.closers.Close()
+
+	var errs []error
+	var batchErr batcherror.BatchError
+	if errors.As(err, &batchErr) {
+		errs = batchErr.GetErrors()
+	} else if err != nil {
+		errs = append(errs, err)
+	}
+
+	for _, batchedErr := range errs {
+		var closeErr batchcloser.CloseError
+		if errors.As(batchedErr, &closeErr) {
 			log.Errorw(
 				"Failed to close closer",
-				"err", err,
-				"closer", fmt.Sprintf("%#v", c),
+				"err", closeErr.Unwrap(),
+				"closer", closeErr.Closer,
 			)
-			batch.Add(err)
+		} else {
+			log.Errorw(
+				"Error while closing unknown closer",
+				"err", batchedErr,
+			)
 		}
 	}
-	return batch.Compile()
+	return err
 }
 
 // NewTestBaseplate returns a new Baseplate using the given Config and secrets
