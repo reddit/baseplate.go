@@ -1,1 +1,1 @@
-test --features=race --test_output=errors
+test --@io_bazel_rules_go//go/config:race --test_output=errors
