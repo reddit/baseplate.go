@@ -211,7 +211,7 @@ func (s server) Serve() error {
 }
 
 func (s server) Close() error {
-	return s.srv.Shutdown(context.Background())
+	return s.srv.Shutdown(context.TODO())
 }
 
 // NewTestBaseplateServer returns a new HTTP implementation of a Baseplate
