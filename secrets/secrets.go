@@ -1,7 +1,6 @@
 package secrets
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,9 +9,15 @@ import (
 )
 
 const (
-	simpleSecret     = "simple"
-	versionedSecret  = "versioned"
-	credentialSecret = "credential"
+	// SimpleType secrets are basic string secrets.
+	SimpleType = "simple"
+
+	// VersionedType secrets are secrets that can be rotated gracefully.
+	VersionedType = "versioned"
+
+	// CredentialType secrets are username/password pairs as a single secret
+	// in vault.
+	CredentialType = "credential"
 )
 
 // A Secret is the base type of secrets.
@@ -180,21 +185,21 @@ type Document struct {
 func (s *Document) Validate() error {
 	var batch batcherror.BatchError
 	for key, value := range s.Secrets {
-		if value.Type == simpleSecret && notOnlySimpleSecret(value) {
+		if value.Type == SimpleType && notOnlySimpleSecret(value) {
 			batch.Add(TooManyFieldsError{
-				SecretType: simpleSecret,
+				SecretType: SimpleType,
 				Key:        key,
 			})
 		}
-		if value.Type == versionedSecret && notOnlyVersionedSecret(value) {
+		if value.Type == VersionedType && notOnlyVersionedSecret(value) {
 			batch.Add(TooManyFieldsError{
-				SecretType: versionedSecret,
+				SecretType: VersionedType,
 				Key:        key,
 			})
 		}
-		if value.Type == credentialSecret && notOnlyCredentialSecret(value) {
+		if value.Type == CredentialType && notOnlyCredentialSecret(value) {
 			batch.Add(TooManyFieldsError{
-				SecretType: credentialSecret,
+				SecretType: CredentialType,
 				Key:        key,
 			})
 		}
@@ -219,7 +224,7 @@ func notOnlyCredentialSecret(secret GenericSecret) bool {
 type GenericSecret struct {
 	Type     string   `json:"type"`
 	Value    string   `json:"value"`
-	Encoding encoding `json:"encoding"`
+	Encoding Encoding `json:"encoding"`
 
 	Current  string `json:"current"`
 	Previous string `json:"previous"`
@@ -282,44 +287,4 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 		}
 	}
 	return secrets, nil
-}
-
-// encoding represents the encoding used to encode the secrets.
-type encoding int
-
-const (
-	identityEncoding encoding = iota
-	base64Encoding
-)
-
-func (e *encoding) UnmarshalJSON(data []byte) error {
-	var s string
-	if err := json.Unmarshal(data, &s); err != nil {
-		return err
-	}
-	switch s {
-	case "identity", "":
-		*e = identityEncoding
-	case "base64":
-		*e = base64Encoding
-	default:
-		return ErrInvalidEncoding
-	}
-	return nil
-}
-
-func (e encoding) decodeValue(value string) (Secret, error) {
-	if value == "" {
-		return nil, nil
-	}
-	switch e {
-	case identityEncoding:
-		return Secret(value), nil
-	default:
-		data, err := base64.StdEncoding.DecodeString(value)
-		if err != nil {
-			return nil, err
-		}
-		return Secret(data), nil
-	}
 }
