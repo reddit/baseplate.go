@@ -3,7 +3,6 @@ package baseplate_test
 import (
 	"context"
 	"errors"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -20,61 +19,21 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-// pubkey copied from https://github.com/reddit/baseplate.py/blob/db9c1d7cddb1cb242546349e821cad0b0cbd6fce/tests/__init__.py#L12
 const (
-	secretStore = `{
-	"secrets": {
-		"secret/authentication/public-key": {
-			"type": "versioned",
-			"current": "foobar",
-			"previous": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtzMnDEQPd75QZByogNlB\nNY2auyr4sy8UNTDARs79Edq/Jw5tb7ub412mOB61mVrcuFZW6xfmCRt0ILgoaT66\nTp1RpuEfghD+e7bYZ+Q2pckC1ZaVPIVVf/ZcCZ0tKQHoD8EpyyFINKjCh516VrCx\nKuOm2fALPB/xDwDBEdeVJlh5/3HHP2V35scdvDRkvr2qkcvhzoy0+7wUWFRZ2n6H\nTFrxMHQoHg0tutAJEkjsMw9xfN7V07c952SHNRZvu80V5EEpnKw/iYKXUjCmoXm8\ntpJv5kXH6XPgfvOirSbTfuo+0VGqVIx9gcomzJ0I5WfGTD22dAxDiRT7q7KZnNgt\nTwIDAQAB\n-----END PUBLIC KEY-----"
-		},
-		"secret/http/edge-context-signature": {
-			"type": "versioned",
-			"current": "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU=",
-			"previous": "aHVudGVyMg==",
-			"encoding": "base64"
-		},
-		"secret/http/span-signature": {
-			"type": "versioned",
-			"current": "Y2RvVXhNMVdsTXJma3BDaHRGZ0dPYkVGSg==",
-			"encoding": "base64"
-		}
-	},
-	"vault": {
-		"url": "vault.reddit.ue1.snooguts.net",
-		"token": "17213328-36d4-11e7-8459-525400f56d04"
-	}
-}`
-
 	testTimeout = time.Millisecond * 100
 )
 
-func newSecretsStore(t testing.TB) (store *secrets.Store, dir string) {
+func newSecretsStore(t testing.TB) *secrets.Store {
 	t.Helper()
 
-	dir, err := ioutil.TempDir("", "edge_context_test_")
+	store, _, err := secrets.NewTestSecrets(
+		context.Background(),
+		make(map[string]secrets.GenericSecret),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	tmpPath := tmpFile.Name()
-	if _, err := tmpFile.Write([]byte(secretStore)); err != nil {
-		t.Fatal(err)
-	}
-	if err := tmpFile.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	store, err = secrets.NewStore(context.Background(), tmpPath, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return
+	return store
 }
 
 func newWaitServer(t testing.TB, bp baseplate.Baseplate, duration time.Duration) baseplate.Server {
@@ -130,11 +89,8 @@ var _ baseplate.Server = (*testServer)(nil)
 func TestServe(t *testing.T) {
 	t.Parallel()
 
-	store, dir := newSecretsStore(t)
-	defer func() {
-		os.RemoveAll(dir)
-		store.Close()
-	}()
+	store := newSecretsStore(t)
+	defer store.Close()
 
 	bp := baseplate.NewTestBaseplate(baseplate.Config{StopTimeout: testTimeout}, store)
 	closeError := errors.New("test close error")
