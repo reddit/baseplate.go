@@ -2,7 +2,6 @@ package thriftbp_test
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -12,8 +11,7 @@ import (
 )
 
 func TestAttachEdgeRequestContext(t *testing.T) {
-	store, dir := newSecretsStore(t)
-	defer os.RemoveAll(dir)
+	store := newSecretsStore(t)
 	defer store.Close()
 
 	impl := edgecontext.Init(edgecontext.Config{Store: store})

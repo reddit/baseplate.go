@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
 	"testing"
 	"time"
 
@@ -171,8 +170,7 @@ func TestWrapMonitoredClient(t *testing.T) {
 }
 
 func TestForwardEdgeRequestContext(t *testing.T) {
-	store, dir := newSecretsStore(t)
-	defer os.RemoveAll(dir)
+	store := newSecretsStore(t)
 	defer store.Close()
 
 	impl := edgecontext.Init(edgecontext.Config{Store: store})
