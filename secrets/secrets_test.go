@@ -95,7 +95,7 @@ func TestNewSecrets(t *testing.T) {
 					}
 			`,
 			expectedError: TooManyFieldsError{
-				SecretType: simpleSecret,
+				SecretType: SimpleType,
 				Key:        "secret/myservice/some-api-key",
 			},
 		},
