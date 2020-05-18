@@ -11,7 +11,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//:go_default_library",
-        "//batcherror:go_default_library",
+        "//batchcloser:go_default_library",
         "//clientpool:go_default_library",
         "//secrets:go_default_library",
         "//thriftbp:go_default_library",

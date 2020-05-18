@@ -7,7 +7,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	baseplate "github.com/reddit/baseplate.go"
-	"github.com/reddit/baseplate.go/batcherror"
+	"github.com/reddit/baseplate.go/batchcloser"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/thriftbp"
 )
@@ -84,18 +84,13 @@ func (s *Server) Start(ctx context.Context) {
 	time.Sleep(10 * time.Millisecond)
 }
 
-// Close both the underying baseplate.Server and thriftbp.ClientPool
+// Close the underying Server and Baseplate as well as the thriftbp.ClientPool.
 func (s *Server) Close() error {
-	var errs batcherror.BatchError
-	if err := s.Server.Close(); err != nil {
-		errs.Add(err)
-	}
+	closers := batchcloser.New(s.Server, s.Baseplate())
 	if s.ClientPool != nil {
-		if err := s.ClientPool.Close(); err != nil {
-			errs.Add(err)
-		}
+		closers.Add(s.ClientPool)
 	}
-	return errs.Compile()
+	return closers.Close()
 }
 
 // NewBaseplateServer returns a new, Baseplate thrift server listening on the

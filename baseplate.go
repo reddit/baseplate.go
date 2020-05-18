@@ -314,6 +314,7 @@ func NewTestBaseplate(cfg Config, store *secrets.Store) Baseplate {
 		cfg:     cfg,
 		secrets: store,
 		ecImpl:  edgecontext.Init(edgecontext.Config{Store: store}),
+		closers: batchcloser.New(),
 	}
 }
 
