@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
 	"testing"
 	"time"
 
@@ -139,8 +138,7 @@ func TestStartSpanFromThriftContext(t *testing.T) {
 }
 
 func TestInitializeEdgeContext(t *testing.T) {
-	store, dir := newSecretsStore(t)
-	defer os.RemoveAll(dir)
+	store := newSecretsStore(t)
 	defer store.Close()
 
 	const expectedID = "t2_example"
@@ -170,8 +168,7 @@ func TestInitializeEdgeContext(t *testing.T) {
 func TestInjectEdgeContext(t *testing.T) {
 	const expectedID = "t2_example"
 
-	store, dir := newSecretsStore(t)
-	defer os.RemoveAll(dir)
+	store := newSecretsStore(t)
 	defer store.Close()
 
 	impl := edgecontext.Init(edgecontext.Config{Store: store})
