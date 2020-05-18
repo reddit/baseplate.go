@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"reflect"
 	"testing"
 
@@ -110,11 +109,8 @@ func (er *mockEndpointRegistry) ServeHTTP(w http.ResponseWriter, r *http.Request
 func TestServerArgsValidateAndSetDefaults(t *testing.T) {
 	t.Parallel()
 
-	store, dir := newSecretsStore(t)
-	defer func() {
-		os.RemoveAll(dir)
-		store.Close()
-	}()
+	store := newSecretsStore(t)
+	defer store.Close()
 
 	bp := baseplate.NewTestBaseplate(baseplate.Config{Addr: ":8080"}, store)
 
@@ -197,11 +193,8 @@ func TestServerArgsValidateAndSetDefaults(t *testing.T) {
 }
 
 func TestServerArgsSetupEndpoints(t *testing.T) {
-	store, dir := newSecretsStore(t)
-	defer func() {
-		os.RemoveAll(dir)
-		store.Close()
-	}()
+	store := newSecretsStore(t)
+	defer store.Close()
 
 	bp := baseplate.NewTestBaseplate(baseplate.Config{Addr: ":8080"}, store)
 
@@ -312,11 +305,8 @@ func TestNewTestBaseplateServer(t *testing.T) {
 	name := "test"
 	expectedBody := body{X: 1, Y: 2}
 
-	store, dir := newSecretsStore(t)
-	defer func() {
-		os.RemoveAll(dir)
-		store.Close()
-	}()
+	store := newSecretsStore(t)
+	defer store.Close()
 
 	bp := baseplate.NewTestBaseplate(baseplate.Config{Addr: ":8080"}, store)
 

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/reddit/baseplate.go/edgecontext"
@@ -146,11 +145,8 @@ func TestInjectEdgeRequestContext(t *testing.T) {
 
 	const expectedID = "t2_example"
 
-	store, dir := newSecretsStore(t)
-	defer func() {
-		os.RemoveAll(dir)
-		store.Close()
-	}()
+	store := newSecretsStore(t)
+	defer store.Close()
 
 	impl := edgecontext.Init(edgecontext.Config{Store: store})
 	req := newRequest(t)

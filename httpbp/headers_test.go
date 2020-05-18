@@ -3,7 +3,6 @@ package httpbp_test
 import (
 	"encoding/base64"
 	"net/http"
-	"os"
 	"testing"
 	"time"
 
@@ -223,8 +222,7 @@ func TestNeverTrustHeaders(t *testing.T) {
 func TestTrustHeaderSignatureSignAndVerify(t *testing.T) {
 	t.Parallel()
 
-	store, dir := newSecretsStore(t)
-	defer os.RemoveAll(dir)
+	store := newSecretsStore(t)
 	defer store.Close()
 
 	t.Run(
@@ -291,8 +289,7 @@ func TestTrustHeaderSignatureSignAndVerify(t *testing.T) {
 }
 
 func TestInvalidEdgeContextHeader(t *testing.T) {
-	store, dir := newSecretsStore(t)
-	defer os.RemoveAll(dir)
+	store := newSecretsStore(t)
 	defer store.Close()
 
 	invalidEdgeContextHeader := &http.Request{Header: getHeaders()}
@@ -317,8 +314,7 @@ func TestInvalidEdgeContextHeader(t *testing.T) {
 func TestTrustHeaderSignature(t *testing.T) {
 	t.Parallel()
 
-	store, dir := newSecretsStore(t)
-	defer os.RemoveAll(dir)
+	store := newSecretsStore(t)
 	defer store.Close()
 
 	baseRequest := &http.Request{Header: getHeaders()}
