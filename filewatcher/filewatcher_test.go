@@ -1,12 +1,14 @@
 package filewatcher_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -374,4 +376,99 @@ func TestParserSizeLimit(t *testing.T) {
 	// Give it some time to handle the file content change
 	time.Sleep(time.Millisecond * 500)
 	compareBytesData(t, data.Get(), expectedPayload2)
+}
+
+func TestMockFileWatcher(t *testing.T) {
+	t.Parallel()
+
+	const (
+		foo = "foo"
+		bar = "bar"
+	)
+
+	r := strings.NewReader(foo)
+	fw, err := filewatcher.NewMockFilewatcher(r, func(r io.Reader) (interface{}, error) {
+		var buf bytes.Buffer
+		_, err := io.Copy(&buf, r)
+		if err != nil {
+			return "", err
+		}
+		return buf.String(), nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run(
+		"get",
+		func(t *testing.T) {
+			data, ok := fw.Get().(string)
+			if !ok {
+				t.Fatalf("%#v is not a string", data)
+			}
+
+			if strings.Compare(data, foo) != 0 {
+				t.Fatalf("%q does not match %q", data, foo)
+			}
+		},
+	)
+
+	t.Run(
+		"update",
+		func(t *testing.T) {
+			if err := fw.Update(strings.NewReader(bar)); err != nil {
+				t.Fatal(err)
+			}
+
+			data, ok := fw.Get().(string)
+			if !ok {
+				t.Fatalf("%#v is not a string", data)
+			}
+
+			if strings.Compare(data, bar) != 0 {
+				t.Fatalf("%q does not match %q", data, foo)
+			}
+		},
+	)
+
+	t.Run(
+		"errors",
+		func(t *testing.T) {
+			t.Run(
+				"NewMockFilewatcher",
+				func(t *testing.T) {
+					if _, err := filewatcher.NewMockFilewatcher(r, func(r io.Reader) (interface{}, error) {
+						return "", errors.New("test")
+					}); err == nil {
+						t.Fatal("expected an error, got nil")
+					}
+				},
+			)
+
+			t.Run(
+				"update",
+				func(t *testing.T) {
+					fw, err := filewatcher.NewMockFilewatcher(r, func(r io.Reader) (interface{}, error) {
+						var buf bytes.Buffer
+						_, err := io.Copy(&buf, r)
+						if err != nil {
+							return "", err
+						}
+						data := buf.String()
+						if strings.Compare(data, bar) == 0 {
+							return "", errors.New("test")
+						}
+						return data, nil
+					})
+					if err != nil {
+						t.Fatal(err)
+					}
+
+					if err := fw.Update(strings.NewReader(bar)); err == nil {
+						t.Fatal("expected an error, got nil")
+					}
+				},
+			)
+		},
+	)
 }

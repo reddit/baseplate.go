@@ -26,7 +26,7 @@ const targetAllOverride = `{"OVERRIDE": true}`
 // the experiment configuration fetcher daemon.  It will automatically reload
 // the cache when changed.
 type Experiments struct {
-	watcher     *filewatcher.Result
+	watcher     filewatcher.FileWatcher
 	eventLogger EventLogger
 }
 

@@ -14,6 +14,22 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
+// FileWatcher loads and parses data from a file and watches for changes to that
+// file in order to refresh it's stored data.
+type FileWatcher interface {
+	// Get returns the latest, parsed data from the FileWatcher.
+	Get() interface{}
+
+	// Stop stops the FileWatcher.
+	//
+	// After Stop is called you won't get any updates on the file content,
+	// but you can still call Get to get the last content before stopping.
+	//
+	// It's OK to call Stop multiple times.
+	// Calls after the first one are essentially no-op.
+	Stop()
+}
+
 // InitialReadInterval is the interval to keep retrying to open the file when
 // creating a new file watcher, when the file was not initially available.
 //
@@ -103,6 +119,10 @@ func (r *Result) watcherLoop(
 		}
 	}
 }
+
+var (
+	_ FileWatcher = (*Result)(nil)
+)
 
 // Config defines the config to be used in New function.
 type Config struct {
@@ -210,3 +230,45 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 
 	return res, nil
 }
+
+// NewMockFilewatcher returns a pointer to a new MockFileWatcher object
+// initialized with the given io.Reader and Parser.
+func NewMockFilewatcher(r io.Reader, parser Parser) (*MockFileWatcher, error) {
+	fw := &MockFileWatcher{parser: parser}
+	if err := fw.Update(r); err != nil {
+		return nil, err
+	}
+	return fw, nil
+}
+
+// MockFileWatcher is an implementation of FileWatcher that does not actually read
+// from a file, it simply returns the data given to it when it was initialized
+// with NewMockFilewatcher. It provides an additional Update method that allows
+// you to update this data after it has been created.
+type MockFileWatcher struct {
+	data   atomic.Value
+	parser Parser
+}
+
+// Update updates the data of the MockFileWatcher using the given io.Reader and
+// the Parser used to initialize the file watcher.
+//
+// This method is not threadsafe.
+func (fw *MockFileWatcher) Update(r io.Reader) error {
+	data, err := fw.parser(r)
+	if err != nil {
+		return err
+	}
+	fw.data.Store(data)
+	return nil
+}
+
+// Get returns the parsed data.
+func (fw *MockFileWatcher) Get() interface{} {
+	return fw.data.Load()
+}
+
+// Stop is a no-op.
+func (fw *MockFileWatcher) Stop() {}
+
+var _ FileWatcher = (*MockFileWatcher)(nil)

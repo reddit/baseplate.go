@@ -26,7 +26,7 @@ func nopSecretHandlerFunc(sec *Secrets) {}
 // memory so there's little performance impact to doing so and you will be sure
 // to always have the current version in the face of key rotation etc.
 type Store struct {
-	watcher *filewatcher.Result
+	watcher filewatcher.FileWatcher
 
 	secretHandlerFunc SecretHandlerFunc
 }
