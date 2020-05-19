@@ -27,7 +27,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//batcherror:go_default_library",
         "//clientpool:go_default_library",
         "//internal/gen-go/reddit/baseplate:go_default_library",
         "//secrets:go_default_library",
