@@ -1,24 +1,31 @@
-package metricsbp
+package metricsbp_test
 
 import (
 	"bytes"
 	"context"
+	"io/ioutil"
 	"strings"
 	"testing"
+
+	"github.com/reddit/baseplate.go/metricsbp"
 )
 
 func TestGlobalStatsd(t *testing.T) {
 	// Make sure global statsd is safe to use and won't cause panics, no real
 	// tests here:
-	M.RunSysStats(nil)
-	M.Counter("counter").Add(1)
-	M.Histogram("hitogram").Observe(1)
-	M.Timing("timing").Observe(1)
-	M.Gauge("gauge").Set(1)
+	metricsbp.M.RunSysStats(nil)
+	metricsbp.M.Counter("counter").Add(1)
+	metricsbp.M.CounterWithRate("counter", 0.1).Add(1)
+	metricsbp.M.Histogram("hitogram").Observe(1)
+	metricsbp.M.HistogramWithRate("hitogram", 0.1).Observe(1)
+	metricsbp.M.Timing("timing").Observe(1)
+	metricsbp.M.TimingWithRate("timing", 0.1).Observe(1)
+	metricsbp.M.Gauge("gauge").Set(1)
+	metricsbp.M.WriteTo(ioutil.Discard)
 }
 
 func TestNilStatsd(t *testing.T) {
-	var st *Statsd
+	var st *metricsbp.Statsd
 	// Make sure nil *Statsd is safe to use and won't cause panics, no real
 	// tests here:
 	st.RunSysStats(nil)
@@ -32,60 +39,60 @@ func TestNoFallback(t *testing.T) {
 	var buf bytes.Buffer
 
 	prefix := "counter"
-	st := NewStatsd(
+	st := metricsbp.NewStatsd(
 		context.Background(),
-		StatsdConfig{
+		metricsbp.StatsdConfig{
 			Prefix: prefix,
 		},
 	)
 	st.Counter("foo").Add(1)
 	buf.Reset()
-	st.statsd.WriteTo(&buf)
+	st.WriteTo(&buf)
 	str := buf.String()
 	if !strings.HasPrefix(str, prefix) {
 		t.Errorf("Expected prefix %q, got %q", prefix, str)
 	}
 
 	prefix = "histogram"
-	st = NewStatsd(
+	st = metricsbp.NewStatsd(
 		context.Background(),
-		StatsdConfig{
+		metricsbp.StatsdConfig{
 			Prefix: prefix,
 		},
 	)
 	st.Histogram("foo").Observe(1)
 	buf.Reset()
-	st.statsd.WriteTo(&buf)
+	st.WriteTo(&buf)
 	str = buf.String()
 	if !strings.HasPrefix(str, prefix) {
 		t.Errorf("Expected prefix %q, got %q", prefix, str)
 	}
 
 	prefix = "timing"
-	st = NewStatsd(
+	st = metricsbp.NewStatsd(
 		context.Background(),
-		StatsdConfig{
+		metricsbp.StatsdConfig{
 			Prefix: prefix,
 		},
 	)
 	st.Timing("foo").Observe(1)
 	buf.Reset()
-	st.statsd.WriteTo(&buf)
+	st.WriteTo(&buf)
 	str = buf.String()
 	if !strings.HasPrefix(str, prefix) {
 		t.Errorf("Expected prefix %q, got %q", prefix, str)
 	}
 
 	prefix = "gauge"
-	st = NewStatsd(
+	st = metricsbp.NewStatsd(
 		context.Background(),
-		StatsdConfig{
+		metricsbp.StatsdConfig{
 			Prefix: prefix,
 		},
 	)
 	st.Gauge("foo").Set(1)
 	buf.Reset()
-	st.statsd.WriteTo(&buf)
+	st.WriteTo(&buf)
 	str = buf.String()
 	if !strings.HasPrefix(str, prefix) {
 		t.Errorf("Expected prefix %q, got %q", prefix, str)
@@ -107,9 +114,9 @@ func BenchmarkStatsd(b *testing.B) {
 		"benchmark",
 	}
 
-	st := NewStatsd(
+	st := metricsbp.NewStatsd(
 		context.Background(),
-		StatsdConfig{
+		metricsbp.StatsdConfig{
 			Labels: initialLabels,
 		},
 	)
