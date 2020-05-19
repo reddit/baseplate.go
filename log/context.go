@@ -44,8 +44,10 @@ func Attach(ctx context.Context, args AttachArgs) context.Context {
 	return context.WithValue(ctx, contextKey, logger.With(kv...))
 }
 
-// C extract the logger attached to the current context object, and fallback to
-// the global logger if none is found.
+// C is short for Context.
+//
+// It extract the logger attached to the current context object,
+// and fallback to the global logger if none is found.
 //
 // When you have a context object and want to do logging,
 // you should always use this one instead of the global one.

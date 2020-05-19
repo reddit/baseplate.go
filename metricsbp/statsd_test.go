@@ -30,9 +30,13 @@ func TestNilStatsd(t *testing.T) {
 	// tests here:
 	st.RunSysStats(nil)
 	st.Counter("counter").Add(1)
+	st.CounterWithRate("counter", 0.1).Add(1)
 	st.Histogram("hitogram").Observe(1)
+	st.HistogramWithRate("hitogram", 0.1).Observe(1)
 	st.Timing("timing").Observe(1)
+	st.TimingWithRate("timing", 0.1).Observe(1)
 	st.Gauge("gauge").Set(1)
+	st.WriteTo(ioutil.Discard)
 }
 
 func TestNoFallback(t *testing.T) {

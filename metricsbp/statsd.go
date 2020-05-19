@@ -306,9 +306,10 @@ func (st *Statsd) Close() error {
 
 // WriteTo calls the underlying statsd implementation's WriteTo function.
 //
-// Doing this will flush all the buffered metrics to the writer, so in most
-// cases you shouldn't be using it in production code. But it's useful in unit
-// tests to verify that you have the correct metrics you want to report.
+// Doing this will flush all the buffered metrics to the writer,
+// so in most cases you shouldn't be using it in production code.
+// But it's useful in unit tests to verify that you have the correct metrics you
+// want to report.
 func (st *Statsd) WriteTo(w io.Writer) (n int64, err error) {
 	return st.fallback().statsd.WriteTo(w)
 }
