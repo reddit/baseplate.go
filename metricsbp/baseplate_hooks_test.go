@@ -1,4 +1,4 @@
-package metricsbp
+package metricsbp_test
 
 import (
 	"context"
@@ -9,17 +9,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-func runSpan(st *Statsd, spanErr error) (counter string, statusCounters []string, histogram string, err error) {
+func runSpan(st *metricsbp.Statsd, spanErr error) (counter string, statusCounters []string, histogram string, err error) {
 	ctx, span := tracing.StartSpanFromHeaders(context.Background(), "foo", tracing.Headers{})
 	time.Sleep(time.Millisecond)
 	span.AddCounter("bar.count", 1.0)
 	span.Stop(ctx, spanErr)
 
 	var sb strings.Builder
-	if _, err = st.statsd.WriteTo(&sb); err != nil {
+	if _, err = st.WriteTo(&sb); err != nil {
 		return
 	}
 	stats := strings.Split(sb.String(), "\n")
@@ -41,12 +42,12 @@ func runSpan(st *Statsd, spanErr error) (counter string, statusCounters []string
 }
 
 func TestOnCreateServerSpan(t *testing.T) {
-	st := NewStatsd(
+	st := metricsbp.NewStatsd(
 		context.Background(),
-		StatsdConfig{},
+		metricsbp.StatsdConfig{},
 	)
 
-	hook := CreateServerSpanHook{Metrics: st}
+	hook := metricsbp.CreateServerSpanHook{Metrics: st}
 	tracing.RegisterCreateServerSpanHooks(hook)
 	defer tracing.ResetHooks()
 
