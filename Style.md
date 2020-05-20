@@ -17,7 +17,8 @@ rule.
 
 ## Import groups
 
-Group your imports into the following 3 groups, in that order, by blank lines:
+Group your imports into the following 3 groups, in that order,
+separated by blank lines:
 
 1. Standard library packages
 2. Third-party packages
