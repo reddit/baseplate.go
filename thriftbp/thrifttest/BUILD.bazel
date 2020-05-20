@@ -5,11 +5,15 @@ go_library(
     srcs = [
         "doc.go",
         "mocks.go",
+        "server.go",
     ],
     importpath = "github.com/reddit/baseplate.go/thriftbp/thrifttest",
     visibility = ["//visibility:public"],
     deps = [
+        "//:go_default_library",
+        "//batchcloser:go_default_library",
         "//clientpool:go_default_library",
+        "//secrets:go_default_library",
         "//thriftbp:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
     ],
@@ -17,7 +21,14 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["mocks_test.go"],
+    srcs = [
+        "mocks_test.go",
+        "server_test.go",
+    ],
     embed = [":go_default_library"],
-    deps = ["//clientpool:go_default_library"],
+    deps = [
+        "//clientpool:go_default_library",
+        "//internal/gen-go/reddit/baseplate:go_default_library",
+        "//secrets:go_default_library",
+    ],
 )
