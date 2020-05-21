@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	jwt "gopkg.in/dgrijalva/jwt-go.v3"
+	jwt "github.com/reddit/jwt-go/v3"
 
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
