@@ -291,24 +291,24 @@ type clientPool struct {
 	poolExhaustedCounter metrics.Counter
 	releaseErrorCounter  metrics.Counter
 
-	wrappedCall thrift.TClient
+	wrappedClient thrift.TClient
 }
 
 func (p *clientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
 	// A clientPool needs to be set up properly before it can be used,
-	// specifically, ouse p.wrapCalls to set up p.wrappedCall before using it.
+	// specifically use p.wrapCalls to set up p.wrappedClient before using it.
 	//
 	// newClientPool already takes care of this for you.
-	return p.wrappedCall.Call(ctx, method, args, result)
+	return p.wrappedClient.Call(ctx, method, args, result)
 }
 
-// wrapCalls wraps p.pooledCall in the given middleware and sets p.wrappedCall
+// wrapCalls wraps p.pooledCall in the given middleware and sets p.wrappedClient
 // to the resulting thrift.TClient.
 //
 // This must be called before the clientPool can be used, but newClientPool
 // already takes care of this for you.
 func (p *clientPool) wrapCalls(middlewares ...thrift.ClientMiddleware) {
-	p.wrappedCall = thrift.WrapClient(thrift.WrappedTClient{
+	p.wrappedClient = thrift.WrapClient(thrift.WrappedTClient{
 		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
 			return p.pooledCall(ctx, method, args, result)
 		},
