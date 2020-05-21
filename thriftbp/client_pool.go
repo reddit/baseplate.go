@@ -223,6 +223,8 @@ func newClientPool(
 			labels,
 		)
 	}
+
+	// create the base clientPool, this is not ready for use.
 	pooledClient := &clientPool{
 		Pool: pool,
 
@@ -233,6 +235,10 @@ func newClientPool(
 			cfg.ServiceSlug + ".pool-release-error",
 		).With(labels...),
 	}
+	// finish setting up the clientPool by wrapping the inner "Call" with the
+	// given middleware.
+	//
+	// pooledClient is now ready for use.
 	pooledClient.wrapCalls(middlewares...)
 	return pooledClient, nil
 }
