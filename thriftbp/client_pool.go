@@ -295,9 +295,18 @@ type clientPool struct {
 }
 
 func (p *clientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
+	// A clientPool needs to be set up properly before it can be used,
+	// specifically, ouse p.wrapCalls to set up p.wrappedCall before using it.
+	//
+	// newClientPool already takes care of this for you.
 	return p.wrappedCall.Call(ctx, method, args, result)
 }
 
+// wrapCalls wraps p.pooledCall in the given middleware and sets p.wrappedCall
+// to the resulting thrift.TClient.
+//
+// This must be called before the clientPool can be used, but newClientPool
+// already takes care of this for you.
 func (p *clientPool) wrapCalls(middlewares ...thrift.ClientMiddleware) {
 	p.wrappedCall = thrift.WrapClient(thrift.WrappedTClient{
 		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
@@ -306,6 +315,11 @@ func (p *clientPool) wrapCalls(middlewares ...thrift.ClientMiddleware) {
 	}, middlewares...)
 }
 
+// pooledCall gets a Client from the inner clientpool.Pool and "Calls" that,
+// returning the result and returning the client to the pool afterwards.
+//
+// This is not called directly, but is rather the inner "call" wrapped by
+// wrapCalls, so it runs after all of the middleware.
 func (p *clientPool) pooledCall(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
 	client, err := p.getClient()
 	if err != nil {
