@@ -315,8 +315,8 @@ func (p *clientPool) wrapCalls(middlewares ...thrift.ClientMiddleware) {
 	}, middlewares...)
 }
 
-// pooledCall gets a Client from the inner clientpool.Pool and "Calls" that,
-// returning the result and returning the client to the pool afterwards.
+// pooledCall gets a Client from the inner clientpool.Pool and "Calls" it,
+// returning the result and releasing the client back to the pool afterwards.
 //
 // This is not called directly, but is rather the inner "call" wrapped by
 // wrapCalls, so it runs after all of the middleware.
