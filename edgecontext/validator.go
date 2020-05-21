@@ -22,6 +22,10 @@ const (
 // the function is called before any public keys are loaded from secrets.
 var ErrNoPublicKeysLoaded = errors.New("edgecontext.ValidateToken: no public keys loaded")
 
+// ErrEmptyToken is an error returned by ValidateToken indicates that the JWT
+// token is empty string.
+var ErrEmptyToken = errors.New("edgecontext.ValidateToken: empty JWT token")
+
 // ValidateToken parses and validates a jwt token, and return the decoded
 // AuthenticationToken.
 func (impl *Impl) ValidateToken(token string) (*AuthenticationToken, error) {
@@ -29,6 +33,17 @@ func (impl *Impl) ValidateToken(token string) (*AuthenticationToken, error) {
 	if !ok {
 		// This would only happen when all previous middleware parsing failed.
 		return nil, ErrNoPublicKeysLoaded
+	}
+
+	if token == "" {
+		// If we don't do the special handling here,
+		// jwt.ParseWithClaims below will return an error with message
+		// "token contains an invalid number of segments".
+		// Also that's still true, it's less obvious what's actually going on.
+		// Returning different error for empty token can also help highlighting
+		// other invalid tokens that actually causes that invalid number of segments
+		// error.
+		return nil, ErrEmptyToken
 	}
 
 	tok, err := jwt.ParseWithClaims(
