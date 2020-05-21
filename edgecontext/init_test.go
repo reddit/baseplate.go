@@ -10,18 +10,22 @@ import (
 	"github.com/reddit/baseplate.go/secrets"
 )
 
-var globalTestImpl *edgecontext.Impl
+var (
+	globalSecretsStore *secrets.Store
+	globalTestImpl     *edgecontext.Impl
+)
 
 func TestMain(m *testing.M) {
-	store, _, err := secrets.NewTestSecrets(
+	var err error
+	globalSecretsStore, _, err = secrets.NewTestSecrets(
 		context.Background(),
 		make(map[string]secrets.GenericSecret),
 	)
 	if err != nil {
 		log.Panic(err)
 	}
-	defer store.Close()
+	defer globalSecretsStore.Close()
 
-	globalTestImpl = edgecontext.Init(edgecontext.Config{Store: store})
+	globalTestImpl = edgecontext.Init(edgecontext.Config{Store: globalSecretsStore})
 	os.Exit(m.Run())
 }

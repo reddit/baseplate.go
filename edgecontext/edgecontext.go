@@ -26,9 +26,10 @@ var ErrLoIDWrongPrefix = errors.New("edgecontext: loid should have " + LoIDPrefi
 //
 // Please call Init function to initialize it.
 type Impl struct {
-	store     *secrets.Store
-	logger    log.Wrapper
-	keysValue atomic.Value
+	store      *secrets.Store
+	logger     log.Wrapper
+	suppressor JWTErrorSuppressor
+	keysValue  atomic.Value
 }
 
 var serializerPool = thrift.NewTSerializerPool(
@@ -78,17 +79,27 @@ func GetEdgeContext(ctx context.Context) (ec *EdgeRequestContext, ok bool) {
 
 // Config for Init function.
 type Config struct {
-	// The secret store to get the keys for jwt validation
+	// The secret store to get the keys for JWT validation.
 	Store *secrets.Store
-	// The logger to log key decoding errors
+
+	// The logger to log key decoding errors.
 	Logger log.Wrapper
+
+	// JWTErrorSuppressor allows some of the JWT validation errors to be ignored.
+	// By default, when it's nil, no errors will be suppressed,
+	// this is what you should use in production environments.
+	// It's provided as a way to handle some special cases in test/staging env.
+	//
+	// DO NOT USE IN PROD CODE.
+	JWTErrorSuppressor JWTErrorSuppressor
 }
 
 // Init intializes an Impl.
 func Init(cfg Config) *Impl {
 	impl := &Impl{
-		store:  cfg.Store,
-		logger: cfg.Logger,
+		store:      cfg.Store,
+		logger:     cfg.Logger,
+		suppressor: cfg.JWTErrorSuppressor,
 	}
 	impl.store.AddMiddlewares(impl.validatorMiddleware)
 	return impl

@@ -2,6 +2,8 @@ package edgecontext_test
 
 import (
 	"testing"
+
+	"github.com/reddit/baseplate.go/edgecontext"
 )
 
 // copied from https://github.com/reddit/baseplate.py/blob/db9c1d7cddb1cb242546349e821cad0b0cbd6fce/tests/__init__.py#L55
@@ -17,4 +19,39 @@ func TestValidToken(t *testing.T) {
 	if actual != expected {
 		t.Errorf("subject expected %q, got %q", expected, actual)
 	}
+}
+
+// extracted from https://github.com/reddit/baseplate.py/blob/db9c1d7cddb1cb242546349e821cad0b0cbd6fce/tests/__init__.py#L58
+const expiredToken = `eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0Ml9leGFtcGxlIiwiZXhwIjoxMjYyMzA0MDAwfQ.iUD0J2blW-HGtH86s66msBXymCRCgyxAZJ6xX2_SXD-kegm-KjOlIemMWFZtsNv9DJI147cNP81_gssewvUnhIHLVvXWCTOROasXbA9Yf2GUsjxoGSB7474ziPOZquAJKo8ikERlhOOVk3r4xZIIYCuc4vGZ7NfqFxjDGKAWj5Tt4VUiWXK1AdxQck24GyNOSXs677vIJnoD8EkgWqNuuwY-iFOAPVcoHmEuzhU_yUeQnY8D-VztJkip5-YPEnuuf-dTSmPbdm9ZTOP8gjTsG0Sdvb9NdLId0nEwawRy8CfFEGQulqHgd1bqTm25U-NyXQi7zroi1GEdykZ3w9fVNQ`
+
+func TestExpiredToken(t *testing.T) {
+	t.Run(
+		"no-suppress",
+		func(t *testing.T) {
+			_, err := globalTestImpl.ValidateToken(expiredToken)
+			if err == nil {
+				t.Error("Expect validation error for expired token, got nil")
+			}
+		},
+	)
+
+	t.Run(
+		"suppressed",
+		func(t *testing.T) {
+			impl := edgecontext.Init(edgecontext.Config{
+				Store:              globalSecretsStore,
+				JWTErrorSuppressor: edgecontext.JWTErrorSuppressExpired,
+			})
+
+			token, err := impl.ValidateToken(expiredToken)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected := "t2_example"
+			actual := token.Subject()
+			if actual != expected {
+				t.Errorf("subject expected %q, got %q", expected, actual)
+			}
+		},
+	)
 }

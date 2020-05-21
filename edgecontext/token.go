@@ -22,9 +22,25 @@ type AuthenticationToken struct {
 		ID        string                      `json:"id,omitempty"`
 		CreatedAt timebp.TimestampMillisecond `json:"created_ms,omitempty"`
 	} `json:"loid,omitempty"`
+
+	suppressor JWTErrorSuppressor
 }
 
 // Subject returns the subject field of the token.
 func (t AuthenticationToken) Subject() string {
 	return t.StandardClaims.Subject
+}
+
+// Valid overrides jwt.StandardClaims.Valid.
+//
+// It checks whether the error should be suppressed,
+// and suppress them when appropriate.
+//
+// By default it behaves the same as jwt.StandardClaims.Valid.
+func (t AuthenticationToken) Valid() error {
+	err := t.StandardClaims.Valid()
+	if t.suppressor != nil && t.suppressor(err) {
+		return nil
+	}
+	return err
 }

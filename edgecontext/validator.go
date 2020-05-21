@@ -48,7 +48,9 @@ func (impl *Impl) ValidateToken(token string) (*AuthenticationToken, error) {
 
 	tok, err := jwt.ParseWithClaims(
 		token,
-		&AuthenticationToken{},
+		&AuthenticationToken{
+			suppressor: impl.suppressor,
+		},
 		func(_ *jwt.Token) (interface{}, error) {
 			return keys, nil
 		},
@@ -108,4 +110,38 @@ func (impl *Impl) validatorMiddleware(next secrets.SecretHandlerFunc) secrets.Se
 
 		impl.keysValue.Store(keys)
 	}
+}
+
+// JWTErrorSuppressor defines a callback function to check whether a JWT
+// validation error can be suppressed/ignored.
+//
+// If this function returns true,
+// then we'll suppress the error in validator and treat it as a valid JWT token.
+//
+// By default,
+// JWTErrorSuppressNone will be used and no errors will be suppressed.
+type JWTErrorSuppressor func(e error) bool
+
+// JWTErrorSuppressNone is the default JWTErrorSuppressor to be used.
+//
+// It always returns false, which means it don't suppress any errors.
+func JWTErrorSuppressNone(_ error) bool {
+	return false
+}
+
+// JWTErrorSuppressExpired suppressed validation errors that the only error is
+// because of the claim has expired.
+//
+// In most cases you shouldn't use it in production environment,
+// but it could be useful for test environment handling replayed requests.
+func JWTErrorSuppressExpired(e error) bool {
+	var err *jwt.ValidationError
+	if errors.As(e, &err) {
+		// NOTE: err.Errors is a bitfield, but use equal instead of bitwise check,
+		// because we only want to suppress the error if that's the only error.
+		if err.Errors == jwt.ValidationErrorExpired {
+			return true
+		}
+	}
+	return false
 }
