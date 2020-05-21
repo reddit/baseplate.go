@@ -208,7 +208,6 @@ func newClientPool(
 				cfg.MaxConnectionAge,
 				genAddr,
 				proto,
-				middlewares...,
 			)
 		},
 	)
@@ -224,7 +223,7 @@ func newClientPool(
 			labels,
 		)
 	}
-	return &clientPool{
+	pooledClient := &clientPool{
 		Pool: pool,
 
 		poolExhaustedCounter: metricsbp.M.Counter(
@@ -233,7 +232,9 @@ func newClientPool(
 		releaseErrorCounter: metricsbp.M.Counter(
 			cfg.ServiceSlug + ".pool-release-error",
 		).With(labels...),
-	}, nil
+	}
+	pooledClient.wrapCalls(middlewares...)
+	return pooledClient, nil
 }
 
 func newClient(
@@ -241,7 +242,6 @@ func newClient(
 	maxConnectionAge time.Duration,
 	genAddr AddressGenerator,
 	protoFactory thrift.TProtocolFactory,
-	middlewares ...thrift.ClientMiddleware,
 ) (*ttlClient, error) {
 	addr, err := genAddr()
 	if err != nil {
@@ -263,7 +263,6 @@ func newClient(
 		protoFactory.GetProtocol(trans),
 		protoFactory.GetProtocol(trans),
 	)
-	client = thrift.WrapClient(client, middlewares...)
 	return newTTLClient(trans, client, maxConnectionAge), nil
 }
 
@@ -291,9 +290,23 @@ type clientPool struct {
 
 	poolExhaustedCounter metrics.Counter
 	releaseErrorCounter  metrics.Counter
+
+	wrappedCall thrift.TClient
 }
 
 func (p *clientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
+	return p.wrappedCall.Call(ctx, method, args, result)
+}
+
+func (p *clientPool) wrapCalls(middlewares ...thrift.ClientMiddleware) {
+	p.wrappedCall = thrift.WrapClient(thrift.WrappedTClient{
+		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
+			return p.pooledCall(ctx, method, args, result)
+		},
+	}, middlewares...)
+}
+
+func (p *clientPool) pooledCall(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
 	client, err := p.getClient()
 	if err != nil {
 		return PoolError{Cause: err}
