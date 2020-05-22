@@ -446,8 +446,10 @@ func TestFromHeader(t *testing.T) {
 					if loid, ok := user.LoID(); !ok {
 						t.Error("Failed to get loid from user")
 					} else {
-						if loid != expectedLoID {
-							t.Errorf("LoID expected %q, got %q", expectedLoID, loid)
+						// For logged in user,
+						// we expect LoID() to return user id instead of loid.
+						if loid != expectedUser {
+							t.Errorf("LoID expected %q, got %q", expectedUser, loid)
 						}
 					}
 					if ts, ok := user.CookieCreatedAt(); !ok {

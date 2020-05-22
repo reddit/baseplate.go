@@ -37,9 +37,17 @@ func (u User) IsLoggedIn() bool {
 
 // LoID returns the LoID of this user.
 func (u User) LoID() (loid string, ok bool) {
+	// First, we return the logged in user id if it's a logged in user.
+	if id, ok := u.ID(); ok {
+		return id, ok
+	}
+
+	// Then, we use the loid from the thrift payload.
 	if u.e.raw.LoID != "" {
 		return u.e.raw.LoID, true
 	}
+
+	// Finally, we fallback to the loid from the JWT token.
 	token := u.e.AuthToken()
 	if token == nil {
 		return
