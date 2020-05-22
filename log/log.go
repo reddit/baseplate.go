@@ -94,7 +94,7 @@ func InitLoggerWithConfig(logLevel Level, cfg zap.Config) error {
 		globalLogger = zap.NewNop().Sugar()
 		return nil
 	}
-	l, err := cfg.Build(zap.AddCallerSkip(2))
+	l, err := cfg.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		return err
 	}
