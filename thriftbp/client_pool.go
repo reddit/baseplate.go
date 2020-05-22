@@ -208,7 +208,6 @@ func newClientPool(
 				cfg.MaxConnectionAge,
 				genAddr,
 				proto,
-				middlewares...,
 			)
 		},
 	)
@@ -224,7 +223,9 @@ func newClientPool(
 			labels,
 		)
 	}
-	return &clientPool{
+
+	// create the base clientPool, this is not ready for use.
+	pooledClient := &clientPool{
 		Pool: pool,
 
 		poolExhaustedCounter: metricsbp.M.Counter(
@@ -233,7 +234,13 @@ func newClientPool(
 		releaseErrorCounter: metricsbp.M.Counter(
 			cfg.ServiceSlug + ".pool-release-error",
 		).With(labels...),
-	}, nil
+	}
+	// finish setting up the clientPool by wrapping the inner "Call" with the
+	// given middleware.
+	//
+	// pooledClient is now ready for use.
+	pooledClient.wrapCalls(middlewares...)
+	return pooledClient, nil
 }
 
 func newClient(
@@ -241,7 +248,6 @@ func newClient(
 	maxConnectionAge time.Duration,
 	genAddr AddressGenerator,
 	protoFactory thrift.TProtocolFactory,
-	middlewares ...thrift.ClientMiddleware,
 ) (*ttlClient, error) {
 	addr, err := genAddr()
 	if err != nil {
@@ -263,7 +269,6 @@ func newClient(
 		protoFactory.GetProtocol(trans),
 		protoFactory.GetProtocol(trans),
 	)
-	client = thrift.WrapClient(client, middlewares...)
 	return newTTLClient(trans, client, maxConnectionAge), nil
 }
 
@@ -291,9 +296,37 @@ type clientPool struct {
 
 	poolExhaustedCounter metrics.Counter
 	releaseErrorCounter  metrics.Counter
+
+	wrappedClient thrift.TClient
 }
 
 func (p *clientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
+	// A clientPool needs to be set up properly before it can be used,
+	// specifically use p.wrapCalls to set up p.wrappedClient before using it.
+	//
+	// newClientPool already takes care of this for you.
+	return p.wrappedClient.Call(ctx, method, args, result)
+}
+
+// wrapCalls wraps p.pooledCall in the given middleware and sets p.wrappedClient
+// to the resulting thrift.TClient.
+//
+// This must be called before the clientPool can be used, but newClientPool
+// already takes care of this for you.
+func (p *clientPool) wrapCalls(middlewares ...thrift.ClientMiddleware) {
+	p.wrappedClient = thrift.WrapClient(thrift.WrappedTClient{
+		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
+			return p.pooledCall(ctx, method, args, result)
+		},
+	}, middlewares...)
+}
+
+// pooledCall gets a Client from the inner clientpool.Pool and "Calls" it,
+// returning the result and releasing the client back to the pool afterwards.
+//
+// This is not called directly, but is rather the inner "Call" wrapped by
+// wrapCalls, so it runs after all of the middleware.
+func (p *clientPool) pooledCall(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
 	client, err := p.getClient()
 	if err != nil {
 		return PoolError{Cause: err}
