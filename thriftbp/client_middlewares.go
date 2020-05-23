@@ -17,15 +17,15 @@ import (
 //
 // Currently they are (in order):
 //
-// 1. MonitorClient
+// 1. ForwardEdgeRequestContext
 //
-// 2. ForwardEdgeRequestContext
+// 2. MonitorClient
 //
 // 3. SetDeadlineBudget
 func BaseplateDefaultClientMiddlewares() []thrift.ClientMiddleware {
 	return []thrift.ClientMiddleware{
-		MonitorClient,
 		ForwardEdgeRequestContext,
+		MonitorClient,
 		SetDeadlineBudget,
 	}
 }
