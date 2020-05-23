@@ -167,14 +167,12 @@ func SingleAddressGenerator(addr string) AddressGenerator {
 // passed into this function.
 func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
 	defaults := BaseplateDefaultClientMiddlewares()
-	wrappers := make([]thrift.ClientMiddleware, 0, len(defaults)+len(middlewares))
-	wrappers = append(wrappers, defaults...)
-	wrappers = append(wrappers, middlewares...)
+	middlewares = append(middlewares, defaults...)
 	return NewCustomClientPool(
 		cfg,
 		SingleAddressGenerator(cfg.Addr),
 		thrift.NewTHeaderProtocolFactory(),
-		wrappers...,
+		middlewares...,
 	)
 }
 
