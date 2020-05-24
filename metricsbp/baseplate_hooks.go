@@ -2,7 +2,9 @@ package metricsbp
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/go-kit/kit/metrics"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -31,28 +33,33 @@ type spanHook struct {
 	name    string
 	metrics *Statsd
 
-	timer *Timer
+	histogram metrics.Histogram
+	start     time.Time
 }
 
-func newSpanHook(metrics *Statsd, span *tracing.Span) spanHook {
+func newSpanHook(metrics *Statsd, span *tracing.Span) *spanHook {
 	name := span.Component() + "." + span.Name()
-	return spanHook{
-		name:    name,
-		metrics: metrics,
-		timer:   &Timer{Histogram: metrics.Timing(name)},
+	return &spanHook{
+		name:      name,
+		metrics:   metrics,
+		histogram: metrics.Timing(name),
 	}
 }
 
 // OnCreateChild registers a child MetricsSpanHook on the child Span and starts
 // a new Timer around the Span.
-func (h spanHook) OnCreateChild(parent, child *tracing.Span) error {
+func (h *spanHook) OnCreateChild(parent, child *tracing.Span) error {
 	child.AddHooks(newSpanHook(h.metrics, child))
 	return nil
 }
 
 // OnPostStart starts the timer.
-func (h spanHook) OnPostStart(span *tracing.Span) error {
-	h.timer.Start()
+func (h *spanHook) OnPostStart(span *tracing.Span) error {
+	if span.StartTime().IsZero() {
+		h.start = time.Now()
+	} else {
+		h.start = span.StartTime()
+	}
 	return nil
 }
 
@@ -61,8 +68,15 @@ func (h spanHook) OnPostStart(span *tracing.Span) error {
 //
 // A span is marked as "fail" if `err != nil` otherwise it is marked as
 // "success".
-func (h spanHook) OnPreStop(span *tracing.Span, err error) error {
-	h.timer.ObserveDuration()
+func (h *spanHook) OnPreStop(span *tracing.Span, err error) error {
+	var duration time.Duration
+	if span.StopTime().IsZero() {
+		duration = time.Since(h.start)
+	} else {
+		duration = span.StopTime().Sub(h.start)
+	}
+	recordDuration(h.histogram, duration)
+
 	var statusMetricPath string
 	if err != nil {
 		statusMetricPath = fmt.Sprintf("%s.%s", h.name, fail)
@@ -76,14 +90,14 @@ func (h spanHook) OnPreStop(span *tracing.Span, err error) error {
 
 // OnAddCounter will increment a metric by "delta" using "key" as the metric
 // "name"
-func (h spanHook) OnAddCounter(span *tracing.Span, key string, delta float64) error {
+func (h *spanHook) OnAddCounter(span *tracing.Span, key string, delta float64) error {
 	h.metrics.Counter(key).Add(delta)
 	return nil
 }
 
 var (
 	_ tracing.CreateServerSpanHook = CreateServerSpanHook{}
-	_ tracing.StartStopSpanHook    = spanHook{}
-	_ tracing.CreateChildSpanHook  = spanHook{}
-	_ tracing.AddSpanCounterHook   = spanHook{}
+	_ tracing.StartStopSpanHook    = (*spanHook)(nil)
+	_ tracing.CreateChildSpanHook  = (*spanHook)(nil)
+	_ tracing.AddSpanCounterHook   = (*spanHook)(nil)
 )

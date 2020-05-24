@@ -47,6 +47,7 @@ go_test(
     deps = [
         "//tracing:go_default_library",
         "@com_github_go_kit_kit//metrics:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
         "@in_gopkg_yaml_v2//:go_default_library",
     ],
 )
