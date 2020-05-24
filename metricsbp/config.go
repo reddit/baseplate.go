@@ -45,6 +45,6 @@ func InitFromConfig(ctx context.Context, cfg Config) io.Closer {
 		Address:             cfg.Endpoint,
 		LogLevel:            log.ErrorLevel,
 	})
-	tracing.RegisterCreateServerSpanHooks(CreateServerSpanHook{})
+	tracing.RegisterCreateServerSpanHooks(CreateServerSpanHook{Metrics: M})
 	return M
 }

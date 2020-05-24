@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	opentracing "github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -127,4 +129,48 @@ func TestOnCreateServerSpan(t *testing.T) {
 			}
 		},
 	)
+}
+
+func TestWithStartAndFinishTimes(t *testing.T) {
+	startTime := time.Unix(1, 0)
+	stopTime := startTime.Add(time.Hour)
+
+	st := metricsbp.NewStatsd(
+		context.Background(),
+		metricsbp.StatsdConfig{},
+	)
+
+	hook := metricsbp.CreateServerSpanHook{Metrics: st}
+	tracing.RegisterCreateServerSpanHooks(hook)
+	defer tracing.ResetHooks()
+
+	s, ctx := opentracing.StartSpanFromContext(
+		context.Background(),
+		"foo",
+		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
+		opentracing.StartTime(startTime),
+	)
+	span := tracing.AsSpan(s)
+	opts := tracing.FinishOptions{Ctx: ctx}.Convert()
+	opts.FinishTime = stopTime
+	span.FinishWithOptions(opts)
+
+	var histogram string
+	var sb strings.Builder
+	if _, err := st.WriteTo(&sb); err != nil {
+		return
+	}
+	stats := strings.Split(sb.String(), "\n")
+	for _, stat := range stats {
+		if strings.HasSuffix(stat, "|ms") {
+			histogram = stat
+			break
+		}
+	}
+
+	expected := "server.foo:3600000.000000|ms"
+	if strings.Compare(histogram, expected) != 0 {
+		t.Errorf("histogram mismatch, expected %q, got %q", expected, histogram)
+	}
+
 }

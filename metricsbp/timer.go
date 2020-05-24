@@ -47,9 +47,16 @@ func (t *Timer) ObserveDuration() {
 	if t == nil || t.Histogram == nil || t.start.IsZero() {
 		return
 	}
-	d := float64(time.Since(t.start)) / timerUnit
+	recordDuration(t.Histogram, time.Since(t.start))
+}
+
+func recordDuration(h metrics.Histogram, duration time.Duration) {
+	if h == nil {
+		return
+	}
+	d := float64(duration) / timerUnit
 	if d < 0 {
 		d = 0
 	}
-	t.Histogram.Observe(d)
+	h.Observe(d)
 }
