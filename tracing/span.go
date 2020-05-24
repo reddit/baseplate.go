@@ -151,6 +151,17 @@ func (s Span) Sampled() bool {
 	return s.trace.sampled
 }
 
+// StartTime the time that the span was started.
+func (s Span) StartTime() time.Time {
+	return s.trace.start
+}
+
+// StopTime the time that the span was stopped if it has been stopped, will be
+// zero if it has not been stopped yet.
+func (s Span) StopTime() time.Time {
+	return s.trace.stop
+}
+
 // logError is a helper method to log an error plus a message.
 //
 // This uses the the logger provided by the underlying tracing.Tracer used to
@@ -274,7 +285,9 @@ func (s *Span) Stop(ctx context.Context, err error) error {
 			}
 		}
 	}
-	s.trace.stop = time.Now()
+	if s.trace.stop.IsZero() {
+		s.trace.stop = time.Now()
+	}
 	return s.trace.publish(ctx)
 }
 
@@ -369,6 +382,9 @@ func (s *Span) Finish() {
 // It calls Stop with context and error extracted from opts.
 // If Stop returns an error, it will also be logged with the tracer's logger.
 func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
+	if !opts.FinishTime.IsZero() {
+		s.trace.stop = opts.FinishTime
+	}
 	var err error
 	ctx := context.Background()
 	for _, records := range opts.LogRecords {

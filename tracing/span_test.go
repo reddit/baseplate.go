@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 	"testing/quick"
+	"time"
 
 	opentracing "github.com/opentracing/opentracing-go"
 
@@ -677,5 +678,25 @@ func TestHeadersParseSampled(t *testing.T) {
 				}
 			},
 		)
+	}
+}
+
+func TestStartAndFinishTimes(t *testing.T) {
+	startTime := time.Unix(1, 0)
+	stopTime := startTime.Add(time.Second)
+	span := AsSpan(opentracing.StartSpan(
+		"test",
+		opentracing.StartTime(startTime),
+	))
+	if !span.StartTime().Equal(startTime) {
+		t.Fatalf("start time mismatch, expected %v, got %v", startTime, span.StartTime())
+	}
+	if !span.StopTime().IsZero() {
+		t.Fatalf("stop time should be zero, got %v", span.StopTime())
+	}
+
+	span.FinishWithOptions(opentracing.FinishOptions{FinishTime: stopTime})
+	if !span.StopTime().Equal(stopTime) {
+		t.Fatalf("start time mismatch, expected %v, got %v", stopTime, span.StopTime())
 	}
 }
