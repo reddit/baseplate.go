@@ -29,7 +29,7 @@ func ExampleMonitorClient() {
 				factory.GetProtocol(transport),
 				factory.GetProtocol(transport),
 			),
-			thriftbp.MonitorClient,
+			thriftbp.MonitorClient("service"),
 		),
 	)
 	// Create a context with a server span
