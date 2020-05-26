@@ -22,10 +22,10 @@ import (
 // 2. MonitorClient
 //
 // 3. SetDeadlineBudget
-func BaseplateDefaultClientMiddlewares() []thrift.ClientMiddleware {
+func BaseplateDefaultClientMiddlewares(service string) []thrift.ClientMiddleware {
 	return []thrift.ClientMiddleware{
 		ForwardEdgeRequestContext,
-		MonitorClient,
+		MonitorClient(service),
 		SetDeadlineBudget,
 	}
 }
@@ -36,24 +36,27 @@ func BaseplateDefaultClientMiddlewares() []thrift.ClientMiddleware {
 // If you are using a thrift ClientPool created by NewBaseplateClientPool,
 // this will be included automatically and should not be passed in as a
 // ClientMiddleware to NewBaseplateClientPool.
-func MonitorClient(next thrift.TClient) thrift.TClient {
-	return thrift.WrappedTClient{
-		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
-			span, ctx := opentracing.StartSpanFromContext(
-				ctx,
-				method,
-				tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
-			)
-			ctx = CreateThriftContextFromSpan(ctx, tracing.AsSpan(span))
-			defer func() {
-				span.FinishWithOptions(tracing.FinishOptions{
-					Ctx: ctx,
-					Err: err,
-				}.Convert())
-			}()
+func MonitorClient(service string) thrift.ClientMiddleware {
+	prefix := service + "."
+	return func(next thrift.TClient) thrift.TClient {
+		return thrift.WrappedTClient{
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
+				span, ctx := opentracing.StartSpanFromContext(
+					ctx,
+					prefix+method,
+					tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
+				)
+				ctx = CreateThriftContextFromSpan(ctx, tracing.AsSpan(span))
+				defer func() {
+					span.FinishWithOptions(tracing.FinishOptions{
+						Ctx: ctx,
+						Err: err,
+					}.Convert())
+				}()
 
-			return next.Call(ctx, method, args, result)
-		},
+				return next.Call(ctx, method, args, result)
+			},
+		}
 	}
 }
 
@@ -107,6 +110,5 @@ func SetDeadlineBudget(next thrift.TClient) thrift.TClient {
 
 var (
 	_ thrift.ClientMiddleware = ForwardEdgeRequestContext
-	_ thrift.ClientMiddleware = MonitorClient
 	_ thrift.ClientMiddleware = SetDeadlineBudget
 )

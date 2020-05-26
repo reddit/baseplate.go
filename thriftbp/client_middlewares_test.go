@@ -17,12 +17,15 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-const method = "testMethod"
+const (
+	service = "testService"
+	method  = "testMethod"
+)
 
 func initClients() (*thrifttest.MockClient, *thrifttest.RecordedClient, thrift.TClient) {
 	mock := &thrifttest.MockClient{FailUnregisteredMethods: true}
 	recorder := thrifttest.NewRecordedClient(mock)
-	client := thrift.WrapClient(recorder, thriftbp.BaseplateDefaultClientMiddlewares()...)
+	client := thrift.WrapClient(recorder, thriftbp.BaseplateDefaultClientMiddlewares(service)...)
 	return mock, recorder, client
 }
 
@@ -132,9 +135,10 @@ func TestWrapMonitoredClient(t *testing.T) {
 				if s == nil {
 					t.Fatal("span was nil")
 				}
+				spanName := service + "." + method
 				span := tracing.AsSpan(s)
-				if span.Name() != method {
-					t.Errorf("span name mismatch, expected %q, got %q", method, span.Name())
+				if span.Name() != spanName {
+					t.Errorf("span name mismatch, expected %q, got %q", spanName, span.Name())
 				}
 				if span.SpanType() != tracing.SpanTypeClient {
 					t.Errorf("span type mismatch, expected %s, got %s", tracing.SpanTypeClient, span.SpanType())
