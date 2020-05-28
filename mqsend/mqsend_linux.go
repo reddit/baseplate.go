@@ -75,7 +75,14 @@ func (mqd messageQueue) Send(ctx context.Context, data []byte) error {
 	}
 
 	for i := 0; i < maxEINTRRetries; i++ {
-		if ctx.Err() != nil {
+		// NOTE: The reason we only care about DeadlineExceeded here,
+		// is that sometimes the parent context might get explicitly canceled for
+		// other reasons.
+		// For example, context objects from http requests might get canceled when
+		// the client connection is lost.
+		// In those cases, we don't want to just fail the Send.
+		// We still want to give them a chance.
+		if ctx.Err() == context.DeadlineExceeded {
 			return TimedOutError{
 				Cause: ctx.Err(),
 			}

@@ -91,3 +91,27 @@ func TestLinuxMessageQueue(t *testing.T) {
 		},
 	)
 }
+
+func TestContextBehavior(t *testing.T) {
+	// We rely on the behavior that we can still get the deadline out of a context
+	// object after it's explicitly canceled, and this test guarantees that
+	// behavior.
+	// If it gets broken in future go version, we need to adjust our code
+	// accordingly.
+	ctx, cancel := context.WithCancel(context.Background())
+	ctx, childCancel := context.WithTimeout(ctx, time.Minute)
+	defer childCancel()
+	expectedDeadline, ok := ctx.Deadline()
+	if !ok {
+		t.Fatal("Unable to get deadline")
+	}
+
+	cancel()
+	actualDeadline, ok := ctx.Deadline()
+	if !ok {
+		t.Error("No longer able to get deadline")
+	}
+	if !actualDeadline.Equal(expectedDeadline) {
+		t.Errorf("Expected deadline %v, got %v", expectedDeadline, actualDeadline)
+	}
+}

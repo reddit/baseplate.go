@@ -8,10 +8,10 @@ import (
 // TimedOutError is the error returned by MessageQueue.Send when the operation
 // timed out because of the queue was full.
 //
-// On linux systems it usually wraps one of syscall.ETIMEDOUT, context.Canceled,
-// or context.DeadlineExceeded.
-// On other systems (or with MockMessageQueue) it usually wraps either
-// context.Canceled or context.DeadlineExceeded.
+// On linux systems it usually wraps either syscall.ETIMEDOUT or
+// context.DeadlineExceeded.
+// On other systems (or with MockMessageQueue) it usually wraps
+// context.DeadlineExceeded.
 type TimedOutError struct {
 	Cause error
 }
