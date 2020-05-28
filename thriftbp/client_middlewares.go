@@ -6,11 +6,30 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	retry "github.com/avast/retry-go"
 	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
 )
+
+// WithDefaultRetryFilters returns a list of retrybp.Filters by appending the
+// given filters to the "default" retry filters:
+//
+// 1. ContextErrorFilter - do not retry on context cancellation/timeout.
+//
+// 2. UnrecoverableErrorFilter - do not retry errors marked as unrecoverable with
+//    retry.Unrecoverable.
+//
+// 3. PoolExhaustedFilter - do retry on clientpool.PoolExhausted errors.
+func WithDefaultRetryFilters(filters ...retrybp.Filter) []retrybp.Filter {
+	return append([]retrybp.Filter{
+		retrybp.ContextErrorFilter,
+		retrybp.UnrecoverableErrorFilter,
+		retrybp.PoolExhaustedFilter,
+	}, filters...)
+}
 
 // BaseplateDefaultClientMiddlewares returns the default client middlewares that
 // should be used by a baseplate service.
@@ -19,12 +38,20 @@ import (
 //
 // 1. ForwardEdgeRequestContext
 //
-// 2. MonitorClient
+// 2. Retry(retryOptions) - If retryOptions is empty/nil, default to
+//    only retry.Attempts(1), this will not actually retry any calls but your
+//    client is configured to set retry logic per-call using retrybp.WithOptions.
 //
-// 3. SetDeadlineBudget
-func BaseplateDefaultClientMiddlewares(service string) []thrift.ClientMiddleware {
+// 3. MonitorClient
+//
+// 4. SetDeadlineBudget
+func BaseplateDefaultClientMiddlewares(service string, retryOptions []retry.Option) []thrift.ClientMiddleware {
+	if len(retryOptions) == 0 {
+		retryOptions = []retry.Option{retry.Attempts(1)}
+	}
 	return []thrift.ClientMiddleware{
 		ForwardEdgeRequestContext,
+		Retry(retryOptions...),
 		MonitorClient(service),
 		SetDeadlineBudget,
 	}
@@ -105,6 +132,24 @@ func SetDeadlineBudget(next thrift.TClient) thrift.TClient {
 
 			return next.Call(ctx, method, args, result)
 		},
+	}
+}
+
+// Retry returns a thrift.ClientMiddleware that can be used to automatically
+// retry thrift requests.
+func Retry(defaults ...retry.Option) thrift.ClientMiddleware {
+	return func(next thrift.TClient) thrift.TClient {
+		return thrift.WrappedTClient{
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
+				return retrybp.Do(
+					ctx,
+					func() error {
+						return next.Call(ctx, method, args, result)
+					},
+					defaults...,
+				)
+			},
+		}
 	}
 }
 

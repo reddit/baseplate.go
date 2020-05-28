@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	retry "github.com/avast/retry-go"
 	"github.com/go-kit/kit/metrics"
 
 	"github.com/reddit/baseplate.go/clientpool"
@@ -80,6 +81,15 @@ type ClientPoolConfig struct {
 	// Any labels that should be applied to metrics logged by the ClientPool.
 	// This includes the optional pool stats.
 	MetricsLabels metricsbp.Labels
+
+	// DefaultRetryOptions is the list of retry.Options to apply as the defaults
+	// for the Retry middleware.
+	//
+	// This is optional, if it is not set, we will use a single option,
+	// retry.Attempts(1).  This sets up the retry middleware but does not
+	// automatically retry any requests.  You can set retry behavior per-call by
+	// using retrybp.WithOptions.
+	DefaultRetryOptions []retry.Option
 
 	// ReportPoolStats signals to the ClientPool that it should report
 	// statistics on the underlying clientpool.Pool in a background
@@ -166,7 +176,7 @@ func SingleAddressGenerator(addr string) AddressGenerator {
 // BaseplateDefaultClientMiddlewares plus any additional client middlewares
 // passed into this function.
 func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
-	defaults := BaseplateDefaultClientMiddlewares(cfg.ServiceSlug)
+	defaults := BaseplateDefaultClientMiddlewares(cfg.ServiceSlug, cfg.DefaultRetryOptions)
 	middlewares = append(middlewares, defaults...)
 	return NewCustomClientPool(
 		cfg,

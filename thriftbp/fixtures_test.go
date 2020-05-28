@@ -13,6 +13,8 @@ const (
 )
 
 func newSecretsStore(t testing.TB) *secrets.Store {
+	t.Helper()
+
 	store, _, err := secrets.NewTestSecrets(
 		context.Background(),
 		make(map[string]secrets.GenericSecret),
@@ -21,12 +23,4 @@ func newSecretsStore(t testing.TB) *secrets.Store {
 		t.Fatal(err)
 	}
 	return store
-}
-
-type counter struct {
-	count int
-}
-
-func (c *counter) incr() {
-	c.count++
 }

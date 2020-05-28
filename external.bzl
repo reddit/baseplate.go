@@ -961,3 +961,9 @@ def go_dependencies():
         sum = "h1:ZZCA22JRF2gQE5FoNmhmrf7jeJJ2uhqDUNRYKm8dvmM=",
         version = "v1.15.0",
     )
+    go_repository(
+        name = "com_github_avast_retry_go",
+        importpath = "github.com/avast/retry-go",
+        sum = "h1:FelcMrm7Bxacr1/RM8+/eqkDkmVN7tjlsy51dOzB3LI=",
+        version = "v2.6.0+incompatible",
+    )
