@@ -4,9 +4,11 @@ import (
 	"context"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	retry "github.com/avast/retry-go"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -39,6 +41,24 @@ func ExampleMonitorClient() {
 		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
 	)
 	// Calls should be automatically wrapped using client spans
-	healthy, err := client.IsHealthy(ctx)
+	healthy, err := client.IsHealthy(
+		// The default middleware does not automatically retry requests but does set
+		// up the retry middleware so individual requests can be configured to retry
+		// using retrybp.WithOptions.
+		retrybp.WithOptions(
+			ctx,
+			// This call will make at most 2 attempts, that is the initial attempt and
+			// a single retry.
+			retry.Attempts(2),
+			// Apply the thriftbp default retry filters as well as NetworkErrorFilter
+			// to retry networking errors.
+			//
+			// NetworkErrorFilter should only be used for requests that are safe to
+			// repeat, such as reads or idempotent requests.
+			retrybp.Filters(
+				thriftbp.WithDefaultRetryFilters(retrybp.NetworkErrorFilter)...,
+			),
+		),
+	)
 	log.Debug("%v, %s", healthy, err)
 }

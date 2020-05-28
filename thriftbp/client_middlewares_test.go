@@ -8,10 +8,14 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/avast/retry-go"
 	opentracing "github.com/opentracing/opentracing-go"
 
+	baseplate "github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/edgecontext"
+	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/mqsend"
+	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
 	"github.com/reddit/baseplate.go/tracing"
@@ -25,7 +29,7 @@ const (
 func initClients() (*thrifttest.MockClient, *thrifttest.RecordedClient, thrift.TClient) {
 	mock := &thrifttest.MockClient{FailUnregisteredMethods: true}
 	recorder := thrifttest.NewRecordedClient(mock)
-	client := thrift.WrapClient(recorder, thriftbp.BaseplateDefaultClientMiddlewares(service)...)
+	client := thrift.WrapClient(recorder, thriftbp.BaseplateDefaultClientMiddlewares(service, nil)...)
 	return mock, recorder, client
 }
 
@@ -306,4 +310,65 @@ func TesetSetDeadlineBudget(t *testing.T) {
 			}
 		},
 	)
+}
+
+type BaseplateService struct {
+	Sever baseplate.Server
+}
+
+func (srv BaseplateService) IsHealthy(ctx context.Context) (r bool, err error) {
+	srv.Sever.Close()
+	time.Sleep(10 * time.Millisecond)
+	return true, nil
+}
+
+type counter struct {
+	count int
+}
+
+func (c *counter) incr() {
+	c.count++
+}
+
+func (c *counter) onRetry(n uint, err error) {
+	c.incr()
+}
+
+func TestRetry(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store := newSecretsStore(t)
+	defer store.Close()
+
+	c := &counter{}
+	handler := BaseplateService{}
+	processor := baseplatethrift.NewBaseplateServiceProcessor(&handler)
+	server, err := thrifttest.NewBaseplateServer(
+		store,
+		processor,
+		thrifttest.ServerConfig{
+			ClientConfig: thriftbp.ClientPoolConfig{
+				DefaultRetryOptions: []retry.Option{
+					retry.Attempts(2),
+					retrybp.Filters(retrybp.NetworkErrorFilter),
+					retry.OnRetry(c.onRetry),
+				},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler.Sever = server
+	server.Start(ctx)
+
+	client := baseplatethrift.NewBaseplateServiceClient(server.ClientPool)
+	_, err = client.IsHealthy(ctx)
+	if err == nil {
+		t.Errorf("expected an error, got nil")
+	}
+	if c.count != 1 {
+		t.Errorf("expected middleware to trigger a retry.")
+	}
 }
