@@ -1,6 +1,7 @@
 package edgecontext
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -30,7 +31,10 @@ type EdgeRequestContext struct {
 func (e *EdgeRequestContext) AuthToken() *AuthenticationToken {
 	e.tokenOnce.Do(func() {
 		if token, err := e.impl.ValidateToken(e.raw.AuthToken); err != nil {
-			log.Errorw("token validation failed", "err", err)
+			// empty jwt token is considered "normal", no need to spam them in logs.
+			if !errors.Is(err, ErrEmptyToken) {
+				log.FallbackWrapper(e.impl.logger)("token validation failed: " + err.Error())
+			}
 			e.token = nil
 		} else {
 			e.token = token
