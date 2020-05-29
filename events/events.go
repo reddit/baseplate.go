@@ -55,6 +55,8 @@ type Config struct {
 	//
 	// If the passed in context object already has an earlier deadline set,
 	// that deadline will be respected instead.
+	// But if the passed in context is already canceled,
+	// then we ignore it and create a new background context with this timeout.
 	//
 	// If MaxPutTimeout <= 0, DefaultMaxPutTimeout will be used instead.
 	MaxPutTimeout time.Duration
@@ -103,6 +105,11 @@ func (q *Queue) Close() error {
 
 // Put serializes and puts an event into the event queue.
 func (q *Queue) Put(ctx context.Context, event thrift.TStruct) error {
+	if ctx.Err() != nil {
+		// The request context is already canceled,
+		// use background to make sure we are still able to send out events.
+		ctx = context.Background()
+	}
 	ctx, cancel := context.WithTimeout(ctx, q.maxTimeout)
 	defer cancel()
 

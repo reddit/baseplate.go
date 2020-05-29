@@ -71,6 +71,8 @@ type TracerConfig struct {
 	//
 	// If the passed in context object has an earlier deadline set,
 	// that deadline will be respected instead.
+	// But if the passed in context is already canceled,
+	// then we ignore it and create a new background context with this timeout.
 	//
 	// If MaxRecordTimeout <= 0, DefaultMaxRecordTimeout will be used.
 	MaxRecordTimeout time.Duration
@@ -187,6 +189,12 @@ func (t *Tracer) Record(ctx context.Context, zs ZipkinSpan) error {
 	data, err := json.Marshal(zs)
 	if err != nil {
 		return err
+	}
+
+	if ctx.Err() != nil {
+		// The request context is already canceled.
+		// Use background to make sure we are still able to send out the span,
+		ctx = context.Background()
 	}
 
 	timeout := t.maxRecordTimeout
