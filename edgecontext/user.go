@@ -4,7 +4,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apache/thrift/lib/go/thrift"
+
 	"github.com/reddit/baseplate.go/experiments"
+	"github.com/reddit/baseplate.go/timebp"
 )
 
 const userPrefix = "t2_"
@@ -98,11 +101,29 @@ func (u User) HasRole(role string) bool {
 // It always updates UserID, LoggedIn, and CookieCreatedAt fields and never
 // touches other fields.
 func (u User) UpdateExperimentEvent(ee *experiments.ExperimentEvent) {
-	var loggedIn bool
-	ee.UserID, loggedIn = u.ID()
-	if !loggedIn {
-		ee.UserID, _ = u.LoID()
-	}
-	ee.LoggedIn = &loggedIn
+	ee.UserID, _ = u.LoID()
+	ee.LoggedIn = thrift.BoolPtr(u.IsLoggedIn())
 	ee.CookieCreatedAt, _ = u.CookieCreatedAt()
+}
+
+// VariantInputs returns the map containing the user related fields that should
+// be used in experiments.Variant call.
+func (u User) VariantInputs() map[string]interface{} {
+	var ee experiments.ExperimentEvent
+	u.UpdateExperimentEvent(&ee)
+
+	// Reference for the keys:
+	// https://github.com/reddit/baseplate.py/blob/5c7231de2e94323cd90a831fcfa601693909384f/baseplate/lib/edge_context.py#L248-L252
+	return map[string]interface{}{
+		"user_id":                  stringOrNil(ee.UserID),
+		"logged_in":                *ee.LoggedIn,
+		"cookie_created_timestamp": timebp.TimeToMilliseconds(ee.CookieCreatedAt),
+	}
+}
+
+func stringOrNil(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
 }
