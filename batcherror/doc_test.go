@@ -31,8 +31,11 @@ func Example() {
 	fmt.Printf("2: %v\n", singleError)
 
 	var newBatch batcherror.BatchError
-	err = errors.New("foobar")
-	newBatch.Add(err)
+	// Add multiple errors at once
+	newBatch.Add(
+		errors.New("fizz"),
+		errors.New("buzz"),
+	)
 	newBatch.Add(batch)
 	fmt.Printf("3: %v\n", newBatch.Compile())
 
@@ -41,7 +44,7 @@ func Example() {
 	// 1: foo
 	// Nil errors are skipped: foo
 	// 2: batcherror: total 2 error(s) in this batch: foo; bar
-	// 3: batcherror: total 3 error(s) in this batch: foobar; foo; bar
+	// 3: batcherror: total 4 error(s) in this batch: fizz; buzz; foo; bar
 }
 
 // This example demonstrates how a BatchError can be inspected with errors.Is.

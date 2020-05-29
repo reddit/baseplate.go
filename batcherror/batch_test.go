@@ -83,6 +83,72 @@ func TestAdd(t *testing.T) {
 	}
 }
 
+func TestAddMultiple(t *testing.T) {
+	var err batcherror.BatchError
+	if len(err.GetErrors()) != 0 {
+		t.Errorf("A new BatchError should contain zero errors: %v", err.GetErrors())
+	}
+
+	err.Add()
+	if len(err.GetErrors()) != 0 {
+		t.Errorf("empty errors should be skipped: %v", err.GetErrors())
+	}
+
+	err.Add(nil, nil)
+	if len(err.GetErrors()) != 0 {
+		t.Errorf("empty errors should be skipped: %v", err.GetErrors())
+	}
+
+	err0 := errors.New("foo")
+	err1 := errors.New("bar")
+	err.Add(err0, err1)
+	if len(err.GetErrors()) != 2 {
+		t.Errorf("Non-nil errors should be added to the batch: %v", err.GetErrors())
+	}
+	actual0 := err.GetErrors()[0]
+	if actual0 != err0 {
+		t.Errorf("Expected %#v, got %#v", err0, actual0)
+	}
+	actual1 := err.GetErrors()[1]
+	if actual1 != err1 {
+		t.Errorf("Expected %#v, got %#v", err1, actual1)
+	}
+
+	var another batcherror.BatchError
+	err.Add(another)
+	if len(err.GetErrors()) != 2 {
+		t.Errorf("Empty batch should be skipped: %v", err.GetErrors())
+	}
+	err2 := errors.New("fizz")
+	err3 := errors.New("buzz")
+	err4 := errors.New("alpha")
+	another.Add(err2, err3)
+	err.Add(another, err4)
+	if len(err.GetErrors()) != 5 {
+		t.Errorf(
+			"The underlying errors should be added instead of the batch: %v",
+			err.GetErrors(),
+		)
+	}
+
+	batch := err.GetErrors()
+	if batch[0] != err0 {
+		t.Errorf("Expected %#v, got %#v", err0, batch[0])
+	}
+	if batch[1] != err1 {
+		t.Errorf("Expected %#v, got %#v", err1, batch[1])
+	}
+	if batch[2] != err2 {
+		t.Errorf("Expected %#v, got %#v", err2, batch[2])
+	}
+	if batch[3] != err3 {
+		t.Errorf("Expected %#v, got %#v", err3, batch[3])
+	}
+	if batch[4] != err4 {
+		t.Errorf("Expected %#v, got %#v", err4, batch[4])
+	}
+}
+
 func TestCompile(t *testing.T) {
 	var batch batcherror.BatchError
 	err0 := errors.New("foo")
