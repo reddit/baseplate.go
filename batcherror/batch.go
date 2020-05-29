@@ -89,22 +89,24 @@ func (be *BatchError) addBatch(batch BatchError) {
 	be.errors = append(be.errors, batch.errors...)
 }
 
-// Add adds an error into the batch.
+// Add adds errors into the batch.
 //
-// If the error is also an BatchError,
+// If an error is also an BatchError,
 // its underlying error(s) will be added instead of the BatchError itself.
 //
-// Nil error will be skipped.
-func (be *BatchError) Add(err error) {
-	if err == nil {
-		return
-	}
+// Nil errors will be skipped.
+func (be *BatchError) Add(errs ...error) {
+	for _, err := range errs {
+		if err == nil {
+			continue
+		}
 
-	var batch BatchError
-	if errors.As(err, &batch) {
-		be.addBatch(batch)
-	} else {
-		be.errors = append(be.errors, err)
+		var batch BatchError
+		if errors.As(err, &batch) {
+			be.addBatch(batch)
+		} else {
+			be.errors = append(be.errors, err)
+		}
 	}
 }
 
