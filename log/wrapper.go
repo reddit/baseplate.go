@@ -60,18 +60,18 @@ import (
 // interchangeably (sometimes a typecasting is needed).
 type Wrapper func(msg string)
 
-// NopWrapper is a Wrapper implementation that does nothing.
-func NopWrapper(msg string) {}
-
-// FallbackWrapper is the nil-safe wrapper.
-//
-// It returns NopWrapper when logger is nil, otherwise it return logger as-is.
-func FallbackWrapper(logger Wrapper) Wrapper {
-	if logger != nil {
-		return logger
+// Log is the nil-safe way of calling a log.Wrapper.
+func (w Wrapper) Log(msg string) {
+	if w != nil {
+		w(msg)
 	}
-	return NopWrapper
 }
+
+// NopWrapper is a Wrapper implementation that does nothing.
+//
+// In most cases you don't need to use it directly.
+// The zero value of log.Wrapper is essentially a NopWrapper.
+func NopWrapper(msg string) {}
 
 // StdWrapper wraps stdlib log package into a Wrapper.
 func StdWrapper(logger *stdlog.Logger) Wrapper {

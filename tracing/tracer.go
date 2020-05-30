@@ -284,10 +284,6 @@ func (t *Tracer) Extract(format interface{}, carrier interface{}) (opentracing.S
 	return nil, opentracing.ErrInvalidCarrier
 }
 
-func (t *Tracer) getLogger() log.Wrapper {
-	return log.FallbackWrapper(t.logger)
-}
-
 func findFirstParentReference(refs []opentracing.SpanReference) *Span {
 	for _, s := range refs {
 		if s.Type == opentracing.ChildOfRef {

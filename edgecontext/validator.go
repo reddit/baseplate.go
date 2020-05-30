@@ -7,7 +7,6 @@ import (
 
 	jwt "github.com/reddit/jwt-go/v3"
 
-	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
 )
 
@@ -78,7 +77,7 @@ func (impl *Impl) validatorMiddleware(next secrets.SecretHandlerFunc) secrets.Se
 
 		versioned, err := sec.GetVersionedSecret(authenticationPubKeySecretPath)
 		if err != nil {
-			log.FallbackWrapper(impl.logger)(fmt.Sprintf(
+			impl.logger.Log(fmt.Sprintf(
 				"Failed to get secrets %q: %v",
 				authenticationPubKeySecretPath,
 				err,
@@ -91,7 +90,7 @@ func (impl *Impl) validatorMiddleware(next secrets.SecretHandlerFunc) secrets.Se
 		for i, v := range all {
 			key, err := jwt.ParseRSAPublicKeyFromPEM([]byte(v))
 			if err != nil {
-				log.FallbackWrapper(impl.logger)(fmt.Sprintf(
+				impl.logger.Log(fmt.Sprintf(
 					"Failed to parse key #%d: %v",
 					i,
 					err,
@@ -102,7 +101,7 @@ func (impl *Impl) validatorMiddleware(next secrets.SecretHandlerFunc) secrets.Se
 		}
 
 		if len(keys) == 0 {
-			log.FallbackWrapper(impl.logger)("No valid keys in secrets store.")
+			impl.logger.Log("No valid keys in secrets store.")
 			return
 		}
 
