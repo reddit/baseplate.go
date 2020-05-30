@@ -8,7 +8,6 @@ import (
 	"github.com/gofrs/uuid"
 
 	"github.com/reddit/baseplate.go/experiments"
-	"github.com/reddit/baseplate.go/log"
 )
 
 // An EdgeRequestContext contains context info about an edge request.
@@ -33,7 +32,7 @@ func (e *EdgeRequestContext) AuthToken() *AuthenticationToken {
 		if token, err := e.impl.ValidateToken(e.raw.AuthToken); err != nil {
 			// empty jwt token is considered "normal", no need to spam them in logs.
 			if !errors.Is(err, ErrEmptyToken) {
-				log.FallbackWrapper(e.impl.logger)("token validation failed: " + err.Error())
+				e.impl.logger.Log("token validation failed: " + err.Error())
 			}
 			e.token = nil
 		} else {
@@ -122,7 +121,7 @@ func (e *EdgeRequestContext) UpdateExperimentEvent(ee *experiments.ExperimentEve
 		ee.DeviceID, err = uuid.FromString(deviceID)
 		if err != nil {
 			ee.DeviceID = uuid.Nil
-			log.FallbackWrapper(e.impl.logger)(fmt.Sprintf(
+			e.impl.logger.Log(fmt.Sprintf(
 				"Failed to parse device id %q into uuid: %v",
 				deviceID,
 				err,

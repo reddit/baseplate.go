@@ -27,6 +27,7 @@ go_test(
     srcs = [
         "kit_wrapper_test.go",
         "log_test.go",
+        "wrapper_test.go",
     ],
     embed = [":go_default_library"],
     deps = ["@com_github_go_kit_kit//log:go_default_library"],
