@@ -29,7 +29,12 @@ const (
 func initClients() (*thrifttest.MockClient, *thrifttest.RecordedClient, thrift.TClient) {
 	mock := &thrifttest.MockClient{FailUnregisteredMethods: true}
 	recorder := thrifttest.NewRecordedClient(mock)
-	client := thrift.WrapClient(recorder, thriftbp.BaseplateDefaultClientMiddlewares(service, nil)...)
+	client := thrift.WrapClient(
+		recorder,
+		thriftbp.BaseplateDefaultClientMiddlewares(
+			thriftbp.DefaultClientMiddlewareArgs{ServiceSlug: service},
+		)...,
+	)
 	return mock, recorder, client
 }
 

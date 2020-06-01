@@ -31,6 +31,29 @@ func WithDefaultRetryFilters(filters ...retrybp.Filter) []retrybp.Filter {
 	}, filters...)
 }
 
+// DefaultClientMiddlewareArgs is the arg struct for BaseplateDefaultClientMiddlewares.
+type DefaultClientMiddlewareArgs struct {
+	// ServiceSlug is a short identifier for the thrift service you are creating
+	// clients for.  The preferred convention is to take the service's name,
+	// remove the 'Service' prefix, if present, and convert from camel case to
+	// all lower case, hyphen separated.
+	//
+	// Examples:
+	//
+	//     AuthenticationService -> authentication
+	//     ImageUploadService -> image-upload
+	ServiceSlug string
+
+	// RetryOptions is the list of retry.Options to apply as the defaults for the
+	// Retry middleware.
+	//
+	// This is optional, if it is not set, we will use a single option,
+	// retry.Attempts(1).  This sets up the retry middleware but does not
+	// automatically retry any requests.  You can set retry behavior per-call by
+	// using retrybp.WithOptions.
+	RetryOptions []retry.Option
+}
+
 // BaseplateDefaultClientMiddlewares returns the default client middlewares that
 // should be used by a baseplate service.
 //
@@ -45,14 +68,14 @@ func WithDefaultRetryFilters(filters ...retrybp.Filter) []retrybp.Filter {
 // 3. MonitorClient
 //
 // 4. SetDeadlineBudget
-func BaseplateDefaultClientMiddlewares(service string, retryOptions []retry.Option) []thrift.ClientMiddleware {
-	if len(retryOptions) == 0 {
-		retryOptions = []retry.Option{retry.Attempts(1)}
+func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
+	if len(args.RetryOptions) == 0 {
+		args.RetryOptions = []retry.Option{retry.Attempts(1)}
 	}
 	return []thrift.ClientMiddleware{
 		ForwardEdgeRequestContext,
-		Retry(retryOptions...),
-		MonitorClient(service),
+		Retry(args.RetryOptions...),
+		MonitorClient(args.ServiceSlug),
 		SetDeadlineBudget,
 	}
 }
