@@ -176,7 +176,12 @@ func SingleAddressGenerator(addr string) AddressGenerator {
 // BaseplateDefaultClientMiddlewares plus any additional client middlewares
 // passed into this function.
 func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
-	defaults := BaseplateDefaultClientMiddlewares(cfg.ServiceSlug, cfg.DefaultRetryOptions)
+	defaults := BaseplateDefaultClientMiddlewares(
+		DefaultClientMiddlewareArgs{
+			ServiceSlug:  cfg.ServiceSlug,
+			RetryOptions: cfg.DefaultRetryOptions,
+		},
+	)
 	middlewares = append(middlewares, defaults...)
 	return NewCustomClientPool(
 		cfg,
