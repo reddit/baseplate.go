@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -200,6 +201,39 @@ func TestNewTestSecrets(t *testing.T) {
 						}
 					},
 				)
+			},
+		)
+	}
+}
+
+func TestRaceConditionFlag(t *testing.T) {
+	t.Parallel()
+
+	raw := map[string]secrets.GenericSecret{
+		"secret/simple/versioned": {
+			Type:     secrets.VersionedType,
+			Current:  "foo",
+			Encoding: secrets.IdentityEncoding,
+		},
+	}
+	for i := 0; i < 10; i++ {
+		t.Run(
+			fmt.Sprintf("parallel-run/%d", i),
+			func(t *testing.T) {
+				t.Parallel()
+
+				secrets, _, err := secrets.NewTestSecrets(context.TODO(), raw)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				s, err := secrets.GetVersionedSecret("secret/simple/versioned")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if string(s.Current) != "foo" {
+					t.Fatalf("wrong secret")
+				}
 			},
 		)
 	}
