@@ -30,16 +30,15 @@ go_test(
         "mqsend_linux_test.go",
         "mqsend_mock_test.go",
         "mqsend_other_test.go",
-        "mqsend_test.go",
     ],
     embed = [":go_default_library"],
-    deps = [
-        "//randbp:go_default_library",
-    ] + select({
+    deps = select({
         "@io_bazel_rules_go//go/platform:android": [
+            "//randbp:go_default_library",
             "@org_golang_x_sys//unix:go_default_library",
         ],
         "@io_bazel_rules_go//go/platform:linux": [
+            "//randbp:go_default_library",
             "@org_golang_x_sys//unix:go_default_library",
         ],
         "//conditions:default": [],

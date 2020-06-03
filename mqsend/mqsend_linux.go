@@ -33,6 +33,14 @@ type mqAttr struct {
 }
 
 func openMessageQueue(cfg MessageQueueConfig) (MessageQueue, error) {
+	if err := setUlimit(); err != nil {
+		return nil, err
+	}
+
+	return openMessageQueueLinux(cfg)
+}
+
+func openMessageQueueLinux(cfg MessageQueueConfig) (MessageQueue, error) {
 	name, err := unix.BytePtrFromString(cfg.Name)
 	if err != nil {
 		return nil, err
@@ -116,4 +124,20 @@ func (mqd messageQueue) Send(ctx context.Context, data []byte) error {
 	// The only possibility we get here is because we exceeded maxEINTRRetries,
 	// so just return that error.
 	return syscall.EINTR
+}
+
+const (
+	// The equivelant of -q in ulimit command
+	rlimitMQ = 0xC
+
+	// See https://github.com/golang/go/issues/22731
+	rlimitUnlimited uint64 = 0xffffffffffffffff
+)
+
+// setUlimit does the equivelant of "ulimit -q unlimited".
+func setUlimit() error {
+	return syscall.Setrlimit(rlimitMQ, &syscall.Rlimit{
+		Cur: rlimitUnlimited,
+		Max: rlimitUnlimited,
+	})
 }
