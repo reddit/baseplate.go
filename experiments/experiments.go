@@ -19,6 +19,25 @@ import (
 
 const targetAllOverride = `{"OVERRIDE": true}`
 
+// MissingBucketKeyError is a special error returned by Variant functions,
+// to indicate that the bucket key from the args map is missing.
+//
+// This error is usually considered "normal",
+// the caller might still want to log it,
+// but usually don't need to send it to sentry.
+type MissingBucketKeyError struct {
+	ExperimentName string
+	ArgsKey        string
+}
+
+func (e MissingBucketKeyError) Error() string {
+	return fmt.Sprintf(
+		"experiment: must specify %q in call to variant for experiment %s",
+		e.ArgsKey,
+		e.ExperimentName,
+	)
+}
+
 // Experiments offers access to the experiment framework with automatic refresh
 // when there are change.
 //
@@ -69,6 +88,10 @@ func NewExperiments(ctx context.Context, path string, eventLogger EventLogger, l
 //
 // Returns the name of the enabled variant as a string if any variant is
 // enabled. If no variant is enabled returns an empty string.
+//
+// This function might return MissingBucketKeyError as the error.
+// Caller usually want to check for that and handle it differently from other
+// errors. See its documentation for more details.
 func (e *Experiments) Variant(name string, args map[string]interface{}, bucketingEventOverride bool) (string, error) {
 	experiment, err := e.experiment(name)
 	if err != nil {
@@ -248,18 +271,22 @@ func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error
 
 // Variant determines the variant, if any, is active. Bucket calculation is
 // determined based on the bucketVal.
+//
+// This function might return MissingBucketKeyError as the error.
+// Caller usually want to check for that and handle it differently from other
+// errors. See its documentation for more details.
 func (e *SimpleExperiment) Variant(args map[string]interface{}) (string, error) {
 	if !e.isEnabled() {
 		return "", nil
 	}
 	args = lowerArguments(args)
-	if value, ok := args[e.bucketVal]; !ok || value == "" {
-		return "", fmt.Errorf(
-			"experiment.SimpleExperiment.Variant: must specify %s in call to variant for experiment %s",
-			e.bucketVal,
-			e.name,
-		)
+	if value, _ := args[e.bucketVal]; value == nil || value == "" {
+		return "", MissingBucketKeyError{
+			ExperimentName: e.name,
+			ArgsKey:        e.bucketVal,
+		}
 	}
+
 	for _, override := range e.overrides {
 		for variant, targeting := range override {
 			if targeting.Evaluate(args) {
