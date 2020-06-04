@@ -2,9 +2,9 @@ package experiments
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
-	"strings"
 	"testing"
 	"time"
 
@@ -259,15 +259,34 @@ func TestVariantReturnsNilIfOutOfTimeWindow(t *testing.T) {
 	}
 }
 
+func TestVariantExplicitNil(t *testing.T) {
+	validExperiment, err := NewSimpleExperiment(simpleConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Explicit nil user_id is caused by empty loid.
+	// We just treat them the same as empty string.
+	_, err = validExperiment.Variant(map[string]interface{}{"user_id": nil})
+	if err == nil {
+		t.Error("Expected error for explicit nil user_id, got nil error.")
+	}
+	if !errors.As(err, new(MissingBucketKeyError)) {
+		t.Errorf("Expected MissingBucketKeyError for explicit nil user_id, got %v", err)
+	}
+}
+
 func TestNoBucketVal(t *testing.T) {
 	experiment, err := NewSimpleExperiment(simpleConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
 	result, err := experiment.Variant(map[string]interface{}{"not_user_id": "t2_1"})
-	expectedErr := "must specify user_id in call to variant for experiment test_experiment"
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("expected error %q but was: %v", expectedErr, err)
+	if err == nil {
+		t.Error("Expected error for missing user_id, got nil error.")
+	}
+	if !errors.As(err, new(MissingBucketKeyError)) {
+		t.Errorf("Expected MissingBucketKeyError for missing user_id, got %v", err)
 	}
 	if result != "" {
 		t.Errorf("expected result to be empty but was %s", result)
@@ -278,9 +297,11 @@ func TestNoBucketVal(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, err = experiment.Variant(map[string]interface{}{"not_user_id": ""})
-	expectedErr = "must specify user_id in call to variant for experiment test_experiment"
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("expected error %q but was: %v", expectedErr, err)
+	if err == nil {
+		t.Error("Expected error for missing user_id, got nil error.")
+	}
+	if !errors.As(err, new(MissingBucketKeyError)) {
+		t.Errorf("Expected MissingBucketKeyError for missing user_id, got %v", err)
 	}
 	if result != "" {
 		t.Errorf("expected result to be empty but was %s", result)
