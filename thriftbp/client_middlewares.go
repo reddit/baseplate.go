@@ -14,6 +14,21 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
+// MonitorClientWrappedSlugSuffix is a suffix to be added to the service slug
+// arg of MonitorClient function, in order to distinguish from the spans that
+// are the raw client calls..
+//
+// The MonitorClient with this suffix will have span operation names like:
+//
+//     service-with-retry.endpointName
+//
+// Which groups all retries of the same client call together,
+// while the MonitorClient without this suffix will have span operation names
+// like:
+//
+//     service.endpointName
+const MonitorClientWrappedSlugSuffix = "-with-retry"
+
 // WithDefaultRetryFilters returns a list of retrybp.Filters by appending the
 // given filters to the "default" retry filters:
 //
@@ -61,19 +76,24 @@ type DefaultClientMiddlewareArgs struct {
 //
 // 1. ForwardEdgeRequestContext
 //
-// 2. Retry(retryOptions) - If retryOptions is empty/nil, default to
-//    only retry.Attempts(1), this will not actually retry any calls but your
-//    client is configured to set retry logic per-call using retrybp.WithOptions.
+// 2. MonitorClient with MonitorClientWrappedSlugSuffix - This creates the spans
+// from the view of the client that group all retries into a single,
+// wrapped span.
 //
-// 3. MonitorClient
+// 3. Retry(retryOptions) - If retryOptions is empty/nil, default to only
+// retry.Attempts(1), this will not actually retry any calls but your client is
+// configured to set retry logic per-call using retrybp.WithOptions.
 //
-// 4. SetDeadlineBudget
+// 4. MonitorClient - This creates the spans of the raw client calls.
+//
+// 5. SetDeadlineBudget
 func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
 	}
 	return []thrift.ClientMiddleware{
 		ForwardEdgeRequestContext,
+		MonitorClient(args.ServiceSlug + MonitorClientWrappedSlugSuffix),
 		Retry(args.RetryOptions...),
 		MonitorClient(args.ServiceSlug),
 		SetDeadlineBudget,
