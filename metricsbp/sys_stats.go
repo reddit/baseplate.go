@@ -28,7 +28,7 @@ func pullRuntimeStats() (cpu cpuStats, mem runtime.MemStats) {
 // RunSysStats starts a goroutine to periodically pull and report sys stats.
 //
 // Canceling the context passed into NewStatsd will stop this goroutine.
-func (st *Statsd) RunSysStats(_ Labels) {
+func (st *Statsd) RunSysStats() {
 	st = st.fallback()
 
 	hostname, err := os.Hostname()

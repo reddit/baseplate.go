@@ -19,8 +19,8 @@ type Config struct {
 	// Endpoint is the endpoint for your metrics backend.
 	Endpoint string `yaml:"endpoint"`
 
-	// Lables are the base labels that will be applied to all metrics.
-	Labels Labels `yaml:"labels"`
+	// Tags are the base tags that will be applied to all metrics.
+	Tags Tags `yaml:"tags"`
 
 	// CounterSampleRate is the fraction of counters that you want to send to your
 	// metrics backend.
@@ -53,11 +53,11 @@ func InitFromConfig(ctx context.Context, cfg Config) io.Closer {
 		Prefix:              cfg.Namespace,
 		Address:             cfg.Endpoint,
 		LogLevel:            log.ErrorLevel,
-		Labels:              cfg.Labels,
+		Tags:                cfg.Tags,
 	})
 	tracing.RegisterCreateServerSpanHooks(CreateServerSpanHook{Metrics: M})
 	if cfg.RunSysStats {
-		M.RunSysStats(Labels{})
+		M.RunSysStats()
 	}
 	return M
 }

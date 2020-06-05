@@ -7,22 +7,22 @@ import (
 	"github.com/reddit/baseplate.go/metricsbp"
 )
 
-func TestLabels(t *testing.T) {
+func TestTags(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		name     string
-		labels   metricsbp.Labels
+		tags     metricsbp.Tags
 		expected []string
 	}{
 		{
 			name:     "nil",
-			labels:   nil,
+			tags:     nil,
 			expected: nil,
 		},
 		{
 			name:     "one",
-			labels:   metricsbp.Labels{"key": "value"},
+			tags:     metricsbp.Tags{"key": "value"},
 			expected: []string{"key", "value"},
 		},
 	}
@@ -32,12 +32,12 @@ func TestLabels(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			asStatsd := c.labels.AsStatsdLabels()
-			if len(asStatsd) != len(c.labels)*2 {
+			asStatsd := c.tags.AsStatsdTags()
+			if len(asStatsd) != len(c.tags)*2 {
 				t.Fatalf("wrong size: %#v", asStatsd)
 			}
 			if !reflect.DeepEqual(c.expected, asStatsd) {
-				t.Fatalf("labels do not match, expected %#v, got %#v", c.expected, asStatsd)
+				t.Fatalf("tags do not match, expected %#v, got %#v", c.expected, asStatsd)
 			}
 		})
 	}
