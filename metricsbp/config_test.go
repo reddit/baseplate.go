@@ -47,6 +47,24 @@ histogramSampleRate: 0.01
 				HistogramSampleRate: float64Ptr(0.01),
 			},
 		},
+		{
+			name: "labels",
+			body: `
+namespace: foo
+endpoint: bar:8080
+labels:
+ fizz: buzz
+ alpha: omega
+`,
+			expected: metricsbp.Config{
+				Namespace: "foo",
+				Endpoint:  "bar:8080",
+				Labels: metricsbp.Labels{
+					"fizz":  "buzz",
+					"alpha": "omega",
+				},
+			},
+		},
 	}
 
 	for _, _c := range cases {

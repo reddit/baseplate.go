@@ -19,6 +19,9 @@ type Config struct {
 	// Endpoint is the endpoint for your metrics backend.
 	Endpoint string `yaml:"endpoint"`
 
+	// Lables are the base labels that will be applied to all metrics.
+	Labels Labels `yaml:"labels"`
+
 	// CounterSampleRate is the fraction of counters that you want to send to your
 	// metrics backend.
 	//
@@ -30,13 +33,19 @@ type Config struct {
 	//
 	// Optional, defaults to 1.0
 	HistogramSampleRate *float64 `yaml:"histogramSampleRate"`
+
+	// RunSysStats indicates that you want to publish system stats.
+	//
+	// Optional, defaults to false
+	RunSysStats bool `yaml:"runSysStats"`
 }
 
 // InitFromConfig initializes the global metricsbp.M with the given context and
 // Config and returns an io.Closer to use to close out the metrics client when
 // your server exits.
 //
-// It also registers CreateServerSpanHook with the global tracing hook registry.
+// It also registers CreateServerSpanHook and ConcurrencyCreateServerSpanHook
+// with the global tracing hook registry.
 func InitFromConfig(ctx context.Context, cfg Config) io.Closer {
 	M = NewStatsd(ctx, StatsdConfig{
 		CounterSampleRate:   cfg.CounterSampleRate,
@@ -44,7 +53,11 @@ func InitFromConfig(ctx context.Context, cfg Config) io.Closer {
 		Prefix:              cfg.Namespace,
 		Address:             cfg.Endpoint,
 		LogLevel:            log.ErrorLevel,
+		Labels:              cfg.Labels,
 	})
 	tracing.RegisterCreateServerSpanHooks(CreateServerSpanHook{Metrics: M})
+	if cfg.RunSysStats {
+		M.RunSysStats(Labels{})
+	}
 	return M
 }

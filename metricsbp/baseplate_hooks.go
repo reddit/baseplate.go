@@ -27,7 +27,7 @@ func (h CreateServerSpanHook) OnCreateServerSpan(span *tracing.Span) error {
 	return nil
 }
 
-// spanHook wraps a Span in a Timer and records a "success" or "fail"
+// spanHook wraps a Span in a Timer and records a "success" or "fail"/"failure"
 // metric when the Span ends based on whether an error was passed to `span.End`
 // or not.
 type spanHook struct {
