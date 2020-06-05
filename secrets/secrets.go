@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/reddit/baseplate.go/batcherror"
+	"github.com/reddit/baseplate.go/errorsbp"
 )
 
 const (
@@ -183,7 +183,7 @@ type Document struct {
 // When this function returns a non-nil error, the error is either a
 // TooManyFieldsError, or a BatchError containing multiple TooManyFieldsError.
 func (s *Document) Validate() error {
-	var batch batcherror.BatchError
+	var batch errorsbp.BatchError
 	for key, value := range s.Secrets {
 		if value.Type == SimpleType && notOnlySimpleSecret(value) {
 			batch.Add(TooManyFieldsError{

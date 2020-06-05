@@ -113,7 +113,7 @@ func (s *Server) Close() error {
 //		"context"
 //		"testing"
 //
-//		"github.com/reddit/baseplate.go/batcherror"
+//		"github.com/reddit/baseplate.go/errorsbp"
 //		baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 //		"github.com/reddit/baseplate.go/secrets"
 //		"github.com/reddit/baseplate.go/thriftbp/thrifttest"

@@ -1,4 +1,4 @@
-package batcherror_test
+package errorsbp_test
 
 import (
 	"context"
@@ -7,11 +7,11 @@ import (
 	"io"
 	"os"
 
-	"github.com/reddit/baseplate.go/batcherror"
+	"github.com/reddit/baseplate.go/errorsbp"
 )
 
 func Example() {
-	var batch batcherror.BatchError
+	var batch errorsbp.BatchError
 
 	var singleError error = batch.Compile()
 	fmt.Printf("0: %v\n", singleError)
@@ -30,7 +30,7 @@ func Example() {
 	singleError = batch.Compile()
 	fmt.Printf("2: %v\n", singleError)
 
-	var newBatch batcherror.BatchError
+	var newBatch errorsbp.BatchError
 	// Add multiple errors at once
 	newBatch.Add(
 		errors.New("fizz"),
@@ -43,13 +43,13 @@ func Example() {
 	// 0: <nil>
 	// 1: foo
 	// Nil errors are skipped: foo
-	// 2: batcherror: total 2 error(s) in this batch: foo; bar
-	// 3: batcherror: total 4 error(s) in this batch: fizz; buzz; foo; bar
+	// 2: errorsbp: total 2 error(s) in this batch: foo; bar
+	// 3: errorsbp: total 4 error(s) in this batch: fizz; buzz; foo; bar
 }
 
 // This example demonstrates how a BatchError can be inspected with errors.Is.
 func ExampleBatchError_Is() {
-	var batch batcherror.BatchError
+	var batch errorsbp.BatchError
 
 	batch.Add(context.Canceled)
 	err := batch.Compile()
@@ -70,7 +70,7 @@ func ExampleBatchError_Is() {
 
 // This example demonstrates how a BatchError can be inspected with errors.As.
 func ExampleBatchError_As() {
-	var batch batcherror.BatchError
+	var batch errorsbp.BatchError
 	var target *os.PathError
 
 	batch.Add(context.Canceled)

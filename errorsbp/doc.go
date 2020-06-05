@@ -1,4 +1,4 @@
-// Package batcherror provides BatchError, which can be used to compile multiple
+// Package errorsbp provides BatchError, which can be used to compile multiple
 // errors into a single one.
 //
 // An example of how to use it in your functions:
@@ -18,7 +18,7 @@
 //         }
 //
 //         wg.Wait()
-//         var batch batcherror.BatchError
+//         var batch errorsbp.BatchError
 //         for err := range errChan {
 //             // nil errors will be auto skipped
 //             batch.Add(err)
@@ -31,4 +31,4 @@
 //
 // This package is not thread-safe.
 // The same batch should not be operated on different goroutines concurrently.
-package batcherror
+package errorsbp

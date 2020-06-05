@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/reddit/baseplate.go/batcherror"
+	"github.com/reddit/baseplate.go/errorsbp"
 )
 
 // CloseError is used to wrap the errors returned by the inner closers within a
@@ -80,9 +80,9 @@ type BatchCloser struct {
 }
 
 // Close implements io.Closer and closes all of it's internal io.Closer objects,
-// batching any errors into a batcherror.BatchError.
+// batching any errors into a errorsbp.BatchError.
 func (bc *BatchCloser) Close() error {
-	var errs batcherror.BatchError
+	var errs errorsbp.BatchError
 	for _, closer := range bc.closers {
 		if err := closer.Close(); err != nil {
 			errs.Add(CloseError{

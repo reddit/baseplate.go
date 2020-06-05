@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -44,9 +45,8 @@ type Config struct {
 // Config and returns an io.Closer to use to close out the metrics client when
 // your server exits.
 //
-// It also registers CreateServerSpanHook and ConcurrencyCreateServerSpanHook
-// with the global tracing hook registry.
-func InitFromConfig(ctx context.Context, cfg Config) io.Closer {
+// It also registers CreateServerSpanHook with the global tracing hook registry.
+func InitFromConfig(ctx context.Context, cfg Config, filters ...errorsbp.Filter) io.Closer {
 	M = NewStatsd(ctx, StatsdConfig{
 		CounterSampleRate:   cfg.CounterSampleRate,
 		HistogramSampleRate: cfg.HistogramSampleRate,
@@ -55,7 +55,12 @@ func InitFromConfig(ctx context.Context, cfg Config) io.Closer {
 		LogLevel:            log.ErrorLevel,
 		Tags:                cfg.Tags,
 	})
-	tracing.RegisterCreateServerSpanHooks(CreateServerSpanHook{Metrics: M})
+	tracing.RegisterCreateServerSpanHooks(
+		CreateServerSpanHook{
+			Metrics:    M,
+			Suppressor: errorsbp.NewSuppressor(filters...),
+		},
+	)
 	if cfg.RunSysStats {
 		M.RunSysStats()
 	}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/metrics"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -18,14 +19,19 @@ const (
 // CreateServerSpanHook registers each Server Span with a MetricsSpanHook.
 type CreateServerSpanHook struct {
 	// Optional, will fallback to M when it's nil.
-	Metrics *Statsd
+	Metrics    *Statsd
+	Suppressor errorsbp.Suppressor
 }
 
 // OnCreateServerSpan registers MetricSpanHooks on a server Span.
 func (h CreateServerSpanHook) OnCreateServerSpan(span *tracing.Span) error {
 	statsd := h.Metrics.fallback()
+	suppressor := h.Suppressor
+	if suppressor == nil {
+		suppressor = errorsbp.NewSuppressor()
+	}
 	span.AddHooks(
-		newSpanHook(statsd, span),
+		newSpanHook(statsd, span, suppressor),
 		countActiveRequestsHook{
 			metrics: statsd,
 		},
@@ -37,26 +43,28 @@ func (h CreateServerSpanHook) OnCreateServerSpan(span *tracing.Span) error {
 // metric when the Span ends based on whether an error was passed to `span.End`
 // or not.
 type spanHook struct {
-	name    string
-	metrics *Statsd
+	name       string
+	metrics    *Statsd
+	suppressor errorsbp.Suppressor
 
 	histogram metrics.Histogram
 	start     time.Time
 }
 
-func newSpanHook(metrics *Statsd, span *tracing.Span) *spanHook {
+func newSpanHook(metrics *Statsd, span *tracing.Span, suppressor errorsbp.Suppressor) *spanHook {
 	name := span.Component() + "." + span.Name()
 	return &spanHook{
-		name:      name,
-		metrics:   metrics,
-		histogram: metrics.Timing(name),
+		name:       name,
+		metrics:    metrics,
+		suppressor: suppressor,
+		histogram:  metrics.Timing(name),
 	}
 }
 
 // OnCreateChild registers a child MetricsSpanHook on the child Span and starts
 // a new Timer around the Span.
 func (h *spanHook) OnCreateChild(parent, child *tracing.Span) error {
-	child.AddHooks(newSpanHook(h.metrics, child))
+	child.AddHooks(newSpanHook(h.metrics, child, h.suppressor))
 	return nil
 }
 
@@ -85,7 +93,7 @@ func (h *spanHook) OnPreStop(span *tracing.Span, err error) error {
 	recordDuration(h.histogram, duration)
 
 	var statusMetricPath string
-	if err != nil {
+	if err != nil && !h.suppressor(err) {
 		statusMetricPath = fmt.Sprintf("%s.%s", h.name, failure)
 		// temp: publish both "fail" and "failure"
 		h.metrics.Counter(fmt.Sprintf("%s.%s", h.name, fail)).Add(1)

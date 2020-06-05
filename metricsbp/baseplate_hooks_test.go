@@ -12,6 +12,7 @@ import (
 
 	opentracing "github.com/opentracing/opentracing-go"
 
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -53,7 +54,10 @@ func TestOnCreateServerSpan(t *testing.T) {
 		metricsbp.StatsdConfig{},
 	)
 
-	hook := metricsbp.CreateServerSpanHook{Metrics: st}
+	hook := metricsbp.CreateServerSpanHook{
+		Metrics:    st,
+		Suppressor: errorsbp.NewSuppressor(),
+	}
 	tracing.RegisterCreateServerSpanHooks(hook)
 	defer tracing.ResetHooks()
 
@@ -129,7 +133,10 @@ func TestWithStartAndFinishTimes(t *testing.T) {
 		metricsbp.StatsdConfig{},
 	)
 
-	hook := metricsbp.CreateServerSpanHook{Metrics: st}
+	hook := metricsbp.CreateServerSpanHook{
+		Metrics:    st,
+		Suppressor: errorsbp.NewSuppressor(),
+	}
 	tracing.RegisterCreateServerSpanHooks(hook)
 	defer tracing.ResetHooks()
 

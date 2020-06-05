@@ -8,7 +8,7 @@ import (
 
 	retry "github.com/avast/retry-go"
 
-	"github.com/reddit/baseplate.go/batcherror"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/retrybp"
 )
 
@@ -94,7 +94,7 @@ func TestDoBatchError(t *testing.T) {
 		retry.Attempts(uint(len(errList))),
 	)
 
-	var batchErr batcherror.BatchError
+	var batchErr errorsbp.BatchError
 	if errors.As(err, &batchErr) {
 		if len(batchErr.GetErrors()) != len(errList) {
 			t.Errorf(

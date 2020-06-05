@@ -8,7 +8,7 @@ import (
 	"github.com/go-redis/redis/v7"
 	opentracing "github.com/opentracing/opentracing-go"
 
-	"github.com/reddit/baseplate.go/batcherror"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -48,7 +48,7 @@ func (h SpanHook) BeforeProcessPipeline(ctx context.Context, cmds []redis.Cmder)
 // publishes the time the Redis pipeline took to complete, and a metric
 // indicating whether the pipeline was a "success" or "fail"
 func (h SpanHook) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmder) error {
-	var errs batcherror.BatchError
+	var errs errorsbp.BatchError
 	for _, cmd := range cmds {
 		if !errors.Is(cmd.Err(), redis.Nil) {
 			errs.Add(cmd.Err())

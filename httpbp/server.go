@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	baseplate "github.com/reddit/baseplate.go"
-	"github.com/reddit/baseplate.go/batcherror"
+	"github.com/reddit/baseplate.go/errorsbp"
 )
 
 var allHTTPMethods = map[string]bool{
@@ -83,7 +83,7 @@ type Endpoint struct {
 // Validate checks for input errors on the Endpoint and returns an error
 // if any exist.
 func (e Endpoint) Validate() error {
-	var err batcherror.BatchError
+	var err errorsbp.BatchError
 	if e.Name == "" {
 		err.Add(errors.New("httpbp: Endpoint.Name must be non-empty"))
 	}
@@ -153,7 +153,7 @@ type ServerArgs struct {
 // be used for testing purposes.  It is called as a part of setting up a new
 // Baseplate server.
 func (args ServerArgs) ValidateAndSetDefaults() (ServerArgs, error) {
-	inputErrors := &batcherror.BatchError{}
+	inputErrors := &errorsbp.BatchError{}
 	if args.Baseplate == nil {
 		inputErrors.Add(errors.New("argument Baseplate must be non-nil"))
 	}

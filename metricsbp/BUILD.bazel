@@ -16,6 +16,7 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/metricsbp",
     visibility = ["//visibility:public"],
     deps = [
+        "//errorsbp:go_default_library",
         "//log:go_default_library",
         "//randbp:go_default_library",
         "//tracing:go_default_library",
@@ -46,6 +47,7 @@ go_test(
     # is just too slow for the context switch in the sleep in TestTimer.
     flaky = True,
     deps = [
+        "//errorsbp:go_default_library",
         "//tracing:go_default_library",
         "@com_github_go_kit_kit//metrics:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",

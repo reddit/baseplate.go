@@ -1,4 +1,4 @@
-package batcherror
+package errorsbp
 
 import (
 	"errors"
@@ -26,7 +26,7 @@ func (be BatchError) Error() string {
 	var sb strings.Builder
 	fmt.Fprintf(
 		&sb,
-		"batcherror: total %d error(s) in this batch",
+		"errorsbp: total %d error(s) in this batch",
 		len(be.errors),
 	)
 	for i, err := range be.errors {

@@ -5,8 +5,9 @@ go_library(
     srcs = [
         "batch.go",
         "doc.go",
+        "suppressor.go",
     ],
-    importpath = "github.com/reddit/baseplate.go/batcherror",
+    importpath = "github.com/reddit/baseplate.go/errorsbp",
     visibility = ["//visibility:public"],
 )
 
@@ -16,6 +17,7 @@ go_test(
     srcs = [
         "batch_test.go",
         "doc_test.go",
+        "suppressor_test.go",
     ],
     embed = [":go_default_library"],
 )

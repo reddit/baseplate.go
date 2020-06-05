@@ -1,15 +1,15 @@
-package batcherror_test
+package errorsbp_test
 
 import (
 	"errors"
 	"reflect"
 	"testing"
 
-	"github.com/reddit/baseplate.go/batcherror"
+	"github.com/reddit/baseplate.go/errorsbp"
 )
 
 func TestAdd(t *testing.T) {
-	var err batcherror.BatchError
+	var err errorsbp.BatchError
 	if len(err.GetErrors()) != 0 {
 		t.Errorf("A new BatchError should contain zero errors: %v", err.GetErrors())
 	}
@@ -29,7 +29,7 @@ func TestAdd(t *testing.T) {
 		t.Errorf("Expected %#v, got %#v", err0, actual)
 	}
 
-	var another batcherror.BatchError
+	var another errorsbp.BatchError
 	err.Add(another)
 	if len(err.GetErrors()) != 1 {
 		t.Errorf("Empty batch should be skipped: %v", err.GetErrors())
@@ -65,7 +65,7 @@ func TestAdd(t *testing.T) {
 		)
 	}
 
-	pointer := new(batcherror.BatchError)
+	pointer := new(errorsbp.BatchError)
 	err.Add(pointer)
 	if len(err.GetErrors()) != 0 {
 		t.Errorf("Empty batch should be skipped: %v", err.GetErrors())
@@ -84,7 +84,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestAddMultiple(t *testing.T) {
-	var err batcherror.BatchError
+	var err errorsbp.BatchError
 	if len(err.GetErrors()) != 0 {
 		t.Errorf("A new BatchError should contain zero errors: %v", err.GetErrors())
 	}
@@ -114,7 +114,7 @@ func TestAddMultiple(t *testing.T) {
 		t.Errorf("Expected %#v, got %#v", err1, actual1)
 	}
 
-	var another batcherror.BatchError
+	var another errorsbp.BatchError
 	err.Add(another)
 	if len(err.GetErrors()) != 2 {
 		t.Errorf("Empty batch should be skipped: %v", err.GetErrors())
@@ -150,7 +150,7 @@ func TestAddMultiple(t *testing.T) {
 }
 
 func TestCompile(t *testing.T) {
-	var batch batcherror.BatchError
+	var batch errorsbp.BatchError
 	err0 := errors.New("foo")
 	err1 := errors.New("bar")
 	err2 := errors.New("foobar")
@@ -171,7 +171,7 @@ func TestCompile(t *testing.T) {
 	batch.Add(err1)
 	batch.Add(err2)
 	err = batch.Compile()
-	expect := "batcherror: total 3 error(s) in this batch: foo; bar; foobar"
+	expect := "errorsbp: total 3 error(s) in this batch: foo; bar; foobar"
 	if err.Error() != expect {
 		t.Errorf("Compiled error expected %#v, got %#v", expect, err)
 	}
@@ -183,7 +183,7 @@ func TestCompile(t *testing.T) {
 }
 
 func TestGetErrors(t *testing.T) {
-	var batch batcherror.BatchError
+	var batch errorsbp.BatchError
 	err0 := errors.New("foo")
 	err1 := errors.New("bar")
 	err2 := errors.New("foobar")
