@@ -10,6 +10,7 @@ import (
 
 const (
 	success = "success"
+	fail    = "fail"
 	failure = "failure"
 	total   = "total"
 )
@@ -80,6 +81,8 @@ func (h *spanHook) OnPreStop(span *tracing.Span, err error) error {
 	var statusMetricPath string
 	if err != nil {
 		statusMetricPath = fmt.Sprintf("%s.%s", h.name, failure)
+		// temp: publish both "fail" and "failure"
+		h.metrics.Counter(fmt.Sprintf("%s.%s", h.name, fail)).Add(1)
 	} else {
 		statusMetricPath = fmt.Sprintf("%s.%s", h.name, success)
 	}
