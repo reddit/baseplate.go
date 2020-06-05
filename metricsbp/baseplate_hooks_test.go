@@ -101,6 +101,7 @@ func TestOnCreateServerSpan(t *testing.T) {
 			}
 
 			expected := []string{
+				"server.foo.fail:1.000000|c",
 				"server.foo.failure:1.000000|c",
 				"server.foo.total:1.000000|c",
 			}
