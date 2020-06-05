@@ -26,19 +26,19 @@ func TestSampledHistogram(t *testing.T) {
 			HistogramSampleRate: Float64Ptr(rate),
 		},
 	)
-	statsdWithLabels := NewStatsd(
+	statsdWithTags := NewStatsd(
 		context.Background(),
 		StatsdConfig{
-			Labels: map[string]string{
+			Tags: map[string]string{
 				"foo": "bar",
 			},
 		},
 	)
-	statsdWithLabelsSampled := NewStatsd(
+	statsdWithTagsSampled := NewStatsd(
 		context.Background(),
 		StatsdConfig{
 			HistogramSampleRate: Float64Ptr(rate),
-			Labels: map[string]string{
+			Tags: map[string]string{
 				"foo": "bar",
 			},
 		},
@@ -56,61 +56,61 @@ func TestSampledHistogram(t *testing.T) {
 	}
 
 	cases := []struct {
-		label    string
+		tag      string
 		sampled  bool
 		statsd   *Statsd
 		newHisto histoFunc
 	}{
 		{
-			label:    "not-sampled-no-labels",
+			tag:      "not-sampled-no-tags",
 			sampled:  false,
 			statsd:   statsd,
 			newHisto: histoNoLabel,
 		},
 		{
-			label:    "not-sampled-no-labels-with",
+			tag:      "not-sampled-no-tags-with",
 			sampled:  false,
 			statsd:   statsd,
 			newHisto: histoLabel,
 		},
 		{
-			label:    "sampled-no-labels",
+			tag:      "sampled-no-tags",
 			sampled:  true,
 			statsd:   statsdSampled,
 			newHisto: histoNoLabel,
 		},
 		{
-			label:    "sampled-no-labels-with",
+			tag:      "sampled-no-tags-with",
 			sampled:  true,
 			statsd:   statsdSampled,
 			newHisto: histoLabel,
 		},
 		{
-			label:    "not-sampled-labels",
+			tag:      "not-sampled-tags",
 			sampled:  false,
-			statsd:   statsdWithLabels,
+			statsd:   statsdWithTags,
 			newHisto: histoNoLabel,
 		},
 		{
-			label:    "not-sampled-labels-with",
+			tag:      "not-sampled-tags-with",
 			sampled:  false,
-			statsd:   statsdWithLabels,
+			statsd:   statsdWithTags,
 			newHisto: histoLabel,
 		},
 		{
-			label:    "sampled-labels",
+			tag:      "sampled-tags",
 			sampled:  true,
-			statsd:   statsdWithLabelsSampled,
+			statsd:   statsdWithTagsSampled,
 			newHisto: histoNoLabel,
 		},
 		{
-			label:    "sampled-labels-with",
+			tag:      "sampled-tags-with",
 			sampled:  true,
-			statsd:   statsdWithLabelsSampled,
+			statsd:   statsdWithTagsSampled,
 			newHisto: histoLabel,
 		},
 		{
-			label:    "override-sampled",
+			tag:      "override-sampled",
 			sampled:  true,
 			statsd:   statsd,
 			newHisto: histoOverrideRate,
@@ -119,7 +119,7 @@ func TestSampledHistogram(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(
-			c.label,
+			c.tag,
 			func(t *testing.T) {
 				const n = 20
 				var buf bytes.Buffer
@@ -179,19 +179,19 @@ func TestSampledCounter(t *testing.T) {
 			CounterSampleRate: Float64Ptr(rate),
 		},
 	)
-	statsdWithLabels := NewStatsd(
+	statsdWithTags := NewStatsd(
 		context.Background(),
 		StatsdConfig{
-			Labels: map[string]string{
+			Tags: map[string]string{
 				"foo": "bar",
 			},
 		},
 	)
-	statsdWithLabelsSampled := NewStatsd(
+	statsdWithTagsSampled := NewStatsd(
 		context.Background(),
 		StatsdConfig{
 			CounterSampleRate: Float64Ptr(rate),
-			Labels: map[string]string{
+			Tags: map[string]string{
 				"foo": "bar",
 			},
 		},
@@ -209,61 +209,61 @@ func TestSampledCounter(t *testing.T) {
 	}
 
 	cases := []struct {
-		label      string
+		tag        string
 		sampled    bool
 		statsd     *Statsd
 		newCounter counterFunc
 	}{
 		{
-			label:      "not-sampled-no-labels",
+			tag:        "not-sampled-no-tags",
 			sampled:    false,
 			statsd:     statsd,
 			newCounter: counterNoLabel,
 		},
 		{
-			label:      "not-sampled-no-labels-with",
+			tag:        "not-sampled-no-tags-with",
 			sampled:    false,
 			statsd:     statsd,
 			newCounter: counterLabel,
 		},
 		{
-			label:      "sampled-no-labels",
+			tag:        "sampled-no-tags",
 			sampled:    true,
 			statsd:     statsdSampled,
 			newCounter: counterNoLabel,
 		},
 		{
-			label:      "sampled-no-labels-with",
+			tag:        "sampled-no-tags-with",
 			sampled:    true,
 			statsd:     statsdSampled,
 			newCounter: counterLabel,
 		},
 		{
-			label:      "not-sampled-labels",
+			tag:        "not-sampled-tags",
 			sampled:    false,
-			statsd:     statsdWithLabels,
+			statsd:     statsdWithTags,
 			newCounter: counterNoLabel,
 		},
 		{
-			label:      "not-sampled-labels-with",
+			tag:        "not-sampled-tags-with",
 			sampled:    false,
-			statsd:     statsdWithLabels,
+			statsd:     statsdWithTags,
 			newCounter: counterLabel,
 		},
 		{
-			label:      "sampled-labels",
+			tag:        "sampled-tags",
 			sampled:    true,
-			statsd:     statsdWithLabelsSampled,
+			statsd:     statsdWithTagsSampled,
 			newCounter: counterNoLabel,
 		},
 		{
-			label:      "sampled-labels-with",
+			tag:        "sampled-tags-with",
 			sampled:    true,
-			statsd:     statsdWithLabelsSampled,
+			statsd:     statsdWithTagsSampled,
 			newCounter: counterLabel,
 		},
 		{
-			label:      "override-sampled",
+			tag:        "override-sampled",
 			sampled:    true,
 			statsd:     statsd,
 			newCounter: counterOverrideRate,
@@ -272,7 +272,7 @@ func TestSampledCounter(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(
-			c.label,
+			c.tag,
 			func(t *testing.T) {
 				const n = 100
 				const epsilon = 1e-9

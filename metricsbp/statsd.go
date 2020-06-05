@@ -59,7 +59,7 @@ var M = NewStatsd(context.Background(), StatsdConfig{})
 // It can be used to create metrics,
 // and also maintains the background reporting goroutine,
 //
-// It supports metrics labels in Influxstatsd format.
+// It supports metrics tags in Influxstatsd format.
 //
 // Please use NewStatsd to initialize it.
 //
@@ -117,10 +117,10 @@ type StatsdConfig struct {
 	// The log level used by the reporting goroutine.
 	LogLevel log.Level
 
-	// Labels are the labels/tags to be attached to every metrics created
-	// from this Statsd object. For labels/tags only needed by some metrics,
-	// use Counter/Gauge/Timing.With() instead.
-	Labels Labels
+	// Tags are the tags to be attached to every metrics created from this Statsd
+	// object. For tags only needed by some metrics, use Counter/Gauge/Timing.With()
+	// instead.
+	Tags Tags
 }
 
 func convertSampleRate(rate *float64) float64 {
@@ -146,9 +146,9 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 	if prefix != "" && !strings.HasSuffix(prefix, ".") {
 		prefix = prefix + "."
 	}
-	labels := cfg.Labels.AsStatsdLabels()
+	tags := cfg.Tags.AsStatsdTags()
 	st := &Statsd{
-		statsd:              influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), labels...),
+		statsd:              influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), tags...),
 		cfg:                 cfg,
 		counterSampleRate:   convertSampleRate(cfg.CounterSampleRate),
 		histogramSampleRate: convertSampleRate(cfg.HistogramSampleRate),

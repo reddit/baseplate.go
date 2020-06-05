@@ -13,7 +13,7 @@ import (
 func TestGlobalStatsd(t *testing.T) {
 	// Make sure global statsd is safe to use and won't cause panics, no real
 	// tests here:
-	metricsbp.M.RunSysStats(nil)
+	metricsbp.M.RunSysStats()
 	metricsbp.M.Counter("counter").Add(1)
 	metricsbp.M.CounterWithRate("counter", 0.1).Add(1)
 	metricsbp.M.Histogram("hitogram").Observe(1)
@@ -28,7 +28,7 @@ func TestNilStatsd(t *testing.T) {
 	var st *metricsbp.Statsd
 	// Make sure nil *Statsd is safe to use and won't cause panics, no real
 	// tests here:
-	st.RunSysStats(nil)
+	st.RunSysStats()
 	st.Counter("counter").Add(1)
 	st.CounterWithRate("counter", 0.1).Add(1)
 	st.Histogram("hitogram").Observe(1)
@@ -105,15 +105,15 @@ func TestNoFallback(t *testing.T) {
 
 func BenchmarkStatsd(b *testing.B) {
 	const (
-		label      = "label"
+		tag        = "tag"
 		sampleRate = 1
 	)
 
-	initialLabels := map[string]string{
+	initialTags := map[string]string{
 		"source": "test",
 	}
 
-	labels := []string{
+	tags := []string{
 		"testtype",
 		"benchmark",
 	}
@@ -121,7 +121,7 @@ func BenchmarkStatsd(b *testing.B) {
 	st := metricsbp.NewStatsd(
 		context.Background(),
 		metricsbp.StatsdConfig{
-			Labels: initialLabels,
+			Tags: initialTags,
 		},
 	)
 
@@ -131,7 +131,7 @@ func BenchmarkStatsd(b *testing.B) {
 			b.Run(
 				"histogram",
 				func(b *testing.B) {
-					m := st.Histogram(label)
+					m := st.Histogram(tag)
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
 						m.Observe(1)
@@ -142,7 +142,7 @@ func BenchmarkStatsd(b *testing.B) {
 			b.Run(
 				"timing",
 				func(b *testing.B) {
-					m := st.Timing(label)
+					m := st.Timing(tag)
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
 						m.Observe(1)
@@ -153,7 +153,7 @@ func BenchmarkStatsd(b *testing.B) {
 			b.Run(
 				"counter",
 				func(b *testing.B) {
-					m := st.Counter(label)
+					m := st.Counter(tag)
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
 						m.Add(1)
@@ -164,7 +164,7 @@ func BenchmarkStatsd(b *testing.B) {
 			b.Run(
 				"gauge",
 				func(b *testing.B) {
-					m := st.Gauge(label)
+					m := st.Gauge(tag)
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
 						m.Set(1)
@@ -181,7 +181,7 @@ func BenchmarkStatsd(b *testing.B) {
 				"histogram",
 				func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						st.Histogram(label).Observe(1)
+						st.Histogram(tag).Observe(1)
 					}
 				},
 			)
@@ -190,7 +190,7 @@ func BenchmarkStatsd(b *testing.B) {
 				"timing",
 				func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						st.Timing(label).Observe(1)
+						st.Timing(tag).Observe(1)
 					}
 				},
 			)
@@ -199,7 +199,7 @@ func BenchmarkStatsd(b *testing.B) {
 				"counter",
 				func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						st.Counter(label).Add(1)
+						st.Counter(tag).Add(1)
 					}
 				},
 			)
@@ -208,7 +208,7 @@ func BenchmarkStatsd(b *testing.B) {
 				"gauge",
 				func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						st.Gauge(label).Set(1)
+						st.Gauge(tag).Set(1)
 					}
 				},
 			)
@@ -216,13 +216,13 @@ func BenchmarkStatsd(b *testing.B) {
 	)
 
 	b.Run(
-		"on-the-fly-with-labels",
+		"on-the-fly-with-tags",
 		func(b *testing.B) {
 			b.Run(
 				"histogram",
 				func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						st.Histogram(label).With(labels...).Observe(1)
+						st.Histogram(tag).With(tags...).Observe(1)
 					}
 				},
 			)
@@ -231,7 +231,7 @@ func BenchmarkStatsd(b *testing.B) {
 				"timing",
 				func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						st.Timing(label).With(labels...).Observe(1)
+						st.Timing(tag).With(tags...).Observe(1)
 					}
 				},
 			)
@@ -240,7 +240,7 @@ func BenchmarkStatsd(b *testing.B) {
 				"counter",
 				func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						st.Counter(label).With(labels...).Add(1)
+						st.Counter(tag).With(tags...).Add(1)
 					}
 				},
 			)
@@ -249,7 +249,7 @@ func BenchmarkStatsd(b *testing.B) {
 				"gauge",
 				func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						st.Gauge(label).With(labels...).Set(1)
+						st.Gauge(tag).With(tags...).Set(1)
 					}
 				},
 			)

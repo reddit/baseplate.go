@@ -15,9 +15,9 @@ type SampledCounter struct {
 }
 
 // With implements metrics.Counter.
-func (c SampledCounter) With(labelValues ...string) metrics.Counter {
+func (c SampledCounter) With(tagValues ...string) metrics.Counter {
 	return SampledCounter{
-		Counter: c.Counter.With(labelValues...),
+		Counter: c.Counter.With(tagValues...),
 		Rate:    c.Rate,
 	}
 }

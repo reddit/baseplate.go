@@ -48,18 +48,18 @@ histogramSampleRate: 0.01
 			},
 		},
 		{
-			name: "labels",
+			name: "tags",
 			body: `
 namespace: foo
 endpoint: bar:8080
-labels:
+tags:
  fizz: buzz
  alpha: omega
 `,
 			expected: metricsbp.Config{
 				Namespace: "foo",
 				Endpoint:  "bar:8080",
-				Labels: metricsbp.Labels{
+				Tags: metricsbp.Tags{
 					"fizz":  "buzz",
 					"alpha": "omega",
 				},

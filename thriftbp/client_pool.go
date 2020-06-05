@@ -80,7 +80,7 @@ type ClientPoolConfig struct {
 
 	// Any labels that should be applied to metrics logged by the ClientPool.
 	// This includes the optional pool stats.
-	MetricsLabels metricsbp.Labels
+	MetricsTags metricsbp.Tags
 
 	// DefaultRetryOptions is the list of retry.Options to apply as the defaults
 	// for the Retry middleware.
@@ -211,7 +211,7 @@ func newClientPool(
 	proto thrift.TProtocolFactory,
 	middlewares ...thrift.ClientMiddleware,
 ) (*clientPool, error) {
-	labels := cfg.MetricsLabels.AsStatsdLabels()
+	labels := cfg.MetricsTags.AsStatsdTags()
 	pool, err := clientpool.NewChannelPool(
 		cfg.InitialConnections,
 		cfg.MaxConnections,
