@@ -7,6 +7,8 @@ import(
 	"bytes"
 	"context"
 	"reflect"
+	"database/sql/driver"
+	"errors"
 	"fmt"
 	"github.com/apache/thrift/lib/go/thrift"
 )
@@ -18,13 +20,150 @@ var _ = context.Background
 var _ = reflect.DeepEqual
 var _ = bytes.Equal
 
+//The integer values within this enum correspond to HTTP status codes.
+//
+//HTTP layers can easily map errors to an appropriate status code.
+type ErrorCode int64
+const (
+  ErrorCode_BAD_REQUEST ErrorCode = 400
+  ErrorCode_UNAUTHORIZED ErrorCode = 401
+  ErrorCode_PAYMENT_REQUIRED ErrorCode = 402
+  ErrorCode_FORBIDDEN ErrorCode = 403
+  ErrorCode_NOT_FOUND ErrorCode = 404
+  ErrorCode_CONFLICT ErrorCode = 409
+  ErrorCode_GONE ErrorCode = 410
+  ErrorCode_PRECONDITION_FAILED ErrorCode = 412
+  ErrorCode_PAYLOAD_TOO_LARGE ErrorCode = 413
+  ErrorCode_IM_A_TEAPOT ErrorCode = 418
+  ErrorCode_MISDIRECTED_REQUEST ErrorCode = 421
+  ErrorCode_UNPROCESSABLE_ENTITY ErrorCode = 422
+  ErrorCode_LOCKED ErrorCode = 423
+  ErrorCode_FAILED_DEPENDENCY ErrorCode = 424
+  ErrorCode_TOO_EARLY ErrorCode = 425
+  ErrorCode_PRECONDITION_REQUIRED ErrorCode = 428
+  ErrorCode_TOO_MANY_REQUESTS ErrorCode = 429
+  ErrorCode_REQUEST_HEADER_FIELDS_TOO_LARGE ErrorCode = 431
+  ErrorCode_UNAVAILABLE_FOR_LEGAL_REASONS ErrorCode = 451
+  ErrorCode_INTERNAL_SERVER_ERROR ErrorCode = 500
+  ErrorCode_NOT_IMPLEMENTED ErrorCode = 501
+  ErrorCode_BAD_GATEWAY ErrorCode = 502
+  ErrorCode_SERVICE_UNAVAILABLE ErrorCode = 503
+  ErrorCode_TIMEOUT ErrorCode = 504
+  ErrorCode_INSUFFICIENT_STORAGE ErrorCode = 507
+  ErrorCode_LOOP_DETECTED ErrorCode = 508
+  ErrorCode_USER_DEFINED ErrorCode = 1000
+)
+
+func (p ErrorCode) String() string {
+  switch p {
+  case ErrorCode_BAD_REQUEST: return "BAD_REQUEST"
+  case ErrorCode_UNAUTHORIZED: return "UNAUTHORIZED"
+  case ErrorCode_PAYMENT_REQUIRED: return "PAYMENT_REQUIRED"
+  case ErrorCode_FORBIDDEN: return "FORBIDDEN"
+  case ErrorCode_NOT_FOUND: return "NOT_FOUND"
+  case ErrorCode_CONFLICT: return "CONFLICT"
+  case ErrorCode_GONE: return "GONE"
+  case ErrorCode_PRECONDITION_FAILED: return "PRECONDITION_FAILED"
+  case ErrorCode_PAYLOAD_TOO_LARGE: return "PAYLOAD_TOO_LARGE"
+  case ErrorCode_IM_A_TEAPOT: return "IM_A_TEAPOT"
+  case ErrorCode_MISDIRECTED_REQUEST: return "MISDIRECTED_REQUEST"
+  case ErrorCode_UNPROCESSABLE_ENTITY: return "UNPROCESSABLE_ENTITY"
+  case ErrorCode_LOCKED: return "LOCKED"
+  case ErrorCode_FAILED_DEPENDENCY: return "FAILED_DEPENDENCY"
+  case ErrorCode_TOO_EARLY: return "TOO_EARLY"
+  case ErrorCode_PRECONDITION_REQUIRED: return "PRECONDITION_REQUIRED"
+  case ErrorCode_TOO_MANY_REQUESTS: return "TOO_MANY_REQUESTS"
+  case ErrorCode_REQUEST_HEADER_FIELDS_TOO_LARGE: return "REQUEST_HEADER_FIELDS_TOO_LARGE"
+  case ErrorCode_UNAVAILABLE_FOR_LEGAL_REASONS: return "UNAVAILABLE_FOR_LEGAL_REASONS"
+  case ErrorCode_INTERNAL_SERVER_ERROR: return "INTERNAL_SERVER_ERROR"
+  case ErrorCode_NOT_IMPLEMENTED: return "NOT_IMPLEMENTED"
+  case ErrorCode_BAD_GATEWAY: return "BAD_GATEWAY"
+  case ErrorCode_SERVICE_UNAVAILABLE: return "SERVICE_UNAVAILABLE"
+  case ErrorCode_TIMEOUT: return "TIMEOUT"
+  case ErrorCode_INSUFFICIENT_STORAGE: return "INSUFFICIENT_STORAGE"
+  case ErrorCode_LOOP_DETECTED: return "LOOP_DETECTED"
+  case ErrorCode_USER_DEFINED: return "USER_DEFINED"
+  }
+  return "<UNSET>"
+}
+
+func ErrorCodeFromString(s string) (ErrorCode, error) {
+  switch s {
+  case "BAD_REQUEST": return ErrorCode_BAD_REQUEST, nil 
+  case "UNAUTHORIZED": return ErrorCode_UNAUTHORIZED, nil 
+  case "PAYMENT_REQUIRED": return ErrorCode_PAYMENT_REQUIRED, nil 
+  case "FORBIDDEN": return ErrorCode_FORBIDDEN, nil 
+  case "NOT_FOUND": return ErrorCode_NOT_FOUND, nil 
+  case "CONFLICT": return ErrorCode_CONFLICT, nil 
+  case "GONE": return ErrorCode_GONE, nil 
+  case "PRECONDITION_FAILED": return ErrorCode_PRECONDITION_FAILED, nil 
+  case "PAYLOAD_TOO_LARGE": return ErrorCode_PAYLOAD_TOO_LARGE, nil 
+  case "IM_A_TEAPOT": return ErrorCode_IM_A_TEAPOT, nil 
+  case "MISDIRECTED_REQUEST": return ErrorCode_MISDIRECTED_REQUEST, nil 
+  case "UNPROCESSABLE_ENTITY": return ErrorCode_UNPROCESSABLE_ENTITY, nil 
+  case "LOCKED": return ErrorCode_LOCKED, nil 
+  case "FAILED_DEPENDENCY": return ErrorCode_FAILED_DEPENDENCY, nil 
+  case "TOO_EARLY": return ErrorCode_TOO_EARLY, nil 
+  case "PRECONDITION_REQUIRED": return ErrorCode_PRECONDITION_REQUIRED, nil 
+  case "TOO_MANY_REQUESTS": return ErrorCode_TOO_MANY_REQUESTS, nil 
+  case "REQUEST_HEADER_FIELDS_TOO_LARGE": return ErrorCode_REQUEST_HEADER_FIELDS_TOO_LARGE, nil 
+  case "UNAVAILABLE_FOR_LEGAL_REASONS": return ErrorCode_UNAVAILABLE_FOR_LEGAL_REASONS, nil 
+  case "INTERNAL_SERVER_ERROR": return ErrorCode_INTERNAL_SERVER_ERROR, nil 
+  case "NOT_IMPLEMENTED": return ErrorCode_NOT_IMPLEMENTED, nil 
+  case "BAD_GATEWAY": return ErrorCode_BAD_GATEWAY, nil 
+  case "SERVICE_UNAVAILABLE": return ErrorCode_SERVICE_UNAVAILABLE, nil 
+  case "TIMEOUT": return ErrorCode_TIMEOUT, nil 
+  case "INSUFFICIENT_STORAGE": return ErrorCode_INSUFFICIENT_STORAGE, nil 
+  case "LOOP_DETECTED": return ErrorCode_LOOP_DETECTED, nil 
+  case "USER_DEFINED": return ErrorCode_USER_DEFINED, nil 
+  }
+  return ErrorCode(0), fmt.Errorf("not a valid ErrorCode string")
+}
+
+
+func ErrorCodePtr(v ErrorCode) *ErrorCode { return &v }
+
+func (p ErrorCode) MarshalText() ([]byte, error) {
+return []byte(p.String()), nil
+}
+
+func (p *ErrorCode) UnmarshalText(text []byte) error {
+q, err := ErrorCodeFromString(string(text))
+if (err != nil) {
+return err
+}
+*p = q
+return nil
+}
+
+func (p *ErrorCode) Scan(value interface{}) error {
+v, ok := value.(int64)
+if !ok {
+return errors.New("Scan value is not int64")
+}
+*p = ErrorCode(v)
+return nil
+}
+
+func (p * ErrorCode) Value() (driver.Value, error) {
+  if p == nil {
+    return nil, nil
+  }
+return int64(*p), nil
+}
 //A raw authentication token as returned by the authentication service.
 //
 type AuthenticationToken string
 
 func AuthenticationTokenPtr(v AuthenticationToken) *AuthenticationToken { return &v }
 
-// The components of the Reddit LoID cookie that we want to propogate between
+//A two-character ISO 3166-1 country code
+//
+type CountryCode string
+
+func CountryCodePtr(v CountryCode) *CountryCode { return &v }
+
+// The components of the Reddit LoID cookie that we want to propagate between
 // services.
 // 
 // This model is a component of the "Edge-Request" header.  You should not need to
@@ -162,7 +301,7 @@ func (p *Loid) String() string {
 }
 
 // The components of the Reddit Session tracker cookie that we want to
-// propogate between services.
+// propagate between services.
 // 
 // This model is a component of the "Edge-Request" header.  You should not need to
 // interact with this model directly, but rather through the EdgeRequestContext
@@ -462,6 +601,106 @@ func (p *OriginService) String() string {
   return fmt.Sprintf("OriginService(%+v)", *p)
 }
 
+// Geolocation data from a request to our services that we want to
+// propagate between services.
+// 
+// This model is a component of the "Edge-Request" header.  You should not need to
+// interact with this model directly, but rather through the EdgeRequestContext
+// interface provided by baseplate.
+// 
+// 
+// Attributes:
+//  - CountryCode: The country code of the requesting client.
+type Geolocation struct {
+  CountryCode CountryCode `thrift:"country_code,1" db:"country_code" json:"country_code"`
+}
+
+func NewGeolocation() *Geolocation {
+  return &Geolocation{}
+}
+
+
+func (p *Geolocation) GetCountryCode() CountryCode {
+  return p.CountryCode
+}
+func (p *Geolocation) Read(iprot thrift.TProtocol) error {
+  if _, err := iprot.ReadStructBegin(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+  }
+
+
+  for {
+    _, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+    if err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+    }
+    if fieldTypeId == thrift.STOP { break; }
+    switch fieldId {
+    case 1:
+      if fieldTypeId == thrift.STRING {
+        if err := p.ReadField1(iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(fieldTypeId); err != nil {
+          return err
+        }
+      }
+    default:
+      if err := iprot.Skip(fieldTypeId); err != nil {
+        return err
+      }
+    }
+    if err := iprot.ReadFieldEnd(); err != nil {
+      return err
+    }
+  }
+  if err := iprot.ReadStructEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+  }
+  return nil
+}
+
+func (p *Geolocation)  ReadField1(iprot thrift.TProtocol) error {
+  if v, err := iprot.ReadString(); err != nil {
+  return thrift.PrependError("error reading field 1: ", err)
+} else {
+  temp := CountryCode(v)
+  p.CountryCode = temp
+}
+  return nil
+}
+
+func (p *Geolocation) Write(oprot thrift.TProtocol) error {
+  if err := oprot.WriteStructBegin("Geolocation"); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
+  if p != nil {
+    if err := p.writeField1(oprot); err != nil { return err }
+  }
+  if err := oprot.WriteFieldStop(); err != nil {
+    return thrift.PrependError("write field stop error: ", err) }
+  if err := oprot.WriteStructEnd(); err != nil {
+    return thrift.PrependError("write struct stop error: ", err) }
+  return nil
+}
+
+func (p *Geolocation) writeField1(oprot thrift.TProtocol) (err error) {
+  if err := oprot.WriteFieldBegin("country_code", thrift.STRING, 1); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:country_code: ", p), err) }
+  if err := oprot.WriteString(string(p.CountryCode)); err != nil {
+  return thrift.PrependError(fmt.Sprintf("%T.country_code (1) field write error: ", p), err) }
+  if err := oprot.WriteFieldEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field end error 1:country_code: ", p), err) }
+  return err
+}
+
+func (p *Geolocation) String() string {
+  if p == nil {
+    return "<nil>"
+  }
+  return fmt.Sprintf("Geolocation(%+v)", *p)
+}
+
 // Container model for the Edge-Request context header.
 // 
 // Baseplate will automatically parse this from the "Edge-Request" header and
@@ -476,12 +715,14 @@ func (p *OriginService) String() string {
 //  - AuthenticationToken
 //  - Device
 //  - OriginService
+//  - Geolocation
 type Request struct {
   Loid *Loid `thrift:"loid,1" db:"loid" json:"loid"`
   Session *Session `thrift:"session,2" db:"session" json:"session"`
   AuthenticationToken AuthenticationToken `thrift:"authentication_token,3" db:"authentication_token" json:"authentication_token"`
   Device *Device `thrift:"device,4" db:"device" json:"device"`
   OriginService *OriginService `thrift:"origin_service,5" db:"origin_service" json:"origin_service"`
+  Geolocation *Geolocation `thrift:"geolocation,6" db:"geolocation" json:"geolocation"`
 }
 
 func NewRequest() *Request {
@@ -520,6 +761,13 @@ func (p *Request) GetOriginService() *OriginService {
   }
 return p.OriginService
 }
+var Request_Geolocation_DEFAULT *Geolocation
+func (p *Request) GetGeolocation() *Geolocation {
+  if !p.IsSetGeolocation() {
+    return Request_Geolocation_DEFAULT
+  }
+return p.Geolocation
+}
 func (p *Request) IsSetLoid() bool {
   return p.Loid != nil
 }
@@ -534,6 +782,10 @@ func (p *Request) IsSetDevice() bool {
 
 func (p *Request) IsSetOriginService() bool {
   return p.OriginService != nil
+}
+
+func (p *Request) IsSetGeolocation() bool {
+  return p.Geolocation != nil
 }
 
 func (p *Request) Read(iprot thrift.TProtocol) error {
@@ -599,6 +851,16 @@ func (p *Request) Read(iprot thrift.TProtocol) error {
           return err
         }
       }
+    case 6:
+      if fieldTypeId == thrift.STRUCT {
+        if err := p.ReadField6(iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(fieldTypeId); err != nil {
+          return err
+        }
+      }
     default:
       if err := iprot.Skip(fieldTypeId); err != nil {
         return err
@@ -656,6 +918,14 @@ func (p *Request)  ReadField5(iprot thrift.TProtocol) error {
   return nil
 }
 
+func (p *Request)  ReadField6(iprot thrift.TProtocol) error {
+  p.Geolocation = &Geolocation{}
+  if err := p.Geolocation.Read(iprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Geolocation), err)
+  }
+  return nil
+}
+
 func (p *Request) Write(oprot thrift.TProtocol) error {
   if err := oprot.WriteStructBegin("Request"); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
@@ -665,6 +935,7 @@ func (p *Request) Write(oprot thrift.TProtocol) error {
     if err := p.writeField3(oprot); err != nil { return err }
     if err := p.writeField4(oprot); err != nil { return err }
     if err := p.writeField5(oprot); err != nil { return err }
+    if err := p.writeField6(oprot); err != nil { return err }
   }
   if err := oprot.WriteFieldStop(); err != nil {
     return thrift.PrependError("write field stop error: ", err) }
@@ -727,11 +998,258 @@ func (p *Request) writeField5(oprot thrift.TProtocol) (err error) {
   return err
 }
 
+func (p *Request) writeField6(oprot thrift.TProtocol) (err error) {
+  if err := oprot.WriteFieldBegin("geolocation", thrift.STRUCT, 6); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field begin error 6:geolocation: ", p), err) }
+  if err := p.Geolocation.Write(oprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Geolocation), err)
+  }
+  if err := oprot.WriteFieldEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field end error 6:geolocation: ", p), err) }
+  return err
+}
+
 func (p *Request) String() string {
   if p == nil {
     return "<nil>"
   }
   return fmt.Sprintf("Request(%+v)", *p)
+}
+
+// Attributes:
+//  - Code: A code describing the general nature of the error.
+// This should be specified for all errors. This field uses
+// the i32 type instead of the ErrorCode type in order to give
+// developers an escape hatch to define their own error codes.
+// Developers should do their best to avoid defining a custom
+// error code. Developers should use a value higher than 1000
+// when defining custom codes.
+//  - Message: A human-readable error message. It should both explain the error
+// and offer an actionable resolution to it, if applicable. It should
+// be safe to desplay this message in a user-facing client.
+//  - Details: A map of additional error information. This is most useful
+// when there is a validation error. The server may use this map
+// to return multiple errors. This should be safe for clients to
+// display. Example:
+//     {
+//         "post.title": "This field is too long.",
+//         "post.kind": "This field is required."
+//     }
+type Error struct {
+  Code *int32 `thrift:"code,1" db:"code" json:"code,omitempty"`
+  Message *string `thrift:"message,2" db:"message" json:"message,omitempty"`
+  Details map[string]string `thrift:"details,3" db:"details" json:"details,omitempty"`
+}
+
+func NewError() *Error {
+  return &Error{}
+}
+
+var Error_Code_DEFAULT int32
+func (p *Error) GetCode() int32 {
+  if !p.IsSetCode() {
+    return Error_Code_DEFAULT
+  }
+return *p.Code
+}
+var Error_Message_DEFAULT string
+func (p *Error) GetMessage() string {
+  if !p.IsSetMessage() {
+    return Error_Message_DEFAULT
+  }
+return *p.Message
+}
+var Error_Details_DEFAULT map[string]string
+
+func (p *Error) GetDetails() map[string]string {
+  return p.Details
+}
+func (p *Error) IsSetCode() bool {
+  return p.Code != nil
+}
+
+func (p *Error) IsSetMessage() bool {
+  return p.Message != nil
+}
+
+func (p *Error) IsSetDetails() bool {
+  return p.Details != nil
+}
+
+func (p *Error) Read(iprot thrift.TProtocol) error {
+  if _, err := iprot.ReadStructBegin(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+  }
+
+
+  for {
+    _, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+    if err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+    }
+    if fieldTypeId == thrift.STOP { break; }
+    switch fieldId {
+    case 1:
+      if fieldTypeId == thrift.I32 {
+        if err := p.ReadField1(iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(fieldTypeId); err != nil {
+          return err
+        }
+      }
+    case 2:
+      if fieldTypeId == thrift.STRING {
+        if err := p.ReadField2(iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(fieldTypeId); err != nil {
+          return err
+        }
+      }
+    case 3:
+      if fieldTypeId == thrift.MAP {
+        if err := p.ReadField3(iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(fieldTypeId); err != nil {
+          return err
+        }
+      }
+    default:
+      if err := iprot.Skip(fieldTypeId); err != nil {
+        return err
+      }
+    }
+    if err := iprot.ReadFieldEnd(); err != nil {
+      return err
+    }
+  }
+  if err := iprot.ReadStructEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+  }
+  return nil
+}
+
+func (p *Error)  ReadField1(iprot thrift.TProtocol) error {
+  if v, err := iprot.ReadI32(); err != nil {
+  return thrift.PrependError("error reading field 1: ", err)
+} else {
+  p.Code = &v
+}
+  return nil
+}
+
+func (p *Error)  ReadField2(iprot thrift.TProtocol) error {
+  if v, err := iprot.ReadString(); err != nil {
+  return thrift.PrependError("error reading field 2: ", err)
+} else {
+  p.Message = &v
+}
+  return nil
+}
+
+func (p *Error)  ReadField3(iprot thrift.TProtocol) error {
+  _, _, size, err := iprot.ReadMapBegin()
+  if err != nil {
+    return thrift.PrependError("error reading map begin: ", err)
+  }
+  tMap := make(map[string]string, size)
+  p.Details =  tMap
+  for i := 0; i < size; i ++ {
+var _key0 string
+    if v, err := iprot.ReadString(); err != nil {
+    return thrift.PrependError("error reading field 0: ", err)
+} else {
+    _key0 = v
+}
+var _val1 string
+    if v, err := iprot.ReadString(); err != nil {
+    return thrift.PrependError("error reading field 0: ", err)
+} else {
+    _val1 = v
+}
+    p.Details[_key0] = _val1
+  }
+  if err := iprot.ReadMapEnd(); err != nil {
+    return thrift.PrependError("error reading map end: ", err)
+  }
+  return nil
+}
+
+func (p *Error) Write(oprot thrift.TProtocol) error {
+  if err := oprot.WriteStructBegin("Error"); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
+  if p != nil {
+    if err := p.writeField1(oprot); err != nil { return err }
+    if err := p.writeField2(oprot); err != nil { return err }
+    if err := p.writeField3(oprot); err != nil { return err }
+  }
+  if err := oprot.WriteFieldStop(); err != nil {
+    return thrift.PrependError("write field stop error: ", err) }
+  if err := oprot.WriteStructEnd(); err != nil {
+    return thrift.PrependError("write struct stop error: ", err) }
+  return nil
+}
+
+func (p *Error) writeField1(oprot thrift.TProtocol) (err error) {
+  if p.IsSetCode() {
+    if err := oprot.WriteFieldBegin("code", thrift.I32, 1); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:code: ", p), err) }
+    if err := oprot.WriteI32(int32(*p.Code)); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T.code (1) field write error: ", p), err) }
+    if err := oprot.WriteFieldEnd(); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field end error 1:code: ", p), err) }
+  }
+  return err
+}
+
+func (p *Error) writeField2(oprot thrift.TProtocol) (err error) {
+  if p.IsSetMessage() {
+    if err := oprot.WriteFieldBegin("message", thrift.STRING, 2); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field begin error 2:message: ", p), err) }
+    if err := oprot.WriteString(string(*p.Message)); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T.message (2) field write error: ", p), err) }
+    if err := oprot.WriteFieldEnd(); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field end error 2:message: ", p), err) }
+  }
+  return err
+}
+
+func (p *Error) writeField3(oprot thrift.TProtocol) (err error) {
+  if p.IsSetDetails() {
+    if err := oprot.WriteFieldBegin("details", thrift.MAP, 3); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field begin error 3:details: ", p), err) }
+    if err := oprot.WriteMapBegin(thrift.STRING, thrift.STRING, len(p.Details)); err != nil {
+      return thrift.PrependError("error writing map begin: ", err)
+    }
+    for k, v := range p.Details {
+      if err := oprot.WriteString(string(k)); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T. (0) field write error: ", p), err) }
+      if err := oprot.WriteString(string(v)); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T. (0) field write error: ", p), err) }
+    }
+    if err := oprot.WriteMapEnd(); err != nil {
+      return thrift.PrependError("error writing map end: ", err)
+    }
+    if err := oprot.WriteFieldEnd(); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field end error 3:details: ", p), err) }
+  }
+  return err
+}
+
+func (p *Error) String() string {
+  if p == nil {
+    return "<nil>"
+  }
+  return fmt.Sprintf("Error(%+v)", *p)
+}
+
+func (p *Error) Error() string {
+  return p.String()
 }
 
 type BaseplateService interface {  //The base for any baseplate-based service.
@@ -790,12 +1308,12 @@ func (p *BaseplateServiceClient) Client_() thrift.TClient {
 // unhealthy, it can return False or raise an exception.
 // 
 func (p *BaseplateServiceClient) IsHealthy(ctx context.Context) (r bool, err error) {
-  var _args0 BaseplateServiceIsHealthyArgs
-  var _result1 BaseplateServiceIsHealthyResult
-  if err = p.Client_().Call(ctx, "is_healthy", &_args0, &_result1); err != nil {
+  var _args2 BaseplateServiceIsHealthyArgs
+  var _result3 BaseplateServiceIsHealthyResult
+  if err = p.Client_().Call(ctx, "is_healthy", &_args2, &_result3); err != nil {
     return
   }
-  return _result1.GetSuccess(), nil
+  return _result3.GetSuccess(), nil
 }
 
 type BaseplateServiceProcessor struct {
@@ -818,9 +1336,9 @@ func (p *BaseplateServiceProcessor) ProcessorMap() map[string]thrift.TProcessorF
 
 func NewBaseplateServiceProcessor(handler BaseplateService) *BaseplateServiceProcessor {
 
-  self2 := &BaseplateServiceProcessor{handler:handler, processorMap:make(map[string]thrift.TProcessorFunction)}
-  self2.processorMap["is_healthy"] = &baseplateServiceProcessorIsHealthy{handler:handler}
-return self2
+  self4 := &BaseplateServiceProcessor{handler:handler, processorMap:make(map[string]thrift.TProcessorFunction)}
+  self4.processorMap["is_healthy"] = &baseplateServiceProcessorIsHealthy{handler:handler}
+return self4
 }
 
 func (p *BaseplateServiceProcessor) Process(ctx context.Context, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
@@ -831,12 +1349,12 @@ func (p *BaseplateServiceProcessor) Process(ctx context.Context, iprot, oprot th
   }
   iprot.Skip(thrift.STRUCT)
   iprot.ReadMessageEnd()
-  x3 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function " + name)
+  x5 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function " + name)
   oprot.WriteMessageBegin(name, thrift.EXCEPTION, seqId)
-  x3.Write(oprot)
+  x5.Write(oprot)
   oprot.WriteMessageEnd()
   oprot.Flush(ctx)
-  return false, x3
+  return false, x5
 
 }
 
