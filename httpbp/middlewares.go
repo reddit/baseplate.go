@@ -165,11 +165,22 @@ func InjectEdgeRequestContext(truster HeaderTrustHandler, impl *edgecontext.Impl
 // using one of the given HTTP methods.
 //
 // Returns a raw, plain text 405 error response if the method is not supported.
+// If GET is supported, HEAD will be automatically supported as well.
 func SupportedMethods(method string, additional ...string) Middleware {
 	supported := make(map[string]bool, len(additional)+1)
 	supported[strings.ToUpper(method)] = true
 	for _, m := range additional {
 		supported[strings.ToUpper(m)] = true
+	}
+	hasGet := false
+	hasHead := false
+
+	for m := range supported {
+		hasGet = hasGet || strings.Compare(m, http.MethodGet) == 0
+		hasHead = hasHead || strings.Compare(m, http.MethodHead) == 0
+	}
+	if hasGet && !hasHead {
+		supported[http.MethodHead] = true
 	}
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
