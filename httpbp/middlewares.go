@@ -172,14 +172,12 @@ func SupportedMethods(method string, additional ...string) Middleware {
 	for _, m := range additional {
 		supported[strings.ToUpper(m)] = true
 	}
-	hasGet := false
-	hasHead := false
 
+	hasGet := false
 	for m := range supported {
 		hasGet = hasGet || strings.Compare(m, http.MethodGet) == 0
-		hasHead = hasHead || strings.Compare(m, http.MethodHead) == 0
 	}
-	if hasGet && !hasHead {
+	if hasGet {
 		supported[http.MethodHead] = true
 	}
 	return func(name string, next HandlerFunc) HandlerFunc {
