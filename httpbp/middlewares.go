@@ -193,7 +193,7 @@ func SupportedMethods(method string, additional ...string) Middleware {
 
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-			if ok := supported[r.Method]; !ok {
+			if !supported[r.Method] {
 				w.Header().Set(AllowHeader, allowedHeader)
 				return RawError(
 					MethodNotAllowed(),
