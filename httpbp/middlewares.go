@@ -4,12 +4,17 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"
 )
+
+// AllowHeader is the "Allow" header.  This should be set when returning a
+// 405 - Method Not Allowed error.
+const AllowHeader = "Allow"
 
 const spanSampledTrue = "1"
 
@@ -166,23 +171,30 @@ func InjectEdgeRequestContext(truster HeaderTrustHandler, impl *edgecontext.Impl
 //
 // Returns a raw, plain text 405 error response if the method is not supported.
 // If GET is supported, HEAD will be automatically supported as well.
+// Sets the "Allow" header automatically to the methods given.
 func SupportedMethods(method string, additional ...string) Middleware {
 	supported := make(map[string]bool, len(additional)+1)
 	supported[strings.ToUpper(method)] = true
 	for _, m := range additional {
 		supported[strings.ToUpper(m)] = true
 	}
-
-	hasGet := false
-	for m := range supported {
-		hasGet = hasGet || strings.Compare(m, http.MethodGet) == 0
-	}
-	if hasGet {
+	if supported[http.MethodGet] {
 		supported[http.MethodHead] = true
 	}
+
+	allowed := make([]string, len(supported))
+	i := 0
+	for m := range supported {
+		allowed[i] = m
+		i++
+	}
+	sort.Strings(allowed)
+	allowedHeader := strings.Join(allowed, ",")
+
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 			if ok := supported[r.Method]; !ok {
+				w.Header().Set(AllowHeader, allowedHeader)
 				return RawError(
 					MethodNotAllowed(),
 					fmt.Errorf("method %q is not supported by %q", r.Method, name),

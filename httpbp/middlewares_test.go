@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/reddit/baseplate.go/edgecontext"
@@ -273,7 +275,8 @@ func TestSupportedMethods(t *testing.T) {
 					httpbp.SupportedMethods(c.supportedMethods[0], c.supportedMethods[1:]...),
 				)
 
-				err := handle(context.TODO(), httptest.NewRecorder(), req)
+				w := httptest.NewRecorder()
+				err := handle(context.TODO(), w, req)
 				if !c.errExpected && err != nil {
 					t.Fatalf("unexpected error %v", err)
 				} else if c.errExpected && err == nil {
@@ -290,6 +293,29 @@ func TestSupportedMethods(t *testing.T) {
 							http.StatusMethodNotAllowed,
 							httpErr.Response().Code,
 						)
+					}
+					if allow := w.Header().Get(httpbp.AllowHeader); allow != "" {
+						hasGet := false
+						hasHead := false
+						for _, m := range c.supportedMethods {
+							hasGet = hasGet || strings.Compare(m, http.MethodGet) == 0
+							hasHead = hasHead || strings.Compare(m, http.MethodHead) == 0
+						}
+						if hasGet && !hasHead {
+							c.supportedMethods = append(c.supportedMethods, http.MethodHead)
+						}
+						sort.Strings(c.supportedMethods)
+						expected := strings.Join(c.supportedMethods, ",")
+						if strings.Compare(expected, allow) != 0 {
+							t.Errorf(
+								"%q header did not match: expected %q, got %q",
+								httpbp.AllowHeader,
+								expected,
+								allow,
+							)
+						}
+					} else {
+						t.Errorf("missing %q header", httpbp.AllowHeader)
 					}
 				} else {
 					t.Fatalf("unexpected error type %v", err)
