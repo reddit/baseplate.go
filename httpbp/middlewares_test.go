@@ -213,3 +213,88 @@ func TestInjectEdgeRequestContext(t *testing.T) {
 		)
 	}
 }
+
+func TestSupportedMethods(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name             string
+		method           string
+		supportedMethods []string
+		errExpected      bool
+	}{
+		{
+			name:             "empty-string-get/supported",
+			method:           "",
+			supportedMethods: []string{http.MethodGet},
+			errExpected:      false,
+		},
+		{
+			name:             "empty-string-get/not-supported",
+			method:           "",
+			supportedMethods: []string{http.MethodPost},
+			errExpected:      true,
+		},
+		{
+			name:             "post/supported",
+			method:           http.MethodPost,
+			supportedMethods: []string{http.MethodPost},
+			errExpected:      false,
+		},
+		{
+			name:             "post/not-supported",
+			method:           http.MethodPost,
+			supportedMethods: []string{http.MethodGet},
+			errExpected:      true,
+		},
+		{
+			name:             "multi/supported",
+			method:           http.MethodGet,
+			supportedMethods: []string{http.MethodPost, http.MethodGet},
+			errExpected:      false,
+		},
+		{
+			name:             "multi/not-supported",
+			method:           http.MethodDelete,
+			supportedMethods: []string{http.MethodPost, http.MethodGet},
+			errExpected:      true,
+		},
+	}
+	for _, _c := range cases {
+		c := _c
+		t.Run(
+			c.name,
+			func(t *testing.T) {
+				req := newRequest(t)
+				req.Method = c.method
+				handle := httpbp.Wrap(
+					"test",
+					newTestHandler(testHandlerPlan{}),
+					httpbp.SupportedMethods(c.supportedMethods[0], c.supportedMethods[1:]...),
+				)
+
+				err := handle(context.TODO(), httptest.NewRecorder(), req)
+				if !c.errExpected && err != nil {
+					t.Fatalf("unexpected error %v", err)
+				} else if c.errExpected && err == nil {
+					t.Fatal("expected an error, got nil")
+				} else if !c.errExpected {
+					return
+				}
+
+				var httpErr httpbp.HTTPError
+				if errors.As(err, &httpErr) {
+					if httpErr.Response().Code != http.StatusMethodNotAllowed {
+						t.Errorf(
+							"wronge response code, expected %d, got %d",
+							http.StatusMethodNotAllowed,
+							httpErr.Response().Code,
+						)
+					}
+				} else {
+					t.Fatalf("unexpected error type %v", err)
+				}
+			},
+		)
+	}
+}

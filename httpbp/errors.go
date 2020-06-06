@@ -385,6 +385,18 @@ func NotFound() *ErrorResponse {
 	)
 }
 
+// MethodNotAllowed is for 405 responses.
+//
+// This is appropriate for when the client tries to access a resource that does
+// exist using an HTTP method that it does not support.
+func MethodNotAllowed() *ErrorResponse {
+	return NewErrorResponse(
+		http.StatusMethodNotAllowed,
+		"NOT_FOUND",
+		"The requested resource could not be found.",
+	)
+}
+
 // Conflict is for 409 responses.
 //
 // This is appropriate for when a client request would cause a conflict with
@@ -565,6 +577,7 @@ var errorFuncsByCode = map[int]func() *ErrorResponse{
 	http.StatusPaymentRequired:            PaymentRequired,
 	http.StatusForbidden:                  Forbidden,
 	http.StatusNotFound:                   NotFound,
+	http.StatusMethodNotAllowed:           MethodNotAllowed,
 	http.StatusConflict:                   Conflict,
 	http.StatusGone:                       Gone,
 	http.StatusRequestEntityTooLarge:      PayloadTooLarge,
@@ -598,6 +611,7 @@ var errorFuncsByCode = map[int]func() *ErrorResponse{
 //	http.StatusPaymentRequired:            httpbp.PaymentRequired
 //	http.StatusForbidden:                  httpbp.Forbidden
 //	http.StatusNotFound:                   httpbp.NotFound
+//	http.StatusMethodNotAllowed:           httpbp.MethodNotAllowed
 //	http.StatusConflict:                   httpbp.Conflict
 //	http.StatusGone:                       httpbp.Gone
 //	http.StatusRequestEntityTooLarge:      httpbp.PayloadTooLarge

@@ -2,7 +2,9 @@ package httpbp
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/log"
@@ -154,6 +156,34 @@ func InjectEdgeRequestContext(truster HeaderTrustHandler, impl *edgecontext.Impl
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 			ctx = InitializeEdgeContextFromTrustedRequest(ctx, truster, impl, r)
+			return next(ctx, w, r)
+		}
+	}
+}
+
+// SupportedMethods returns a middleware that checks if the request is made
+// using one of the given HTTP methods.
+//
+// Returns a raw, plain text 405 error response if the method is not supported.
+func SupportedMethods(method string, additional ...string) Middleware {
+	supported := make(map[string]bool, len(additional)+1)
+	supported[strings.ToUpper(method)] = true
+	for _, m := range additional {
+		supported[strings.ToUpper(m)] = true
+	}
+	return func(name string, next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+			method := r.Method
+			if method == "" {
+				method = http.MethodGet
+			}
+			if _, ok := supported[method]; !ok {
+				return RawError(
+					MethodNotAllowed(),
+					fmt.Errorf("method %q is not supported by %q", method, name),
+					PlainTextContentType,
+				)
+			}
 			return next(ctx, w, r)
 		}
 	}

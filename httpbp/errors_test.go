@@ -53,6 +53,10 @@ func TestErrorResponse(t *testing.T) {
 			code: http.StatusNotFound,
 		},
 		{
+			resp: httpbp.MethodNotAllowed(),
+			code: http.StatusMethodNotAllowed,
+		},
+		{
 			resp: httpbp.Conflict(),
 			code: http.StatusConflict,
 		},
