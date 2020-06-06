@@ -182,14 +182,10 @@ func SupportedMethods(method string, additional ...string) Middleware {
 	}
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-			method := r.Method
-			if method == "" {
-				method = http.MethodGet
-			}
-			if ok := supported[method]; !ok {
+			if ok := supported[r.Method]; !ok {
 				return RawError(
 					MethodNotAllowed(),
-					fmt.Errorf("method %q is not supported by %q", method, name),
+					fmt.Errorf("method %q is not supported by %q", r.Method, name),
 					PlainTextContentType,
 				)
 			}

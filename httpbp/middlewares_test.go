@@ -224,18 +224,6 @@ func TestSupportedMethods(t *testing.T) {
 		errExpected      bool
 	}{
 		{
-			name:             "empty-string-get/supported",
-			method:           "",
-			supportedMethods: []string{http.MethodGet},
-			errExpected:      false,
-		},
-		{
-			name:             "empty-string-get/not-supported",
-			method:           "",
-			supportedMethods: []string{http.MethodPost},
-			errExpected:      true,
-		},
-		{
 			name:             "head-supported-automatically-with-get/supported",
 			method:           "HEAD",
 			supportedMethods: []string{http.MethodGet},
