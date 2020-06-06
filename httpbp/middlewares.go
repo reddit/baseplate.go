@@ -177,7 +177,7 @@ func SupportedMethods(method string, additional ...string) Middleware {
 			if method == "" {
 				method = http.MethodGet
 			}
-			if _, ok := supported[method]; !ok {
+			if ok := supported[method]; !ok {
 				return RawError(
 					MethodNotAllowed(),
 					fmt.Errorf("method %q is not supported by %q", method, name),
