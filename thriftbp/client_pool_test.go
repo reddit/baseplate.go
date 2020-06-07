@@ -40,7 +40,8 @@ func TestNewBaseplateClientPool(t *testing.T) {
 			InitialConnections: 1,
 			MaxConnections:     5,
 			MaxConnectionAge:   time.Minute,
-			SocketTimeout:      time.Millisecond * 10,
+			ConnectTimeout:     time.Millisecond * 10,
+			SocketTimeout:      time.Minute,
 		},
 	); err != nil {
 		t.Fatal(err)

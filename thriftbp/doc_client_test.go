@@ -11,8 +11,8 @@ import (
 
 // In real code these should be coming from either config file or flags instead.
 const (
-	remoteAddr    = "host:port"
-	socketTimeout = time.Millisecond * 10
+	remoteAddr     = "host:port"
+	connectTimeout = time.Millisecond * 10
 
 	initialConnections = 50
 	maxConnections     = 100
@@ -66,7 +66,8 @@ func Example_clientPool() {
 			InitialConnections: initialConnections,
 			MaxConnections:     maxConnections,
 			MaxConnectionAge:   clientTTL,
-			SocketTimeout:      socketTimeout,
+			ConnectTimeout:     connectTimeout,
+			SocketTimeout:      clientTTL,
 			ReportPoolStats:    true,
 			PoolGaugeInterval:  poolGaugeInterval,
 		},

@@ -75,7 +75,18 @@ type ClientPoolConfig struct {
 	// a negative value.
 	MaxConnectionAge time.Duration
 
-	// SocketTimeout is the timeout on the underling thrift.TSocket.
+	// ConnectTimeout is the timeout on the underling thrift.TSocket for making
+	// the initial connection.
+	//
+	// You usually want this to be short (e.g. 5ms) to fail fast if you cannot
+	// establish a connection to the server.
+	ConnectTimeout time.Duration
+
+	// SocketTimeout is the timeout on the underling thrift.TSocket between
+	// reads/writes.
+	//
+	// You usually want this to be long, usually longer than MaxConnectionAge,
+	// so your connection won't be lost when the client is sitting in the pool.
 	SocketTimeout time.Duration
 
 	// Any labels that should be applied to metrics logged by the ClientPool.
@@ -217,6 +228,7 @@ func newClientPool(
 		cfg.MaxConnections,
 		func() (clientpool.Client, error) {
 			return newClient(
+				cfg.ConnectTimeout,
 				cfg.SocketTimeout,
 				cfg.MaxConnectionAge,
 				genAddr,
@@ -257,6 +269,7 @@ func newClientPool(
 }
 
 func newClient(
+	connectTimeout time.Duration,
 	socketTimeout time.Duration,
 	maxConnectionAge time.Duration,
 	genAddr AddressGenerator,
@@ -267,7 +280,7 @@ func newClient(
 		return nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client. %w", err)
 	}
 
-	trans, err := thrift.NewTSocketTimeout(addr, socketTimeout, socketTimeout)
+	trans, err := thrift.NewTSocketTimeout(addr, connectTimeout, socketTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("thriftbp: error building TSocket for new Thrift client. %w", err)
 	}

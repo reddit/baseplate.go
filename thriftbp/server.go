@@ -18,6 +18,9 @@ type ServerConfig struct {
 
 	// The timeout for the underlying thrift.TServerSocket transport.
 	//
+	// If your clients are using client pools,
+	// you usually want this timeout to be long in order to keep clients alive.
+	//
 	// This is ignored if Socket is non-nil.
 	Timeout time.Duration
 
