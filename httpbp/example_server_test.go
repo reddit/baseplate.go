@@ -54,10 +54,34 @@ func (h Handlers) InvalidInput(ctx context.Context, w http.ResponseWriter, r *ht
 
 func (h Handlers) Endpoints() map[httpbp.Pattern]httpbp.Endpoint {
 	return map[httpbp.Pattern]httpbp.Endpoint{
-		"/":              {Name: "home", Handle: h.Home},
-		"/err":           {Name: "err", Handle: h.ServerErr},
-		"/ratelimit":     {Name: "ratelimit", Handle: h.Ratelimit},
-		"/invalid-input": {Name: "invalid-input", Handle: h.InvalidInput},
+		"/": {
+			Name:   "home",
+			Handle: h.Home,
+			Middlewares: []httpbp.Middleware{
+				httpbp.SupportedMethods(http.MethodGet),
+			},
+		},
+		"/err": {
+			Name:   "err",
+			Handle: h.ServerErr,
+			Middlewares: []httpbp.Middleware{
+				httpbp.SupportedMethods(http.MethodGet, http.MethodPost),
+			},
+		},
+		"/ratelimit": {
+			Name:   "ratelimit",
+			Handle: h.Ratelimit,
+			Middlewares: []httpbp.Middleware{
+				httpbp.SupportedMethods(http.MethodGet),
+			},
+		},
+		"/invalid-input": {
+			Name:   "invalid-input",
+			Handle: h.InvalidInput,
+			Middlewares: []httpbp.Middleware{
+				httpbp.SupportedMethods(http.MethodPost),
+			},
+		},
 	}
 }
 
