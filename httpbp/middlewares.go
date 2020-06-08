@@ -101,9 +101,9 @@ func StartSpanFromTrustedRequest(
 // HansderFunc in a new server span and stop the span after the function
 // returns.
 //
-// InjectServerSpan should generally not be used directly, instead use one of of
-// the NewBaseplateHandler constructor methods which will automatically include
-// InjectServerSpan as one of the Middlewares to wrap your handler in.
+// InjectServerSpan should generally not be used directly,  instead use the
+// the NewBaseplateServer function which will automatically include InjectServerSpan
+// as one of the Middlewares to wrap your handlers in.
 func InjectServerSpan(truster HeaderTrustHandler) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
@@ -153,10 +153,9 @@ func InitializeEdgeContextFromTrustedRequest(
 // the EdgeRequestContext header from the request headers and attach it to
 // the context object if present.
 //
-// InjectEdgeRequestContext should generally not be used directly, instead use
-// one of of the NewBaseplateHandler constructor methods which will
-// automatically include InjectEdgeRequestContext as one of the Middlewares to
-// wrap your handler in.
+// InjectEdgeRequestContext should generally not be used directly, instead use the
+// the NewBaseplateServer function which will automatically include InjectEdgeRequestContext
+// as one of the Middlewares to wrap your handlers in.
 func InjectEdgeRequestContext(truster HeaderTrustHandler, impl *edgecontext.Impl) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
@@ -173,10 +172,9 @@ func InjectEdgeRequestContext(truster HeaderTrustHandler, impl *edgecontext.Impl
 // If GET is supported, HEAD will be automatically supported as well.
 // Sets the "Allow" header automatically to the methods given.
 //
-// SupportedMethods should generally not be used directly, instead use
-// one of of the NewBaseplateHandler constructor methods which will
-// automatically include SupportedMethods as one of the Middlewares to
-// wrap your handler in.
+// SupportedMethods should generally not be used directly, instead use the
+// NewBaseplateServer function which will automatically include SupportedMethods
+// as one of the Middlewares to wrap your handlers in.
 func SupportedMethods(method string, additional ...string) Middleware {
 	supported := make(map[string]bool, len(additional)+1)
 	supported[strings.ToUpper(method)] = true
