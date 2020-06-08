@@ -68,7 +68,7 @@ type Endpoint struct {
 	// Use the http.Method* constants from "net/http" for the values in this slice
 	// to ensure that you are using methods that are supported and in the format
 	// we expect.
-	// If you add http.MethodGet, http.MethodHead will be added automatically.
+	// If you add http.MethodGet, http.MethodHead will be supported automatically.
 	Methods []string
 
 	// Handle is required, it is the base HandlerFunc that will be wrapped
