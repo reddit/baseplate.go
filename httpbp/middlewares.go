@@ -172,6 +172,11 @@ func InjectEdgeRequestContext(truster HeaderTrustHandler, impl *edgecontext.Impl
 // Returns a raw, plain text 405 error response if the method is not supported.
 // If GET is supported, HEAD will be automatically supported as well.
 // Sets the "Allow" header automatically to the methods given.
+//
+// SupportedMethods should generally not be used directly, instead use
+// one of of the NewBaseplateHandler constructor methods which will
+// automatically include SupportedMethods as one of the Middlewares to
+// wrap your handler in.
 func SupportedMethods(method string, additional ...string) Middleware {
 	supported := make(map[string]bool, len(additional)+1)
 	supported[strings.ToUpper(method)] = true

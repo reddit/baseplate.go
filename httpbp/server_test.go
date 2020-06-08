@@ -25,7 +25,8 @@ func TestEndpoint(t *testing.T) {
 		{
 			name: "default",
 			endpoint: httpbp.Endpoint{
-				Name: "test",
+				Name:    "test",
+				Methods: []string{http.MethodGet},
 				Handle: func(context.Context, http.ResponseWriter, *http.Request) error {
 					return nil
 				},
@@ -40,7 +41,8 @@ func TestEndpoint(t *testing.T) {
 		{
 			name: "no-middlewares",
 			endpoint: httpbp.Endpoint{
-				Name: "test",
+				Name:    "test",
+				Methods: []string{http.MethodGet},
 				Handle: func(context.Context, http.ResponseWriter, *http.Request) error {
 					return nil
 				},
@@ -50,6 +52,7 @@ func TestEndpoint(t *testing.T) {
 		{
 			name: "missing-name",
 			endpoint: httpbp.Endpoint{
+				Methods: []string{http.MethodGet},
 				Handle: func(context.Context, http.ResponseWriter, *http.Request) error {
 					return nil
 				},
@@ -59,7 +62,29 @@ func TestEndpoint(t *testing.T) {
 		{
 			name: "missing-handle",
 			endpoint: httpbp.Endpoint{
+				Name:    "test",
+				Methods: []string{http.MethodGet},
+			},
+			expected: true,
+		},
+		{
+			name: "missing-methods",
+			endpoint: httpbp.Endpoint{
 				Name: "test",
+				Handle: func(context.Context, http.ResponseWriter, *http.Request) error {
+					return nil
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "invalid-method",
+			endpoint: httpbp.Endpoint{
+				Name:    "test",
+				Methods: []string{"foo"},
+				Handle: func(context.Context, http.ResponseWriter, *http.Request) error {
+					return nil
+				},
 			},
 			expected: true,
 		},
@@ -218,7 +243,8 @@ func TestServerArgsSetupEndpoints(t *testing.T) {
 				Baseplate: bp,
 				Endpoints: map[httpbp.Pattern]httpbp.Endpoint{
 					pattern: {
-						Name: name,
+						Name:    name,
+						Methods: []string{http.MethodGet},
 						Handle: func(context.Context, http.ResponseWriter, *http.Request) error {
 							return nil
 						},
@@ -268,6 +294,7 @@ func TestServerArgsSetupEndpoints(t *testing.T) {
 			startFailing()
 
 			req := newRequest(t)
+			req.Method = http.MethodGet
 			handle.ServeHTTP(httptest.NewRecorder(), req)
 
 			// Test that the EdgeRequestContext midddleware was set up
@@ -315,7 +342,8 @@ func TestNewTestBaseplateServer(t *testing.T) {
 		Baseplate: bp,
 		Endpoints: map[httpbp.Pattern]httpbp.Endpoint{
 			pattern: {
-				Name: name,
+				Name:    name,
+				Methods: []string{http.MethodGet},
 				Handle: func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 					return httpbp.WriteJSON(w, httpbp.Response{
 						Body: expectedBody,

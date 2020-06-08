@@ -3,6 +3,7 @@ package httpbp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -10,6 +11,18 @@ import (
 	baseplate "github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/batcherror"
 )
+
+var allHTTPMethods = map[string]bool{
+	http.MethodConnect: true,
+	http.MethodDelete:  true,
+	http.MethodGet:     true,
+	http.MethodHead:    true,
+	http.MethodOptions: true,
+	http.MethodPatch:   true,
+	http.MethodPost:    true,
+	http.MethodPut:     true,
+	http.MethodTrace:   true,
+}
 
 // EndpointRegistry is the minimal interface needed by a Baseplate HTTP server for
 // the underlying HTTP server.
@@ -30,11 +43,12 @@ type httpHandlerFactory struct {
 	middlewares []Middleware
 }
 
-func (f httpHandlerFactory) NewHandler(name string, handle HandlerFunc, middlewares ...Middleware) http.Handler {
-	wrappers := make([]Middleware, 0, len(f.middlewares)+len(middlewares))
+func (f httpHandlerFactory) NewHandler(endpoint Endpoint) http.Handler {
+	wrappers := make([]Middleware, 0, len(f.middlewares)+len(endpoint.Middlewares)+1)
+	wrappers = append(wrappers, SupportedMethods(endpoint.Methods[0], endpoint.Methods[1:]...))
 	wrappers = append(wrappers, f.middlewares...)
-	wrappers = append(wrappers, middlewares...)
-	return NewHandler(name, handle, wrappers...)
+	wrappers = append(wrappers, endpoint.Middlewares...)
+	return NewHandler(endpoint.Name, endpoint.Handle, wrappers...)
 }
 
 // Pattern is the pattern passed to a EndpointRegistry when registering an
@@ -46,6 +60,15 @@ type Endpoint struct {
 	// Name is required, it is the "name" of the endpoint that will be passed
 	// to any Middleware wrapping the HandlerFunc.
 	Name string
+
+	// Methods is the list of HTTP methods that the endpoint supports.  Methods
+	// must have at least one entry and all entries must be valid HTTP methods.
+	//
+	// Method names should be in all upper case.
+	// Use the http.Method* constants from "net/http" for the values in this slice
+	// to ensure that you are using methods that are supported and in the format
+	// we expect.
+	Methods []string
 
 	// Handle is required, it is the base HandlerFunc that will be wrapped
 	// by any Middleware.
@@ -65,6 +88,15 @@ func (e Endpoint) Validate() error {
 	}
 	if e.Handle == nil {
 		err.Add(errors.New("httpbp: Endpoint.Handle must be non-nil"))
+	}
+	if len(e.Methods) == 0 {
+		err.Add(errors.New("httpbp: Endpoint.Methods must be non-empty"))
+	} else {
+		for _, method := range e.Methods {
+			if !allHTTPMethods[method] {
+				err.Add(fmt.Errorf("httpbp: Endpoint.Methods contains an invalid value: %q", method))
+			}
+		}
 	}
 	return err.Compile()
 }
@@ -156,10 +188,7 @@ func (args ServerArgs) SetupEndpoints() (ServerArgs, error) {
 
 	factory := httpHandlerFactory{middlewares: wrappers}
 	for pattern, endpoint := range args.Endpoints {
-		args.EndpointRegistry.Handle(
-			string(pattern),
-			factory.NewHandler(endpoint.Name, endpoint.Handle, endpoint.Middlewares...),
-		)
+		args.EndpointRegistry.Handle(string(pattern), factory.NewHandler(endpoint))
 	}
 	return args, nil
 }
