@@ -101,8 +101,8 @@ func StartSpanFromTrustedRequest(
 // HansderFunc in a new server span and stop the span after the function
 // returns.
 //
-// InjectServerSpan should generally not be used directly,  instead use the
-// the NewBaseplateServer function which will automatically include InjectServerSpan
+// InjectServerSpan should generally not be used directly, instead use the
+// NewBaseplateServer function which will automatically include InjectServerSpan
 // as one of the Middlewares to wrap your handlers in.
 func InjectServerSpan(truster HeaderTrustHandler) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
@@ -153,9 +153,9 @@ func InitializeEdgeContextFromTrustedRequest(
 // the EdgeRequestContext header from the request headers and attach it to
 // the context object if present.
 //
-// InjectEdgeRequestContext should generally not be used directly, instead use the
-// the NewBaseplateServer function which will automatically include InjectEdgeRequestContext
-// as one of the Middlewares to wrap your handlers in.
+// InjectEdgeRequestContext should generally not be used directly, instead use
+// the NewBaseplateServer function which will automatically include
+// InjectEdgeRequestContext as one of the Middlewares to wrap your handlers in.
 func InjectEdgeRequestContext(truster HeaderTrustHandler, impl *edgecontext.Impl) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
