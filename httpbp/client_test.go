@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var Epsilon = 100 * time.Millisecond
+var Epsilon = 500 * time.Millisecond
 
 func TestMaxConcurrency(t *testing.T) {
 	port, closer, err := Serve()
@@ -28,7 +28,7 @@ func TestMaxConcurrency(t *testing.T) {
 	wg.Add(n)
 	for i := 0; i < n; i++ {
 		go func() {
-			_, err = client.Get(url)
+			_, err := client.Get(url)
 			if err != nil {
 				atomic.AddUint64(&errors, 1)
 				fmt.Println(err)
@@ -76,7 +76,6 @@ func Serve() (int, io.Closer, error) {
 	handler.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		go func() {
 			time.Sleep(Epsilon)
-			w.WriteHeader(200)
 			w.Write([]byte("hello world\n"))
 		}()
 	})

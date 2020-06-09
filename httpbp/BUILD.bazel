@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "client.go",
         "doc.go",
         "errors.go",
         "handler.go",
@@ -21,6 +22,8 @@ go_library(
         "//secrets:go_default_library",
         "//signing:go_default_library",
         "//tracing:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
+        "@com_github_sony_gobreaker//:go_default_library",
     ],
 )
 
@@ -28,6 +31,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "client_test.go",
         "errors_test.go",
         "example_server_test.go",
         "fixtures_test.go",
