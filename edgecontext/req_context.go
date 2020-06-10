@@ -68,6 +68,12 @@ func (e *EdgeRequestContext) User() User {
 	}
 }
 
+// CountryCode returns the two-character ISO 3166-1 country code where the
+// request orginated from.
+func (e *EdgeRequestContext) CountryCode() string {
+	return e.raw.CountryCode
+}
+
 // OriginService returns the info about the origin of this request.
 func (e *EdgeRequestContext) OriginService() OriginService {
 	return OriginService{
