@@ -109,6 +109,8 @@ type NewArgs struct {
 	AuthToken string
 
 	OriginServiceName string
+
+	CountryCode string
 }
 
 // New creates a new EdgeRequestContext from scratch.
@@ -139,6 +141,11 @@ func New(ctx context.Context, impl *Impl, args NewArgs) (*EdgeRequestContext, er
 	if args.OriginServiceName != "" {
 		request.OriginService = &baseplate.OriginService{
 			Name: args.OriginServiceName,
+		}
+	}
+	if args.CountryCode != "" {
+		request.Geolocation = &baseplate.Geolocation{
+			CountryCode: baseplate.CountryCode(args.CountryCode),
 		}
 	}
 	request.AuthenticationToken = baseplate.AuthenticationToken(args.AuthToken)
@@ -181,6 +188,9 @@ func FromHeader(header string, impl *Impl) (*EdgeRequestContext, error) {
 	}
 	if request.OriginService != nil {
 		raw.OriginServiceName = request.OriginService.Name
+	}
+	if request.Geolocation != nil {
+		raw.CountryCode = string(request.Geolocation.CountryCode)
 	}
 	return &EdgeRequestContext{
 		impl:   impl,
