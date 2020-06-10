@@ -55,8 +55,8 @@ var (
 // NewHandler returns a new http.Handler with the given HandlerFunc wrapped with
 // the given Middleware. The given "name" will be passed to all of the middlewares.
 //
-// Most services should not use NewHander and should use a BaseplateHandlerFactory
-// instead.
+// Most services should not use NewHander and should use NewBaseplateServer to
+// create an entire Server with all of its handlers instead.
 // NewHander is provided for those who need to avoid the default Baseplate
 // middleware or for testing purposes.
 func NewHandler(name string, handle HandlerFunc, middlewares ...Middleware) http.Handler {
