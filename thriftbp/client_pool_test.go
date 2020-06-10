@@ -40,7 +40,8 @@ func TestNewBaseplateClientPool(t *testing.T) {
 			InitialConnections: 1,
 			MaxConnections:     5,
 			MaxConnectionAge:   time.Minute,
-			SocketTimeout:      time.Millisecond * 10,
+			ConnectTimeout:     time.Millisecond * 5,
+			SocketTimeout:      time.Millisecond * 15,
 		},
 	); err != nil {
 		t.Fatal(err)
@@ -59,7 +60,8 @@ func TestCustomClientPool(t *testing.T) {
 			ServiceSlug:        "test",
 			InitialConnections: 1,
 			MaxConnections:     5,
-			SocketTimeout:      time.Millisecond * 10,
+			ConnectTimeout:     time.Millisecond * 5,
+			SocketTimeout:      time.Millisecond * 15,
 		},
 		thriftbp.SingleAddressGenerator(ln.Addr().String()),
 		thrift.NewTBinaryProtocolFactoryDefault(),

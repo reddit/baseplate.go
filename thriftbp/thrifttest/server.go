@@ -17,6 +17,10 @@ const (
 	// is not set.
 	DefaultClientMaxConnections = 10
 
+	// DefaultClientConnectTimeout is used when ServerConfig.ClientConfig.ConnectTimeout
+	// is not set.
+	DefaultClientConnectTimeout = 5 * time.Millisecond
+
 	// DefaultClientSocketTimeout is used when ServerConfig.ClientConfig.SocketTimeout
 	// is not set.
 	DefaultClientSocketTimeout = 10 * time.Millisecond
@@ -183,6 +187,9 @@ func NewBaseplateServer(
 	cfg.ClientConfig.ReportPoolStats = ReportClientPoolStats
 	cfg.ClientConfig.InitialConnections = InitialClientConnections
 
+	if cfg.ClientConfig.ConnectTimeout == 0 {
+		cfg.ClientConfig.ConnectTimeout = DefaultClientConnectTimeout
+	}
 	if cfg.ClientConfig.SocketTimeout == 0 {
 		cfg.ClientConfig.SocketTimeout = DefaultClientSocketTimeout
 	}
