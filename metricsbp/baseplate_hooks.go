@@ -23,7 +23,13 @@ type CreateServerSpanHook struct {
 
 // OnCreateServerSpan registers MetricSpanHooks on a server Span.
 func (h CreateServerSpanHook) OnCreateServerSpan(span *tracing.Span) error {
-	span.AddHooks(newSpanHook(h.Metrics.fallback(), span))
+	statsd := h.Metrics.fallback()
+	span.AddHooks(
+		newSpanHook(statsd, span),
+		countActiveRequestsHook{
+			metrics: statsd,
+		},
+	)
 	return nil
 }
 
@@ -98,9 +104,24 @@ func (h *spanHook) OnAddCounter(span *tracing.Span, key string, delta float64) e
 	return nil
 }
 
+type countActiveRequestsHook struct {
+	metrics *Statsd
+}
+
+func (h countActiveRequestsHook) OnPostStart(_ *tracing.Span) error {
+	h.metrics.incActiveRequests()
+	return nil
+}
+
+func (h countActiveRequestsHook) OnPreStop(_ *tracing.Span, _ error) error {
+	h.metrics.decActiveRequests()
+	return nil
+}
+
 var (
 	_ tracing.CreateServerSpanHook = CreateServerSpanHook{}
 	_ tracing.StartStopSpanHook    = (*spanHook)(nil)
 	_ tracing.CreateChildSpanHook  = (*spanHook)(nil)
 	_ tracing.AddSpanCounterHook   = (*spanHook)(nil)
+	_ tracing.StartStopSpanHook    = countActiveRequestsHook{}
 )

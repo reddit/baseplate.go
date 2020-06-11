@@ -71,6 +71,7 @@ func (st *Statsd) RunSysStats() {
 	mcacheSys := st.Gauge(prefix + "mem.stack.mcache_sys")
 	// other
 	memOther := st.Gauge(prefix + "mem.othersys")
+	activeRequests := st.Gauge(prefix + "active_requests")
 
 	go func() {
 		ticker := time.NewTicker(SysStatsTickerInterval)
@@ -115,6 +116,7 @@ func (st *Statsd) RunSysStats() {
 				mcacheSys.Set(float64(mem.MCacheSys))
 				// other
 				memOther.Set(float64(mem.OtherSys))
+				activeRequests.Set(float64(st.getActiveRequests()))
 			}
 		}
 	}()

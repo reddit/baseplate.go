@@ -29,6 +29,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "baseplate_hooks_internal_test.go",
         "baseplate_hooks_test.go",
         "config_test.go",
         "example_baseplate_hooks_test.go",
