@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-kit/kit/metrics"
@@ -78,6 +79,8 @@ type Statsd struct {
 	cancel              context.CancelFunc
 	counterSampleRate   float64
 	histogramSampleRate float64
+
+	activeRequests int64
 }
 
 // StatsdConfig is the configs used in NewStatsd.
@@ -312,4 +315,19 @@ func (st *Statsd) Close() error {
 // want to report.
 func (st *Statsd) WriteTo(w io.Writer) (n int64, err error) {
 	return st.fallback().statsd.WriteTo(w)
+}
+
+func (st *Statsd) incActiveRequests() {
+	st = st.fallback()
+	atomic.AddInt64(&st.activeRequests, 1)
+}
+
+func (st *Statsd) decActiveRequests() {
+	st = st.fallback()
+	atomic.AddInt64(&st.activeRequests, -1)
+}
+
+func (st *Statsd) getActiveRequests() int64 {
+	st = st.fallback()
+	return atomic.LoadInt64(&st.activeRequests)
 }
