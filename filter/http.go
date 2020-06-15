@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -33,17 +34,21 @@ type Client struct {
 	inner Service
 }
 
-func (svc *httpClientService) Do(request interface{}) (response interface{}, err error) {
+func (svc *httpClientService) Do(ctx context.Context, request interface{}) (response interface{}, err error) {
 	httpRequest, ok := request.(*http.Request)
 	if !ok {
 		return nil, errors.New("not an http request")
+	}
+	// We copy to apply the appropriate context
+	if httpRequest.Context() != ctx {
+		httpRequest = httpRequest.Clone(ctx)
 	}
 	return svc.client.Do(httpRequest)
 }
 
 // Do is a copy of http.Do
 func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
-	r, err := c.inner.Do(req)
+	r, err := c.inner.Do(req.Context(), req)
 	resp, ok := r.(*http.Response)
 	if !ok && err == nil {
 		return nil, errors.New("not an http response")

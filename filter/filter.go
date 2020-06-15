@@ -1,13 +1,15 @@
 package filter
 
+import "context"
+
 // Filter is a generic middleware type
 type Filter interface {
-	Do(request interface{}, service Service) (response interface{}, err error)
+	Do(ctx context.Context, request interface{}, service Service) (response interface{}, err error)
 }
 
 // Service is a generic client/server type
 type Service interface {
-	Do(request interface{}) (response interface{}, err error)
+	Do(ctx context.Context, request interface{}) (response interface{}, err error)
 }
 
 // ServiceWithFilters applies the filters to a service in a standard way.
@@ -23,6 +25,6 @@ type filteredService struct {
 	service Service
 }
 
-func (fs *filteredService) Do(request interface{}) (response interface{}, err error) {
-	return fs.filter.Do(request, fs.service)
+func (fs *filteredService) Do(ctx context.Context, request interface{}) (response interface{}, err error) {
+	return fs.filter.Do(ctx, request, fs.service)
 }

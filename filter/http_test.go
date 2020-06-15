@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"testing"
@@ -11,8 +12,8 @@ type helloFilter struct {
 	msg string
 }
 
-func (f *helloFilter) Do(request interface{}, service Service) (rsp interface{}, err error) {
-	rsp, err = service.Do(request)
+func (f *helloFilter) Do(ctx context.Context, request interface{}, service Service) (rsp interface{}, err error) {
+	rsp, err = service.Do(ctx, request)
 	httpRsp, ok := rsp.(*http.Response)
 	if ok {
 		if err == nil {
@@ -28,9 +29,9 @@ type slowFilter struct {
 	duration time.Duration
 }
 
-func (f *slowFilter) Do(request interface{}, service Service) (rsp interface{}, err error) {
+func (f *slowFilter) Do(ctx context.Context, request interface{}, service Service) (rsp interface{}, err error) {
 	time.Sleep(f.duration)
-	return service.Do(request)
+	return service.Do(ctx, request)
 }
 
 func TestHttpClientWithSpecificFilter(t *testing.T) {
