@@ -44,16 +44,30 @@ func Wrap(name string, handle HandlerFunc, middlewares ...Middleware) HandlerFun
 // DefaultMiddlewareArgs provides the arguments for the default, Baseplate
 // Middlewares
 type DefaultMiddlewareArgs struct {
-	TrustHandler    HeaderTrustHandler
+	// The edgecontext implementation to use. Required.
 	EdgeContextImpl *edgecontext.Impl
+
+	// The HeaderTrustHandler to use.
+	// If empty, NeverTrustHeaders will be used instead.
+	TrustHandler HeaderTrustHandler
+
+	// The logger to be called when edgecontext parsing failed.
+	Logger log.Wrapper
 }
 
 // DefaultMiddleware returns a slice of all of the default Middleware for a
 // Baseplate HTTP server.
 func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
+	if args.TrustHandler == nil {
+		args.TrustHandler = NeverTrustHeaders{}
+	}
 	return []Middleware{
 		InjectServerSpan(args.TrustHandler),
-		InjectEdgeRequestContext(args.TrustHandler, args.EdgeContextImpl),
+		InjectEdgeRequestContext(InjectEdgeRequestContextArgs{
+			EdgeContextImpl: args.EdgeContextImpl,
+			TrustHandler:    args.TrustHandler,
+			Logger:          args.Logger,
+		}),
 	}
 }
 
@@ -131,22 +145,43 @@ func InjectServerSpan(truster HeaderTrustHandler) Middleware {
 // purposes or use cases that are not covered by Baseplate.
 func InitializeEdgeContextFromTrustedRequest(
 	ctx context.Context,
-	truster HeaderTrustHandler,
-	impl *edgecontext.Impl,
 	r *http.Request,
+	args InjectEdgeRequestContextArgs,
 ) context.Context {
-	if !truster.TrustEdgeContext(r) {
+	if args.TrustHandler == nil {
+		args.TrustHandler = NeverTrustHeaders{}
+	}
+
+	if !args.TrustHandler.TrustEdgeContext(r) {
 		return ctx
 	}
 
-	header := r.Header.Get(EdgeContextHeader)
-	ec, err := edgecontext.FromHeader(header, impl)
+	header, err := NewEdgeContextHeaders(r.Header)
 	if err != nil {
-		log.Errorw("Error while parsing EdgeRequestContext: ", "err", err)
+		args.Logger.Log("Error while parsing EdgeRequestContext: " + err.Error())
+		return ctx
+	}
+	ec, err := edgecontext.FromHeader(header.EdgeRequest, args.EdgeContextImpl)
+	if err != nil {
+		args.Logger.Log("Error while parsing EdgeRequestContext: " + err.Error())
 		return ctx
 	}
 
 	return edgecontext.SetEdgeContext(ctx, ec)
+}
+
+// InjectEdgeRequestContextArgs are the args to be passed into
+// InjectEdgeRequestContext function.
+type InjectEdgeRequestContextArgs struct {
+	// The edgecontext implementation to use. Required.
+	EdgeContextImpl *edgecontext.Impl
+
+	// The HeaderTrustHandler to use.
+	// If empty, NeverTrustHeaders{} will be used instead.
+	TrustHandler HeaderTrustHandler
+
+	// The logger to be called when edgecontext parsing failed.
+	Logger log.Wrapper
 }
 
 // InjectEdgeRequestContext returns a Middleware that will automatically parse
@@ -156,10 +191,10 @@ func InitializeEdgeContextFromTrustedRequest(
 // InjectEdgeRequestContext should generally not be used directly, instead use
 // the NewBaseplateServer function which will automatically include
 // InjectEdgeRequestContext as one of the Middlewares to wrap your handlers in.
-func InjectEdgeRequestContext(truster HeaderTrustHandler, impl *edgecontext.Impl) Middleware {
+func InjectEdgeRequestContext(args InjectEdgeRequestContextArgs) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-			ctx = InitializeEdgeContextFromTrustedRequest(ctx, truster, impl, r)
+			ctx = InitializeEdgeContextFromTrustedRequest(ctx, r, args)
 			return next(ctx, w, r)
 		}
 	}
