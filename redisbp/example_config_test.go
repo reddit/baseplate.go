@@ -16,7 +16,10 @@ type config struct {
 // that with `baseplate.New`.
 func ExampleClientConfig() {
 	var cfg config
-	ctx, bp, err := baseplate.New(context.Background(), "example.yaml", &cfg)
+	ctx, bp, err := baseplate.New(context.Background(), baseplate.Args{
+		Path:          "example.yaml",
+		ServiceConfig: &cfg,
+	})
 	if err != nil {
 		panic(err)
 	}

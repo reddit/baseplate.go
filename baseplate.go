@@ -204,17 +204,31 @@ func DecodeConfigYAML(reader io.ReadSeeker, serviceCfg interface{}) (Config, err
 	return cfg, nil
 }
 
+// Args is the argument struct to create a new Baseplate.
+type Args struct {
+	// Path is the path to the service's config file.
+	//
+	// Path is a required argument.
+	Path string
+
+	// ErrorFilters is an optional list of errorsbp.Filters that will be used to
+	// suppress errors that we do not consider "failures" in the monitoring
+	// framework.
+	ErrorFilters []errorsbp.Filter
+
+	// ServiceConfig is optional, if it is non-nil, it should be a pointer and New
+	// will also decode the config file at the path to set it up.  This can be used
+	// to parse additional, service specific config values from the same config
+	// file.
+	ServiceConfig interface{}
+}
+
 // New parses the config file at the given path, initializes the monitoring and
 // logging frameworks, and returns the "serve" context and a new Baseplate to
 // run your service on.  The returned context will be cancelled when the
 // Baseplate is closed.
-//
-// serviceCfg is optional, if it is non-nil, it should be a pointer and New
-// will also decode the config file at the path to set it up.  This can be used
-// to parse additional, service specific config values from the same config
-// file.
-func New(ctx context.Context, path string, serviceCfg interface{}) (context.Context, Baseplate, error) {
-	cfg, err := ParseConfig(path, serviceCfg)
+func New(ctx context.Context, args Args) (context.Context, Baseplate, error) {
+	cfg, err := ParseConfig(args.Path, args.ServiceConfig)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -226,7 +240,7 @@ func New(ctx context.Context, path string, serviceCfg interface{}) (context.Cont
 	bp.closers.Add(batchcloser.WrapCancel(cancel))
 
 	log.InitFromConfig(cfg.Log)
-	bp.closers.Add(metricsbp.InitFromConfig(ctx, cfg.Metrics))
+	bp.closers.Add(metricsbp.InitFromConfig(ctx, cfg.Metrics, args.ErrorFilters...))
 
 	closer, err := log.InitSentry(cfg.Sentry)
 	if err != nil {

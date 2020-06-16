@@ -92,7 +92,10 @@ var (
 // Baseplate HTTP service.
 func ExampleNewBaseplateServer() {
 	var cfg config
-	ctx, bp, err := baseplate.New(context.Background(), "example.yaml", &cfg)
+	ctx, bp, err := baseplate.New(context.Background(), baseplate.Args{
+		Path:          "example.yaml",
+		ServiceConfig: &cfg,
+	})
 	if err != nil {
 		panic(err)
 	}
