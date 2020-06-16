@@ -10,6 +10,7 @@ import (
 
 	baseplate "github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/batcherror"
+	"github.com/reddit/baseplate.go/log"
 )
 
 var allHTTPMethods = map[string]bool{
@@ -144,6 +145,10 @@ type ServerArgs struct {
 	//
 	// Defaults to NeverTrustHeaders.
 	TrustHandler HeaderTrustHandler
+
+	// Logger is an optional arg to be called when the InjectEdgeRequestContext
+	// middleware failed to parse the edge request header for any reason.
+	Logger log.Wrapper
 }
 
 // ValidateAndSetDefaults checks the ServerArgs for any errors and sets any
@@ -184,6 +189,7 @@ func (args ServerArgs) SetupEndpoints() (ServerArgs, error) {
 	wrappers := DefaultMiddleware(DefaultMiddlewareArgs{
 		TrustHandler:    args.TrustHandler,
 		EdgeContextImpl: args.Baseplate.EdgeContextImpl(),
+		Logger:          args.Logger,
 	})
 	wrappers = append(wrappers, args.Middlewares...)
 

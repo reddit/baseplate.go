@@ -2,6 +2,7 @@ package httpbp_test
 
 import (
 	"context"
+	"encoding/base64"
 	"net/http"
 	"strings"
 	"testing"
@@ -116,7 +117,7 @@ func newRequest(t testing.TB) *http.Request {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Header.Add(httpbp.EdgeContextHeader, headerWithValidAuth)
+	req.Header.Add(httpbp.EdgeContextHeader, base64.StdEncoding.EncodeToString([]byte(headerWithValidAuth)))
 	req.Header.Add(httpbp.SpanSampledHeader, "1")
 	return req
 }

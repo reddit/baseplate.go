@@ -10,6 +10,7 @@ import (
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/httpbp"
+	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -255,6 +256,7 @@ func TestServerArgsSetupEndpoints(t *testing.T) {
 					edgecontextRecorderMiddleware(&recorder),
 				},
 				TrustHandler: httpbp.AlwaysTrustHeaders{},
+				Logger:       log.TestWrapper(t),
 			}
 
 			args, err := args.SetupEndpoints()
