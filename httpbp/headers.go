@@ -68,19 +68,14 @@ type EdgeContextHeaders struct {
 
 // NewEdgeContextHeaders returns a new EdgeContextHeaders object from the given
 // HTTP headers.
-//
-// The edge context header using base64 encoding for http transport, so it needs decode first
 func NewEdgeContextHeaders(h http.Header) (EdgeContextHeaders, error) {
-	ec, err := base64.StdEncoding.DecodeString(h.Get(EdgeContextHeader))
+	ec, err := decodeEdgeContextHeader(h.Get(EdgeContextHeader))
 	return EdgeContextHeaders{EdgeRequest: string(ec)}, err
 }
 
 // SetEdgeContextHeader attach EdgeRequestContext into response header.
-//
-// The base64 encoding is only for http transport.
 func SetEdgeContextHeader(ec *edgecontext.EdgeRequestContext, w http.ResponseWriter) {
-	encoded := base64.StdEncoding.EncodeToString([]byte(ec.Header()))
-	w.Header().Set(EdgeContextHeader, encoded)
+	w.Header().Set(EdgeContextHeader, encodeEdgeContextHeader([]byte(ec.Header())))
 }
 
 // AsMap returns the EdgeContextHeaders as a map of header keys to header
@@ -354,4 +349,16 @@ func headerMessage(h Headers) []byte {
 		components = append(components, fmt.Sprintf("%s:%s", key, headers[key]))
 	}
 	return []byte(strings.Join(components, "|"))
+}
+
+// encodeEdgeContextHeader does the appropriate base64 encoding from the raw
+// edge context header.
+func encodeEdgeContextHeader(raw []byte) string {
+	return base64.StdEncoding.EncodeToString([]byte(raw))
+}
+
+// decodeEdgeContextHeader does the appropriate base64 decoding from the http
+// edge context header into raw edge context header.
+func decodeEdgeContextHeader(s string) ([]byte, error) {
+	return base64.StdEncoding.DecodeString(s)
 }
