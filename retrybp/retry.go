@@ -7,7 +7,7 @@ import (
 
 	retry "github.com/avast/retry-go"
 
-	"github.com/reddit/baseplate.go/batcherror"
+	"github.com/reddit/baseplate.go/errorsbp"
 )
 
 func init() {
@@ -43,7 +43,7 @@ func GetOptions(ctx context.Context) (options []retry.Option, ok bool) {
 //    where you are not calling Do directly but still want to be able to
 //    configure retry behavior per-call.
 // 2. If retry.Do returns a batch of errors (retry.Error), put those in a
-//    batcherror.BatchError from baseplate.go.
+//    errorsbp.Batch from baseplate.go.
 func Do(ctx context.Context, fn func() error, defaults ...retry.Option) error {
 	options, _ := GetOptions(ctx)
 	options = append(defaults, options...)
@@ -51,7 +51,7 @@ func Do(ctx context.Context, fn func() error, defaults ...retry.Option) error {
 
 	var retryErr retry.Error
 	if errors.As(err, &retryErr) {
-		var batchErr batcherror.BatchError
+		var batchErr errorsbp.Batch
 		batchErr.Add(retryErr.WrappedErrors()...)
 		return batchErr.Compile()
 	}

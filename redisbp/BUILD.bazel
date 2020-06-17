@@ -11,7 +11,7 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/redisbp",
     visibility = ["//visibility:public"],
     deps = [
-        "//batcherror:go_default_library",
+        "//errorsbp:go_default_library",
         "//tracing:go_default_library",
         "@com_github_go_redis_redis_v7//:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",
