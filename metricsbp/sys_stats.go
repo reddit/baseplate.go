@@ -29,49 +29,54 @@ func pullRuntimeStats() (cpu cpuStats, mem runtime.MemStats) {
 //
 // Canceling the context passed into NewStatsd will stop this goroutine.
 func (st *Statsd) RunSysStats() {
+	const prefix = "runtime."
+
 	st = st.fallback()
 
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "UNKOWN-HOSTNAME"
 	}
-	prefix := fmt.Sprintf("runtime.%s.PID%d.", hostname, os.Getpid())
+	tags := Tags{
+		"instance": hostname,
+		"pid":      fmt.Sprintf("PID%d", os.Getpid()),
+	}.AsStatsdTags()
 
 	// init the gauges
 	// cpu
-	cpuGoroutines := st.Gauge(prefix + "cpu.goroutines")
-	cpuCgoCalls := st.Gauge(prefix + "cpu.cgo_calls")
+	cpuGoroutines := st.Gauge(prefix + "cpu.goroutines").With(tags...)
+	cpuCgoCalls := st.Gauge(prefix + "cpu.cgo_calls").With(tags...)
 	// gc
-	gcSys := st.Gauge(prefix + "mem.gc.sys")
-	gcNext := st.Gauge(prefix + "mem.gc.next")
-	gcLast := st.Gauge(prefix + "mem.gc.last")
-	gcPauseTotal := st.Gauge(prefix + "mem.gc.pause_total")
-	gcPause := st.Gauge(prefix + "mem.gc.pause")
-	gcCount := st.Gauge(prefix + "mem.gc.count")
+	gcSys := st.Gauge(prefix + "mem.gc.sys").With(tags...)
+	gcNext := st.Gauge(prefix + "mem.gc.next").With(tags...)
+	gcLast := st.Gauge(prefix + "mem.gc.last").With(tags...)
+	gcPauseTotal := st.Gauge(prefix + "mem.gc.pause_total").With(tags...)
+	gcPause := st.Gauge(prefix + "mem.gc.pause").With(tags...)
+	gcCount := st.Gauge(prefix + "mem.gc.count").With(tags...)
 	// general
-	memAlloc := st.Gauge(prefix + "mem.alloc")
-	memTotal := st.Gauge(prefix + "mem.total")
-	memSys := st.Gauge(prefix + "mem.sys")
-	memLookups := st.Gauge(prefix + "mem.lookups")
-	memMalloc := st.Gauge(prefix + "mem.malloc")
-	memFrees := st.Gauge(prefix + "mem.frees")
+	memAlloc := st.Gauge(prefix + "mem.alloc").With(tags...)
+	memTotal := st.Gauge(prefix + "mem.total").With(tags...)
+	memSys := st.Gauge(prefix + "mem.sys").With(tags...)
+	memLookups := st.Gauge(prefix + "mem.lookups").With(tags...)
+	memMalloc := st.Gauge(prefix + "mem.malloc").With(tags...)
+	memFrees := st.Gauge(prefix + "mem.frees").With(tags...)
 	// heap
-	heapAlloc := st.Gauge(prefix + "mem.heap.alloc")
-	heapSys := st.Gauge(prefix + "mem.heap.sys")
-	heapIdle := st.Gauge(prefix + "mem.heap.idle")
-	heapInuse := st.Gauge(prefix + "mem.heap.inuse")
-	heapReleased := st.Gauge(prefix + "mem.heap.released")
-	heapObjects := st.Gauge(prefix + "mem.heap.objects")
+	heapAlloc := st.Gauge(prefix + "mem.heap.alloc").With(tags...)
+	heapSys := st.Gauge(prefix + "mem.heap.sys").With(tags...)
+	heapIdle := st.Gauge(prefix + "mem.heap.idle").With(tags...)
+	heapInuse := st.Gauge(prefix + "mem.heap.inuse").With(tags...)
+	heapReleased := st.Gauge(prefix + "mem.heap.released").With(tags...)
+	heapObjects := st.Gauge(prefix + "mem.heap.objects").With(tags...)
 	// stack
-	stackInuse := st.Gauge(prefix + "mem.stack.inuse")
-	stackSys := st.Gauge(prefix + "mem.stack.sys")
-	mspanInuse := st.Gauge(prefix + "mem.stack.mspan_inuse")
-	mspanSys := st.Gauge(prefix + "mem.stack.mspan_sys")
-	mcacheInuse := st.Gauge(prefix + "mem.stack.mcache_inuse")
-	mcacheSys := st.Gauge(prefix + "mem.stack.mcache_sys")
+	stackInuse := st.Gauge(prefix + "mem.stack.inuse").With(tags...)
+	stackSys := st.Gauge(prefix + "mem.stack.sys").With(tags...)
+	mspanInuse := st.Gauge(prefix + "mem.stack.mspan_inuse").With(tags...)
+	mspanSys := st.Gauge(prefix + "mem.stack.mspan_sys").With(tags...)
+	mcacheInuse := st.Gauge(prefix + "mem.stack.mcache_inuse").With(tags...)
+	mcacheSys := st.Gauge(prefix + "mem.stack.mcache_sys").With(tags...)
 	// other
-	memOther := st.Gauge(prefix + "mem.othersys")
-	activeRequests := st.Gauge(prefix + "active_requests")
+	memOther := st.Gauge(prefix + "mem.othersys").With(tags...)
+	activeRequests := st.Gauge(prefix + "active_requests").With(tags...)
 
 	go func() {
 		ticker := time.NewTicker(SysStatsTickerInterval)
