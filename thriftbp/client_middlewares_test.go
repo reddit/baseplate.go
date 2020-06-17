@@ -349,19 +349,17 @@ func TestRetry(t *testing.T) {
 	c := &counter{}
 	handler := BaseplateService{}
 	processor := baseplatethrift.NewBaseplateServiceProcessor(&handler)
-	server, err := thrifttest.NewBaseplateServer(
-		store,
-		processor,
-		thrifttest.ServerConfig{
-			ClientConfig: thriftbp.ClientPoolConfig{
-				DefaultRetryOptions: []retry.Option{
-					retry.Attempts(2),
-					retrybp.Filters(retrybp.NetworkErrorFilter),
-					retry.OnRetry(c.onRetry),
-				},
+	server, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
+		Processor:   processor,
+		SecretStore: store,
+		ClientConfig: thriftbp.ClientPoolConfig{
+			DefaultRetryOptions: []retry.Option{
+				retry.Attempts(2),
+				retrybp.Filters(retrybp.NetworkErrorFilter),
+				retry.OnRetry(c.onRetry),
 			},
 		},
-	)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

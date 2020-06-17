@@ -8,14 +8,35 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
 var (
-	_ thrift.ProcessorMiddleware = InjectServerSpan
 	_ thrift.ProcessorMiddleware = ExtractDeadlineBudget
 )
+
+// DefaultProcessorMiddlewaresArgs are the args to be passed into
+// BaseplateDefaultProcessorMiddlewares function to create default processor
+// middlewares.
+type DefaultProcessorMiddlewaresArgs struct {
+	// The edge context implementation. Required.
+	EdgeContextImpl *edgecontext.Impl
+
+	// Suppress some of the errors returned by the server before sending them to
+	// the server span.
+	//
+	// Based on Baseplate spec, the errors defined in your thrift IDL are not
+	// treated as errors, and should be suppressed here. So in most cases that's
+	// what the service developer should implement as the Suppressor here.
+	//
+	// Note that this suppressor only affects the errors send to the span. It
+	// won't affect the errors returned to the client.
+	//
+	// This is optional. If it's not set none of the errors will be suppressed.
+	ErrorSpanSuppressor errorsbp.Suppressor
+}
 
 // BaseplateDefaultProcessorMiddlewares returns the default processor
 //  middlewares that should be used by a baseplate Thrift service.
@@ -27,11 +48,11 @@ var (
 // 2. InjectServerSpan
 //
 // 3. InjectEdgeContext
-func BaseplateDefaultProcessorMiddlewares(ecImpl *edgecontext.Impl) []thrift.ProcessorMiddleware {
+func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) []thrift.ProcessorMiddleware {
 	return []thrift.ProcessorMiddleware{
 		ExtractDeadlineBudget,
-		InjectServerSpan,
-		InjectEdgeContext(ecImpl),
+		InjectServerSpan(args.ErrorSpanSuppressor),
+		InjectEdgeContext(args.EdgeContextImpl),
 	}
 }
 
@@ -79,24 +100,27 @@ func StartSpanFromThriftContext(ctx context.Context, name string) (context.Conte
 //
 // Starts the server span before calling the `next` TProcessorFunction and stops
 // the span after it finishes.
-// If the function returns an error, that will be passed to span.Stop.
+// If the function returns an error that's not suppressed by the suppressor,
+// that will be passed to span.Stop.
 //
 // Note, the span will be created according to tracing related headers already
 // being set on the context object.
 // These should be automatically injected by your thrift.TSimpleServer.
-func InjectServerSpan(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
-	return thrift.WrappedTProcessorFunction{
-		Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
-			ctx, span := StartSpanFromThriftContext(ctx, name)
-			defer func() {
-				span.FinishWithOptions(tracing.FinishOptions{
-					Ctx: ctx,
-					Err: err,
-				}.Convert())
-			}()
+func InjectServerSpan(suppressor errorsbp.Suppressor) thrift.ProcessorMiddleware {
+	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+		return thrift.WrappedTProcessorFunction{
+			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
+				ctx, span := StartSpanFromThriftContext(ctx, name)
+				defer func() {
+					span.FinishWithOptions(tracing.FinishOptions{
+						Ctx: ctx,
+						Err: suppressor.Wrap(err),
+					}.Convert())
+				}()
 
-			return next.Process(ctx, seqID, in, out)
-		},
+				return next.Process(ctx, seqID, in, out)
+			},
+		}
 	}
 }
 
