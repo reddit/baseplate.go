@@ -6,21 +6,30 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	baseplate "github.com/reddit/baseplate.go"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 )
 
-// ServerConfig is the arg struct for NewServer.
+// ServerConfig is the arg struct for both NewServer and NewBaseplateServer.
+//
+// Some of the fields are only used by NewServer and some of them are only used
+// by NewBaseplateServer. Please refer to the documentation for each field to
+// see how is it used.
 type ServerConfig struct {
-	// The endpoint address of your thrift service.
+	// Required, used by both NewServer and NewBaseplateServer.
 	//
-	// This is ignored if Socket is non-nil.
-	Addr string
+	// This is the thrift processor implementation to handle endpoints.
+	Processor thrift.TProcessor
 
-	// The timeout for the underlying thrift.TServerSocket transport.
+	// Optional, used by both NewServer and NewBaseplateServer.
 	//
-	// This is ignored if Socket is non-nil.
-	Timeout time.Duration
+	// For NewServer, this defines all the middlewares to wrap the server with.
+	// For NewBaseplateServer, this only defines the middlewares in addition to
+	// (and after) BaseplateDefaultProcessorMiddlewares.
+	Middlewares []thrift.ProcessorMiddleware
 
+	// Optional, used only by NewServer.
+	//
 	// A log wrapper that is used by the TSimpleServer.
 	//
 	// It's compatible with log.Wrapper (with an extra typecasting),
@@ -29,19 +38,45 @@ type ServerConfig struct {
 	// which would be too spammy for sentry.
 	Logger thrift.Logger
 
-	// Optional TServerSocket you can use instead of setting one up using Addr
-	// plus timeout.  If provided, this will be used rather than Addr and Timeout.
+	// Optional, used only by NewBaseplateServer.
+	//
+	// Please refer to the documentation of
+	// DefaultProcessorMiddlewaresArgs.ErrorSpanSuppressor for more details
+	// regarding how it is used.
+	ErrorSpanSuppressor errorsbp.Suppressor
+
+	// Optional, used only by NewServer.
+	// In NewBaseplateServer the address set in bp.Config() will be used instead.
+	//
+	// The endpoint address of your thrift service.
+	//
+	// This is ignored if Socket is non-nil.
+	Addr string
+
+	// Optional, used only by NewServer.
+	// In NewBaseplateServer the timeout set in bp.Config() will be used instead.
+	//
+	// The timeout for the underlying thrift.TServerSocket transport.
+	//
+	// If your clients use client pool,
+	// it's recommended to either not set a Timeout on your server,
+	// or set it to a long value that's longer than your clients' pool TTL.
+	//
+	// This is ignored if Socket is non-nil.
+	Timeout time.Duration
+
+	// Optional, used only by NewServer.
+	// In NewBaseplateServer the address and timeout set in bp.Config() will be
+	// used instead.
+	//
+	// You can choose to set Socket instead of Addr plus Timeout.
 	Socket *thrift.TServerSocket
 }
 
 // NewServer returns a thrift.TSimpleServer using the THeader transport
 // and protocol to serve the given TProcessor which is wrapped with the
 // given ProcessorMiddlewares.
-func NewServer(
-	cfg ServerConfig,
-	processor thrift.TProcessor,
-	middlewares ...thrift.ProcessorMiddleware,
-) (*thrift.TSimpleServer, error) {
+func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 	var transport *thrift.TServerSocket
 	if cfg.Socket == nil {
 		var err error
@@ -54,7 +89,7 @@ func NewServer(
 	}
 
 	server := thrift.NewTSimpleServer4(
-		thrift.WrapProcessor(processor, middlewares...),
+		thrift.WrapProcessor(cfg.Processor, cfg.Middlewares...),
 		transport,
 		thrift.NewTHeaderTransportFactory(nil),
 		thrift.NewTHeaderProtocolFactory(),
@@ -69,19 +104,27 @@ func NewServer(
 //
 // The TProcessor underlying the server will be wrapped in the default
 // Baseplate Middleware and any additional middleware passed in.
+//
+// The suppressor arg will be used as
+// DefaultProcessorMiddlewaresArgs.ErrorSpanSuppressor,
+// please refer to its documentation for more details.
 func NewBaseplateServer(
 	bp baseplate.Baseplate,
-	processor thrift.TProcessor,
-	middlewares ...thrift.ProcessorMiddleware,
+	cfg ServerConfig,
 ) (baseplate.Server, error) {
-	cfg := ServerConfig{
-		Addr:    bp.Config().Addr,
-		Timeout: bp.Config().Timeout,
-		Logger:  thrift.Logger(log.ZapWrapper(bp.Config().Log.Level)),
-	}
-	wrapped := BaseplateDefaultProcessorMiddlewares(bp.EdgeContextImpl())
-	wrapped = append(wrapped, middlewares...)
-	srv, err := NewServer(cfg, processor, wrapped...)
+	middlewares := BaseplateDefaultProcessorMiddlewares(
+		DefaultProcessorMiddlewaresArgs{
+			EdgeContextImpl:     bp.EdgeContextImpl(),
+			ErrorSpanSuppressor: cfg.ErrorSpanSuppressor,
+		},
+	)
+	middlewares = append(middlewares, cfg.Middlewares...)
+	cfg.Middlewares = middlewares
+	cfg.Logger = thrift.Logger(log.ZapWrapper(bp.Config().Log.Level))
+	cfg.Addr = bp.Config().Addr
+	cfg.Timeout = bp.Config().Timeout
+	cfg.Socket = nil
+	srv, err := NewServer(cfg)
 	if err != nil {
 		return nil, err
 	}

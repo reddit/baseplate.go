@@ -10,13 +10,14 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
 // MonitorClientWrappedSlugSuffix is a suffix to be added to the service slug
 // arg of MonitorClient function, in order to distinguish from the spans that
-// are the raw client calls..
+// are the raw client calls.
 //
 // The MonitorClient with this suffix will have span operation names like:
 //
@@ -67,6 +68,14 @@ type DefaultClientMiddlewareArgs struct {
 	// automatically retry any requests.  You can set retry behavior per-call by
 	// using retrybp.WithOptions.
 	RetryOptions []retry.Option
+
+	// Suppress some of the errors returned by the server before sending them to
+	// the client span.
+	//
+	// See MonitorClientArgs.ErrorSpanSuppressor for more details.
+	//
+	// This is optional. If it's not set none of the errors will be suppressed.
+	ErrorSpanSuppressor errorsbp.Suppressor
 }
 
 // BaseplateDefaultClientMiddlewares returns the default client middlewares that
@@ -93,11 +102,39 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 	}
 	return []thrift.ClientMiddleware{
 		ForwardEdgeRequestContext,
-		MonitorClient(args.ServiceSlug + MonitorClientWrappedSlugSuffix),
+		MonitorClient(MonitorClientArgs{
+			ServiceSlug:         args.ServiceSlug + MonitorClientWrappedSlugSuffix,
+			ErrorSpanSuppressor: args.ErrorSpanSuppressor,
+		}),
 		Retry(args.RetryOptions...),
-		MonitorClient(args.ServiceSlug),
+		MonitorClient(MonitorClientArgs{
+			ServiceSlug:         args.ServiceSlug,
+			ErrorSpanSuppressor: args.ErrorSpanSuppressor,
+		}),
 		SetDeadlineBudget,
 	}
+}
+
+// MonitorClientArgs are the args to be passed into MonitorClient function.
+type MonitorClientArgs struct {
+	// The slug string of the service.
+	//
+	// Note that if this is the MonitorClient before retry,
+	// ServiceSlug should also come with MonitorClientWrappedSlugSuffix.
+	ServiceSlug string
+
+	// Suppress some of the errors returned by the server before sending them to
+	// the client span.
+	//
+	// Based on Baseplate spec, the errors defined in the server's thrift IDL are
+	// not treated as errors, and should be suppressed here. So in most cases
+	// that's what should be implemented as the Suppressor here.
+	//
+	// Note that this suppressor only affects the errors send to the span. It
+	// won't affect the errors returned to the caller of the client function.
+	//
+	// This is optional. If it's not set none of the errors will be suppressed.
+	ErrorSpanSuppressor errorsbp.Suppressor
 }
 
 // MonitorClient is a ClientMiddleware that wraps the inner thrift.TClient.Call
@@ -106,8 +143,9 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 // If you are using a thrift ClientPool created by NewBaseplateClientPool,
 // this will be included automatically and should not be passed in as a
 // ClientMiddleware to NewBaseplateClientPool.
-func MonitorClient(service string) thrift.ClientMiddleware {
-	prefix := service + "."
+func MonitorClient(args MonitorClientArgs) thrift.ClientMiddleware {
+	prefix := args.ServiceSlug + "."
+	s := args.ErrorSpanSuppressor
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
@@ -120,7 +158,7 @@ func MonitorClient(service string) thrift.ClientMiddleware {
 				defer func() {
 					span.FinishWithOptions(tracing.FinishOptions{
 						Ctx: ctx,
-						Err: err,
+						Err: s.Wrap(err),
 					}.Convert())
 				}()
 

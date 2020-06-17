@@ -8,6 +8,7 @@ import (
 
 	baseplate "github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/batchcloser"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/thriftbp"
 )
@@ -46,6 +47,12 @@ const (
 // ServerConfig can be used to pass in custom configuration options for the
 // server and/or client created by NewBaseplateServer.
 type ServerConfig struct {
+	// Required, the processor to handle endpoints.
+	Processor thrift.TProcessor
+
+	// Required, the secret store.
+	SecretStore *secrets.Store
+
 	// ServerConfig is an optional value, sane defaults will be chosen where
 	// appropriate.
 	//
@@ -64,6 +71,10 @@ type ServerConfig struct {
 
 	// Optional, additional ProcessorMiddleware to wrap the server with.
 	ProcessorMiddlewares []thrift.ProcessorMiddleware
+
+	// Optional, the ErrorSpanSuppressor used to create InjectServerSpan
+	// middleware.
+	ErrorSpanSuppressor errorsbp.Suppressor
 }
 
 // Server is a test server returned by NewBaseplateServer.  It contains both
@@ -135,7 +146,7 @@ func (s *Server) Close() error {
 //		defer cancel()
 //
 //		processor := baseplatethrift.NewBaseplateServiceProcessor(BaseplateService{})
-//		server, err := thrifttest.NewBaseplateServer(store, processor, thrifttest.ServerConfig{})
+//		server, err := thrifttest.NewBaseplateServer(store, processor, nil, thrifttest.ServerConfig{})
 //		if err != nil {
 //			t.Fatal(err)
 //		}
@@ -153,11 +164,7 @@ func (s *Server) Close() error {
 // 			t.Errorf("result mismatch, expected %v, got %v", c.expected.result, result)
 //		}
 //	}
-func NewBaseplateServer(
-	store *secrets.Store,
-	processor thrift.TProcessor,
-	cfg ServerConfig,
-) (*Server, error) {
+func NewBaseplateServer(cfg ServerConfig) (*Server, error) {
 	socket, err := thrift.NewTServerSocket(loopbackAddr)
 	if err != nil {
 		return nil, err
@@ -168,15 +175,22 @@ func NewBaseplateServer(
 	}
 
 	cfg.ServerConfig.Addr = socket.Addr().String()
-	bp := baseplate.NewTestBaseplate(cfg.ServerConfig, store)
-	middlewares := thriftbp.BaseplateDefaultProcessorMiddlewares(bp.EdgeContextImpl())
+	bp := baseplate.NewTestBaseplate(cfg.ServerConfig, cfg.SecretStore)
+	middlewares := thriftbp.BaseplateDefaultProcessorMiddlewares(
+		thriftbp.DefaultProcessorMiddlewaresArgs{
+			EdgeContextImpl:     bp.EdgeContextImpl(),
+			ErrorSpanSuppressor: cfg.ErrorSpanSuppressor,
+		},
+	)
 	middlewares = append(middlewares, cfg.ProcessorMiddlewares...)
 	serverCfg := thriftbp.ServerConfig{
-		Socket: socket,
-		Logger: thrift.NopLogger,
+		Socket:      socket,
+		Logger:      thrift.NopLogger,
+		Processor:   cfg.Processor,
+		Middlewares: middlewares,
 	}
 
-	srv, err := thriftbp.NewServer(serverCfg, processor, middlewares...)
+	srv, err := thriftbp.NewServer(serverCfg)
 	if err != nil {
 		return nil, err
 	}

@@ -67,7 +67,7 @@ func TestInjectServerSpan(t *testing.T) {
 	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
 	ctx = thrifttest.SetMockTProcessorName(ctx, name)
 
-	wrapped := thrift.WrapProcessor(processor, thriftbp.InjectServerSpan)
+	wrapped := thrift.WrapProcessor(processor, thriftbp.InjectServerSpan(nil))
 	wrapped.Process(ctx, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()

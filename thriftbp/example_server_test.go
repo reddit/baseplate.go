@@ -23,7 +23,9 @@ func ExampleNewBaseplateServer() {
 	var handler bpgen.BaseplateService
 	processor := bpgen.NewBaseplateServiceProcessor(handler)
 
-	server, err := thriftbp.NewBaseplateServer(bp, processor)
+	server, err := thriftbp.NewBaseplateServer(bp, thriftbp.ServerConfig{
+		Processor: processor,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

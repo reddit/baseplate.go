@@ -34,4 +34,22 @@
 //
 // errorsbp.Batch is not thread-safe.
 // The same batch should not be operated on different goroutines concurrently.
+//
+// Suppressor
+//
+// Suppressor is a type defined to provide an unified way to allow certain
+// functions/features to ignore certain errors.
+//
+// It's currently used by thriftbp package in both server and client
+// middlewares, to not treat certain errors defined in thrift IDL as span
+// errors. Because of go's type system, we cannot provide a Suppressor
+// implementation to suppress all errors defined in all thrift IDLs, as a result
+// we rely on service/client implementations to implement it for the
+// middlewares.
+//
+// An example of how to implement it for your thrift defined errors:
+//
+//     func MyThriftSuppressor(err error) bool {
+//         return errors.As(err, new(*mythrift.MyThriftErrorType))
+//     }
 package errorsbp
