@@ -10,8 +10,8 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/retrybp",
     visibility = ["//visibility:public"],
     deps = [
-        "//batcherror:go_default_library",
         "//clientpool:go_default_library",
+        "//errorsbp:go_default_library",
         "@com_github_avast_retry_go//:go_default_library",
     ],
 )
@@ -25,8 +25,8 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//batcherror:go_default_library",
         "//clientpool:go_default_library",
+        "//errorsbp:go_default_library",
         "@com_github_avast_retry_go//:go_default_library",
     ],
 )

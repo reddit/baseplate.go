@@ -1,5 +1,8 @@
-// Package batcherror provides BatchError, which can be used to compile multiple
-// errors into a single one.
+// Package errorsbp provides some error utilities for Baseplate.go project.
+//
+// Batch
+//
+// errorsbp.Batch can be used to compile multiple errors into a single one.
 //
 // An example of how to use it in your functions:
 //
@@ -18,7 +21,7 @@
 //         }
 //
 //         wg.Wait()
-//         var batch batcherror.BatchError
+//         var batch errorsbp.Batch
 //         for err := range errChan {
 //             // nil errors will be auto skipped
 //             batch.Add(err)
@@ -29,6 +32,6 @@
 //         return batch.Compile()
 //     }
 //
-// This package is not thread-safe.
+// errorsbp.Batch is not thread-safe.
 // The same batch should not be operated on different goroutines concurrently.
-package batcherror
+package errorsbp

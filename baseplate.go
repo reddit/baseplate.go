@@ -11,8 +11,8 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/reddit/baseplate.go/batchcloser"
-	"github.com/reddit/baseplate.go/batcherror"
 	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/runtimebp"
@@ -279,7 +279,7 @@ func (bp impl) Close() error {
 	err := bp.closers.Close()
 
 	var errs []error
-	var batchErr batcherror.BatchError
+	var batchErr errorsbp.Batch
 	if errors.As(err, &batchErr) {
 		errs = batchErr.GetErrors()
 	} else if err != nil {

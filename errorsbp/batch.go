@@ -1,4 +1,4 @@
-package batcherror
+package errorsbp
 
 import (
 	"errors"
@@ -6,27 +6,27 @@ import (
 	"strings"
 )
 
-// Make sure both BatchError and *BatchError satisfies error interface.
+// Make sure both Batch and *Batch satisfies error interface.
 var (
-	_ error = BatchError{}
-	_ error = (*BatchError)(nil)
+	_ error = Batch{}
+	_ error = (*Batch)(nil)
 )
 
-// BatchError is an error that can contain multiple errors.
+// Batch is an error that can contain multiple errors.
 //
-// The zero value of BatchError is valid (with no errors) and ready to use.
+// The zero value of Batch is valid (with no errors) and ready to use.
 //
 // This type is not thread-safe.
 // The same batch should not be operated on different goroutines concurrently.
-type BatchError struct {
+type Batch struct {
 	errors []error
 }
 
-func (be BatchError) Error() string {
+func (be Batch) Error() string {
 	var sb strings.Builder
 	fmt.Fprintf(
 		&sb,
-		"batcherror: total %d error(s) in this batch",
+		"errorsbp.Batch: total %d error(s) in this batch",
 		len(be.errors),
 	)
 	for i, err := range be.errors {
@@ -42,18 +42,18 @@ func (be BatchError) Error() string {
 
 // As implements helper interface for errors.As.
 //
-// If v is pointer to either BatchError or *BatchError,
+// If v is pointer to either Batch or *Batch,
 // *v will be set into this error.
 // Otherwise, As will try errors.As against all errors in this batch,
 // returning the first match.
 //
 // See Is for the discussion of possiblity of infinite loop.
-func (be BatchError) As(v interface{}) bool {
-	if target, ok := v.(*BatchError); ok {
+func (be Batch) As(v interface{}) bool {
+	if target, ok := v.(*Batch); ok {
 		*target = be
 		return true
 	}
-	if target, ok := v.(**BatchError); ok {
+	if target, ok := v.(**Batch); ok {
 		*target = &be
 		return true
 	}
@@ -70,13 +70,13 @@ func (be BatchError) As(v interface{}) bool {
 // It calls errors.Is against all errors in this batch,
 // until a match is found.
 //
-// If an error in the batch is the BatchError itself,
+// If an error in the batch is the Batch itself,
 // calling its Is (and As) could cause an infinite loop.
 // But there's a special handling in Add function,
-// that if you try to add a BatchError into the batch,
-// we add the underlying errors instead the BatchError itself.
+// that if you try to add a Batch into the batch,
+// we add the underlying errors instead the Batch itself.
 // As a result it should be impossible to cause infinite loops in Is and As.
-func (be BatchError) Is(target error) bool {
+func (be Batch) Is(target error) bool {
 	for _, err := range be.errors {
 		if errors.Is(err, target) {
 			return true
@@ -85,23 +85,23 @@ func (be BatchError) Is(target error) bool {
 	return false
 }
 
-func (be *BatchError) addBatch(batch BatchError) {
+func (be *Batch) addBatch(batch Batch) {
 	be.errors = append(be.errors, batch.errors...)
 }
 
 // Add adds errors into the batch.
 //
-// If an error is also an BatchError,
-// its underlying error(s) will be added instead of the BatchError itself.
+// If an error is also an Batch,
+// its underlying error(s) will be added instead of the Batch itself.
 //
 // Nil errors will be skipped.
-func (be *BatchError) Add(errs ...error) {
+func (be *Batch) Add(errs ...error) {
 	for _, err := range errs {
 		if err == nil {
 			continue
 		}
 
-		var batch BatchError
+		var batch Batch
 		if errors.As(err, &batch) {
 			be.addBatch(batch)
 		} else {
@@ -118,7 +118,7 @@ func (be *BatchError) Add(errs ...error) {
 // that underlying error will be returned.
 //
 // Otherwise, the batch itself will be returned.
-func (be BatchError) Compile() error {
+func (be Batch) Compile() error {
 	switch len(be.errors) {
 	case 0:
 		return nil
@@ -130,12 +130,12 @@ func (be BatchError) Compile() error {
 }
 
 // Clear clears the batch.
-func (be *BatchError) Clear() {
+func (be *Batch) Clear() {
 	be.errors = nil
 }
 
 // GetErrors returns a copy of the underlying error(s).
-func (be BatchError) GetErrors() []error {
+func (be Batch) GetErrors() []error {
 	errors := make([]error, len(be.errors))
 	copy(errors, be.errors)
 	return errors
