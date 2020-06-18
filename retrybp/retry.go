@@ -40,10 +40,11 @@ func GetOptions(ctx context.Context) (options []retry.Option, ok bool) {
 // The changes this has compared to retry.Do are:
 //
 // 1. Pulling options from the context.  This allows it to be used in middleware
-//    where you are not calling Do directly but still want to be able to
-//    configure retry behavior per-call.
+// where you are not calling Do directly but still want to be able to configure
+// retry behavior per-call.
+//
 // 2. If retry.Do returns a batch of errors (retry.Error), put those in a
-//    errorsbp.Batch from baseplate.go.
+// errorsbp.Batch from baseplate.go.
 func Do(ctx context.Context, fn func() error, defaults ...retry.Option) error {
 	options, _ := GetOptions(ctx)
 	options = append(defaults, options...)
