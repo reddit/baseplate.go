@@ -39,7 +39,7 @@ type DefaultProcessorMiddlewaresArgs struct {
 }
 
 // BaseplateDefaultProcessorMiddlewares returns the default processor
-//  middlewares that should be used by a baseplate Thrift service.
+// middlewares that should be used by a baseplate Thrift service.
 //
 // Currently they are (in order):
 //
