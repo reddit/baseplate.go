@@ -13,6 +13,7 @@ import (
 	"github.com/go-kit/kit/metrics"
 
 	"github.com/reddit/baseplate.go/clientpool"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 )
@@ -75,7 +76,7 @@ type ClientPoolConfig struct {
 	// a negative value.
 	MaxConnectionAge time.Duration
 
-	// ConnectTimeout and SocketTimeout are timeouts used by the underling
+	// ConnectTimeout and SocketTimeout are timeouts used by the underlying
 	// thrift.TSocket.
 	//
 	// In most cases, you would want ConnectTimeout to be short, because if you
@@ -85,12 +86,12 @@ type ClientPoolConfig struct {
 	// latency SLA. If it's shorter than that you are gonna close connections and
 	// fail requests prematurely.
 	//
-	// For both values, <=0 would mean disable timeout.
+	// For both values, <=0 would mean no timeout.
 	// In most cases you would want to set timeouts for both.
 	ConnectTimeout time.Duration
 	SocketTimeout  time.Duration
 
-	// Any labels that should be applied to metrics logged by the ClientPool.
+	// Any tags that should be applied to metrics logged by the ClientPool.
 	// This includes the optional pool stats.
 	MetricsTags metricsbp.Tags
 
@@ -124,6 +125,14 @@ type ClientPoolConfig struct {
 	// When PoolGaugeInterval <= 0 and ReportPoolStats is true,
 	// DefaultPoolGaugeInterval will be used instead.
 	PoolGaugeInterval time.Duration
+
+	// Suppress some of the errors returned by the server before sending them to
+	// the client span.
+	//
+	// See MonitorClientArgs.ErrorSpanSuppressor for more details.
+	//
+	// This is optional. If it's not set none of the errors will be suppressed.
+	ErrorSpanSuppressor errorsbp.Suppressor
 }
 
 // Client is a client object that implements both the clientpool.Client and
@@ -190,8 +199,9 @@ func SingleAddressGenerator(addr string) AddressGenerator {
 func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
 	defaults := BaseplateDefaultClientMiddlewares(
 		DefaultClientMiddlewareArgs{
-			ServiceSlug:  cfg.ServiceSlug,
-			RetryOptions: cfg.DefaultRetryOptions,
+			ServiceSlug:         cfg.ServiceSlug,
+			RetryOptions:        cfg.DefaultRetryOptions,
+			ErrorSpanSuppressor: cfg.ErrorSpanSuppressor,
 		},
 	)
 	middlewares = append(middlewares, defaults...)
