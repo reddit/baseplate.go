@@ -161,15 +161,15 @@ func New(ctx context.Context, impl *Impl, args NewArgs) (*EdgeRequestContext, er
 	}, nil
 }
 
-// FromHeader returns a new EdgeRequestContext from the given header string using
-// the given Impl.
-func FromHeader(header string, impl *Impl) (*EdgeRequestContext, error) {
+// FromHeader returns a new EdgeRequestContext from the given header string
+// using the given Impl.
+func FromHeader(ctx context.Context, header string, impl *Impl) (*EdgeRequestContext, error) {
 	if header == "" {
 		return nil, nil
 	}
 
 	request := baseplate.NewRequest()
-	if err := deserializerPool.ReadString(request, header); err != nil {
+	if err := deserializerPool.ReadString(ctx, request, header); err != nil {
 		return nil, err
 	}
 

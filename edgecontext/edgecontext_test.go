@@ -236,7 +236,7 @@ func TestFromHeader(t *testing.T) {
 	t.Run(
 		"no-header",
 		func(t *testing.T) {
-			e, err := edgecontext.FromHeader("", globalTestImpl)
+			e, err := edgecontext.FromHeader(context.Background(), "", globalTestImpl)
 			if err != nil {
 				t.Error(err)
 			}
@@ -250,7 +250,7 @@ func TestFromHeader(t *testing.T) {
 		"no-device-id-no-origin",
 		func(t *testing.T) {
 
-			e, err := edgecontext.FromHeader(headerWithNoAuthNoDevice, globalTestImpl)
+			e, err := edgecontext.FromHeader(context.Background(), headerWithNoAuthNoDevice, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -303,7 +303,7 @@ func TestFromHeader(t *testing.T) {
 	t.Run(
 		"no-auth",
 		func(t *testing.T) {
-			e, err := edgecontext.FromHeader(headerWithNoAuth, globalTestImpl)
+			e, err := edgecontext.FromHeader(context.Background(), headerWithNoAuth, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -402,7 +402,7 @@ func TestFromHeader(t *testing.T) {
 	t.Run(
 		"valid-auth",
 		func(t *testing.T) {
-			e, err := edgecontext.FromHeader(headerWithValidAuth, globalTestImpl)
+			e, err := edgecontext.FromHeader(context.Background(), headerWithValidAuth, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -519,7 +519,7 @@ func TestFromHeader(t *testing.T) {
 	t.Run(
 		"expired-auth",
 		func(t *testing.T) {
-			e, err := edgecontext.FromHeader(headerWithExpiredAuth, globalTestImpl)
+			e, err := edgecontext.FromHeader(context.Background(), headerWithExpiredAuth, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -625,7 +625,7 @@ func TestFromHeader(t *testing.T) {
 	t.Run(
 		"anon-auth",
 		func(t *testing.T) {
-			e, err := edgecontext.FromHeader(headerWithAnonAuth, globalTestImpl)
+			e, err := edgecontext.FromHeader(context.Background(), headerWithAnonAuth, globalTestImpl)
 			if err != nil {
 				t.Fatal(err)
 			}

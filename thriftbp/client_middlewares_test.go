@@ -187,7 +187,7 @@ func TestForwardEdgeRequestContext(t *testing.T) {
 	defer store.Close()
 
 	impl := edgecontext.Init(edgecontext.Config{Store: store})
-	ec, err := edgecontext.FromHeader(headerWithValidAuth, impl)
+	ec, err := edgecontext.FromHeader(context.Background(), headerWithValidAuth, impl)
 	if err != nil {
 		t.Fatal(err)
 	}
