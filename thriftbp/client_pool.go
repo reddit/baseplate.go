@@ -82,9 +82,23 @@ type ClientPoolConfig struct {
 	// In most cases, you would want ConnectTimeout to be short, because if you
 	// have problem connecting to the upstream you want to fail fast.
 	//
-	// But SocketTimeout usually needs to be at least your upstream service's p99
-	// latency SLA. If it's shorter than that you are gonna close connections and
-	// fail requests prematurely.
+	// For SocketTimeout, the value you should set depends on whether you set a
+	// deadline to the context object to the client call functions or not.
+	// If ALL your client calls will have a context object with a deadline
+	// attached, then it's recommended to set SocketTimeout to a short value,
+	// as this is the max overhead the client call will take over the set
+	// deadline, in case the server is not-responding.
+	// But if you don't always have a deadline attached to your client calls,
+	// then SocketTimeout needs to be at least your upstream service's p99 latency
+	// SLA. If it's shorter than that you are gonna close connections and fail
+	// requests prematurely.
+	//
+	// It's recommended to make sure all your client call context objects have a
+	// deadline set, and set SocketTimeout to a short value. For example:
+	//
+	//     clientCtx, cancel := context.WithTimeout(ctx, myCallTimeout)
+	//     defer cancel()
+	//     resp, err := client.MyCall(clientCtx, args)
 	//
 	// For both values, <=0 would mean no timeout.
 	// In most cases you would want to set timeouts for both.
@@ -407,8 +421,7 @@ func (p *clientPool) pooledCall(ctx context.Context, method string, args, result
 		return PoolError{Cause: err}
 	}
 	defer func() {
-		if err != nil && errors.As(err, new(net.Error)) {
-			// Close the client to avoid reusing it if it's a network error.
+		if shouldCloseConnection(err) {
 			if e := client.Close(); e != nil {
 				log.Errorw("Failed to close client", "origErr", err, "closeErr", e)
 			}
@@ -436,4 +449,16 @@ func (p *clientPool) releaseClient(c Client) {
 		log.Errorw("Failed to release client back to pool", "err", err)
 		p.releaseErrorCounter.Add(1)
 	}
+}
+
+func shouldCloseConnection(err error) bool {
+	if err == nil {
+		return false
+	}
+	// We should avoid reusing the client if it hits a network error.
+	// We should also actively close the connection if it's a timeout,
+	// as this helps the server side to abandon the request early.
+	return errors.As(err, new(net.Error)) ||
+		errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded)
 }

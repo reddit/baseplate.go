@@ -2,6 +2,7 @@ package thriftbp
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 
 var (
 	_ thrift.ProcessorMiddleware = ExtractDeadlineBudget
+	_ thrift.ProcessorMiddleware = AbandonCanceledRequests
 )
 
 // DefaultProcessorMiddlewaresArgs are the args to be passed into
@@ -48,11 +50,14 @@ type DefaultProcessorMiddlewaresArgs struct {
 // 2. InjectServerSpan
 //
 // 3. InjectEdgeContext
+//
+// 4. AbandonCanceledRequests
 func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) []thrift.ProcessorMiddleware {
 	return []thrift.ProcessorMiddleware{
 		ExtractDeadlineBudget,
 		InjectServerSpan(args.ErrorSpanSuppressor),
 		InjectEdgeContext(args.EdgeContextImpl),
+		AbandonCanceledRequests,
 	}
 }
 
@@ -133,7 +138,7 @@ func InitializeEdgeContext(ctx context.Context, impl *edgecontext.Impl) context.
 		return ctx
 	}
 
-	ec, err := edgecontext.FromHeader(header, impl)
+	ec, err := edgecontext.FromHeader(ctx, header, impl)
 	if err != nil {
 		log.Error("Error while parsing EdgeRequestContext: " + err.Error())
 		return ctx
@@ -179,6 +184,25 @@ func ExtractDeadlineBudget(name string, next thrift.TProcessorFunction) thrift.T
 				}
 			}
 			return next.Process(ctx, seqID, in, out)
+		},
+	}
+}
+
+// AbandonCanceledRequests transforms context.Canceled errors into
+// thrift.ErrAbandonRequest errors.
+//
+// When using thrift compiler version >4db7a0a, the context object will be
+// canceled after the client closes the connection, and returning
+// thrift.ErrAbandonRequest as the error helps the server to not try to write
+// the error back to the client, but close the connection directly.
+func AbandonCanceledRequests(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+	return thrift.WrappedTProcessorFunction{
+		Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+			ok, err := next.Process(ctx, seqID, in, out)
+			if errors.Is(err, context.Canceled) {
+				err = thrift.ErrAbandonRequest
+			}
+			return ok, err
 		},
 	}
 }

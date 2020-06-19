@@ -14,15 +14,15 @@ import (
 
 type mockTStruct struct{}
 
-func (mockTStruct) Read(_ thrift.TProtocol) error {
+func (mockTStruct) Read(_ context.Context, _ thrift.TProtocol) error {
 	return nil
 }
 
-func (mockTStruct) Write(p thrift.TProtocol) error {
-	if err := p.WriteMessageBegin("mock", thrift.CALL, 0); err != nil {
+func (mockTStruct) Write(ctx context.Context, p thrift.TProtocol) error {
+	if err := p.WriteMessageBegin(ctx, "mock", thrift.CALL, 0); err != nil {
 		return err
 	}
-	return p.WriteMessageEnd()
+	return p.WriteMessageEnd(ctx)
 }
 
 func TestV2Put(t *testing.T) {
