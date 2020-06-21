@@ -21,6 +21,7 @@ func TestGlobalStatsd(t *testing.T) {
 	metricsbp.M.Timing("timing").Observe(1)
 	metricsbp.M.TimingWithRate("timing", 0.1).Observe(1)
 	metricsbp.M.Gauge("gauge").Set(1)
+	metricsbp.M.RuntimeGauge("gauge").Set(1)
 	metricsbp.M.WriteTo(ioutil.Discard)
 }
 
@@ -36,6 +37,7 @@ func TestNilStatsd(t *testing.T) {
 	st.Timing("timing").Observe(1)
 	st.TimingWithRate("timing", 0.1).Observe(1)
 	st.Gauge("gauge").Set(1)
+	st.RuntimeGauge("gauge").Set(1)
 	st.WriteTo(ioutil.Discard)
 }
 

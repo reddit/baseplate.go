@@ -234,6 +234,9 @@ func (st *Statsd) TimingWithRate(name string, rate float64) metrics.Histogram {
 }
 
 // Gauge returns a gauge metrics to the name.
+//
+// Please note that gauges are considered "low level".
+// In most cases when you use a Gauge, you want to use RuntimeGauge instead.
 func (st *Statsd) Gauge(name string) metrics.Gauge {
 	st = st.fallback()
 	return st.statsd.NewGauge(name)
