@@ -233,7 +233,7 @@ func newClientPool(
 	proto thrift.TProtocolFactory,
 	middlewares ...thrift.ClientMiddleware,
 ) (*clientPool, error) {
-	labels := cfg.MetricsTags.AsStatsdTags()
+	tags := cfg.MetricsTags.AsStatsdTags()
 	pool, err := clientpool.NewChannelPool(
 		cfg.InitialConnections,
 		cfg.MaxConnections,
@@ -256,7 +256,7 @@ func newClientPool(
 			cfg.ServiceSlug,
 			pool,
 			cfg.PoolGaugeInterval,
-			labels,
+			tags,
 		)
 	}
 
@@ -266,10 +266,10 @@ func newClientPool(
 
 		poolExhaustedCounter: metricsbp.M.Counter(
 			cfg.ServiceSlug + ".pool-exhausted",
-		).With(labels...),
+		).With(tags...),
 		releaseErrorCounter: metricsbp.M.Counter(
 			cfg.ServiceSlug + ".pool-release-error",
-		).With(labels...),
+		).With(tags...),
 	}
 	// finish setting up the clientPool by wrapping the inner "Call" with the
 	// given middleware.
@@ -309,9 +309,14 @@ func newClient(
 	return newTTLClient(trans, client, maxConnectionAge), nil
 }
 
-func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration, labels []string) {
-	activeGauge := metricsbp.M.Gauge(prefix + ".pool-active-connections").With(labels...)
-	allocatedGauge := metricsbp.M.Gauge(prefix + ".pool-allocated-clients").With(labels...)
+func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration, tags []string) {
+	// TODO: Remove deprecated gauges
+	activeGaugeDeprecated := metricsbp.M.Gauge(prefix + ".pool-active-connections").With(tags...)
+	allocatedGaugeDeprecated := metricsbp.M.Gauge(prefix + ".pool-allocated-clients").With(tags...)
+
+	activeGauge := metricsbp.M.RuntimeGauge(prefix + ".pool-active-connections").With(tags...)
+	allocatedGauge := metricsbp.M.RuntimeGauge(prefix + ".pool-allocated-clients").With(tags...)
+
 	if tickerDuration <= 0 {
 		tickerDuration = DefaultPoolGaugeInterval
 	}
@@ -322,7 +327,9 @@ func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, t
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			activeGaugeDeprecated.Set(float64(pool.NumActiveClients()))
 			activeGauge.Set(float64(pool.NumActiveClients()))
+			allocatedGaugeDeprecated.Set(float64(pool.NumAllocated()))
 			allocatedGauge.Set(float64(pool.NumAllocated()))
 		}
 	}
