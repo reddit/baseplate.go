@@ -10,7 +10,6 @@ import (
 
 const (
 	success = "success"
-	fail    = "fail"
 	failure = "failure"
 	total   = "total"
 )
@@ -33,7 +32,7 @@ func (h CreateServerSpanHook) OnCreateServerSpan(span *tracing.Span) error {
 	return nil
 }
 
-// spanHook wraps a Span in a Timer and records a "success" or "fail"/"failure"
+// spanHook wraps a Span in a Timer and records a "total" and "success"/"failure"
 // metric when the Span ends based on whether an error was passed to `span.End`
 // or not.
 type spanHook struct {
@@ -71,9 +70,9 @@ func (h *spanHook) OnPostStart(span *tracing.Span) error {
 }
 
 // OnPreStop stops the Timer started in OnPostStart and records a metric
-// indicating if the span was a "success" or "fail".
+// indicating if the span was a "success" or "failure".
 //
-// A span is marked as "fail" if `err != nil` otherwise it is marked as
+// A span is marked as "failure" if `err != nil` otherwise it is marked as
 // "success".
 func (h *spanHook) OnPreStop(span *tracing.Span, err error) error {
 	var duration time.Duration
@@ -87,8 +86,6 @@ func (h *spanHook) OnPreStop(span *tracing.Span, err error) error {
 	var statusMetricPath string
 	if err != nil {
 		statusMetricPath = fmt.Sprintf("%s.%s", h.name, failure)
-		// temp: publish both "fail" and "failure"
-		h.metrics.Counter(fmt.Sprintf("%s.%s", h.name, fail)).Add(1)
 	} else {
 		statusMetricPath = fmt.Sprintf("%s.%s", h.name, success)
 	}

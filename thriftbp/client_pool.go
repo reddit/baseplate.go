@@ -347,10 +347,6 @@ func newClient(
 }
 
 func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration, tags []string) {
-	// TODO: Remove deprecated gauges
-	activeGaugeDeprecated := metricsbp.M.Gauge(prefix + ".pool-active-connections").With(tags...)
-	allocatedGaugeDeprecated := metricsbp.M.Gauge(prefix + ".pool-allocated-clients").With(tags...)
-
 	activeGauge := metricsbp.M.RuntimeGauge(prefix + ".pool-active-connections").With(tags...)
 	allocatedGauge := metricsbp.M.RuntimeGauge(prefix + ".pool-allocated-clients").With(tags...)
 
@@ -364,9 +360,7 @@ func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, t
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			activeGaugeDeprecated.Set(float64(pool.NumActiveClients()))
 			activeGauge.Set(float64(pool.NumActiveClients()))
-			allocatedGaugeDeprecated.Set(float64(pool.NumAllocated()))
 			allocatedGauge.Set(float64(pool.NumAllocated()))
 		}
 	}
