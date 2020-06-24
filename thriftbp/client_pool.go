@@ -30,7 +30,7 @@ type PoolError struct {
 }
 
 func (err PoolError) Error() string {
-	return "thriftpb: error getting a client from the pool. " + err.Cause.Error()
+	return "thriftpb: error getting a client from the pool: " + err.Cause.Error()
 }
 
 func (err PoolError) Unwrap() error {
@@ -133,6 +133,20 @@ type ClientPoolConfig struct {
 	//
 	// This is optional. If it's not set none of the errors will be suppressed.
 	ErrorSpanSuppressor errorsbp.Suppressor
+
+	// When InitialConnectionsFallback is set to true and an error occurred when
+	// we try to initialize the client pool, instead of returning that error,
+	// we try again with InitialConnections falls back to 0.
+	//
+	// If the fallback attempt succeeded, we log the initial error with
+	// InitialConnectionsFallbackLogger, and returns nil error.
+	// If the fallback attempt also failed, we return both errors.
+	//
+	// This is useful when the server is unstable that some connection errors are
+	// expected, so that we still try to create InitialConnections when possible,
+	// but returns an usable client pool with 0 initial connections as fallback.
+	InitialConnectionsFallback       bool
+	InitialConnectionsFallbackLogger log.Wrapper
 }
 
 // Client is a client object that implements both the clientpool.Client and
@@ -234,21 +248,44 @@ func newClientPool(
 	middlewares ...thrift.ClientMiddleware,
 ) (*clientPool, error) {
 	tags := cfg.MetricsTags.AsStatsdTags()
+	opener := func() (clientpool.Client, error) {
+		return newClient(
+			cfg.ConnectTimeout,
+			cfg.SocketTimeout,
+			cfg.MaxConnectionAge,
+			genAddr,
+			proto,
+		)
+	}
 	pool, err := clientpool.NewChannelPool(
 		cfg.InitialConnections,
 		cfg.MaxConnections,
-		func() (clientpool.Client, error) {
-			return newClient(
-				cfg.ConnectTimeout,
-				cfg.SocketTimeout,
-				cfg.MaxConnectionAge,
-				genAddr,
-				proto,
-			)
-		},
+		opener,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("thriftbp: error initializing thrift clientpool. %w", err)
+		if cfg.InitialConnectionsFallback {
+			// do the InitialConnectionsFallback
+			var fallbackErr error
+			pool, fallbackErr = clientpool.NewChannelPool(
+				0, // initialClients
+				cfg.MaxConnections,
+				opener,
+			)
+			if fallbackErr == nil {
+				cfg.InitialConnectionsFallbackLogger.Log(
+					"thriftbp: error initializing thrift clientpool but fallback to 0 initial connections worked. Original error: " + err.Error(),
+				)
+				err = nil
+			} else {
+				var batch errorsbp.Batch
+				batch.Add(err)
+				batch.Add(fallbackErr)
+				err = batch.Compile()
+			}
+		}
+		if err != nil {
+			return nil, fmt.Errorf("thriftbp: error initializing thrift clientpool: %w", err)
+		}
 	}
 	if cfg.ReportPoolStats {
 		go reportPoolStats(
@@ -288,17 +325,17 @@ func newClient(
 ) (*ttlClient, error) {
 	addr, err := genAddr()
 	if err != nil {
-		return nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client. %w", err)
+		return nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client: %w", err)
 	}
 
 	trans, err := thrift.NewTSocketTimeout(addr, connectTimeout, socketTimeout)
 	if err != nil {
-		return nil, fmt.Errorf("thriftbp: error building TSocket for new Thrift client. %w", err)
+		return nil, fmt.Errorf("thriftbp: error building TSocket for new Thrift client: %w", err)
 	}
 
 	err = trans.Open()
 	if err != nil {
-		return nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client. %w", err)
+		return nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client: %w", err)
 	}
 
 	var client thrift.TClient
