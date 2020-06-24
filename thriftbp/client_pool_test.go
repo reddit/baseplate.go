@@ -1,7 +1,9 @@
 package thriftbp_test
 
 import (
+	"errors"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -67,5 +69,51 @@ func TestCustomClientPool(t *testing.T) {
 		thrift.NewTBinaryProtocolFactoryDefault(),
 	); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestInitialConnectionsFallback(t *testing.T) {
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	var counter uint64
+	addrGen := func() (string, error) {
+		if atomic.AddUint64(&counter, 1)%2 == 0 {
+			// on even attempts, return the valid address
+			return ln.Addr().String(), nil
+		}
+		// on odd attempts, return an error
+		return "", errors.New("error")
+	}
+
+	var loggerCalled int64
+	logger := func(msg string) {
+		t.Logf("InitialConnectionsFallbackLogger called with %q", msg)
+		atomic.StoreInt64(&loggerCalled, 1)
+	}
+
+	cfg := thriftbp.ClientPoolConfig{
+		ServiceSlug:                      "test",
+		InitialConnections:               2,
+		MaxConnections:                   5,
+		ConnectTimeout:                   time.Millisecond * 5,
+		SocketTimeout:                    time.Millisecond * 15,
+		InitialConnectionsFallbackLogger: logger,
+	}
+	factory := thrift.NewTBinaryProtocolFactoryDefault()
+
+	if _, err := thriftbp.NewCustomClientPool(cfg, addrGen, factory); err == nil {
+		t.Error("Expected error without fallback, got nil")
+	}
+
+	cfg.InitialConnectionsFallback = true
+	if _, err := thriftbp.NewCustomClientPool(cfg, addrGen, factory); err != nil {
+		t.Errorf("Expected no error with fallback, got: %v", err)
+	}
+	if atomic.LoadInt64(&loggerCalled) != 1 {
+		t.Error("InitialConnectionsFallbackLogger not called")
 	}
 }
