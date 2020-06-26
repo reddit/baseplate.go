@@ -84,6 +84,7 @@ func TestCalculateBucketValue(t *testing.T) {
 
 func TestCalculateBucket(t *testing.T) {
 	t.Parallel()
+
 	config := &ExperimentConfig{
 		ID:             1,
 		Name:           "test_experiment",
@@ -112,13 +113,13 @@ func TestCalculateBucket(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	users := experiment.numBuckets * 2000
-	var names []string
+	users := experiment.numBuckets * 500
+	names := make([]string, 0, users)
 	for i := 0; i < users; i++ {
 		names = append(names, fmt.Sprintf("t2_%d", i))
 	}
 
-	counter := make(map[int]int)
+	counter := make(map[int]int, experiment.numBuckets)
 	for _, name := range names {
 		bucket := experiment.calculateBucket(name)
 		counter[bucket]++
@@ -132,9 +133,9 @@ func TestCalculateBucket(t *testing.T) {
 		expected := users / experiment.numBuckets
 		actual := counter[i]
 		percentEqual := float64(actual) / float64(expected)
-		d, ok := almostEqual(percentEqual, 1.0, 0.10)
+		d, ok := almostEqual(percentEqual, 1, 0.15)
 		if !ok {
-			t.Errorf("bucket %d: %f", i, d)
+			t.Errorf("bucket %d: %f, expected %d, actual %d", i, d, expected, actual)
 		}
 	}
 }
@@ -171,13 +172,13 @@ func TestCalculateBucketWithSeed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	users := experiment.numBuckets * 2000
-	var names []string
+	users := experiment.numBuckets * 500
+	names := make([]string, 0, users)
 	for i := 0; i < users; i++ {
 		names = append(names, fmt.Sprintf("t2_%d", i))
 	}
 
-	counter := make(map[int]int)
+	counter := make(map[int]int, experiment.numBuckets)
 	bucketingChanged := false
 	for _, name := range names {
 		if experiment.bucketSeed != "some new seed" {
@@ -212,9 +213,9 @@ func TestCalculateBucketWithSeed(t *testing.T) {
 		expected := users / experiment.numBuckets
 		actual := counter[i]
 		percentEqual := float64(actual) / float64(expected)
-		d, ok := almostEqual(percentEqual, 1.0, 0.10)
+		d, ok := almostEqual(percentEqual, 1, 0.15)
 		if !ok {
-			t.Errorf("bucket %d: %f", i, d)
+			t.Errorf("bucket %d: %f, expected %d, actual %d", i, d, expected, actual)
 		}
 	}
 }
