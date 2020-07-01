@@ -47,7 +47,7 @@ func NewFailureRatioBreaker(config CircuitBreakerConfig) FailureRatioBreaker {
 }
 
 func (cb FailureRatioBreaker) runStatsProducer() {
-	circuitBreakerGauge := metricsbp.M.Gauge(cb.metricPrefix + ".circuit.breaker.closed")
+	circuitBreakerGauge := metricsbp.M.RuntimeGauge(cb.metricPrefix + ".circuit.breaker.closed")
 
 	tick := time.NewTicker(10 * time.Second)
 	defer tick.Stop()
@@ -79,7 +79,7 @@ func (cb FailureRatioBreaker) ThriftMiddleware(next thrift.TClient) thrift.TClie
 
 // ShouldTripCircuitBreaker checks if the circuit breaker should be tripped, based on the provided breaker counts.
 func (cb FailureRatioBreaker) ShouldTripCircuitBreaker(counts gobreaker.Counts) bool {
-	if counts.Requests >= uint32(cb.minRequestsToTrip) {
+	if counts.Requests > 0 && counts.Requests >= uint32(cb.minRequestsToTrip) {
 		failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
 		if failureRatio >= cb.failureThreshold {
 			log.Warnw(
