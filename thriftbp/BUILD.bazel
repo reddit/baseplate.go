@@ -31,6 +31,7 @@ go_library(
         "@com_github_avast_retry_go//:go_default_library",
         "@com_github_go_kit_kit//metrics:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",
+        "@com_github_sony_gobreaker//:go_default_library",
     ],
 )
 
@@ -65,5 +66,7 @@ go_test(
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
         "@com_github_avast_retry_go//:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",
+        "@com_github_sony_gobreaker//:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )
