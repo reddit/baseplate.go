@@ -98,5 +98,9 @@ func TestThriftMiddleware(t *testing.T) {
 }
 
 func newTestCircuitBreaker() thriftbp.FailureRatioBreaker {
-	return thriftbp.NewFailureRatioBreaker(gobreaker.Settings{}, "", testMinRequests, testFailureThreshold)
+	config := thriftbp.CircuitBreakerConfig{
+		MinRequestsToTrip: testMinRequests,
+		FailureThreshold:  testFailureThreshold,
+	}
+	return thriftbp.NewFailureRatioBreaker(config)
 }
