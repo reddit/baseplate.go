@@ -442,7 +442,9 @@ func TestOverride(t *testing.T) {
 	}
 }
 
-func TestTreatmentsDistribution(t *testing.T) {
+// TestRegression250 tests distribution of users into buckets.
+// GitHub issue: https://github.com/reddit/baseplate.go/issues/250
+func TestRegression250(t *testing.T) {
 	t.Parallel()
 	userIDs := make([]string, 100)
 	for i := 0; i < len(userIDs); i++ {
