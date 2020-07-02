@@ -404,8 +404,177 @@ func TestOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if variant != "variant_1" && variant != "variant_2" {
+	if variant != "variant_1" && variant != "variant_2" { // <-bug!!! t2_123 actually falls into "no treatment" bucket
 		t.Errorf("expected %s or %s, actual: %s", "variant_1", "variant_2", variant)
+	}
+}
+
+func TestTreatmentsDistribution(t *testing.T) {
+	t.Parallel()
+	userIDs := make([]string, 100)
+	for i := 0; i < len(userIDs); i++ {
+		userIDs[i] = fmt.Sprintf("t2_%02d", i)
+	}
+
+	t.Run("single_variant type", func(t *testing.T) {
+		t.Parallel()
+		config := makeTestConfig(
+			"single_variant",
+			Variant{Name: "variant_1", Size: 0.1},
+			Variant{Name: "variant_2", Size: 0.2},
+		)
+		experiment, err := NewSimpleExperiment(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		buckets := map[string]int{
+			"variant_1": 0,
+			"variant_2": 0,
+			"":          0,
+		}
+		for _, userID := range userIDs {
+			variant, err := experiment.Variant(map[string]interface{}{"user_id": userID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			buckets[variant]++
+		}
+
+		if buckets["variant_1"] != 0 { // <-bug!!! should be ~10
+			t.Errorf("expected %d, actual: %d", 0, buckets["variant_1"])
+		}
+		if buckets["variant_2"] != 100 { // <-bug!!! should be ~20
+			t.Errorf("expected %d, actual: %d", 100, buckets["variant_2"])
+		}
+		if buckets[""] != 0 { // <-bug!!! should be ~70
+			t.Errorf("expected %d, actual: %d", 0, buckets[""])
+		}
+	})
+
+	t.Run("multi_variant type", func(t *testing.T) {
+		t.Parallel()
+		config := makeTestConfig(
+			"multi_variant",
+			Variant{Name: "variant_1", Size: 0.1},
+			Variant{Name: "variant_2", Size: 0.2},
+			Variant{Name: "variant_3", Size: 0.3},
+		)
+		experiment, err := NewSimpleExperiment(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		buckets := map[string]int{
+			"variant_1": 0,
+			"variant_2": 0,
+			"variant_3": 0,
+			"":          0,
+		}
+		for _, userID := range userIDs {
+			variant, err := experiment.Variant(map[string]interface{}{"user_id": userID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			buckets[variant]++
+		}
+
+		if buckets["variant_1"] != 0 { // <-bug!!! should be ~10
+			t.Errorf("expected %d, actual: %d", 0, buckets["variant_1"])
+		}
+		if buckets["variant_2"] != 0 { // <-bug!!! should be ~20
+			t.Errorf("expected %d, actual: %d", 0, buckets["variant_2"])
+		}
+		if buckets["variant_3"] != 0 { // <-bug!!! should be ~30
+			t.Errorf("expected %d, actual: %d", 0, buckets["variant_3"])
+		}
+		if buckets[""] != 100 { // <-bug!!! should be ~40
+			t.Errorf("expected %d, actual: %d", 100, buckets[""])
+		}
+	})
+
+	t.Run("feature_rollout type", func(t *testing.T) {
+		t.Parallel()
+		config := makeTestConfig(
+			"feature_rollout",
+			Variant{Name: "variant_1", Size: 0.1},
+		)
+		experiment, err := NewSimpleExperiment(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		buckets := map[string]int{
+			"variant_1": 0,
+			"":          0,
+		}
+		for _, userID := range userIDs {
+			variant, err := experiment.Variant(map[string]interface{}{"user_id": userID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			buckets[variant]++
+		}
+
+		if buckets["variant_1"] != 0 { // <-bug!!! should be ~10
+			t.Errorf("expected %d, actual: %d", 0, buckets["variant_1"])
+		}
+		if buckets[""] != 100 { // <-bug!!! should be ~90
+			t.Errorf("expected %d, actual: %d", 100, buckets[""])
+		}
+	})
+
+	t.Run("range_variant type", func(t *testing.T) {
+		t.Parallel()
+		config := makeTestConfig(
+			"range_variant",
+			Variant{Name: "variant_1", RangeStart: 0.1, RangeEnd: 0.2},
+			Variant{Name: "variant_2", RangeStart: 0.4, RangeEnd: 0.6},
+		)
+		experiment, err := NewSimpleExperiment(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		buckets := map[string]int{
+			"variant_1": 0,
+			"variant_2": 0,
+			"":          0,
+		}
+		for _, userID := range userIDs {
+			variant, err := experiment.Variant(map[string]interface{}{"user_id": userID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			buckets[variant]++
+		}
+
+		if buckets["variant_1"] != 0 { // <-bug!!! should be ~10
+			t.Errorf("expected %d, actual: %d", 0, buckets["variant_1"])
+		}
+		if buckets["variant_2"] != 0 { // <-bug!!! should be ~20
+			t.Errorf("expected %d, actual: %d", 0, buckets["variant_2"])
+		}
+		if buckets[""] != 100 { // <-bug!!! should be ~70
+			t.Errorf("expected %d, actual: %d", 100, buckets[""])
+		}
+	})
+}
+
+func makeTestConfig(experimentType string, variants ...Variant) *ExperimentConfig {
+	return &ExperimentConfig{
+		ID:             1,
+		Name:           "test_experiment",
+		Owner:          "test",
+		Type:           experimentType,
+		Version:        "1",
+		StartTimestamp: timebp.TimestampSecondF(time.Now().Add(-30 * 24 * time.Hour)),
+		StopTimestamp:  timebp.TimestampSecondF(time.Now().Add(30 * 24 * time.Hour)),
+		Enabled:        func() *bool { b := true; return &b }(),
+		Experiment: Experiment{
+			Variants:          variants,
+			ExperimentVersion: 1,
+		},
 	}
 }
 
