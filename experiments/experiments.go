@@ -17,7 +17,10 @@ import (
 	"github.com/reddit/baseplate.go/timebp"
 )
 
-const targetAllOverride = `{"OVERRIDE": true}`
+const (
+	numBuckets        = 1000
+	targetAllOverride = `{"OVERRIDE": true}`
+)
 
 // MissingBucketKeyError is a special error returned by Variant functions,
 // to indicate that the bucket key from the args map is missing.
@@ -228,7 +231,7 @@ func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error
 	if experiment.Experiment.BucketSeed == "" {
 		bucketSeed = fmt.Sprintf("%d.%s.%d", experiment.ID, experiment.Name, experiment.Experiment.ShuffleVersion)
 	}
-	variantSet, err := FromExperimentType(experiment.Type, experiment.Experiment.Variants, 0)
+	variantSet, err := FromExperimentType(experiment.Type, experiment.Experiment.Variants, numBuckets)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +265,7 @@ func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error
 		enabled:    enabled,
 		startTime:  experiment.StartTimestamp.ToTime(),
 		endTime:    experiment.StopTimestamp.ToTime(),
-		numBuckets: 1000,
+		numBuckets: numBuckets,
 		variantSet: variantSet,
 		targeting:  targeting,
 		overrides:  overrides,

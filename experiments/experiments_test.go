@@ -362,6 +362,20 @@ func TestChangeShuffleVersionChangesBucketing(t *testing.T) {
 
 func TestOverride(t *testing.T) {
 	t.Parallel()
+	userIDs := make([]string, 100)
+	for i := 0; i < len(userIDs); i++ {
+		userIDs[i] = fmt.Sprintf("t2_%02d", i)
+	}
+	overrides := map[string]interface{}{
+		"EQ": map[string]interface{}{
+			"field":  "user_id",
+			"values": userIDs[:50],
+		},
+	}
+	marshaledOverrides, err := json.Marshal(overrides)
+	if err != nil {
+		t.Fatal(err)
+	}
 	config := &ExperimentConfig{
 		ID:             1,
 		Name:           "test_experiment",
@@ -385,7 +399,7 @@ func TestOverride(t *testing.T) {
 			ExperimentVersion: 1,
 			Overrides: []map[string]json.RawMessage{
 				{
-					"override_variant_1": []byte(`{"EQ": {"field": "user_id", "value": "t2_1"}}`),
+					"variant_1": marshaledOverrides,
 				}},
 		},
 	}
@@ -393,19 +407,38 @@ func TestOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	variant, err := experiment.Variant(map[string]interface{}{"user_id": "t2_1"})
-	if err != nil {
-		t.Fatal(err)
+
+	for _, userID := range userIDs[:50] {
+		variant, err := experiment.Variant(map[string]interface{}{"user_id": userID})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if variant != "variant_1" {
+			t.Errorf("expected %q, actual: %q", "variant_1", variant)
+		}
 	}
-	if variant != "override_variant_1" {
-		t.Errorf("expected %s, actual: %s", "override_variant_1", variant)
+
+	buckets := map[string]int{
+		"variant_1": 0,
+		"variant_2": 0,
+		"":          0,
 	}
-	variant, err = experiment.Variant(map[string]interface{}{"user_id": "t2_123"})
-	if err != nil {
-		t.Fatal(err)
+	for _, userID := range userIDs {
+		variant, err := experiment.Variant(map[string]interface{}{"user_id": userID})
+		if err != nil {
+			t.Fatal(err)
+		}
+		buckets[variant]++
 	}
-	if variant != "variant_1" && variant != "variant_2" { // <-bug!!! t2_123 actually falls into "no treatment" bucket
-		t.Errorf("expected %s or %s, actual: %s", "variant_1", "variant_2", variant)
+
+	if buckets["variant_1"] != 53 {
+		t.Errorf("expected %d, actual: %d", 53, buckets["variant_1"])
+	}
+	if buckets["variant_2"] != 8 {
+		t.Errorf("expected %d, actual: %d", 8, buckets["variant_2"])
+	}
+	if buckets[""] != 39 {
+		t.Errorf("expected %d, actual: %d", 39, buckets[""])
 	}
 }
 
@@ -441,14 +474,14 @@ func TestTreatmentsDistribution(t *testing.T) {
 			buckets[variant]++
 		}
 
-		if buckets["variant_1"] != 0 { // <-bug!!! should be ~10
-			t.Errorf("expected %d, actual: %d", 0, buckets["variant_1"])
+		if buckets["variant_1"] != 8 {
+			t.Errorf("expected %d, actual: %d", 8, buckets["variant_1"])
 		}
-		if buckets["variant_2"] != 100 { // <-bug!!! should be ~20
-			t.Errorf("expected %d, actual: %d", 100, buckets["variant_2"])
+		if buckets["variant_2"] != 17 {
+			t.Errorf("expected %d, actual: %d", 17, buckets["variant_2"])
 		}
-		if buckets[""] != 0 { // <-bug!!! should be ~70
-			t.Errorf("expected %d, actual: %d", 0, buckets[""])
+		if buckets[""] != 75 {
+			t.Errorf("expected %d, actual: %d", 75, buckets[""])
 		}
 	})
 
@@ -479,17 +512,17 @@ func TestTreatmentsDistribution(t *testing.T) {
 			buckets[variant]++
 		}
 
-		if buckets["variant_1"] != 0 { // <-bug!!! should be ~10
-			t.Errorf("expected %d, actual: %d", 0, buckets["variant_1"])
+		if buckets["variant_1"] != 8 {
+			t.Errorf("expected %d, actual: %d", 8, buckets["variant_1"])
 		}
-		if buckets["variant_2"] != 0 { // <-bug!!! should be ~20
-			t.Errorf("expected %d, actual: %d", 0, buckets["variant_2"])
+		if buckets["variant_2"] != 25 {
+			t.Errorf("expected %d, actual: %d", 25, buckets["variant_2"])
 		}
-		if buckets["variant_3"] != 0 { // <-bug!!! should be ~30
-			t.Errorf("expected %d, actual: %d", 0, buckets["variant_3"])
+		if buckets["variant_3"] != 27 {
+			t.Errorf("expected %d, actual: %d", 27, buckets["variant_3"])
 		}
-		if buckets[""] != 100 { // <-bug!!! should be ~40
-			t.Errorf("expected %d, actual: %d", 100, buckets[""])
+		if buckets[""] != 40 {
+			t.Errorf("expected %d, actual: %d", 40, buckets[""])
 		}
 	})
 
@@ -516,11 +549,11 @@ func TestTreatmentsDistribution(t *testing.T) {
 			buckets[variant]++
 		}
 
-		if buckets["variant_1"] != 0 { // <-bug!!! should be ~10
-			t.Errorf("expected %d, actual: %d", 0, buckets["variant_1"])
+		if buckets["variant_1"] != 8 {
+			t.Errorf("expected %d, actual: %d", 8, buckets["variant_1"])
 		}
-		if buckets[""] != 100 { // <-bug!!! should be ~90
-			t.Errorf("expected %d, actual: %d", 100, buckets[""])
+		if buckets[""] != 92 {
+			t.Errorf("expected %d, actual: %d", 92, buckets[""])
 		}
 	})
 
@@ -549,14 +582,14 @@ func TestTreatmentsDistribution(t *testing.T) {
 			buckets[variant]++
 		}
 
-		if buckets["variant_1"] != 0 { // <-bug!!! should be ~10
-			t.Errorf("expected %d, actual: %d", 0, buckets["variant_1"])
+		if buckets["variant_1"] != 12 {
+			t.Errorf("expected %d, actual: %d", 12, buckets["variant_1"])
 		}
-		if buckets["variant_2"] != 0 { // <-bug!!! should be ~20
-			t.Errorf("expected %d, actual: %d", 0, buckets["variant_2"])
+		if buckets["variant_2"] != 20 {
+			t.Errorf("expected %d, actual: %d", 20, buckets["variant_2"])
 		}
-		if buckets[""] != 100 { // <-bug!!! should be ~70
-			t.Errorf("expected %d, actual: %d", 100, buckets[""])
+		if buckets[""] != 68 {
+			t.Errorf("expected %d, actual: %d", 68, buckets[""])
 		}
 	})
 }
