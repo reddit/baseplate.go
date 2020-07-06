@@ -20,6 +20,73 @@ var _ = context.Background
 var _ = reflect.DeepEqual
 var _ = bytes.Equal
 
+//The different types of probes supported by is_healthy endpoint.
+//
+//Please refer to Kubernetes' documentation for the differences between them:
+//https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+//
+//Your service should use Readiness probe as the fallback for unsupported probes.
+//
+//Note that the HTTP health check could use the string names of the probes,
+//so changing the names, even without changing the numeric values,
+//is considered as breaking change and should be avoided.
+//
+type IsHealthyProbe int64
+const (
+  IsHealthyProbe_READINESS IsHealthyProbe = 1
+  IsHealthyProbe_LIVENESS IsHealthyProbe = 2
+  IsHealthyProbe_STARTUP IsHealthyProbe = 3
+)
+
+func (p IsHealthyProbe) String() string {
+  switch p {
+  case IsHealthyProbe_READINESS: return "READINESS"
+  case IsHealthyProbe_LIVENESS: return "LIVENESS"
+  case IsHealthyProbe_STARTUP: return "STARTUP"
+  }
+  return "<UNSET>"
+}
+
+func IsHealthyProbeFromString(s string) (IsHealthyProbe, error) {
+  switch s {
+  case "READINESS": return IsHealthyProbe_READINESS, nil 
+  case "LIVENESS": return IsHealthyProbe_LIVENESS, nil 
+  case "STARTUP": return IsHealthyProbe_STARTUP, nil 
+  }
+  return IsHealthyProbe(0), fmt.Errorf("not a valid IsHealthyProbe string")
+}
+
+
+func IsHealthyProbePtr(v IsHealthyProbe) *IsHealthyProbe { return &v }
+
+func (p IsHealthyProbe) MarshalText() ([]byte, error) {
+return []byte(p.String()), nil
+}
+
+func (p *IsHealthyProbe) UnmarshalText(text []byte) error {
+q, err := IsHealthyProbeFromString(string(text))
+if (err != nil) {
+return err
+}
+*p = q
+return nil
+}
+
+func (p *IsHealthyProbe) Scan(value interface{}) error {
+v, ok := value.(int64)
+if !ok {
+return errors.New("Scan value is not int64")
+}
+*p = IsHealthyProbe(v)
+return nil
+}
+
+func (p * IsHealthyProbe) Value() (driver.Value, error) {
+  if p == nil {
+    return nil, nil
+  }
+return int64(*p), nil
+}
 //The integer values within this enum correspond to HTTP status codes.
 //
 //HTTP layers can easily map errors to an appropriate status code.
@@ -162,6 +229,116 @@ func AuthenticationTokenPtr(v AuthenticationToken) *AuthenticationToken { return
 type CountryCode string
 
 func CountryCodePtr(v CountryCode) *CountryCode { return &v }
+
+//An integer measuring the number of milliseconds of UTC time since epoch.
+//
+type TimestampMilliseconds int64
+
+func TimestampMillisecondsPtr(v TimestampMilliseconds) *TimestampMilliseconds { return &v }
+
+// The arg struct for is_healthy endpoint.
+// 
+// 
+// Attributes:
+//  - Probe
+type IsHealthyRequest struct {
+  Probe *IsHealthyProbe `thrift:"probe,1" db:"probe" json:"probe,omitempty"`
+}
+
+func NewIsHealthyRequest() *IsHealthyRequest {
+  return &IsHealthyRequest{}
+}
+
+var IsHealthyRequest_Probe_DEFAULT IsHealthyProbe
+func (p *IsHealthyRequest) GetProbe() IsHealthyProbe {
+  if !p.IsSetProbe() {
+    return IsHealthyRequest_Probe_DEFAULT
+  }
+return *p.Probe
+}
+func (p *IsHealthyRequest) IsSetProbe() bool {
+  return p.Probe != nil
+}
+
+func (p *IsHealthyRequest) Read(iprot thrift.TProtocol) error {
+  if _, err := iprot.ReadStructBegin(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+  }
+
+
+  for {
+    _, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+    if err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+    }
+    if fieldTypeId == thrift.STOP { break; }
+    switch fieldId {
+    case 1:
+      if fieldTypeId == thrift.I32 {
+        if err := p.ReadField1(iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(fieldTypeId); err != nil {
+          return err
+        }
+      }
+    default:
+      if err := iprot.Skip(fieldTypeId); err != nil {
+        return err
+      }
+    }
+    if err := iprot.ReadFieldEnd(); err != nil {
+      return err
+    }
+  }
+  if err := iprot.ReadStructEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+  }
+  return nil
+}
+
+func (p *IsHealthyRequest)  ReadField1(iprot thrift.TProtocol) error {
+  if v, err := iprot.ReadI32(); err != nil {
+  return thrift.PrependError("error reading field 1: ", err)
+} else {
+  temp := IsHealthyProbe(v)
+  p.Probe = &temp
+}
+  return nil
+}
+
+func (p *IsHealthyRequest) Write(oprot thrift.TProtocol) error {
+  if err := oprot.WriteStructBegin("IsHealthyRequest"); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
+  if p != nil {
+    if err := p.writeField1(oprot); err != nil { return err }
+  }
+  if err := oprot.WriteFieldStop(); err != nil {
+    return thrift.PrependError("write field stop error: ", err) }
+  if err := oprot.WriteStructEnd(); err != nil {
+    return thrift.PrependError("write struct stop error: ", err) }
+  return nil
+}
+
+func (p *IsHealthyRequest) writeField1(oprot thrift.TProtocol) (err error) {
+  if p.IsSetProbe() {
+    if err := oprot.WriteFieldBegin("probe", thrift.I32, 1); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:probe: ", p), err) }
+    if err := oprot.WriteI32(int32(*p.Probe)); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T.probe (1) field write error: ", p), err) }
+    if err := oprot.WriteFieldEnd(); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field end error 1:probe: ", p), err) }
+  }
+  return err
+}
+
+func (p *IsHealthyRequest) String() string {
+  if p == nil {
+    return "<nil>"
+  }
+  return fmt.Sprintf("IsHealthyRequest(%+v)", *p)
+}
 
 // The components of the Reddit LoID cookie that we want to propagate between
 // services.
@@ -1266,7 +1443,10 @@ type BaseplateService interface {  //The base for any baseplate-based service.
   // This should return True if the service is healthy. If the service is
   // unhealthy, it can return False or raise an exception.
   // 
-  IsHealthy(ctx context.Context) (r bool, err error)
+  // 
+  // Parameters:
+  //  - Request
+  IsHealthy(ctx context.Context, request *IsHealthyRequest) (r bool, err error)
 }
 
 //The base for any baseplate-based service.
@@ -1307,8 +1487,12 @@ func (p *BaseplateServiceClient) Client_() thrift.TClient {
 // This should return True if the service is healthy. If the service is
 // unhealthy, it can return False or raise an exception.
 // 
-func (p *BaseplateServiceClient) IsHealthy(ctx context.Context) (r bool, err error) {
+// 
+// Parameters:
+//  - Request
+func (p *BaseplateServiceClient) IsHealthy(ctx context.Context, request *IsHealthyRequest) (r bool, err error) {
   var _args2 BaseplateServiceIsHealthyArgs
+  _args2.Request = request
   var _result3 BaseplateServiceIsHealthyResult
   if err = p.Client_().Call(ctx, "is_healthy", &_args2, &_result3); err != nil {
     return
@@ -1378,7 +1562,7 @@ func (p *baseplateServiceProcessorIsHealthy) Process(ctx context.Context, seqId 
   result := BaseplateServiceIsHealthyResult{}
 var retval bool
   var err2 error
-  if retval, err2 = p.handler.IsHealthy(ctx); err2 != nil {
+  if retval, err2 = p.handler.IsHealthy(ctx, args.Request); err2 != nil {
     x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing is_healthy: " + err2.Error())
     oprot.WriteMessageBegin("is_healthy", thrift.EXCEPTION, seqId)
     x.Write(oprot)
@@ -1409,11 +1593,25 @@ var retval bool
 
 // HELPER FUNCTIONS AND STRUCTURES
 
+// Attributes:
+//  - Request
 type BaseplateServiceIsHealthyArgs struct {
+  Request *IsHealthyRequest `thrift:"request,1" db:"request" json:"request"`
 }
 
 func NewBaseplateServiceIsHealthyArgs() *BaseplateServiceIsHealthyArgs {
   return &BaseplateServiceIsHealthyArgs{}
+}
+
+var BaseplateServiceIsHealthyArgs_Request_DEFAULT *IsHealthyRequest
+func (p *BaseplateServiceIsHealthyArgs) GetRequest() *IsHealthyRequest {
+  if !p.IsSetRequest() {
+    return BaseplateServiceIsHealthyArgs_Request_DEFAULT
+  }
+return p.Request
+}
+func (p *BaseplateServiceIsHealthyArgs) IsSetRequest() bool {
+  return p.Request != nil
 }
 
 func (p *BaseplateServiceIsHealthyArgs) Read(iprot thrift.TProtocol) error {
@@ -1428,8 +1626,21 @@ func (p *BaseplateServiceIsHealthyArgs) Read(iprot thrift.TProtocol) error {
       return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
     }
     if fieldTypeId == thrift.STOP { break; }
-    if err := iprot.Skip(fieldTypeId); err != nil {
-      return err
+    switch fieldId {
+    case 1:
+      if fieldTypeId == thrift.STRUCT {
+        if err := p.ReadField1(iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(fieldTypeId); err != nil {
+          return err
+        }
+      }
+    default:
+      if err := iprot.Skip(fieldTypeId); err != nil {
+        return err
+      }
     }
     if err := iprot.ReadFieldEnd(); err != nil {
       return err
@@ -1441,16 +1652,36 @@ func (p *BaseplateServiceIsHealthyArgs) Read(iprot thrift.TProtocol) error {
   return nil
 }
 
+func (p *BaseplateServiceIsHealthyArgs)  ReadField1(iprot thrift.TProtocol) error {
+  p.Request = &IsHealthyRequest{}
+  if err := p.Request.Read(iprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Request), err)
+  }
+  return nil
+}
+
 func (p *BaseplateServiceIsHealthyArgs) Write(oprot thrift.TProtocol) error {
   if err := oprot.WriteStructBegin("is_healthy_args"); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
   if p != nil {
+    if err := p.writeField1(oprot); err != nil { return err }
   }
   if err := oprot.WriteFieldStop(); err != nil {
     return thrift.PrependError("write field stop error: ", err) }
   if err := oprot.WriteStructEnd(); err != nil {
     return thrift.PrependError("write struct stop error: ", err) }
   return nil
+}
+
+func (p *BaseplateServiceIsHealthyArgs) writeField1(oprot thrift.TProtocol) (err error) {
+  if err := oprot.WriteFieldBegin("request", thrift.STRUCT, 1); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:request: ", p), err) }
+  if err := p.Request.Write(oprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Request), err)
+  }
+  if err := oprot.WriteFieldEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field end error 1:request: ", p), err) }
+  return err
 }
 
 func (p *BaseplateServiceIsHealthyArgs) String() string {

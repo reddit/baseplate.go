@@ -321,7 +321,7 @@ type BaseplateService struct {
 	Sever baseplate.Server
 }
 
-func (srv BaseplateService) IsHealthy(ctx context.Context) (r bool, err error) {
+func (srv BaseplateService) IsHealthy(ctx context.Context, _ *baseplatethrift.IsHealthyRequest) (r bool, err error) {
 	srv.Sever.Close()
 	time.Sleep(10 * time.Millisecond)
 	return true, nil
@@ -367,7 +367,12 @@ func TestRetry(t *testing.T) {
 	server.Start(ctx)
 
 	client := baseplatethrift.NewBaseplateServiceClient(server.ClientPool)
-	_, err = client.IsHealthy(ctx)
+	_, err = client.IsHealthy(
+		ctx,
+		&baseplatethrift.IsHealthyRequest{
+			Probe: baseplatethrift.IsHealthyProbePtr(baseplatethrift.IsHealthyProbe_READINESS),
+		},
+	)
 	if err == nil {
 		t.Errorf("expected an error, got nil")
 	}

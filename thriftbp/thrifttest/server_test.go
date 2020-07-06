@@ -15,7 +15,7 @@ type BaseplateService struct {
 	Err  error
 }
 
-func (srv BaseplateService) IsHealthy(ctx context.Context) (r bool, err error) {
+func (srv BaseplateService) IsHealthy(ctx context.Context, _ *baseplatethrift.IsHealthyRequest) (r bool, err error) {
 	return !srv.Fail, srv.Err
 }
 
@@ -93,7 +93,12 @@ func TestNewBaseplateServer(t *testing.T) {
 				server.Start(ctx)
 
 				client := baseplatethrift.NewBaseplateServiceClient(server.ClientPool)
-				result, err := client.IsHealthy(ctx)
+				result, err := client.IsHealthy(
+					ctx,
+					&baseplatethrift.IsHealthyRequest{
+						Probe: baseplatethrift.IsHealthyProbePtr(baseplatethrift.IsHealthyProbe_READINESS),
+					},
+				)
 
 				if c.expected.hasErr && err == nil {
 					t.Error("expected an error, got nil")
