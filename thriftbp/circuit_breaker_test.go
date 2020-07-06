@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/sony/gobreaker"
+
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
-	"github.com/sony/gobreaker"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -25,7 +25,9 @@ func TestShouldTrip(t *testing.T) {
 		TotalFailures: 0,
 	}
 	tripped := cb.ShouldTripCircuitBreaker(counts)
-	assert.False(t, tripped)
+	if tripped {
+		t.Errorf("expected circuit breaker not to trip but it did")
+	}
 }
 
 func TestShouldTrip_zeroRequests(t *testing.T) {
@@ -35,7 +37,9 @@ func TestShouldTrip_zeroRequests(t *testing.T) {
 		TotalFailures: 0,
 	}
 	tripped := cb.ShouldTripCircuitBreaker(counts)
-	assert.False(t, tripped)
+	if !tripped {
+		t.Errorf("expected circuit breaker not to trip but it did")
+	}
 }
 
 func TestShouldTrip_failures(t *testing.T) {
@@ -46,7 +50,9 @@ func TestShouldTrip_failures(t *testing.T) {
 		TotalFailures: totalRequests,
 	}
 	tripped := cb.ShouldTripCircuitBreaker(counts)
-	assert.True(t, tripped)
+	if tripped {
+		t.Errorf("expected circuit breaker to trip but it did not")
+	}
 }
 
 func TestShouldTrip_tooFewRequests(t *testing.T) {
@@ -57,7 +63,9 @@ func TestShouldTrip_tooFewRequests(t *testing.T) {
 		TotalFailures: totalRequests,
 	}
 	tripped := cb.ShouldTripCircuitBreaker(counts)
-	assert.False(t, tripped)
+	if tripped {
+		t.Errorf("expected circuit breaker not to trip but it did")
+	}
 }
 
 func TestShouldTrip_lowFaiureRate(t *testing.T) {
@@ -67,7 +75,9 @@ func TestShouldTrip_lowFaiureRate(t *testing.T) {
 		TotalFailures: 499, // just below .5 rate
 	}
 	tripped := cb.ShouldTripCircuitBreaker(counts)
-	assert.False(t, tripped)
+	if tripped {
+		t.Errorf("expected circuit breaker not to trip but it did")
+	}
 }
 
 func TestThriftMiddleware(t *testing.T) {
@@ -81,20 +91,26 @@ func TestThriftMiddleware(t *testing.T) {
 	)
 	mock.AddNopMockCalls(testMethod)
 	err := client.Call(context.Background(), testMethod, nil, nil)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Errorf("expected no error but got %v", err)
+	}
 	// fail calls to trip circuit breaker.
 	mock.AddMockCall(testMethod,
 		func(_ context.Context, args, result thrift.TStruct) error {
-			return errors.New("shard down")
+			return errors.New("backend down")
 		})
 	for i := 0; i < testMinRequests+1; i++ {
 		err := client.Call(context.Background(), testMethod, nil, nil)
-		assert.NotNil(t, err)
+		if err == nil {
+			t.Errorf("expected an error, but got none")
+		}
 	}
 	// reset client so it succeeds. call should still fail due to cb
 	mock.AddNopMockCalls(testMethod)
 	err = client.Call(context.Background(), testMethod, nil, nil)
-	assert.NotNil(t, err)
+	if err != nil {
+		t.Errorf("expected no error but got %v", err)
+	}
 }
 
 func newTestCircuitBreaker() thriftbp.FailureRatioBreaker {
