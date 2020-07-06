@@ -21,14 +21,14 @@ with `*-remote` directories removed.
 They are excluded from the linter.
 DO NOT EDIT.
 
-They were generated with thrift compiler 0.13.0 and
+They were generated with [thrift compiler 0.13.0][thrift-version] and
 [`baseplate.thrift`][baseplate.thrift] using command under `internal/`:
 
 ```
 thrift --gen go:package_prefix=github.com/reddit/baseplate.go/ path/to/baseplate.thrift
 ```
 
-They are needed by [`edgecontext`][edgecontext] package.
+They are needed by some of the Baseplate.go packages.
 We did not include `baseplate.thrift` file into this repo to avoid duplications.
 This directory will be regenerated when either thrift compiler or
 `baseplate.thrift` changed significantly.
@@ -62,11 +62,10 @@ bazel test //...:all
 
 [baseplate.py]: https://github.com/reddit/baseplate.py
 
-[baseplate.thrift]: https://github.com/reddit/baseplate.py/blob/3638ffd8f561aa90f16e126acb167a41cc7b1727/baseplate/thrift/baseplate.thrift
-
-[edgecontext]: https://godoc.org/github.com/reddit/baseplate.go/edgecontext
+[baseplate.thrift]: https://github.com/reddit/baseplate.py/blob/15cd9c01f55b96ee7cd1a702c103e2f0e07dcda8/baseplate/thrift/baseplate.thrift
 
 [bazel]: https://bazel.build/
 
 [godev]: https://pkg.go.dev/github.com/reddit/baseplate.go
 
+[thrift-version]: https://github.com/apache/thrift/tree/v0.13.0

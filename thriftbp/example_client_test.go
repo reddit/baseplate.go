@@ -61,6 +61,9 @@ func ExampleMonitorClient() {
 				thriftbp.WithDefaultRetryFilters(retrybp.NetworkErrorFilter)...,
 			),
 		),
+		&baseplate.IsHealthyRequest{
+			Probe: baseplate.IsHealthyProbePtr(baseplate.IsHealthyProbe_READINESS),
+		},
 	)
 	log.Debug("%v, %s", healthy, err)
 }
