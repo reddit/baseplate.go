@@ -35,7 +35,7 @@ type Config struct {
 	// Name for this circuit breaker, mostly used as a prefix to disambiguate logs when multiple cb are used.
 	Name string
 
-	// EmitStatusMetrics sets whether the failure breaker will regularly update a gauge on the breakers state (closed or open/halfopen)
+	// EmitStatusMetrics sets whether the failure breaker will regularly update a gauge on the breakers state (closed or open/halfopen).
 	// When enabled, it emits metrics using the interval defined by metricsbp.SysStatsTickerInterval.
 	EmitStatusMetrics bool
 
@@ -43,7 +43,7 @@ type Config struct {
 	Logger log.Wrapper
 
 	// MaxRequestsHalfOpen represents he Maximum amount of requests that will be allowed through while the breaker
-	// is in half-open state. If left unset (or set to 0), exactly 1 request will be allwed through while half-open.
+	// is in half-open state. If left unset (or set to 0), exactly 1 request will be allowed through while half-open.
 	MaxRequestsHalfOpen uint32
 
 	// Interval represents the cyclical period of the 'Closed' state.
@@ -55,7 +55,7 @@ type Config struct {
 }
 
 // NewFailureRatioBreaker creates a new FailureRatioBreaker with the provided configuration. Creates a new goroutine to emit
-// breaker state metrics if EmitStatusMetrics is set to true.
+// breaker state metrics if EmitStatusMetrics is set to true. This goroutine is stopped when metricsbp.M.Ctx() is done().
 func NewFailureRatioBreaker(config Config) FailureRatioBreaker {
 
 	failureBreaker := FailureRatioBreaker{
