@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["failure_ratio.go"],
+    importpath = "github.com/reddit/baseplate.go/breakerbp",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//log:go_default_library",
+        "//metricsbp:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+        "@com_github_sony_gobreaker//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["failure_ratio_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//thriftbp/thrifttest:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+    ],
+)
