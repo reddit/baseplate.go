@@ -51,7 +51,7 @@ func (v *SingleVariantSet) validate(variants []Variant) error {
 }
 
 // ChooseVariant deterministically chooses a variant. Every call with the same
-// bucket on on einstance will result in the same answer.
+// bucket on one instance will result in the same answer.
 func (v *SingleVariantSet) ChooseVariant(bucket int) string {
 	if bucket < int(v.variants[0].Size*float64(v.buckets)) {
 		return v.variants[0].Name
