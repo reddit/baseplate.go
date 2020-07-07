@@ -23,7 +23,7 @@ type FailureRatioBreaker struct {
 	logger            log.Wrapper
 }
 
-// Config represents the configuration for a FailureRatioBreaker
+// Config represents the configuration for a FailureRatioBreaker.
 type Config struct {
 	// Minimum requests that need to be sent during a time period before the breaker is eligible to transition from closed to open.
 	MinRequestsToTrip int
@@ -36,14 +36,14 @@ type Config struct {
 	Name string
 
 	// EmitStatusMetrics sets whether the failure breaker will regularly update a gauge on the breakers state (closed or open/halfopen)
-	// When enabled, it emits metrics using the interval defined by metricsbp.SysStatsTickerInterval
+	// When enabled, it emits metrics using the interval defined by metricsbp.SysStatsTickerInterval.
 	EmitStatusMetrics bool
 
 	// Logger is the logger to be called when the breaker changes states.
 	Logger log.Wrapper
 
 	// MaxRequestsHalfOpen represents he Maximum amount of requests that will be allowed through while the breaker
-	// is in half-open state. Unset or 0 is treated as 1
+	// is in half-open state. If left unset (or set to 0), exactly 1 request will be allwed through while half-open.
 	MaxRequestsHalfOpen uint32
 
 	// Interval represents the cyclical period of the 'Closed' state.

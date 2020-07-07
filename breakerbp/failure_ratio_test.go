@@ -54,7 +54,8 @@ var testCases = []testConfig{
 		shouldFail:   false,
 		numFailures:  499,
 		numSuccesses: 501, // 50.1% just above threshold.
-	}}
+	},
+}
 
 func TestFailureBreaker(t *testing.T) {
 	for _, c := range testCases {
@@ -87,7 +88,8 @@ func mockRequests(config testConfig, mock *thrifttest.MockClient, client thrift.
 	for i := 0; i < config.numSuccesses; i++ {
 		client.Call(context.Background(), testMethod, nil, nil)
 	}
-	mock.AddMockCall(testMethod,
+	mock.AddMockCall(
+		testMethod,
 		func(_ context.Context, args, result thrift.TStruct) error {
 			return errors.New("backend down")
 		})
