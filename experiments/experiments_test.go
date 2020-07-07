@@ -400,7 +400,8 @@ func TestOverride(t *testing.T) {
 			Overrides: []map[string]json.RawMessage{
 				{
 					"variant_1": marshaledOverrides,
-				}},
+				},
+			},
 		},
 	}
 	experiment, err := NewSimpleExperiment(config)
