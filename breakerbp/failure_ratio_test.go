@@ -77,9 +77,9 @@ func (config testConfig) run(t *testing.T) {
 	mock.AddNopMockCalls(testMethod)
 	err := client.Call(context.Background(), testMethod, nil, nil)
 	if err == nil && config.shouldFail {
-		t.Errorf("test case {%v} expected to fail, but call returned without error", config.name)
+		t.Error("expected to fail, but call returned without error")
 	} else if err != nil && !config.shouldFail {
-		t.Errorf("test case {%v} expected to succeed, but call returned error: %v", config.name, err)
+		t.Errorf("expected to succeed, but call returned error: %v", err)
 	}
 }
 
@@ -92,7 +92,8 @@ func mockRequests(config testConfig, mock *thrifttest.MockClient, client thrift.
 		testMethod,
 		func(_ context.Context, args, result thrift.TStruct) error {
 			return errors.New("backend down")
-		})
+		},
+	)
 	for i := 0; i < config.numFailures; i++ {
 		client.Call(context.Background(), testMethod, nil, nil)
 	}
