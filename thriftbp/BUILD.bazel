@@ -18,6 +18,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//:go_default_library",
+        "//breakerbp:go_default_library",
         "//clientpool:go_default_library",
         "//edgecontext:go_default_library",
         "//errorsbp:go_default_library",
