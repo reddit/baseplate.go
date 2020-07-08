@@ -357,7 +357,7 @@ type Variant struct {
 type UnknownExperimentError string
 
 func (name UnknownExperimentError) Error() string {
-	return fmt.Sprintf("experiments: experiment with name %s unknown", name)
+	return "experiments: experiment with name " + string(name) + " unknown"
 }
 
 func isSimpleExperiment(experimentType string) bool {
