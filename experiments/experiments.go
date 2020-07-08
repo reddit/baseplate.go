@@ -357,7 +357,7 @@ type Variant struct {
 type UnknownExperimentError string
 
 func (name UnknownExperimentError) Error() string {
-	return "experiments: experiment with name" + string(name) + " unknown"
+	return "experiments: experiment with name " + string(name) + " unknown"
 }
 
 func isSimpleExperiment(experimentType string) bool {
