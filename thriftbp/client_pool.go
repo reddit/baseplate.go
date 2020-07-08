@@ -12,6 +12,7 @@ import (
 	retry "github.com/avast/retry-go"
 	"github.com/go-kit/kit/metrics"
 
+	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/clientpool"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
@@ -161,6 +162,11 @@ type ClientPoolConfig struct {
 	// but returns an usable client pool with 0 initial connections as fallback.
 	InitialConnectionsFallback       bool
 	InitialConnectionsFallbackLogger log.Wrapper
+
+	// When BreakerConfig is non-nil,
+	// a breakerbp.FailureRatioBreaker will be created for the pool,
+	// and its middleware will be set for the pool.
+	BreakerConfig *breakerbp.Config
 }
 
 // Client is a client object that implements both the clientpool.Client and
@@ -230,6 +236,7 @@ func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMi
 			ServiceSlug:         cfg.ServiceSlug,
 			RetryOptions:        cfg.DefaultRetryOptions,
 			ErrorSpanSuppressor: cfg.ErrorSpanSuppressor,
+			BreakerConfig:       cfg.BreakerConfig,
 		},
 	)
 	middlewares = append(middlewares, defaults...)

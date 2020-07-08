@@ -9,6 +9,7 @@ import (
 	retry "github.com/avast/retry-go"
 	opentracing "github.com/opentracing/opentracing-go"
 
+	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/retrybp"
@@ -76,6 +77,11 @@ type DefaultClientMiddlewareArgs struct {
 	//
 	// This is optional. If it's not set none of the errors will be suppressed.
 	ErrorSpanSuppressor errorsbp.Suppressor
+
+	// When BreakerConfig is non-nil,
+	// a breakerbp.FailureRatioBreaker will be created for the pool,
+	// and its middleware will be set for the pool.
+	BreakerConfig *breakerbp.Config
 }
 
 // BaseplateDefaultClientMiddlewares returns the default client middlewares that
@@ -93,26 +99,38 @@ type DefaultClientMiddlewareArgs struct {
 // retry.Attempts(1), this will not actually retry any calls but your client is
 // configured to set retry logic per-call using retrybp.WithOptions.
 //
-// 4. MonitorClient - This creates the spans of the raw client calls.
+// 4. FailureRatioBreaker - Only if BreakerConfig is non-nil.
 //
-// 5. SetDeadlineBudget
+// 5. MonitorClient - This creates the spans of the raw client calls.
+//
+// 6. SetDeadlineBudget
 func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
 	}
-	return []thrift.ClientMiddleware{
+	middlewares := []thrift.ClientMiddleware{
 		ForwardEdgeRequestContext,
 		MonitorClient(MonitorClientArgs{
 			ServiceSlug:         args.ServiceSlug + MonitorClientWrappedSlugSuffix,
 			ErrorSpanSuppressor: args.ErrorSpanSuppressor,
 		}),
 		Retry(args.RetryOptions...),
+	}
+	if args.BreakerConfig != nil {
+		middlewares = append(
+			middlewares,
+			breakerbp.NewFailureRatioBreaker(*args.BreakerConfig).ThriftMiddleware,
+		)
+	}
+	middlewares = append(
+		middlewares,
 		MonitorClient(MonitorClientArgs{
 			ServiceSlug:         args.ServiceSlug,
 			ErrorSpanSuppressor: args.ErrorSpanSuppressor,
 		}),
 		SetDeadlineBudget,
-	}
+	)
+	return middlewares
 }
 
 // MonitorClientArgs are the args to be passed into MonitorClient function.
