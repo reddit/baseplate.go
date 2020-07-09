@@ -3,8 +3,10 @@ package redisbp
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/go-redis/redis/v7"
+	"github.com/reddit/baseplate.go/metricsbp"
 )
 
 // MonitoredCmdable wraps the redis.Cmdable interface and adds additional methods
@@ -16,6 +18,9 @@ type MonitoredCmdable interface {
 	// down.
 	io.Closer
 	redis.Cmdable
+
+	// PoolStats returns the stats of the underlying connection pool.
+	PoolStats() *redis.PoolStats
 
 	// AddHook adds a hook onto the object.
 	//
@@ -75,11 +80,12 @@ func NewMonitoredClusterFactory(name string, client *redis.ClusterClient) Monito
 // provided in this package.
 type MonitoredCmdableFactory struct {
 	client MonitoredCmdable
+	name   string
 }
 
 func newMonitoredCmdableFactory(name string, client MonitoredCmdable) MonitoredCmdableFactory {
 	client.AddHook(SpanHook{ClientName: name})
-	return MonitoredCmdableFactory{client: client}
+	return MonitoredCmdableFactory{client: client, name: name}
 }
 
 // BuildClient returns a new MonitoredCmdable with its context set to the
@@ -92,6 +98,40 @@ func (f MonitoredCmdableFactory) BuildClient(ctx context.Context) MonitoredCmdab
 // connection pool, closing out any clients created with the factory.
 func (f MonitoredCmdableFactory) Close() error {
 	return f.client.Close()
+}
+
+// MonitorPoolStats starts a goroutine that publishes stats for the underlying
+// Redis client pool every 10 seconds using metricsbp.M.
+//
+// The goroutine will be closed when metricsbp.M.Ctx() is Done().
+func (f MonitoredCmdableFactory) MonitorPoolStats(tags metricsbp.Tags) {
+	t := tags.AsStatsdTags()
+	hitsGauge := metricsbp.M.RuntimeGauge(f.name + "-hits").With(t...)
+	missesGauge := metricsbp.M.RuntimeGauge(f.name + "-misses").With(t...)
+	timeoutsGauge := metricsbp.M.RuntimeGauge(f.name + "-timeouts").With(t...)
+	totalConnectionsGauge := metricsbp.M.RuntimeGauge(f.name + "-connections.total").With(t...)
+	idleConnectionsGauge := metricsbp.M.RuntimeGauge(f.name + "-connections.idle").With(t...)
+	staleConnectionsGauge := metricsbp.M.RuntimeGauge(f.name + "-connections.stale").With(t...)
+	client := f.BuildClient(context.TODO())
+	interval := 10 * time.Second
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-metricsbp.M.Ctx().Done():
+				return
+			case <-ticker.C:
+				stats := client.PoolStats()
+				hitsGauge.Set(float64(stats.Hits))
+				missesGauge.Set(float64(stats.Misses))
+				timeoutsGauge.Set(float64(stats.Timeouts))
+				totalConnectionsGauge.Set(float64(stats.TotalConns))
+				idleConnectionsGauge.Set(float64(stats.IdleConns))
+				staleConnectionsGauge.Set(float64(stats.StaleConns))
+			}
+		}
+	}()
 }
 
 var (
