@@ -100,8 +100,9 @@ func (f MonitoredCmdableFactory) Close() error {
 	return f.client.Close()
 }
 
-// MonitorPoolStats publishes stats for the underlying Redis client pool every
-// 10 seconds using the given metrics client.
+// MonitorPoolStats publishes stats for the underlying Redis client pool at the
+// rate defined by metricsbp.SysStatsTickerInterval using the given metrics
+// client.
 //
 // It is recommended that you call this in a separate goroutine as it will run
 // until it is stopped.  It will stop when the given metrics client's context is
