@@ -101,32 +101,30 @@ func (f MonitoredCmdableFactory) Close() error {
 }
 
 // MonitorPoolStats publishes stats for the underlying Redis client pool at the
-// rate defined by metricsbp.SysStatsTickerInterval using the given metrics
-// client.
+// rate defined by metricsbp.SysStatsTickerInterval using metricsbp.M.
 //
 // It is recommended that you call this in a separate goroutine as it will run
-// until it is stopped.  It will stop when the given metrics client's context is
-// Done().
+// until it is stopped.  It will stop when the given context is Done()
 //
 // Ex:
 //
-//	go factory.MonitorPoolStats(metricsbp.M, tags)
-func (f MonitoredCmdableFactory) MonitorPoolStats(metrics *metricsbp.Statsd, tags metricsbp.Tags) {
+//	go factory.MonitorPoolStats(metricsbp.M.Ctx(), tags)
+func (f MonitoredCmdableFactory) MonitorPoolStats(ctx context.Context, tags metricsbp.Tags) {
 	t := tags.AsStatsdTags()
 	prefix := f.name + ".pool"
-	hitsGauge := metrics.RuntimeGauge(prefix + ".hits").With(t...)
-	missesGauge := metrics.RuntimeGauge(prefix + ".misses").With(t...)
-	timeoutsGauge := metrics.RuntimeGauge(prefix + ".timeouts").With(t...)
-	totalConnectionsGauge := metrics.RuntimeGauge(prefix + ".connections.total").With(t...)
-	idleConnectionsGauge := metrics.RuntimeGauge(prefix + ".connections.idle").With(t...)
-	staleConnectionsGauge := metrics.RuntimeGauge(prefix + ".connections.stale").With(t...)
+	hitsGauge := metricsbp.M.RuntimeGauge(prefix + ".hits").With(t...)
+	missesGauge := metricsbp.M.RuntimeGauge(prefix + ".misses").With(t...)
+	timeoutsGauge := metricsbp.M.RuntimeGauge(prefix + ".timeouts").With(t...)
+	totalConnectionsGauge := metricsbp.M.RuntimeGauge(prefix + ".connections.total").With(t...)
+	idleConnectionsGauge := metricsbp.M.RuntimeGauge(prefix + ".connections.idle").With(t...)
+	staleConnectionsGauge := metricsbp.M.RuntimeGauge(prefix + ".connections.stale").With(t...)
 	client := f.BuildClient(context.TODO())
 	ticker := time.NewTicker(metricsbp.SysStatsTickerInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-metrics.Ctx().Done():
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			stats := client.PoolStats()
