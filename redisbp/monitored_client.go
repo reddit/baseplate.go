@@ -107,6 +107,10 @@ func (f MonitoredCmdableFactory) Close() error {
 // It is recommended that you call this in a separate goroutine as it will run
 // until it is stopped.  It will stop when the given metrics client's context is
 // Done().
+//
+// Ex:
+//
+//	go factory.MonitorPoolStats(metricsbp.M, tags)
 func (f MonitoredCmdableFactory) MonitorPoolStats(metrics metricsbp.Statsd, tags metricsbp.Tags) {
 	t := tags.AsStatsdTags()
 	prefix := f.name + ".pool"
