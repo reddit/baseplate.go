@@ -61,7 +61,7 @@ func ExampleMonitoredCmdableFactory() {
 		clusterFactory.Close()
 	}()
 
-	clientFactory.MonitorPoolStats(metricsbp.M, metricsbp.Tags{"env": "test"})
+	go clientFactory.MonitorPoolStats(metricsbp.M, metricsbp.Tags{"env": "test"})
 
 	// Create a "service" with a monitored client factory.
 	svc := Service{RedisFactory: clientFactory}
