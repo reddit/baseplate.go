@@ -111,7 +111,7 @@ func (f MonitoredCmdableFactory) Close() error {
 // Ex:
 //
 //	go factory.MonitorPoolStats(metricsbp.M, tags)
-func (f MonitoredCmdableFactory) MonitorPoolStats(metrics metricsbp.Statsd, tags metricsbp.Tags) {
+func (f MonitoredCmdableFactory) MonitorPoolStats(metrics *metricsbp.Statsd, tags metricsbp.Tags) {
 	t := tags.AsStatsdTags()
 	prefix := f.name + ".pool"
 	hitsGauge := metrics.RuntimeGauge(prefix + ".hits").With(t...)

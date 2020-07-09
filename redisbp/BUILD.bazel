@@ -33,6 +33,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//:go_default_library",
+        "//metricsbp:go_default_library",
         "//mqsend:go_default_library",
         "//thriftbp:go_default_library",
         "//tracing:go_default_library",
