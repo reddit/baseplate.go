@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-redis/redis/v7"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -59,6 +60,8 @@ func ExampleMonitoredCmdableFactory() {
 		failoverFactory.Close()
 		clusterFactory.Close()
 	}()
+
+	go clientFactory.MonitorPoolStats(metricsbp.M.Ctx(), metricsbp.Tags{"env": "test"})
 
 	// Create a "service" with a monitored client factory.
 	svc := Service{RedisFactory: clientFactory}
