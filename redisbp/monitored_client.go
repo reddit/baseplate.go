@@ -106,12 +106,13 @@ func (f MonitoredCmdableFactory) Close() error {
 // The goroutine will be closed when metricsbp.M.Ctx() is Done().
 func (f MonitoredCmdableFactory) MonitorPoolStats(tags metricsbp.Tags) {
 	t := tags.AsStatsdTags()
-	hitsGauge := metricsbp.M.RuntimeGauge(f.name + ".hits").With(t...)
-	missesGauge := metricsbp.M.RuntimeGauge(f.name + ".misses").With(t...)
-	timeoutsGauge := metricsbp.M.RuntimeGauge(f.name + ".timeouts").With(t...)
-	totalConnectionsGauge := metricsbp.M.RuntimeGauge(f.name + ".connections.total").With(t...)
-	idleConnectionsGauge := metricsbp.M.RuntimeGauge(f.name + ".connections.idle").With(t...)
-	staleConnectionsGauge := metricsbp.M.RuntimeGauge(f.name + ".connections.stale").With(t...)
+	prefix := f.name + ".pool"
+	hitsGauge := metricsbp.M.RuntimeGauge(prefix + ".hits").With(t...)
+	missesGauge := metricsbp.M.RuntimeGauge(prefix + ".misses").With(t...)
+	timeoutsGauge := metricsbp.M.RuntimeGauge(prefix + ".timeouts").With(t...)
+	totalConnectionsGauge := metricsbp.M.RuntimeGauge(prefix + ".connections.total").With(t...)
+	idleConnectionsGauge := metricsbp.M.RuntimeGauge(prefix + ".connections.idle").With(t...)
+	staleConnectionsGauge := metricsbp.M.RuntimeGauge(prefix + ".connections.stale").With(t...)
 	client := f.BuildClient(context.TODO())
 
 	go func() {
