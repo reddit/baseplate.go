@@ -224,6 +224,12 @@ func TestNetworkErrorFilter(t *testing.T) {
 			expected: 1,
 		},
 		{
+			// See: https://github.com/reddit/baseplate.go/issues/257
+			name:     "regression-257",
+			err:      context.DeadlineExceeded,
+			expected: 1,
+		},
+		{
 			name:     "net.AddrError",
 			err:      &net.AddrError{},
 			expected: maxAttempts,
