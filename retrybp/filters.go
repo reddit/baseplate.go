@@ -77,7 +77,7 @@ func ContextErrorFilter(err error, next retry.RetryIfFunc) bool {
 // between sending and receiving since you have no way of knowing if the callee
 // receieved and is already processing your request.
 func NetworkErrorFilter(err error, next retry.RetryIfFunc) bool {
-	if errors.As(err, new(net.Error)) {
+	if !errors.Is(err, context.DeadlineExceeded) && errors.As(err, new(net.Error)) {
 		return true
 	}
 	return next(err)
