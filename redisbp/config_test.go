@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	"github.com/reddit/baseplate.go/redisbp"
 	"gopkg.in/yaml.v2"
 )

@@ -3,7 +3,7 @@ package redisbp_test
 import (
 	"context"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/reddit/baseplate.go/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
@@ -12,8 +12,8 @@ import (
 // This example demonstrates how to use SpanHook to automatically add Spans
 // around Redis commands using go-redis
 //
-// Baseplate.go also provides the MonitoredCmdableFactory object that you can
-// use to create Redis clients with a SpanHook already attached.
+// Baseplate.go also provides the MonitoredClient methods that you can use to
+// create Redis clients with a SpanHook already attached.
 func ExampleSpanHook() {
 	// variables should be properly initialized in production code
 	var (
@@ -32,5 +32,5 @@ func ExampleSpanHook() {
 	// Create a new client using the context for the server span
 	client := baseClient.WithContext(ctx)
 	// Commands should now be wrapped using Client Spans
-	client.Ping()
+	client.Ping(ctx)
 }

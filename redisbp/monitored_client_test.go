@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis"
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
@@ -17,7 +17,7 @@ const (
 	testTimeout = time.Millisecond * 100
 )
 
-func TestMonitoredCmdableFactory(t *testing.T) {
+func TestNewMonitoredClient(t *testing.T) {
 	defer func() {
 		tracing.CloseTracer()
 		tracing.InitGlobalTracer(tracing.TracerConfig{})
@@ -41,16 +41,13 @@ func TestMonitoredCmdableFactory(t *testing.T) {
 	}
 	defer s.Close()
 
-	factory := redisbp.NewMonitoredClientFactory(
-		"redis",
-		redis.NewClient(&redis.Options{Addr: s.Addr()}),
-	)
-	client := factory.BuildClient(context.Background())
-	if resp := client.Ping(); resp.Err() != nil {
+	client := redisbp.NewMonitoredClient("redis", &redis.Options{Addr: s.Addr()})
+	ctx := context.Background()
+	if resp := client.Ping(ctx); resp.Err() != nil {
 		t.Fatal(resp.Err())
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	ctx, cancel := context.WithTimeout(ctx, testTimeout)
 	defer cancel()
 	msg, err := mmq.Receive(ctx)
 	if err != nil {
@@ -66,13 +63,11 @@ func TestMonitoredCmdableFactory(t *testing.T) {
 		t.Error("no binary annotations")
 	}
 
-	if err := factory.Close(); err != nil {
+	if err := client.Close(); err != nil {
 		t.Fatal(err)
 	}
 
-	// verify that closing the factory closes out the connection pools for the
-	// clients it created.
-	if resp := client.Ping(); resp.Err() == nil {
+	if resp := client.Ping(ctx); resp.Err() == nil {
 		t.Fatal("expected an error, got nil")
 	}
 }

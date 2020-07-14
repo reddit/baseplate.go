@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 )
 
 // ClientConfig can be used to configure a redis-go "Client".  See the docs for
 // redis.Options in redis-go for details on what each value means and what its
 // defaults are:
-// https://pkg.go.dev/github.com/go-redis/redis/v7?tab=doc#Options
+// https://pkg.go.dev/github.com/go-redis/redis/v8?tab=doc#Options
 //
 // Can be deserialized from YAML.
 //
@@ -42,7 +42,7 @@ type ClientConfig struct {
 	// URL is passed to redis.ParseURL to initialize the client options.  This is
 	// a required field.
 	//
-	// https://pkg.go.dev/github.com/go-redis/redis/v7?tab=doc#ParseURL
+	// https://pkg.go.dev/github.com/go-redis/redis/v8?tab=doc#ParseURL
 	URL string `yaml:"url"`
 
 	Pool     PoolOptions    `yaml:"pool"`
@@ -66,7 +66,7 @@ func (cfg ClientConfig) Options() (*redis.Options, error) {
 // ClusterConfig can be used to configure a redis-go "ClusterClient".  See the
 // docs for redis.ClusterOptions in redis-go for details on what each value
 // means and what its defaults are:
-// https://pkg.go.dev/github.com/go-redis/redis/v7?tab=doc#ClusterOptions
+// https://pkg.go.dev/github.com/go-redis/redis/v8?tab=doc#ClusterOptions
 //
 // Can be deserialized from YAML.
 //
@@ -126,7 +126,7 @@ func (cfg ClusterConfig) Options() *redis.ClusterOptions {
 // ClusterClient.  If any value is not set, it will use whatever default is
 // defined by redis-go.
 //
-// See https://pkg.go.dev/github.com/go-redis/redis/v7?tab=doc#Options for details
+// See https://pkg.go.dev/github.com/go-redis/redis/v8?tab=doc#Options for details
 // on the specific fields.
 //
 // Can be deserialized from YAML.
@@ -179,7 +179,7 @@ func (opts PoolOptions) ApplyClusterOptions(options *redis.ClusterOptions) {
 // RetryOptions is used to configure the retry behavior of a redis-go Client or
 // ClusterClient.
 //
-// See https://pkg.go.dev/github.com/go-redis/redis/v7?tab=doc#Options for details
+// See https://pkg.go.dev/github.com/go-redis/redis/v8?tab=doc#Options for details
 // on the specific fields.
 //
 // Can be deserialized from YAML.
@@ -223,7 +223,7 @@ func (opts RetryOptions) ApplyClusterOptions(options *redis.ClusterOptions) {
 // TimeoutOptions is used to configure the timeout behavior of a redis-go Client
 // or ClusterClient.
 //
-// See https://pkg.go.dev/github.com/go-redis/redis/v7?tab=doc#Options for details
+// See https://pkg.go.dev/github.com/go-redis/redis/v8?tab=doc#Options for details
 // on the specific fields.
 //
 // Can be deserialized from YAML.

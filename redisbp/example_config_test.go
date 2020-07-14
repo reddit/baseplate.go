@@ -3,7 +3,6 @@ package redisbp_test
 import (
 	"context"
 
-	"github.com/go-redis/redis/v7"
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/redisbp"
 )
@@ -22,10 +21,6 @@ func ExampleClientConfig() {
 	}
 	defer bp.Close()
 
-	factory := redisbp.NewMonitoredClientFactory(
-		"redis",
-		redis.NewClient(redisbp.OptionsMust(cfg.Redis.Options())),
-	)
-	client := factory.BuildClient(ctx)
-	client.Ping()
+	client := redisbp.NewMonitoredClient("redis", redisbp.OptionsMust(cfg.Redis.Options()))
+	client.Ping(ctx)
 }

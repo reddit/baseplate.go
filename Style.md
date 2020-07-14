@@ -67,7 +67,7 @@ import (
 ### Exceptions
 
 As recommended by go modules version design,
-in the example of `"github.com/go-redis/redis/v7"`,
+in the example of `"github.com/go-redis/redis/v8"`,
 `v7` is the major version number,
 so we consider `redis` as the actual last element of import path.
 As a result there's no need to rename import it.

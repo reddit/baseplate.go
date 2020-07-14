@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/redisbp"
@@ -15,8 +15,8 @@ import (
 func TestSpanHook(t *testing.T) {
 	ctx, _ := thriftbp.StartSpanFromThriftContext(context.Background(), "foo")
 	hooks := redisbp.SpanHook{ClientName: "redis"}
-	statusCmd := redis.NewStatusCmd("ping")
-	stringCmd := redis.NewStringCmd("get", "1")
+	statusCmd := redis.NewStatusCmd(ctx, "ping")
+	stringCmd := redis.NewStringCmd(ctx, "get", "1")
 	stringCmd.SetErr(redis.Nil)
 
 	t.Run(
