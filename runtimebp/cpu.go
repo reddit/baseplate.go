@@ -56,8 +56,14 @@ func NumCPU() (n float64) {
 	return quota / period
 }
 
-// On some really old docker version the quota file will be -1, in which case we
-// should use this one instead.
+// On some situations the quota file will be -1,
+// and we should use this one instead.
+//
+// Those situations include:
+//
+// - Very old version of docker
+//
+// - In k8s only request is set for cpu, not limit
 func numCPUSharesFallback() (n float64) {
 	const (
 		sharesPath  = "/sys/fs/cgroup/cpu/cpu.shares"
