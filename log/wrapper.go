@@ -1,6 +1,7 @@
 package log
 
 import (
+	"errors"
 	stdlog "log"
 	"testing"
 
@@ -131,7 +132,7 @@ func ZapWrapper(level Level) Wrapper {
 func ErrorWithSentryWrapper() Wrapper {
 	return func(msg string) {
 		Error(msg)
-		sentry.CaptureMessage(msg)
+		sentry.CaptureException(errors.New(msg))
 	}
 }
 
