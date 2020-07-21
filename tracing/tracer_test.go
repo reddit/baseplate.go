@@ -17,7 +17,7 @@ const testTimeout = time.Millisecond * 100
 func TestTracer(t *testing.T) {
 	loggerFunc := func(t *testing.T) (logger log.Wrapper, called *bool) {
 		called = new(bool)
-		logger = func(msg string) {
+		logger = func(_ context.Context, msg string) {
 			*called = true
 			t.Logf("Logger called with msg: %q", msg)
 		}

@@ -1,10 +1,12 @@
 package log
 
 import (
+	"context"
 	"errors"
 	stdlog "log"
 	"testing"
 
+	"github.com/apache/thrift/lib/go/thrift"
 	sentry "github.com/getsentry/sentry-go"
 )
 
@@ -56,30 +58,46 @@ import (
 // For unit tests of library code using Wrapper,
 // TestWrapper is provided that would fail the test when Wrapper is called.
 //
-// Additionally,
-// this interface is also compatible with thrift.Logger and can be used
-// interchangeably (sometimes a typecasting is needed).
-type Wrapper func(msg string)
+// Not all Wrapper implementations take advantage of context object passed in,
+// but the caller should always pass it into Wrapper if they already have one,
+// or just use context.Background() if they don't have one.
+type Wrapper func(ctx context.Context, msg string)
 
 // Log is the nil-safe way of calling a log.Wrapper.
-func (w Wrapper) Log(msg string) {
+func (w Wrapper) Log(ctx context.Context, msg string) {
 	if w != nil {
-		w(msg)
+		w(ctx, msg)
 	}
+}
+
+// ToThriftLogger wraps Wrapper into thrift.Logger.
+func (w Wrapper) ToThriftLogger() thrift.Logger {
+	if w != nil {
+		ctx := context.Background()
+		return func(msg string) {
+			w(ctx, msg)
+		}
+	}
+	return func(_ string) {}
+}
+
+// WrapToThriftLogger wraps a Wrapper into thrift.Logger.
+func WrapToThriftLogger(w Wrapper) thrift.Logger {
+	return w.ToThriftLogger()
 }
 
 // NopWrapper is a Wrapper implementation that does nothing.
 //
 // In most cases you don't need to use it directly.
 // The zero value of log.Wrapper is essentially a NopWrapper.
-func NopWrapper(msg string) {}
+func NopWrapper(ctx context.Context, msg string) {}
 
 // StdWrapper wraps stdlib log package into a Wrapper.
 func StdWrapper(logger *stdlog.Logger) Wrapper {
 	if logger == nil {
 		return NopWrapper
 	}
-	return func(msg string) {
+	return func(_ context.Context, msg string) {
 		logger.Print(msg)
 	}
 }
@@ -88,30 +106,33 @@ func StdWrapper(logger *stdlog.Logger) Wrapper {
 //
 // It fails the test when called.
 func TestWrapper(tb testing.TB) Wrapper {
-	return func(msg string) {
+	return func(_ context.Context, msg string) {
 		tb.Errorf("logger called with msg: %q", msg)
 	}
 }
 
 // ZapWrapper wraps zap log package into a Wrapper.
 func ZapWrapper(level Level) Wrapper {
-	// For unknown values, fallback to info level.
-	f := Info
-	switch level {
-	case DebugLevel:
-		f = Debug
-	case WarnLevel:
-		f = Warn
-	case ErrorLevel:
-		f = Error
-	case PanicLevel:
-		f = Panic
-	case FatalLevel:
-		f = Fatal
-	case NopLevel:
+	if level == NopLevel {
 		return NopWrapper
 	}
-	return func(msg string) {
+
+	return func(ctx context.Context, msg string) {
+		logger := C(ctx)
+		// For unknown values, fallback to info level.
+		f := logger.Info
+		switch level {
+		case DebugLevel:
+			f = logger.Debug
+		case WarnLevel:
+			f = logger.Warn
+		case ErrorLevel:
+			f = logger.Error
+		case PanicLevel:
+			f = logger.Panic
+		case FatalLevel:
+			f = logger.Fatal
+		}
 		f(msg)
 	}
 }
@@ -130,9 +151,15 @@ func ZapWrapper(level Level) Wrapper {
 // For this reason, it's returning a Wrapper instead of being a Wrapper itself,
 // thus forcing an extra typecasting to be used as a thrift.Logger.
 func ErrorWithSentryWrapper() Wrapper {
-	return func(msg string) {
-		Error(msg)
-		sentry.CaptureException(errors.New(msg))
+	return func(ctx context.Context, msg string) {
+		C(ctx).Error(msg)
+
+		err := errors.New(msg)
+		if hub := sentry.GetHubFromContext(ctx); hub != nil {
+			hub.CaptureException(err)
+		} else {
+			sentry.CaptureException(err)
+		}
 	}
 }
 

@@ -1,6 +1,7 @@
 package thriftbp_test
 
 import (
+	"context"
 	"errors"
 	"net"
 	"sync/atomic"
@@ -90,7 +91,7 @@ func TestInitialConnectionsFallback(t *testing.T) {
 	}
 
 	var loggerCalled int64
-	logger := func(msg string) {
+	logger := func(_ context.Context, msg string) {
 		t.Logf("InitialConnectionsFallbackLogger called with %q", msg)
 		atomic.StoreInt64(&loggerCalled, 1)
 	}

@@ -73,7 +73,7 @@ func AsSpan(s opentracing.Span) *Span {
 	if span, ok := s.(*Span); ok && span != nil {
 		return span
 	}
-	globalTracer.logger.Log(fmt.Sprintf(
+	globalTracer.logger.Log(context.Background(), fmt.Sprintf(
 		"Failed to cast opentracing.Span %#v back to *tracing.Span.",
 		s,
 	))
@@ -110,7 +110,7 @@ func (s *Span) onStart() {
 	for _, h := range s.hooks {
 		if hook, ok := h.(StartStopSpanHook); ok {
 			if err := hook.OnPostStart(s); err != nil {
-				s.logError("OnPostStart hook error: ", err)
+				s.logError(context.Background(), "OnPostStart hook error: ", err)
 			}
 		}
 	}
@@ -166,8 +166,8 @@ func (s Span) StopTime() time.Time {
 //
 // This uses the the logger provided by the underlying tracing.Tracer used to
 // publish the Span.
-func (s Span) logError(msg string, err error) {
-	s.trace.tracer.logger.Log(msg + err.Error())
+func (s Span) logError(ctx context.Context, msg string, err error) {
+	s.trace.tracer.logger.Log(ctx, msg+err.Error())
 }
 
 // AddHooks adds hooks into the Span.
@@ -184,6 +184,7 @@ func (s *Span) AddHooks(hooks ...interface{}) {
 			s.hooks = append(s.hooks, hook)
 		} else {
 			s.logError(
+				context.Background(),
 				"AddHooks error: ",
 				fmt.Errorf(
 					"tracing.Span.AddHooks: attempting to add non-SpanHook object into span's hook registry: %#v",
@@ -206,7 +207,7 @@ func (s *Span) SetTag(key string, value interface{}) opentracing.Span {
 	for _, h := range s.hooks {
 		if hook, ok := h.(SetSpanTagHook); ok {
 			if err := hook.OnSetTag(s, key, value); err != nil {
-				s.logError("OnSetTag hook error: ", err)
+				s.logError(context.Background(), "OnSetTag hook error: ", err)
 			}
 		}
 	}
@@ -220,7 +221,7 @@ func (s *Span) AddCounter(key string, delta float64) {
 	for _, h := range s.hooks {
 		if hook, ok := h.(AddSpanCounterHook); ok {
 			if err := hook.OnAddCounter(s, key, delta); err != nil {
-				s.logError("OnAddCounter hook error: ", err)
+				s.logError(context.Background(), "OnAddCounter hook error: ", err)
 			}
 		}
 	}
@@ -261,7 +262,7 @@ func (s Span) initChildSpan(child *Span) {
 		for _, h := range s.hooks {
 			if hook, ok := h.(CreateChildSpanHook); ok {
 				if err := hook.OnCreateChild(&s, child); err != nil {
-					s.logError("OnCreateChild hook error: ", err)
+					s.logError(context.Background(), "OnCreateChild hook error: ", err)
 				}
 			}
 		}
@@ -281,7 +282,7 @@ func (s *Span) Stop(ctx context.Context, err error) error {
 	for _, h := range s.hooks {
 		if hook, ok := h.(StartStopSpanHook); ok {
 			if hookErr := hook.OnPreStop(s, err); hookErr != nil {
-				s.logError("OnPreStop hook error: ", hookErr)
+				s.logError(context.Background(), "OnPreStop hook error: ", hookErr)
 			}
 		}
 	}
@@ -366,8 +367,9 @@ func (s *Span) BaggageItem(restrictedKey string) string {
 // It calls Stop with background context and nil error.
 // If Stop returns an error, it will also be logged with the tracer's logger.
 func (s *Span) Finish() {
-	if err := s.Stop(context.Background(), nil); err != nil {
-		s.logError("Span.Stop returned error: ", err)
+	ctx := context.Background()
+	if err := s.Stop(ctx, nil); err != nil {
+		s.logError(ctx, "Span.Stop returned error: ", err)
 	}
 }
 
@@ -402,7 +404,7 @@ func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
 		}
 	}
 	if stopErr := s.Stop(ctx, err); stopErr != nil {
-		s.logError("Span.Stop returned error: ", stopErr)
+		s.logError(ctx, "Span.Stop returned error: ", stopErr)
 	}
 }
 
@@ -502,7 +504,7 @@ func (h Headers) ParseTraceID() (id uint64, ok bool) {
 	var err error
 	id, err = strconv.ParseUint(h.TraceID, 10, 64)
 	if err != nil {
-		globalTracer.logger.Log(fmt.Sprintf(
+		globalTracer.logger.Log(context.Background(), fmt.Sprintf(
 			"Malformed trace id in http ctx: %q, %v",
 			h.TraceID,
 			err,
@@ -528,7 +530,7 @@ func (h Headers) ParseSpanID() (id uint64, ok bool) {
 	var err error
 	id, err = strconv.ParseUint(h.SpanID, 10, 64)
 	if err != nil {
-		globalTracer.logger.Log(fmt.Sprintf(
+		globalTracer.logger.Log(context.Background(), fmt.Sprintf(
 			"Malformed span id in http ctx: %q, %v",
 			h.SpanID,
 			err,
@@ -554,7 +556,7 @@ func (h Headers) ParseFlags() (flags int64, ok bool) {
 	var err error
 	flags, err = strconv.ParseInt(h.Flags, 10, 64)
 	if err != nil {
-		globalTracer.logger.Log(fmt.Sprintf(
+		globalTracer.logger.Log(context.Background(), fmt.Sprintf(
 			"Malformed flags in http ctx: %q, %v",
 			h.Flags,
 			err,
@@ -652,6 +654,6 @@ var nopHub = sentry.NewHub(nil, sentry.NewScope())
 func getNopHub() *sentry.Hub {
 	// Whenever this function is called, it means we had a bug that didn't
 	// initialize the spans correctly.
-	globalTracer.logger.Log("getNopHub called.")
+	globalTracer.logger.Log(context.Background(), "getNopHub called.")
 	return nopHub
 }

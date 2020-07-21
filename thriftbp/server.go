@@ -120,7 +120,7 @@ func NewBaseplateServer(
 	)
 	middlewares = append(middlewares, cfg.Middlewares...)
 	cfg.Middlewares = middlewares
-	cfg.Logger = thrift.Logger(log.ZapWrapper(bp.Config().Log.Level))
+	cfg.Logger = log.ZapWrapper(bp.Config().Log.Level).ToThriftLogger()
 	cfg.Addr = bp.Config().Addr
 	cfg.Timeout = bp.Config().Timeout
 	cfg.Socket = nil

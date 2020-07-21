@@ -215,7 +215,7 @@ func TestParserFailure(t *testing.T) {
 		return value, nil
 	}
 	var loggerCalled int64
-	logger := func(msg string) {
+	logger := func(_ context.Context, msg string) {
 		atomic.StoreInt64(&loggerCalled, 1)
 		t.Log(msg)
 	}

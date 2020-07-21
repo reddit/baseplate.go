@@ -294,7 +294,8 @@ func newClientPool(
 			)
 			if fallbackErr == nil {
 				cfg.InitialConnectionsFallbackLogger.Log(
-					"thriftbp: error initializing thrift clientpool but fallback to 0 initial connections worked. Original error: " + err.Error(),
+					context.Background(),
+					"thriftbp: error initializing thrift clientpool but fallback to 0 initial connections worked. Original error: "+err.Error(),
 				)
 				err = nil
 			} else {

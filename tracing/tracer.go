@@ -135,7 +135,7 @@ func InitGlobalTracer(cfg TracerConfig) error {
 
 	ip, err := runtimebp.GetFirstIPv4()
 	if err != nil {
-		logger(`Unable to get local ip address: ` + err.Error())
+		logger(context.Background(), `Unable to get local ip address: `+err.Error())
 	}
 	globalTracer.endpoint = ZipkinEndpointInfo{
 		ServiceName: cfg.ServiceName,
@@ -201,19 +201,18 @@ func (t *Tracer) Record(ctx context.Context, zs ZipkinSpan) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	err = t.recorder.Send(ctx, data)
-	if t.logger != nil {
-		if errors.As(err, new(mqsend.MessageTooLargeError)) {
-			t.logger(fmt.Sprintf(
-				"Span is too big, max allowed size is %d. This can be caused by an excess amount of tags. Error: %v",
-				MaxSpanSize,
-				err,
-			))
-		}
-		if errors.As(err, new(mqsend.TimedOutError)) {
-			t.logger(
-				"Trace queue is full. Is trace sidecar healthy? Error: " + err.Error(),
-			)
-		}
+	if errors.As(err, new(mqsend.MessageTooLargeError)) {
+		t.logger.Log(ctx, fmt.Sprintf(
+			"Span is too big, max allowed size is %d. This can be caused by an excess amount of tags. Error: %v",
+			MaxSpanSize,
+			err,
+		))
+	}
+	if errors.As(err, new(mqsend.TimedOutError)) {
+		t.logger.Log(
+			ctx,
+			"Trace queue is full. Is trace sidecar healthy? Error: "+err.Error(),
+		)
 	}
 	return err
 }

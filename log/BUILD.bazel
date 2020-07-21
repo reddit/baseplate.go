@@ -15,6 +15,7 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/log",
     visibility = ["//visibility:public"],
     deps = [
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
         "@com_github_getsentry_sentry_go//:go_default_library",
         "@org_uber_go_zap//:go_default_library",
         "@org_uber_go_zap//zapcore:go_default_library",
