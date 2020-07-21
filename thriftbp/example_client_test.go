@@ -24,7 +24,7 @@ func ExampleMonitorClient() {
 		factory   thrift.TProtocolFactory
 	)
 	// Create an actual service client
-	client := baseplate.NewBaseplateServiceClient(
+	client := baseplate.NewBaseplateServiceV2Client(
 		// Use MonitoredClient to wrap a standard thrift client
 		thrift.WrapClient(
 			thrift.NewTStandardClient(

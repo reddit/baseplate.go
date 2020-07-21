@@ -348,7 +348,7 @@ func TestRetry(t *testing.T) {
 
 	c := &counter{}
 	handler := BaseplateService{}
-	processor := baseplatethrift.NewBaseplateServiceProcessor(&handler)
+	processor := baseplatethrift.NewBaseplateServiceV2Processor(&handler)
 	server, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
 		Processor:   processor,
 		SecretStore: store,
@@ -366,7 +366,7 @@ func TestRetry(t *testing.T) {
 	handler.Sever = server
 	server.Start(ctx)
 
-	client := baseplatethrift.NewBaseplateServiceClient(server.ClientPool)
+	client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool)
 	_, err = client.IsHealthy(
 		ctx,
 		&baseplatethrift.IsHealthyRequest{

@@ -81,7 +81,7 @@ func TestNewBaseplateServer(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 
-				processor := baseplatethrift.NewBaseplateServiceProcessor(c.handler)
+				processor := baseplatethrift.NewBaseplateServiceV2Processor(c.handler)
 				server, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
 					Processor:   processor,
 					SecretStore: store,
@@ -92,7 +92,7 @@ func TestNewBaseplateServer(t *testing.T) {
 				// cancelling the context will close the server.
 				server.Start(ctx)
 
-				client := baseplatethrift.NewBaseplateServiceClient(server.ClientPool)
+				client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool)
 				result, err := client.IsHealthy(
 					ctx,
 					&baseplatethrift.IsHealthyRequest{

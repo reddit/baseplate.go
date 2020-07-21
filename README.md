@@ -62,7 +62,7 @@ bazel test //...:all
 
 [baseplate.py]: https://github.com/reddit/baseplate.py
 
-[baseplate.thrift]: https://github.com/reddit/baseplate.py/blob/15cd9c01f55b96ee7cd1a702c103e2f0e07dcda8/baseplate/thrift/baseplate.thrift
+[baseplate.thrift]: https://github.com/reddit/baseplate.py/blob/499295cd66af3cd5debd0547204f8ffcbbed730a/baseplate/thrift/baseplate.thrift
 
 [bazel]: https://bazel.build/
 

@@ -1435,6 +1435,8 @@ type BaseplateService interface {  //The base for any baseplate-based service.
   //Your service should inherit from this one so that common tools can interact
   //with any expected interfaces.
   //
+  //DEPRECATED: Please migrate to BaseplateServiceV2.
+  //
 
   // Return whether or not the service is healthy.
   // 
@@ -1444,16 +1446,15 @@ type BaseplateService interface {  //The base for any baseplate-based service.
   // This should return True if the service is healthy. If the service is
   // unhealthy, it can return False or raise an exception.
   // 
-  // 
-  // Parameters:
-  //  - Request
-  IsHealthy(ctx context.Context, request *IsHealthyRequest) (r bool, err error)
+  IsHealthy(ctx context.Context) (r bool, err error)
 }
 
 //The base for any baseplate-based service.
 //
 //Your service should inherit from this one so that common tools can interact
 //with any expected interfaces.
+//
+//DEPRECATED: Please migrate to BaseplateServiceV2.
 //
 type BaseplateServiceClient struct {
   c thrift.TClient
@@ -1488,12 +1489,8 @@ func (p *BaseplateServiceClient) Client_() thrift.TClient {
 // This should return True if the service is healthy. If the service is
 // unhealthy, it can return False or raise an exception.
 // 
-// 
-// Parameters:
-//  - Request
-func (p *BaseplateServiceClient) IsHealthy(ctx context.Context, request *IsHealthyRequest) (r bool, err error) {
+func (p *BaseplateServiceClient) IsHealthy(ctx context.Context) (r bool, err error) {
   var _args2 BaseplateServiceIsHealthyArgs
-  _args2.Request = request
   var _result3 BaseplateServiceIsHealthyResult
   if err = p.Client_().Call(ctx, "is_healthy", &_args2, &_result3); err != nil {
     return
@@ -1589,7 +1586,7 @@ func (p *baseplateServiceProcessorIsHealthy) Process(ctx context.Context, seqId 
   result := BaseplateServiceIsHealthyResult{}
   var retval bool
   var err2 error
-  if retval, err2 = p.handler.IsHealthy(ctx, args.Request); err2 != nil {
+  if retval, err2 = p.handler.IsHealthy(ctx); err2 != nil {
     tickerCancel()
     if err2 == thrift.ErrAbandonRequest {
       return false, err2
@@ -1625,25 +1622,11 @@ func (p *baseplateServiceProcessorIsHealthy) Process(ctx context.Context, seqId 
 
 // HELPER FUNCTIONS AND STRUCTURES
 
-// Attributes:
-//  - Request
 type BaseplateServiceIsHealthyArgs struct {
-  Request *IsHealthyRequest `thrift:"request,1" db:"request" json:"request"`
 }
 
 func NewBaseplateServiceIsHealthyArgs() *BaseplateServiceIsHealthyArgs {
   return &BaseplateServiceIsHealthyArgs{}
-}
-
-var BaseplateServiceIsHealthyArgs_Request_DEFAULT *IsHealthyRequest
-func (p *BaseplateServiceIsHealthyArgs) GetRequest() *IsHealthyRequest {
-  if !p.IsSetRequest() {
-    return BaseplateServiceIsHealthyArgs_Request_DEFAULT
-  }
-return p.Request
-}
-func (p *BaseplateServiceIsHealthyArgs) IsSetRequest() bool {
-  return p.Request != nil
 }
 
 func (p *BaseplateServiceIsHealthyArgs) Read(ctx context.Context, iprot thrift.TProtocol) error {
@@ -1658,21 +1641,8 @@ func (p *BaseplateServiceIsHealthyArgs) Read(ctx context.Context, iprot thrift.T
       return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
     }
     if fieldTypeId == thrift.STOP { break; }
-    switch fieldId {
-    case 1:
-      if fieldTypeId == thrift.STRUCT {
-        if err := p.ReadField1(ctx, iprot); err != nil {
-          return err
-        }
-      } else {
-        if err := iprot.Skip(ctx, fieldTypeId); err != nil {
-          return err
-        }
-      }
-    default:
-      if err := iprot.Skip(ctx, fieldTypeId); err != nil {
-        return err
-      }
+    if err := iprot.Skip(ctx, fieldTypeId); err != nil {
+      return err
     }
     if err := iprot.ReadFieldEnd(ctx); err != nil {
       return err
@@ -1684,36 +1654,16 @@ func (p *BaseplateServiceIsHealthyArgs) Read(ctx context.Context, iprot thrift.T
   return nil
 }
 
-func (p *BaseplateServiceIsHealthyArgs)  ReadField1(ctx context.Context, iprot thrift.TProtocol) error {
-  p.Request = &IsHealthyRequest{}
-  if err := p.Request.Read(ctx, iprot); err != nil {
-    return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Request), err)
-  }
-  return nil
-}
-
 func (p *BaseplateServiceIsHealthyArgs) Write(ctx context.Context, oprot thrift.TProtocol) error {
   if err := oprot.WriteStructBegin(ctx, "is_healthy_args"); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
   if p != nil {
-    if err := p.writeField1(ctx, oprot); err != nil { return err }
   }
   if err := oprot.WriteFieldStop(ctx); err != nil {
     return thrift.PrependError("write field stop error: ", err) }
   if err := oprot.WriteStructEnd(ctx); err != nil {
     return thrift.PrependError("write struct stop error: ", err) }
   return nil
-}
-
-func (p *BaseplateServiceIsHealthyArgs) writeField1(ctx context.Context, oprot thrift.TProtocol) (err error) {
-  if err := oprot.WriteFieldBegin(ctx, "request", thrift.STRUCT, 1); err != nil {
-    return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:request: ", p), err) }
-  if err := p.Request.Write(ctx, oprot); err != nil {
-    return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Request), err)
-  }
-  if err := oprot.WriteFieldEnd(ctx); err != nil {
-    return thrift.PrependError(fmt.Sprintf("%T write field end error 1:request: ", p), err) }
-  return err
 }
 
 func (p *BaseplateServiceIsHealthyArgs) String() string {
@@ -1821,6 +1771,400 @@ func (p *BaseplateServiceIsHealthyResult) String() string {
     return "<nil>"
   }
   return fmt.Sprintf("BaseplateServiceIsHealthyResult(%+v)", *p)
+}
+
+
+type BaseplateServiceV2 interface {  //The base for any baseplate-based service.
+  //
+  //Your service should inherit from this one so that common tools can interact
+  //with any expected interfaces.
+  //
+
+  // Return whether or not the service is healthy.
+  // 
+  // The healthchecker (baseplate.server.healthcheck) expects this endpoint to
+  // exist so it can determine your service's health.
+  // 
+  // This should return True if the service is healthy. If the service is
+  // unhealthy, it can return False or raise an exception.
+  // 
+  // 
+  // Parameters:
+  //  - Request
+  IsHealthy(ctx context.Context, request *IsHealthyRequest) (r bool, err error)
+}
+
+//The base for any baseplate-based service.
+//
+//Your service should inherit from this one so that common tools can interact
+//with any expected interfaces.
+//
+type BaseplateServiceV2Client struct {
+  c thrift.TClient
+}
+
+func NewBaseplateServiceV2ClientFactory(t thrift.TTransport, f thrift.TProtocolFactory) *BaseplateServiceV2Client {
+  return &BaseplateServiceV2Client{
+    c: thrift.NewTStandardClient(f.GetProtocol(t), f.GetProtocol(t)),
+  }
+}
+
+func NewBaseplateServiceV2ClientProtocol(t thrift.TTransport, iprot thrift.TProtocol, oprot thrift.TProtocol) *BaseplateServiceV2Client {
+  return &BaseplateServiceV2Client{
+    c: thrift.NewTStandardClient(iprot, oprot),
+  }
+}
+
+func NewBaseplateServiceV2Client(c thrift.TClient) *BaseplateServiceV2Client {
+  return &BaseplateServiceV2Client{
+    c: c,
+  }
+}
+
+func (p *BaseplateServiceV2Client) Client_() thrift.TClient {
+  return p.c
+}
+// Return whether or not the service is healthy.
+// 
+// The healthchecker (baseplate.server.healthcheck) expects this endpoint to
+// exist so it can determine your service's health.
+// 
+// This should return True if the service is healthy. If the service is
+// unhealthy, it can return False or raise an exception.
+// 
+// 
+// Parameters:
+//  - Request
+func (p *BaseplateServiceV2Client) IsHealthy(ctx context.Context, request *IsHealthyRequest) (r bool, err error) {
+  var _args6 BaseplateServiceV2IsHealthyArgs
+  _args6.Request = request
+  var _result7 BaseplateServiceV2IsHealthyResult
+  if err = p.Client_().Call(ctx, "is_healthy", &_args6, &_result7); err != nil {
+    return
+  }
+  return _result7.GetSuccess(), nil
+}
+
+type BaseplateServiceV2Processor struct {
+  processorMap map[string]thrift.TProcessorFunction
+  handler BaseplateServiceV2
+}
+
+func (p *BaseplateServiceV2Processor) AddToProcessorMap(key string, processor thrift.TProcessorFunction) {
+  p.processorMap[key] = processor
+}
+
+func (p *BaseplateServiceV2Processor) GetProcessorFunction(key string) (processor thrift.TProcessorFunction, ok bool) {
+  processor, ok = p.processorMap[key]
+  return processor, ok
+}
+
+func (p *BaseplateServiceV2Processor) ProcessorMap() map[string]thrift.TProcessorFunction {
+  return p.processorMap
+}
+
+func NewBaseplateServiceV2Processor(handler BaseplateServiceV2) *BaseplateServiceV2Processor {
+
+  self8 := &BaseplateServiceV2Processor{handler:handler, processorMap:make(map[string]thrift.TProcessorFunction)}
+  self8.processorMap["is_healthy"] = &baseplateServiceV2ProcessorIsHealthy{handler:handler}
+return self8
+}
+
+func (p *BaseplateServiceV2Processor) Process(ctx context.Context, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+  name, _, seqId, err := iprot.ReadMessageBegin(ctx)
+  if err != nil { return false, err }
+  if processor, ok := p.GetProcessorFunction(name); ok {
+    return processor.Process(ctx, seqId, iprot, oprot)
+  }
+  iprot.Skip(ctx, thrift.STRUCT)
+  iprot.ReadMessageEnd(ctx)
+  x9 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function " + name)
+  oprot.WriteMessageBegin(ctx, name, thrift.EXCEPTION, seqId)
+  x9.Write(ctx, oprot)
+  oprot.WriteMessageEnd(ctx)
+  oprot.Flush(ctx)
+  return false, x9
+
+}
+
+type baseplateServiceV2ProcessorIsHealthy struct {
+  handler BaseplateServiceV2
+}
+
+func (p *baseplateServiceV2ProcessorIsHealthy) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+  args := BaseplateServiceV2IsHealthyArgs{}
+  if err = args.Read(ctx, iprot); err != nil {
+    iprot.ReadMessageEnd(ctx)
+    x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+    oprot.WriteMessageBegin(ctx, "is_healthy", thrift.EXCEPTION, seqId)
+    x.Write(ctx, oprot)
+    oprot.WriteMessageEnd(ctx)
+    oprot.Flush(ctx)
+    return false, err
+  }
+  iprot.ReadMessageEnd(ctx)
+
+  tickerCancel := func() {}
+  // Start a goroutine to do server side connectivity check.
+  if thrift.ServerConnectivityCheckInterval > 0 {
+    var cancel context.CancelFunc
+    ctx, cancel = context.WithCancel(ctx)
+    defer cancel()
+    var tickerCtx context.Context
+    tickerCtx, tickerCancel = context.WithCancel(context.Background())
+    defer tickerCancel()
+    go func(ctx context.Context, cancel context.CancelFunc) {
+      ticker := time.NewTicker(thrift.ServerConnectivityCheckInterval)
+      defer ticker.Stop()
+      for {
+        select {
+        case <-ctx.Done():
+          return
+        case <-ticker.C:
+          if !iprot.Transport().IsOpen() {
+            cancel()
+            return
+          }
+        }
+      }
+    }(tickerCtx, cancel)
+  }
+
+  result := BaseplateServiceV2IsHealthyResult{}
+  var retval bool
+  var err2 error
+  if retval, err2 = p.handler.IsHealthy(ctx, args.Request); err2 != nil {
+    tickerCancel()
+    if err2 == thrift.ErrAbandonRequest {
+      return false, err2
+    }
+    x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing is_healthy: " + err2.Error())
+    oprot.WriteMessageBegin(ctx, "is_healthy", thrift.EXCEPTION, seqId)
+    x.Write(ctx, oprot)
+    oprot.WriteMessageEnd(ctx)
+    oprot.Flush(ctx)
+    return true, err2
+  } else {
+    result.Success = &retval
+  }
+  tickerCancel()
+  if err2 = oprot.WriteMessageBegin(ctx, "is_healthy", thrift.REPLY, seqId); err2 != nil {
+    err = err2
+  }
+  if err2 = result.Write(ctx, oprot); err == nil && err2 != nil {
+    err = err2
+  }
+  if err2 = oprot.WriteMessageEnd(ctx); err == nil && err2 != nil {
+    err = err2
+  }
+  if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
+    err = err2
+  }
+  if err != nil {
+    return
+  }
+  return true, err
+}
+
+
+// HELPER FUNCTIONS AND STRUCTURES
+
+// Attributes:
+//  - Request
+type BaseplateServiceV2IsHealthyArgs struct {
+  Request *IsHealthyRequest `thrift:"request,1" db:"request" json:"request"`
+}
+
+func NewBaseplateServiceV2IsHealthyArgs() *BaseplateServiceV2IsHealthyArgs {
+  return &BaseplateServiceV2IsHealthyArgs{}
+}
+
+var BaseplateServiceV2IsHealthyArgs_Request_DEFAULT *IsHealthyRequest
+func (p *BaseplateServiceV2IsHealthyArgs) GetRequest() *IsHealthyRequest {
+  if !p.IsSetRequest() {
+    return BaseplateServiceV2IsHealthyArgs_Request_DEFAULT
+  }
+return p.Request
+}
+func (p *BaseplateServiceV2IsHealthyArgs) IsSetRequest() bool {
+  return p.Request != nil
+}
+
+func (p *BaseplateServiceV2IsHealthyArgs) Read(ctx context.Context, iprot thrift.TProtocol) error {
+  if _, err := iprot.ReadStructBegin(ctx); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+  }
+
+
+  for {
+    _, fieldTypeId, fieldId, err := iprot.ReadFieldBegin(ctx)
+    if err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+    }
+    if fieldTypeId == thrift.STOP { break; }
+    switch fieldId {
+    case 1:
+      if fieldTypeId == thrift.STRUCT {
+        if err := p.ReadField1(ctx, iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(ctx, fieldTypeId); err != nil {
+          return err
+        }
+      }
+    default:
+      if err := iprot.Skip(ctx, fieldTypeId); err != nil {
+        return err
+      }
+    }
+    if err := iprot.ReadFieldEnd(ctx); err != nil {
+      return err
+    }
+  }
+  if err := iprot.ReadStructEnd(ctx); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+  }
+  return nil
+}
+
+func (p *BaseplateServiceV2IsHealthyArgs)  ReadField1(ctx context.Context, iprot thrift.TProtocol) error {
+  p.Request = &IsHealthyRequest{}
+  if err := p.Request.Read(ctx, iprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Request), err)
+  }
+  return nil
+}
+
+func (p *BaseplateServiceV2IsHealthyArgs) Write(ctx context.Context, oprot thrift.TProtocol) error {
+  if err := oprot.WriteStructBegin(ctx, "is_healthy_args"); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
+  if p != nil {
+    if err := p.writeField1(ctx, oprot); err != nil { return err }
+  }
+  if err := oprot.WriteFieldStop(ctx); err != nil {
+    return thrift.PrependError("write field stop error: ", err) }
+  if err := oprot.WriteStructEnd(ctx); err != nil {
+    return thrift.PrependError("write struct stop error: ", err) }
+  return nil
+}
+
+func (p *BaseplateServiceV2IsHealthyArgs) writeField1(ctx context.Context, oprot thrift.TProtocol) (err error) {
+  if err := oprot.WriteFieldBegin(ctx, "request", thrift.STRUCT, 1); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:request: ", p), err) }
+  if err := p.Request.Write(ctx, oprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Request), err)
+  }
+  if err := oprot.WriteFieldEnd(ctx); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field end error 1:request: ", p), err) }
+  return err
+}
+
+func (p *BaseplateServiceV2IsHealthyArgs) String() string {
+  if p == nil {
+    return "<nil>"
+  }
+  return fmt.Sprintf("BaseplateServiceV2IsHealthyArgs(%+v)", *p)
+}
+
+// Attributes:
+//  - Success
+type BaseplateServiceV2IsHealthyResult struct {
+  Success *bool `thrift:"success,0" db:"success" json:"success,omitempty"`
+}
+
+func NewBaseplateServiceV2IsHealthyResult() *BaseplateServiceV2IsHealthyResult {
+  return &BaseplateServiceV2IsHealthyResult{}
+}
+
+var BaseplateServiceV2IsHealthyResult_Success_DEFAULT bool
+func (p *BaseplateServiceV2IsHealthyResult) GetSuccess() bool {
+  if !p.IsSetSuccess() {
+    return BaseplateServiceV2IsHealthyResult_Success_DEFAULT
+  }
+return *p.Success
+}
+func (p *BaseplateServiceV2IsHealthyResult) IsSetSuccess() bool {
+  return p.Success != nil
+}
+
+func (p *BaseplateServiceV2IsHealthyResult) Read(ctx context.Context, iprot thrift.TProtocol) error {
+  if _, err := iprot.ReadStructBegin(ctx); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+  }
+
+
+  for {
+    _, fieldTypeId, fieldId, err := iprot.ReadFieldBegin(ctx)
+    if err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+    }
+    if fieldTypeId == thrift.STOP { break; }
+    switch fieldId {
+    case 0:
+      if fieldTypeId == thrift.BOOL {
+        if err := p.ReadField0(ctx, iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(ctx, fieldTypeId); err != nil {
+          return err
+        }
+      }
+    default:
+      if err := iprot.Skip(ctx, fieldTypeId); err != nil {
+        return err
+      }
+    }
+    if err := iprot.ReadFieldEnd(ctx); err != nil {
+      return err
+    }
+  }
+  if err := iprot.ReadStructEnd(ctx); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+  }
+  return nil
+}
+
+func (p *BaseplateServiceV2IsHealthyResult)  ReadField0(ctx context.Context, iprot thrift.TProtocol) error {
+  if v, err := iprot.ReadBool(ctx); err != nil {
+  return thrift.PrependError("error reading field 0: ", err)
+} else {
+  p.Success = &v
+}
+  return nil
+}
+
+func (p *BaseplateServiceV2IsHealthyResult) Write(ctx context.Context, oprot thrift.TProtocol) error {
+  if err := oprot.WriteStructBegin(ctx, "is_healthy_result"); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
+  if p != nil {
+    if err := p.writeField0(ctx, oprot); err != nil { return err }
+  }
+  if err := oprot.WriteFieldStop(ctx); err != nil {
+    return thrift.PrependError("write field stop error: ", err) }
+  if err := oprot.WriteStructEnd(ctx); err != nil {
+    return thrift.PrependError("write struct stop error: ", err) }
+  return nil
+}
+
+func (p *BaseplateServiceV2IsHealthyResult) writeField0(ctx context.Context, oprot thrift.TProtocol) (err error) {
+  if p.IsSetSuccess() {
+    if err := oprot.WriteFieldBegin(ctx, "success", thrift.BOOL, 0); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field begin error 0:success: ", p), err) }
+    if err := oprot.WriteBool(ctx, bool(*p.Success)); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T.success (0) field write error: ", p), err) }
+    if err := oprot.WriteFieldEnd(ctx); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field end error 0:success: ", p), err) }
+  }
+  return err
+}
+
+func (p *BaseplateServiceV2IsHealthyResult) String() string {
+  if p == nil {
+    return "<nil>"
+  }
+  return fmt.Sprintf("BaseplateServiceV2IsHealthyResult(%+v)", *p)
 }
 
 
