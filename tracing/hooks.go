@@ -1,5 +1,9 @@
 package tracing
 
+import (
+	"context"
+)
+
 // CreateServerSpanHook allows you to inject functionality into the lifecycle of a
 // Baseplate request.
 type CreateServerSpanHook interface {
@@ -89,6 +93,7 @@ func ResetHooks() {
 func onCreateServerSpan(span *Span) {
 	if span.SpanType() != SpanTypeServer {
 		span.logError(
+			context.Background(),
 			"OnCreateServerSpan called on non-server Span: ",
 			&InvalidSpanTypeError{
 				ExpectedSpanType: SpanTypeServer,
@@ -100,7 +105,7 @@ func onCreateServerSpan(span *Span) {
 
 	for _, hook := range createServerSpanHooks {
 		if err := hook.OnCreateServerSpan(span); err != nil {
-			span.logError("OnCreateServerSpan hook error: ", err)
+			span.logError(context.Background(), "OnCreateServerSpan hook error: ", err)
 		}
 	}
 }

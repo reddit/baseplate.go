@@ -1,6 +1,7 @@
 package log_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/reddit/baseplate.go/log"
@@ -9,5 +10,7 @@ import (
 func TestLogWrapperNilSafe(t *testing.T) {
 	// Just make sure log.Wrapper.Log is nil-safe, no real tests
 	var logger log.Wrapper
-	logger.Log("Hello, world!")
+	logger.Log(context.Background(), "Hello, world!")
+	logger.ToThriftLogger()("Hello, world!")
+	log.WrapToThriftLogger(nil)("Hello, world!")
 }

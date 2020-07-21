@@ -1,6 +1,7 @@
 package edgecontext
 
 import (
+	"context"
 	"crypto/rsa"
 	"errors"
 	"fmt"
@@ -77,7 +78,7 @@ func (impl *Impl) validatorMiddleware(next secrets.SecretHandlerFunc) secrets.Se
 
 		versioned, err := sec.GetVersionedSecret(authenticationPubKeySecretPath)
 		if err != nil {
-			impl.logger.Log(fmt.Sprintf(
+			impl.logger.Log(context.Background(), fmt.Sprintf(
 				"Failed to get secrets %q: %v",
 				authenticationPubKeySecretPath,
 				err,
@@ -90,7 +91,7 @@ func (impl *Impl) validatorMiddleware(next secrets.SecretHandlerFunc) secrets.Se
 		for i, v := range all {
 			key, err := jwt.ParseRSAPublicKeyFromPEM([]byte(v))
 			if err != nil {
-				impl.logger.Log(fmt.Sprintf(
+				impl.logger.Log(context.Background(), fmt.Sprintf(
 					"Failed to parse key #%d: %v",
 					i,
 					err,
@@ -101,7 +102,7 @@ func (impl *Impl) validatorMiddleware(next secrets.SecretHandlerFunc) secrets.Se
 		}
 
 		if len(keys) == 0 {
-			impl.logger.Log("No valid keys in secrets store.")
+			impl.logger.Log(context.Background(), "No valid keys in secrets store.")
 			return
 		}
 

@@ -113,12 +113,11 @@ func (cb FailureRatioBreaker) ThriftMiddleware(next thrift.TClient) thrift.TClie
 
 // ShouldTrip checks if the circuit breaker should be tripped, based on the provided breaker counts.
 func (cb FailureRatioBreaker) shouldTrip(counts gobreaker.Counts) bool {
-
 	if counts.Requests > 0 && counts.Requests >= uint32(cb.minRequestsToTrip) {
 		failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
 		if failureRatio >= cb.failureThreshold {
 			message := fmt.Sprintf("tripping circuit breaker: name=%v, counts=%v", cb.name, counts)
-			cb.logger.Log(message)
+			cb.logger.Log(context.Background(), message)
 			return true
 		}
 	}
@@ -127,5 +126,5 @@ func (cb FailureRatioBreaker) shouldTrip(counts gobreaker.Counts) bool {
 
 func (cb FailureRatioBreaker) stateChanged(name string, from gobreaker.State, to gobreaker.State) {
 	message := fmt.Sprintf("circuit breaker %v state changed from %v to %v", name, from, to)
-	cb.logger.Log(message)
+	cb.logger.Log(context.Background(), message)
 }

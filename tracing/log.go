@@ -1,6 +1,7 @@
 package tracing
 
 import (
+	"context"
 	"testing"
 
 	"github.com/reddit/baseplate.go/log"
@@ -16,7 +17,7 @@ import (
 // and only start failing the test after startFailing is called.
 func TestWrapper(tb testing.TB) (logger log.Wrapper, startFailing func()) {
 	logf := tb.Logf
-	logger = func(msg string) {
+	logger = func(_ context.Context, msg string) {
 		logf("logger called with msg: %q", msg)
 	}
 	startFailing = func() {
