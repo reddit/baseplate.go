@@ -22,6 +22,23 @@ type EdgeRequestContext struct {
 	// token will be validated on first use
 	tokenOnce sync.Once
 	token     *AuthenticationToken
+
+	// ctx is only used in error logging in AuthToken and UpdateExperimentEvent
+	// functions.
+	//
+	// Since an EdgeRequestContext object is always 1:1 mapped to a request,
+	// although storing a ctx object is in general not recommended,
+	// it does make sense in this case,
+	// and could help us avoiding the awkward situation of needing to pass in ctx
+	// object into those functions.
+	ctx context.Context
+}
+
+func (e *EdgeRequestContext) getCtx() context.Context {
+	if e.ctx != nil {
+		return e.ctx
+	}
+	return context.Background()
 }
 
 // AuthToken either validates the raw auth token and cache it,
@@ -33,7 +50,7 @@ func (e *EdgeRequestContext) AuthToken() *AuthenticationToken {
 		if token, err := e.impl.ValidateToken(e.raw.AuthToken); err != nil {
 			// empty jwt token is considered "normal", no need to spam them in logs.
 			if !errors.Is(err, ErrEmptyToken) {
-				e.impl.logger.Log(context.Background(), "token validation failed: "+err.Error())
+				e.impl.logger.Log(e.getCtx(), "token validation failed: "+err.Error())
 			}
 			e.token = nil
 		} else {
@@ -128,7 +145,7 @@ func (e *EdgeRequestContext) UpdateExperimentEvent(ee *experiments.ExperimentEve
 		ee.DeviceID, err = uuid.FromString(deviceID)
 		if err != nil {
 			ee.DeviceID = uuid.Nil
-			e.impl.logger.Log(context.Background(), fmt.Sprintf(
+			e.impl.logger.Log(e.getCtx(), fmt.Sprintf(
 				"Failed to parse device id %q into uuid: %v",
 				deviceID,
 				err,
