@@ -158,6 +158,7 @@ func New(ctx context.Context, impl *Impl, args NewArgs) (*EdgeRequestContext, er
 		impl:   impl,
 		header: header,
 		raw:    args,
+		ctx:    ctx,
 	}, nil
 }
 
@@ -196,5 +197,6 @@ func FromHeader(ctx context.Context, header string, impl *Impl) (*EdgeRequestCon
 		impl:   impl,
 		header: header,
 		raw:    raw,
+		ctx:    ctx,
 	}, nil
 }
