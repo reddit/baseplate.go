@@ -134,7 +134,7 @@ func (s *Server) Close() error {
 //		Err  error
 //	}
 //
-//	func (srv BaseplateService) IsHealthy(ctx context.Context) (r bool, err error) {
+//	func (srv BaseplateService) IsHealthy(ctx context.Context, req *baseplatethrift.IsHealthyRequest) (r bool, err error) {
 //		return !srv.Fail, srv.Err
 //	}
 //
@@ -145,7 +145,7 @@ func (s *Server) Close() error {
 //		ctx, cancel := context.WithCancel(context.Background())
 //		defer cancel()
 //
-//		processor := baseplatethrift.NewBaseplateServiceProcessor(BaseplateService{})
+//		processor := baseplatethrift.NewBaseplateServiceV2Processor(BaseplateService{})
 //		server, err := thrifttest.NewBaseplateServer(store, processor, nil, thrifttest.ServerConfig{})
 //		if err != nil {
 //			t.Fatal(err)
@@ -153,7 +153,7 @@ func (s *Server) Close() error {
 //		// cancelling the context will close the server.
 //		server.Start(ctx)
 //
-//		client := baseplatethrift.NewBaseplateServiceClient(server.ClientPool)
+//		client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool)
 //		success, err := client.IsHealthy(ctx)
 //
 //		if err != nil {

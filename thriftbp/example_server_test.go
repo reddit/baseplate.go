@@ -20,8 +20,8 @@ func ExampleNewBaseplateServer() {
 
 	// In real prod code, you should define your thrift endpoints and create this
 	// handler instead.
-	var handler bpgen.BaseplateService
-	processor := bpgen.NewBaseplateServiceProcessor(handler)
+	var handler bpgen.BaseplateServiceV2
+	processor := bpgen.NewBaseplateServiceV2Processor(handler)
 
 	server, err := thriftbp.NewBaseplateServer(bp, thriftbp.ServerConfig{
 		Processor: processor,
