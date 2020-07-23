@@ -55,6 +55,9 @@ import (
 // Non-Baseplate services should use error level in whatever logging library
 // they use.
 //
+// metricsbp.LogWrapper also provides an implementation that emits metrics when
+// it's called. It can be wrapped on top of other log.Wrapper implementations.
+//
 // For unit tests of library code using Wrapper,
 // TestWrapper is provided that would fail the test when Wrapper is called.
 //
