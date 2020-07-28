@@ -13,7 +13,7 @@ for FILE in $FILES; do
     FAILED=1
   fi
 
-  FMT=`gofmt -d $FILE`
+  FMT=`gofmt -s -d $FILE`
   if [ -n "$FMT" ]; then
     echo "$FILE:\ngofmt\n$FMT"
     FAILED=1
