@@ -7,11 +7,11 @@ import (
 
 func singleVariantConfig() []Variant {
 	return []Variant{
-		Variant{
+		{
 			Name: "variant_1",
 			Size: 0.25,
 		},
-		Variant{
+		{
 			Name: "variant_2",
 			Size: 0.25,
 		},
@@ -40,13 +40,13 @@ func TestSingleVariantSetValidationFailure(t *testing.T) {
 		},
 		{
 			name:     "one variant",
-			variants: []Variant{Variant{Name: "variant_1", Size: 0.25}},
+			variants: []Variant{{Name: "variant_1", Size: 0.25}},
 		},
 		{
 			name: "size too big",
 			variants: []Variant{
-				Variant{Name: "variant_1", Size: 0.75},
-				Variant{Name: "variant_2", Size: 0.75},
+				{Name: "variant_1", Size: 0.75},
+				{Name: "variant_2", Size: 0.75},
 			},
 		},
 	}
@@ -83,11 +83,11 @@ func TestSingleVariantSetDistribution(t *testing.T) {
 		{
 			name: "single bucket",
 			variantConfig: []Variant{
-				Variant{
+				{
 					Name: "variant_1",
 					Size: 0.001,
 				},
-				Variant{
+				{
 					Name: "variant_2",
 					Size: 0.0,
 				},
@@ -100,11 +100,11 @@ func TestSingleVariantSetDistribution(t *testing.T) {
 		{
 			name: "default odd",
 			variantConfig: []Variant{
-				Variant{
+				{
 					Name: "variant_1",
 					Size: 0.5,
 				},
-				Variant{
+				{
 					Name: "variant_2",
 					Size: 0.5,
 				},
@@ -171,15 +171,15 @@ func TestMultiVariantSetValidationFails(t *testing.T) {
 		{
 			name: "two variants",
 			variants: []Variant{
-				Variant{Name: "variant_1", Size: 0.25},
-				Variant{Name: "variant_2", Size: 0.25}},
+				{Name: "variant_1", Size: 0.25},
+				{Name: "variant_2", Size: 0.25}},
 		},
 		{
 			name: "size too big",
 			variants: []Variant{
-				Variant{Name: "variant_1", Size: 0.75},
-				Variant{Name: "variant_2", Size: 0.75},
-				Variant{Name: "variant_3", Size: 0.25},
+				{Name: "variant_1", Size: 0.75},
+				{Name: "variant_2", Size: 0.75},
+				{Name: "variant_3", Size: 0.25},
 			},
 		},
 	}
@@ -221,15 +221,15 @@ func TestMultiVariantSetDistribution(t *testing.T) {
 		{
 			name: "single bucket",
 			variantConfig: []Variant{
-				Variant{
+				{
 					Name: "variant_1",
 					Size: 0.001,
 				},
-				Variant{
+				{
 					Name: "variant_2",
 					Size: 0.0,
 				},
-				Variant{
+				{
 					Name: "variant_3",
 					Size: 0.0,
 				},
@@ -243,19 +243,19 @@ func TestMultiVariantSetDistribution(t *testing.T) {
 		{
 			name: "default odd",
 			variantConfig: []Variant{
-				Variant{
+				{
 					Name: "variant_1",
 					Size: 0.25,
 				},
-				Variant{
+				{
 					Name: "variant_2",
 					Size: 0.25,
 				},
-				Variant{
+				{
 					Name: "variant_3",
 					Size: 0.25,
 				},
-				Variant{
+				{
 					Name: "variant_4",
 					Size: 0.25,
 				},
@@ -311,15 +311,15 @@ func TestMultiVariantSetDistribution(t *testing.T) {
 
 func multiVariantConfig() []Variant {
 	return []Variant{
-		Variant{
+		{
 			Name: "variant_1",
 			Size: 0.25,
 		},
-		Variant{
+		{
 			Name: "variant_2",
 			Size: 0.25,
 		},
-		Variant{
+		{
 			Name: "variant_3",
 			Size: 0.25,
 		},
@@ -349,13 +349,13 @@ func TestRolloutVariantSetValidationFailure(t *testing.T) {
 		{
 			name: "two variants",
 			variants: []Variant{
-				Variant{Name: "variant_1", Size: 0.25},
-				Variant{Name: "variant_2", Size: 0.25}},
+				{Name: "variant_1", Size: 0.25},
+				{Name: "variant_2", Size: 0.25}},
 		},
 		{
 			name: "size too big",
 			variants: []Variant{
-				Variant{Name: "variant_1", Size: 1.05},
+				{Name: "variant_1", Size: 1.05},
 			},
 		},
 	}
@@ -390,7 +390,7 @@ func TestRolloutVariantSetDistribution(t *testing.T) {
 		{
 			name: "single bucket",
 			variantConfig: []Variant{
-				Variant{
+				{
 					Name: "variant_1",
 					Size: 0.001,
 				},
@@ -402,7 +402,7 @@ func TestRolloutVariantSetDistribution(t *testing.T) {
 		{
 			name: "default odd",
 			variantConfig: []Variant{
-				Variant{
+				{
 					Name: "variant_1",
 					Size: 1.0,
 				},
@@ -444,7 +444,7 @@ func TestRolloutVariantSetDistribution(t *testing.T) {
 
 func rolloutVariantConfig() []Variant {
 	return []Variant{
-		Variant{
+		{
 			Name: "variant_1",
 			Size: 0.25,
 		},
@@ -458,17 +458,17 @@ func TestRangeVariantSetValidation(t *testing.T) {
 	}
 
 	rangeVariantConfigOverlap := []Variant{
-		Variant{
+		{
 			Name:       "variant_1",
 			RangeStart: 0.0,
 			RangeEnd:   0.25,
 		},
-		Variant{
+		{
 			Name:       "variant_2",
 			RangeStart: 0.1,
 			RangeEnd:   0.35,
 		},
-		Variant{
+		{
 			Name:       "variant_3",
 			RangeStart: 0.35,
 			RangeEnd:   0.6,
@@ -496,9 +496,9 @@ func TestRangeVariantSetValidationFailure(t *testing.T) {
 		{
 			name: "size too big",
 			variants: []Variant{
-				Variant{Name: "variant_1", RangeStart: 0.0, RangeEnd: 0.75},
-				Variant{Name: "variant_2", RangeStart: 0.0, RangeEnd: 0.75},
-				Variant{Name: "variant_3", RangeStart: 0.5, RangeEnd: 0.75},
+				{Name: "variant_1", RangeStart: 0.0, RangeEnd: 0.75},
+				{Name: "variant_2", RangeStart: 0.0, RangeEnd: 0.75},
+				{Name: "variant_3", RangeStart: 0.5, RangeEnd: 0.75},
 			},
 		},
 	}
@@ -538,17 +538,17 @@ func TestRangeVariantSetDistribution(t *testing.T) {
 		{
 			name: "single bucket",
 			variantConfig: []Variant{
-				Variant{
+				{
 					Name:       "variant_1",
 					RangeStart: 0.0,
 					RangeEnd:   0.001,
 				},
-				Variant{
+				{
 					Name:       "variant_2",
 					RangeStart: 0.001,
 					RangeEnd:   0.001,
 				},
-				Variant{
+				{
 					Name:       "variant_3",
 					RangeStart: 0.001,
 					RangeEnd:   0.001,
@@ -563,22 +563,22 @@ func TestRangeVariantSetDistribution(t *testing.T) {
 		{
 			name: "default odd",
 			variantConfig: []Variant{
-				Variant{
+				{
 					Name:       "variant_1",
 					RangeStart: 0.0,
 					RangeEnd:   0.25,
 				},
-				Variant{
+				{
 					Name:       "variant_2",
 					RangeStart: 0.25,
 					RangeEnd:   0.5,
 				},
-				Variant{
+				{
 					Name:       "variant_3",
 					RangeStart: 0.5,
 					RangeEnd:   0.75,
 				},
-				Variant{
+				{
 					Name:       "variant_4",
 					RangeStart: 0.75,
 					RangeEnd:   0.1,
@@ -593,17 +593,17 @@ func TestRangeVariantSetDistribution(t *testing.T) {
 		{
 			name: "multi range",
 			variantConfig: []Variant{
-				Variant{
+				{
 					Name:       "variant_1",
 					RangeStart: 0.0,
 					RangeEnd:   0.25,
 				},
-				Variant{
+				{
 					Name:       "variant_2",
 					RangeStart: 0.25,
 					RangeEnd:   0.5,
 				},
-				Variant{
+				{
 					Name:       "variant_1",
 					RangeStart: 0.5,
 					RangeEnd:   0.75,
@@ -658,17 +658,17 @@ func TestRangeVariantSetDistribution(t *testing.T) {
 
 func rangeVariantConfig() []Variant {
 	return []Variant{
-		Variant{
+		{
 			Name:       "variant_1",
 			RangeStart: 0.0,
 			RangeEnd:   0.25,
 		},
-		Variant{
+		{
 			Name:       "variant_2",
 			RangeStart: 0.25,
 			RangeEnd:   0.5,
 		},
-		Variant{
+		{
 			Name:       "variant_3",
 			RangeStart: 0.5,
 			RangeEnd:   0.75,
