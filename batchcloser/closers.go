@@ -14,6 +14,8 @@ import (
 //
 // It can be used to inspect both the error that was returned and the io.Closer
 // that caused it.
+//
+// DEPRECATED: This is no longer used and will be removed in a future version.
 type CloseError struct {
 	Cause  error
 	Closer io.Closer
@@ -46,19 +48,21 @@ func (err CloseError) As(v interface{}) bool {
 }
 
 type simpleCloser struct {
-	close func() error
+	closeFunc func() error
 }
 
 func (c simpleCloser) Close() error {
-	return c.close()
+	return c.closeFunc()
 }
 
-// Wrap can be used wrap close functions in an io.Closer.
-func Wrap(close func() error) io.Closer {
-	return simpleCloser{close: close}
+// Wrap can be used to wrap close functions into an io.Closer.
+func Wrap(closeFunc func() error) io.Closer {
+	return simpleCloser{
+		closeFunc: closeFunc,
+	}
 }
 
-// WrapCancel can be used to wrap a context.CancelFunc in an io.Closer.
+// WrapCancel can be used to wrap a context.CancelFunc into an io.Closer.
 func WrapCancel(cancel context.CancelFunc) io.Closer {
 	return Wrap(func() error {
 		cancel()
@@ -84,12 +88,7 @@ type BatchCloser struct {
 func (bc *BatchCloser) Close() error {
 	var errs errorsbp.Batch
 	for _, closer := range bc.closers {
-		if err := closer.Close(); err != nil {
-			errs.Add(CloseError{
-				Cause:  err,
-				Closer: closer,
-			})
-		}
+		errs.AddPrefix(fmt.Sprintf("%#v", closer), closer.Close())
 	}
 	return errs.Compile()
 }
