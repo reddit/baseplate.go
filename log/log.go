@@ -1,9 +1,6 @@
 package log
 
 import (
-	"context"
-
-	sentry "github.com/getsentry/sentry-go"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -239,24 +236,4 @@ func Sync() error {
 // With wraps around the underline logger's With.
 func With(args ...interface{}) *zap.SugaredLogger {
 	return globalLogger.With(args...)
-}
-
-// ErrorWithSentry logs a message with some additional context,
-// then sends the error to Sentry.
-//
-// The variadic key-value pairs are treated as they are in With.
-//
-// If a sentry hub is attached to the context object passed in
-// (it will be if the context object is from baseplate hooked request context),
-// that hub will be used to do the reporting.
-// Otherwise the global sentry hub will be used instead.
-func ErrorWithSentry(ctx context.Context, msg string, err error, keysAndValues ...interface{}) {
-	keysAndValues = append(keysAndValues, "err", err)
-	C(ctx).Errorw(msg, keysAndValues...)
-
-	if hub := sentry.GetHubFromContext(ctx); hub != nil {
-		hub.CaptureException(err)
-	} else {
-		sentry.CaptureException(err)
-	}
 }
