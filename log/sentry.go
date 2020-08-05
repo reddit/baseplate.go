@@ -1,12 +1,14 @@
 package log
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
+	"go.uber.org/zap/zapcore"
 )
 
 // DefaultSentryFlushTimeout is the timeout used to call sentry.Flush().
@@ -87,4 +89,62 @@ func (c closer) Close() error {
 		timeout,
 		ErrSentryFlushFailed,
 	)
+}
+
+// ErrorWithSentry logs a message with some additional context,
+// then sends the error to Sentry.
+//
+// The variadic key-value pairs are treated as they are in With.
+// and will also be sent to sentry.
+// Note that zap.Field is not supported here and will be ignored while sending
+// to sentry (but they will be logged to error log).
+//
+// If a sentry hub is attached to the context object passed in
+// (it will be if the context object is from baseplate hooked request context),
+// that hub will be used to do the reporting.
+// Otherwise the global sentry hub will be used instead.
+func ErrorWithSentry(ctx context.Context, msg string, err error, keysAndValues ...interface{}) {
+	hub := sentry.GetHubFromContext(ctx)
+	if hub == nil {
+		hub = sentry.CurrentHub()
+	}
+	if len(keysAndValues) > 0 {
+		hub = hub.Clone()
+		hub.ConfigureScope(func(scope *sentry.Scope) {
+			if extractKeyValuePairs(keysAndValues, scope.SetTag) {
+				Errorw(
+					"Dangling key in ErrorWithSentry",
+					"keysAndValues", keysAndValues,
+				)
+			}
+		})
+	}
+
+	keysAndValues = append(keysAndValues, "err", err)
+	C(ctx).Errorw(msg, keysAndValues...)
+	hub.CaptureException(err)
+}
+
+func extractKeyValuePairs(keysAndValues []interface{}, f func(key, value string)) (danglingKey bool) {
+	for i := 0; i < len(keysAndValues); i++ {
+		if _, ok := keysAndValues[i].(zapcore.Field); ok {
+			// We don't support this type right now,
+			// and they don't appear in pairs. just ignore them.
+			continue
+		}
+
+		if i == len(keysAndValues)-1 {
+			// this is a dangling key.
+			return true
+		}
+
+		// In zap logger they are handled differently.
+		// Here we just use fmt.Sprintf("%v") to keep things simple.
+		key := fmt.Sprintf("%v", keysAndValues[i])
+		// extra i++ needed here because we need to consume the pair.
+		i++
+		value := fmt.Sprintf("%v", keysAndValues[i])
+		f(key, value)
+	}
+	return false
 }
