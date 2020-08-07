@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
@@ -31,6 +32,10 @@ type SentryConfig struct {
 	SampleRate *float64
 
 	// The name of your service.
+	//
+	// By default sentry extracts hostname reported by the kernel for this field.
+	// Set it to non-empty to override that
+	// (and hostname tag will be used to report hostname automatically).
 	ServerName string
 
 	// An environment string like "prod", "staging".
@@ -57,6 +62,10 @@ type SentryConfig struct {
 // which provides even more customizations.
 // This function is provided to do the customizations we care about the most,
 // and to provide a Closer to be more consistent with other baseplate packages.
+//
+// When cfg.ServerName is non-empty,
+// this function also sets hostname tag to the value reported by the kernel
+// (when cfg.ServerName is empty server_name tag will be the hostname).
 func InitSentry(cfg SentryConfig) (io.Closer, error) {
 	var sampleRate float64 = 1
 	if cfg.SampleRate != nil && *cfg.SampleRate >= 0 && *cfg.SampleRate <= 1 {
@@ -70,6 +79,13 @@ func InitSentry(cfg SentryConfig) (io.Closer, error) {
 		IgnoreErrors: cfg.IgnoreErrors,
 	}); err != nil {
 		return nil, err
+	}
+	if cfg.ServerName != "" {
+		if hostname, err := os.Hostname(); err == nil {
+			sentry.CurrentHub().ConfigureScope(func(scope *sentry.Scope) {
+				scope.SetTag("hostname", hostname)
+			})
+		}
 	}
 	return closer(cfg.FlushTimeout), nil
 }
