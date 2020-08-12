@@ -99,11 +99,17 @@ func (cb FailureRatioBreaker) runStatsProducer() {
 	}
 }
 
+// Execute wraps the given function call in circuit breaker logic and returns
+// the result.
+func (cb FailureRatioBreaker) Execute(fn func() (interface{}, error)) (interface{}, error) {
+	return cb.goBreaker.Execute(fn)
+}
+
 // ThriftMiddleware is a thrift.ClientMiddleware that handles circuit breaking.
 func (cb FailureRatioBreaker) ThriftMiddleware(next thrift.TClient) thrift.TClient {
 	return thrift.WrappedTClient{
 		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
-			_, err := cb.goBreaker.Execute(func() (interface{}, error) {
+			_, err := cb.Execute(func() (interface{}, error) {
 				return nil, next.Call(ctx, method, args, result)
 			})
 			return err
