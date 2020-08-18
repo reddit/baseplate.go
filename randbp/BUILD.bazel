@@ -20,6 +20,7 @@ go_test(
     srcs = [
         "rand_test.go",
         "sample_test.go",
+        "string_example_test.go",
     ],
     embed = [":go_default_library"],
 )

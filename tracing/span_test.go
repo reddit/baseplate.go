@@ -171,7 +171,10 @@ const maxNameLength = 20
 
 func (randomName) Generate(r *rand.Rand, _ int) reflect.Value {
 	return reflect.ValueOf(randomName(
-		randbp.GenerateRandomString(r, maxNameLength, []rune(randbp.Base64Runes)),
+		randbp.GenerateRandomString(randbp.RandomStringArgs{
+			R:         r,
+			MaxLength: maxNameLength,
+		}),
 	))
 }
 
