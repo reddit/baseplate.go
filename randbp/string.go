@@ -38,8 +38,10 @@ type intner interface {
 //
 // It could be used to help implement testing/quick.Generator interface.
 func GenerateRandomString(args RandomStringArgs) string {
-	var r intner = args.R
-	if r == nil {
+	var r intner
+	if args.R != nil {
+		r = args.R
+	} else {
 		r = R
 	}
 	runes := args.Runes
