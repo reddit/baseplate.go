@@ -58,5 +58,5 @@ func RandomStringTest(t *testing.T) {
 // testing/quick package.
 func ExampleGenerateRandomString() {
 	// Nothing really here.
-	// The real example is on the other functions/types above,
+	// The real example is on the other functions/types above.
 }
