@@ -44,6 +44,12 @@ def go_dependencies():
         version = "v0.0.0-20180202201655-eb2c6b5be1b6",
     )
     go_repository(
+        name = "com_github_avast_retry_go",
+        importpath = "github.com/avast/retry-go",
+        sum = "h1:FelcMrm7Bxacr1/RM8+/eqkDkmVN7tjlsy51dOzB3LI=",
+        version = "v2.6.0+incompatible",
+    )
+    go_repository(
         name = "com_github_aymerick_raymond",
         importpath = "github.com/aymerick/raymond",
         sum = "h1:Ppm0npCCsmuR9oQaBtRuZcmILVE74aXE+AmrJj8L2ns=",
@@ -680,6 +686,12 @@ def go_dependencies():
         version = "v1.6.4",
     )
     go_repository(
+        name = "com_github_sony_gobreaker",
+        importpath = "github.com/sony/gobreaker",
+        sum = "h1:oMnRNZXX5j85zso6xCPRNPtmAycat+WcoKbklScLDgQ=",
+        version = "v0.4.1",
+    )
+    go_repository(
         name = "com_github_spf13_afero",
         importpath = "github.com/spf13/afero",
         sum = "h1:m8/z1t7/fwjysjQRYbP0RD+bUIF/8tJwPdEZsI83ACI=",
@@ -960,16 +972,4 @@ def go_dependencies():
         importpath = "go.uber.org/zap",
         sum = "h1:ZZCA22JRF2gQE5FoNmhmrf7jeJJ2uhqDUNRYKm8dvmM=",
         version = "v1.15.0",
-    )
-    go_repository(
-        name = "com_github_avast_retry_go",
-        importpath = "github.com/avast/retry-go",
-        sum = "h1:FelcMrm7Bxacr1/RM8+/eqkDkmVN7tjlsy51dOzB3LI=",
-        version = "v2.6.0+incompatible",
-    )
-    go_repository(
-        name = "com_github_sony_gobreaker",
-        importpath = "github.com/sony/gobreaker",
-        sum = "h1:oMnRNZXX5j85zso6xCPRNPtmAycat+WcoKbklScLDgQ=",
-        version = "v0.4.1",
     )
