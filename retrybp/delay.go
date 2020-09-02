@@ -1,0 +1,117 @@
+package retrybp
+
+import (
+	"math"
+	"time"
+
+	retry "github.com/avast/retry-go"
+
+	"github.com/reddit/baseplate.go/randbp"
+)
+
+// CappedExponentialBackoffArgs defines the args used in
+// CappedExponentialBackoff retry option.
+//
+// All args are optional.
+type CappedExponentialBackoffArgs struct {
+	// The initial delay.
+	// If <=0, retry.DefaultDelay will be used.
+	// If retry.DefaultDelay <= 0, 1 nanosecond will be used.
+	InitialDelay time.Duration
+
+	// The cap of InitialDelay << n. If <=0, it will only be capped at MaxN.
+	//
+	// Please note that it doesn't cap the MaxJitter part,
+	// so the actual max delay could be MaxDelay+MaxJitter.
+	MaxDelay time.Duration
+
+	// We calculate the delay before jitter by using InitialDelay << n
+	// (n being the number of retries). MaxN caps n.
+	//
+	// If <=0, it will be calculated based on InitialDelay to make sure that it
+	// won't overflow signed int64.
+	// If it's set to a value too high that would overflow,
+	// it will also be adjusted automatically.
+	//
+	// Please note that MaxN doesn't limit the number of actual retries.
+	// It only caps the number of retries used in delay value calculation.
+	MaxN int
+
+	// Max random jitter to be added to each retry delay.
+	// If <=0, no random jitter will be added.
+	MaxJitter time.Duration
+}
+
+// CappedExponentialBackoff is an exponentially backoff delay implementation
+// that makes sure the delays are properly capped.
+func CappedExponentialBackoff(args CappedExponentialBackoffArgs) retry.Option {
+	return retry.DelayType(cappedExponentialBackoffFunc(args))
+}
+
+func cappedExponentialBackoffFunc(args CappedExponentialBackoffArgs) retry.DelayTypeFunc {
+	base := args.InitialDelay
+	if base <= 0 {
+		base = retry.DefaultDelay
+	}
+	if base <= 0 {
+		base = 1
+	}
+
+	maxN := actualMaxN(base)
+	if args.MaxN > 0 && args.MaxN < maxN {
+		maxN = args.MaxN
+	}
+	uMaxN := uint(maxN)
+
+	maxInt64 := uint64(math.MaxInt64)
+
+	return func(n uint, _ *retry.Config) time.Duration {
+		if n > uMaxN {
+			n = uMaxN
+		}
+		delay := uint64(base) << n
+		if args.MaxDelay > 0 && delay > uint64(args.MaxDelay) {
+			delay = uint64(args.MaxDelay)
+		}
+		if args.MaxJitter > 0 {
+			delay += uint64(randbp.R.Int63n(int64(args.MaxJitter)))
+		}
+		// Although base << maxN won't overflow signed int64,
+		// adding jitter might overflow it.
+		if delay > maxInt64 {
+			delay = maxInt64
+		}
+
+		return time.Duration(delay)
+	}
+}
+
+func actualMaxN(base time.Duration) int {
+	if base <= 0 {
+		base = 1
+	}
+	// 1 << 63 would overflow signed int64, thus 62.
+	return 62 - int(math.Floor(math.Log2(float64(base))))
+}
+
+// FixedDelay is a delay option to use fixed delay between retries.
+//
+// To achieve the same result via upstream retry package's API,
+// you would need to combine retry.Delay and retry.DelayType(retry.FixedDelay),
+// which is confusing and error-prone.
+// As a result we provide this API to make things easier.
+//
+// If you want to combine FixedDelay with a random jitter,
+// you could use FixedDelayFunc with retry.RandomDelay, example:
+//
+//     retry.DelayType(retry.CombineDelay(retry.RandomDelay, retrybp.FixedDelayFunc(delay)))
+func FixedDelay(delay time.Duration) retry.Option {
+	return retry.DelayType(FixedDelayFunc(delay))
+}
+
+// FixedDelayFunc is an retry.DelayTypeFunc implementation causing fixed delays.
+func FixedDelayFunc(delay time.Duration) retry.DelayTypeFunc {
+	return func(_ uint, _ *retry.Config) time.Duration {
+		return delay
+	}
+}
