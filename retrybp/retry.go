@@ -14,7 +14,10 @@ func init() {
 	retry.DefaultAttempts = 1
 	retry.DefaultDelay = 1 * time.Millisecond
 	retry.DefaultMaxJitter = 5 * time.Millisecond
-	retry.DefaultDelayType = retry.CombineDelay(retry.BackOffDelay, retry.RandomDelay)
+	retry.DefaultDelayType = cappedExponentialBackoffFunc(CappedExponentialBackoffArgs{
+		InitialDelay: retry.DefaultDelay,
+		MaxJitter:    retry.DefaultMaxJitter,
+	})
 	retry.DefaultLastErrorOnly = false
 }
 
