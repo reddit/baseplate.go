@@ -19,23 +19,23 @@ type CappedExponentialBackoffArgs struct {
 	// If retry.DefaultDelay <= 0, 1 nanosecond will be used.
 	InitialDelay time.Duration
 
-	// The cap of InitialDelay << n. If <=0, it will only be capped at MaxN.
+	// The cap of InitialDelay<<n. If <=0, it will only be capped at MaxExponent.
 	//
 	// Please note that it doesn't cap the MaxJitter part,
 	// so the actual max delay could be MaxDelay+MaxJitter.
 	MaxDelay time.Duration
 
-	// We calculate the delay before jitter by using InitialDelay << n
-	// (n being the number of retries). MaxN caps n.
+	// We calculate the delay before jitter by using InitialDelay<<n
+	// (n being the number of retries). MaxExponent caps the n part.
 	//
 	// If <=0, it will be calculated based on InitialDelay to make sure that it
 	// won't overflow signed int64.
 	// If it's set to a value too high that would overflow,
 	// it will also be adjusted automatically.
 	//
-	// Please note that MaxN doesn't limit the number of actual retries.
+	// Please note that MaxExponent doesn't limit the number of actual retries.
 	// It only caps the number of retries used in delay value calculation.
-	MaxN int
+	MaxExponent int
 
 	// Max random jitter to be added to each retry delay.
 	// If <=0, no random jitter will be added.
@@ -57,17 +57,17 @@ func cappedExponentialBackoffFunc(args CappedExponentialBackoffArgs) retry.Delay
 		base = 1
 	}
 
-	maxN := actualMaxN(base)
-	if args.MaxN > 0 && args.MaxN < maxN {
-		maxN = args.MaxN
+	maxExponent := actualMaxExponent(base)
+	if args.MaxExponent > 0 && args.MaxExponent < maxExponent {
+		maxExponent = args.MaxExponent
 	}
-	uMaxN := uint(maxN)
+	uMaxExponent := uint(maxExponent)
 
 	maxInt64 := uint64(math.MaxInt64)
 
 	return func(n uint, _ *retry.Config) time.Duration {
-		if n > uMaxN {
-			n = uMaxN
+		if n > uMaxExponent {
+			n = uMaxExponent
 		}
 		delay := uint64(base) << n
 		if args.MaxDelay > 0 && delay > uint64(args.MaxDelay) {
@@ -76,7 +76,7 @@ func cappedExponentialBackoffFunc(args CappedExponentialBackoffArgs) retry.Delay
 		if args.MaxJitter > 0 {
 			delay += uint64(randbp.R.Int63n(int64(args.MaxJitter)))
 		}
-		// Although base << maxN won't overflow signed int64,
+		// Although base << maxExponent won't overflow signed int64,
 		// adding jitter might overflow it.
 		if delay > maxInt64 {
 			delay = maxInt64
@@ -86,7 +86,7 @@ func cappedExponentialBackoffFunc(args CappedExponentialBackoffArgs) retry.Delay
 	}
 }
 
-func actualMaxN(base time.Duration) int {
+func actualMaxExponent(base time.Duration) int {
 	if base <= 0 {
 		base = 1
 	}
