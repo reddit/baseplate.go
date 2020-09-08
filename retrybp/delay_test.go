@@ -31,7 +31,7 @@ func TestActualMaxNQuick(t *testing.T) {
 		if actualBase <= 0 {
 			actualBase = 1
 		}
-		n := actualMaxN(time.Duration(base))
+		n := actualMaxExponent(time.Duration(base))
 		m := uint64(actualBase) << uint64(n)
 		if int64(m) <= 0 {
 			t.Errorf("%d << %d overflows", actualBase, n)
@@ -48,34 +48,34 @@ func TestActualMaxNQuick(t *testing.T) {
 	}
 }
 
-func TestActualMaxN(t *testing.T) {
+func TestActualMaxExponent(t *testing.T) {
 	for _, c := range []struct {
-		base time.Duration
-		maxN int
+		base        time.Duration
+		maxExponent int
 	}{
 		{
-			base: 0,
-			maxN: 62,
+			base:        0,
+			maxExponent: 62,
 		},
 		{
-			base: 1,
-			maxN: 62,
+			base:        1,
+			maxExponent: 62,
 		},
 		{
-			base: -1,
-			maxN: 62,
+			base:        -1,
+			maxExponent: 62,
 		},
 		{
-			base: time.Millisecond,
-			maxN: 43,
+			base:        time.Millisecond,
+			maxExponent: 43,
 		},
 	} {
 		t.Run(
 			fmt.Sprintf("%v", c.base),
 			func(t *testing.T) {
-				n := actualMaxN(c.base)
-				if n != c.maxN {
-					t.Errorf("actualMaxN(%v) expected %d, got %d", c.base, c.maxN, n)
+				n := actualMaxExponent(c.base)
+				if n != c.maxExponent {
+					t.Errorf("actualMaxExponent(%v) expected %d, got %d", c.base, c.maxExponent, n)
 				}
 			},
 		)
@@ -84,12 +84,12 @@ func TestActualMaxN(t *testing.T) {
 
 func TestCappedExponentialBackoff(t *testing.T) {
 	for _, c := range []struct {
-		label     string
-		n         uint
-		initial   time.Duration
-		maxDelay  time.Duration
-		maxN      int
-		maxJitter time.Duration
+		label       string
+		n           uint
+		initial     time.Duration
+		maxDelay    time.Duration
+		maxExponent int
+		maxJitter   time.Duration
 		// The range of the expected result
 		min, max time.Duration
 	}{
@@ -108,25 +108,25 @@ func TestCappedExponentialBackoff(t *testing.T) {
 			max:     2 * time.Millisecond,
 		},
 		{
-			label:   "auto-max-n",
+			label:   "auto-max-exponent",
 			n:       9999,
 			initial: time.Millisecond,
 			max:     time.Duration(math.MaxInt64),
 		},
 		{
-			label:   "max-n-too-high",
-			n:       9999,
-			initial: time.Millisecond,
-			maxN:    9998,
-			max:     time.Duration(math.MaxInt64),
+			label:       "max-exponent-too-high",
+			n:           9999,
+			initial:     time.Millisecond,
+			maxExponent: 9998,
+			max:         time.Duration(math.MaxInt64),
 		},
 		{
-			label:   "max-n",
-			n:       9999,
-			initial: time.Millisecond,
-			maxN:    1,
-			min:     2 * time.Millisecond,
-			max:     2 * time.Millisecond,
+			label:       "max-exponent",
+			n:           9999,
+			initial:     time.Millisecond,
+			maxExponent: 1,
+			min:         2 * time.Millisecond,
+			max:         2 * time.Millisecond,
 		},
 		{
 			label:    "max-delay",
@@ -151,7 +151,7 @@ func TestCappedExponentialBackoff(t *testing.T) {
 				delay := cappedExponentialBackoffFunc(CappedExponentialBackoffArgs{
 					InitialDelay: c.initial,
 					MaxDelay:     c.maxDelay,
-					MaxN:         c.maxN,
+					MaxExponent:  c.maxExponent,
 					MaxJitter:    c.maxJitter,
 				})(c.n, nil)
 				if delay < c.min || delay > c.max {
