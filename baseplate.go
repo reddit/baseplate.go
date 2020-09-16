@@ -78,16 +78,16 @@ type Server interface {
 }
 
 // Serve runs the given Server until it is given an external shutdown signal
-// using runtimebp.HandleShutdown to handle the signal and shut down the
-// server gracefully.  Returns the (possibly nil) error returned by "Close" or
-// context.DeadlineExceeded if it times out.
+// using runtimebp.HandleShutdown to handle the signal and shut down the server
+// and any provided closers gracefully.  Returns the (possibly nil) error
+// returned by "Close", or context.DeadlineExceeded if it times out.
 //
 // If a StopTimeout is configure, Serve will wait for that duration for the
 // server to stop before timing out and returning to force a shutdown.
 //
 // This is the recommended way to run a Baseplate Server rather than calling
 // server.Start/Stop directly.
-func Serve(ctx context.Context, server Server) error {
+func Serve(ctx context.Context, server Server, closers ...io.Closer) error {
 	// Initialize a channel to return the response from server.Close() as our
 	// return value.
 	shutdownChannel := make(chan error)
@@ -128,7 +128,12 @@ func Serve(ctx context.Context, server Server) error {
 			//
 			// This is a blocking call, so it is called in a separate goroutine.
 			go func() {
-				closeChannel <- server.Close()
+				bc := batchcloser.New(closers...)
+				be := errorsbp.Batch{}
+
+				be.AddPrefix("closers", bc.Close())
+				be.AddPrefix("server", server.Close())
+				closeChannel <- be.Compile()
 			}()
 
 			// Declare the error variable we will use later here so we can set it to
