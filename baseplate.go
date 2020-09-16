@@ -42,7 +42,7 @@ type Config struct {
 	Metrics metricsbp.Config `yaml:"metrics"`
 	Runtime runtimebp.Config `yaml:"runtime"`
 	Secrets secrets.Config   `yaml:"secrets"`
-	Sentry  log.SentryConfig `yaml:"setry"`
+	Sentry  log.SentryConfig `yaml:"sentry"`
 	Tracing tracing.Config   `yaml:"tracing"`
 }
 
