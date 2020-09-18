@@ -107,8 +107,9 @@ func ExampleNewBaseplateServer() {
 		Endpoints:   handlers.Endpoints(),
 		Middlewares: []httpbp.Middleware{loggingMiddleware},
 	})
+	args := baseplate.ServeArgs{Server: server}
 	if err != nil {
 		panic(err)
 	}
-	log.Info(baseplate.Serve(ctx, server))
+	log.Info(baseplate.Serve(ctx, args))
 }
