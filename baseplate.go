@@ -96,9 +96,12 @@ type ServeArgs struct {
 //
 // It uses runtimebp.HandleShutdown to handle the signal and gracefully shut
 // down, in order:
-//     * any provided PreShutdown closers,
-//     * the Server, and
-//     * any provided PostShutdown closers.
+//
+// * any provided PreShutdown closers,
+//
+// * the Server, and
+//
+// * any provided PostShutdown closers.
 //
 // Returns the (possibly nil) error returned by "Close", or
 // context.DeadlineExceeded if it times out.
