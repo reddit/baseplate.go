@@ -79,16 +79,16 @@ type Server interface {
 
 // ServeArgs provides a list of arguments to Serve.
 type ServeArgs struct {
-	// Server: Mandatory. Indicates the Server that should be run until receiving
-	// a shutdown signal.
+	// Server is the Server that should be run until receiving a shutdown signal.
+	// This is a required argument and baseplate.Serve will panic if this is nil.
 	Server Server
 
-	// PreShutdown: Optional. Indicates a slice of io.Closers that should be
-	// gracefully shut down before the server upon receipt of a shutdown signal.
+	// PreShutdown is an optional slice of io.Closers that should be gracefully
+	// shut down before the server upon receipt of a shutdown signal.
 	PreShutdown []io.Closer
 
-	// PostShutdown: Optional. Indicates a slice of io.Closers that should be
-	// gracefully shut down after the server upon receipt of a shutdown signal.
+	// PostShutdown is an optional slice of io.Closers that should be gracefully
+	// shut down after the server upon receipt of a shutdown signal.
 	PostShutdown []io.Closer
 }
 
