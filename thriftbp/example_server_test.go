@@ -26,10 +26,9 @@ func ExampleNewBaseplateServer() {
 	server, err := thriftbp.NewBaseplateServer(bp, thriftbp.ServerConfig{
 		Processor: processor,
 	})
-	args := baseplate.ServeArgs{Server: server}
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Info(baseplate.Serve(ctx, args))
+	log.Info(baseplate.Serve(ctx, baseplate.ServeArgs{Server: server}))
 }

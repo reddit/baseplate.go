@@ -124,10 +124,12 @@ func TestServe(t *testing.T) {
 			func(t *testing.T) {
 				ch := make(chan error)
 
-				args := baseplate.ServeArgs{Server: c.server}
 				go func() {
 					// Run Serve in a goroutine since it is blocking
-					ch <- baseplate.Serve(context.Background(), args)
+					ch <- baseplate.Serve(
+						context.Background(),
+						baseplate.ServeArgs{Server: c.server},
+					)
 				}()
 
 				time.Sleep(time.Millisecond)
