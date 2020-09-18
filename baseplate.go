@@ -42,7 +42,7 @@ type Config struct {
 	Metrics metricsbp.Config `yaml:"metrics"`
 	Runtime runtimebp.Config `yaml:"runtime"`
 	Secrets secrets.Config   `yaml:"secrets"`
-	Sentry  log.SentryConfig `yaml:"setry"`
+	Sentry  log.SentryConfig `yaml:"sentry"`
 	Tracing tracing.Config   `yaml:"tracing"`
 }
 
@@ -82,7 +82,7 @@ type Server interface {
 // server gracefully.  Returns the (possibly nil) error returned by "Close" or
 // context.DeadlineExceeded if it times out.
 //
-// If a StopTimeout is configure, Serve will wait for that duration for the
+// If a StopTimeout is configured, Serve will wait for that duration for the
 // server to stop before timing out and returning to force a shutdown.
 //
 // This is the recommended way to run a Baseplate Server rather than calling
@@ -111,7 +111,7 @@ func Serve(ctx context.Context, server Server) error {
 				timeout = time.Second * 30
 			}
 
-			// If timeout is < 0, we will wait indefinetly for the server to close.
+			// If timeout is < 0, we will wait indefinitely for the server to close.
 			if timeout > 0 {
 				// Declare cancel in advance so we can just use `=` when calling
 				// context.WithTimeout.  If we used `:=` it would bind `ctx` to the scope
@@ -136,13 +136,13 @@ func Serve(ctx context.Context, server Server) error {
 			var err error
 
 			// Wait for either ctx.Done() to be closed (indicating that the context
-			// was cancelled or it's deadline was exeeded) or server.Close() to return.
+			// was cancelled or its deadline was exceeded) or server.Close() to return.
 			select {
 			case <-ctx.Done():
 				// The context timed-out or was cancelled so use that error.
 				err = fmt.Errorf("baseplate: context cancelled while waiting for server.Close(). %w", ctx.Err())
 			case e := <-closeChannel:
-				// server.Close() completed and passed it's result to closeChannel, so
+				// server.Close() completed and passed its result to closeChannel, so
 				// use that value.
 				err = e
 			}
@@ -307,7 +307,7 @@ func (bp impl) Close() error {
 // NewTestBaseplate returns a new Baseplate using the given Config and secrets
 // Store that can be used in testing.
 //
-// NewTestBaseplate only returns a Baseplate, it does not initialialize any of
+// NewTestBaseplate only returns a Baseplate, it does not initialize any of
 // the monitoring or logging frameworks.
 func NewTestBaseplate(cfg Config, store *secrets.Store) Baseplate {
 	return &impl{
