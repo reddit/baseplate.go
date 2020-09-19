@@ -3,6 +3,7 @@ package baseplate_test
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"reflect"
 	"strings"
@@ -147,6 +148,72 @@ func TestServe(t *testing.T) {
 			},
 		)
 	}
+}
+
+type timestampCloser struct {
+	ts []time.Time
+}
+
+func (c *timestampCloser) Close() error {
+	c.ts = append(c.ts, time.Now())
+	return nil
+}
+
+func TestServeClosers(t *testing.T) {
+	t.Parallel()
+
+	store := newSecretsStore(t)
+	defer store.Close()
+
+	bp := baseplate.NewTestBaseplate(baseplate.Config{StopTimeout: testTimeout}, store)
+
+	pre := &timestampCloser{}
+	post := &timestampCloser{}
+
+	args := baseplate.ServeArgs{
+		Server:       newWaitServer(t, bp, time.Millisecond),
+		PreShutdown:  []io.Closer{pre},
+		PostShutdown: []io.Closer{post},
+	}
+
+	t.Run(
+		"serve closer order",
+		func(t *testing.T) {
+			ch := make(chan error)
+
+			go func() {
+				// Run Serve in a goroutine since it is blocking
+				ch <- baseplate.Serve(
+					context.Background(),
+					args,
+				)
+			}()
+
+			time.Sleep(time.Millisecond)
+			p, err := os.FindProcess(syscall.Getpid())
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			p.Signal(os.Interrupt)
+			err = <-ch
+
+			if len(pre.ts) > 1 {
+				t.Fatalf("PreShutdown called too many times: expected 1, got %#v", len(pre.ts))
+			}
+			if len(post.ts) > 1 {
+				t.Fatalf("PostShutdown called too many times: expected 1, got %#v", len(post.ts))
+			}
+
+			if !pre.ts[0].Before(post.ts[0]) {
+				t.Fatalf(
+					"PreShutdown finished after PostShutdown: pre: %#v, post: %#v",
+					pre.ts[0],
+					post.ts[0],
+				)
+			}
+		},
+	)
 }
 
 func float64Ptr(v float64) *float64 {
