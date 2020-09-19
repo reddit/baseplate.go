@@ -176,44 +176,36 @@ func TestServeClosers(t *testing.T) {
 		PostShutdown: []io.Closer{post},
 	}
 
-	t.Run(
-		"serve closer order",
-		func(t *testing.T) {
-			ch := make(chan error)
+	ch := make(chan error)
 
-			go func() {
-				// Run Serve in a goroutine since it is blocking
-				ch <- baseplate.Serve(
-					context.Background(),
-					args,
-				)
-			}()
+	go func() {
+		// Run Serve in a goroutine since it is blocking
+		ch <- baseplate.Serve(context.Background(), args)
+	}()
 
-			time.Sleep(time.Millisecond)
-			p, err := os.FindProcess(syscall.Getpid())
-			if err != nil {
-				t.Fatal(err)
-			}
+	time.Sleep(time.Millisecond)
+	p, err := os.FindProcess(syscall.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
 
-			p.Signal(os.Interrupt)
-			err = <-ch
+	p.Signal(os.Interrupt)
+	<-ch
 
-			if len(pre.ts) > 1 {
-				t.Fatalf("PreShutdown called too many times: expected 1, got %#v", len(pre.ts))
-			}
-			if len(post.ts) > 1 {
-				t.Fatalf("PostShutdown called too many times: expected 1, got %#v", len(post.ts))
-			}
+	if len(pre.ts) != 1 {
+		t.Fatalf("Unexpected number of PreShutdown calls: expected 1, got %v", len(pre.ts))
+	}
+	if len(post.ts) != 1 {
+		t.Fatalf("Unexpected number of PostShutdown calls: expected 1, got %v", len(pre.ts))
+	}
 
-			if !pre.ts[0].Before(post.ts[0]) {
-				t.Fatalf(
-					"PreShutdown finished after PostShutdown: pre: %#v, post: %#v",
-					pre.ts[0],
-					post.ts[0],
-				)
-			}
-		},
-	)
+	if !pre.ts[0].Before(post.ts[0]) {
+		t.Fatalf(
+			"PreShutdown finished after PostShutdown: pre: %v, post: %v",
+			pre.ts[0],
+			post.ts[0],
+		)
+	}
 }
 
 func float64Ptr(v float64) *float64 {
