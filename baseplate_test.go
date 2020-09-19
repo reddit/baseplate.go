@@ -178,17 +178,17 @@ func TestServeClosers(t *testing.T) {
 
 	ch := make(chan error)
 
+	p, err := os.FindProcess(syscall.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	go func() {
 		// Run Serve in a goroutine since it is blocking
 		ch <- baseplate.Serve(context.Background(), args)
 	}()
 
 	time.Sleep(time.Millisecond)
-	p, err := os.FindProcess(syscall.Getpid())
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	p.Signal(os.Interrupt)
 	<-ch
 
