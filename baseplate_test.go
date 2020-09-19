@@ -196,7 +196,7 @@ func TestServeClosers(t *testing.T) {
 		t.Fatalf("Unexpected number of PreShutdown calls: expected 1, got %v", len(pre.ts))
 	}
 	if len(post.ts) != 1 {
-		t.Fatalf("Unexpected number of PostShutdown calls: expected 1, got %v", len(pre.ts))
+		t.Fatalf("Unexpected number of PostShutdown calls: expected 1, got %v", len(post.ts))
 	}
 
 	if !pre.ts[0].Before(post.ts[0]) {
