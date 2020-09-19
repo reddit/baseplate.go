@@ -200,7 +200,7 @@ func TestServeClosers(t *testing.T) {
 	}
 
 	if !pre.ts[0].Before(post.ts[0]) {
-		t.Fatalf(
+		t.Errorf(
 			"PreShutdown finished after PostShutdown: pre: %v, post: %v",
 			pre.ts[0],
 			post.ts[0],
