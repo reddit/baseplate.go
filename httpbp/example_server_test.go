@@ -110,5 +110,5 @@ func ExampleNewBaseplateServer() {
 	if err != nil {
 		panic(err)
 	}
-	log.Info(baseplate.Serve(ctx, server))
+	log.Info(baseplate.Serve(ctx, baseplate.ServeArgs{Server: server}))
 }

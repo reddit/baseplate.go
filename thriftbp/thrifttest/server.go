@@ -95,7 +95,7 @@ type Server struct {
 // The server can be shut down manually using server.Close, with the shutdown
 // commands defined in runtimebp, or by cancelling the given context.
 func (s *Server) Start(ctx context.Context) {
-	go baseplate.Serve(ctx, s)
+	go baseplate.Serve(ctx, baseplate.ServeArgs{Server: s})
 	time.Sleep(10 * time.Millisecond)
 }
 

@@ -77,9 +77,33 @@ type Server interface {
 	Serve() error
 }
 
-// Serve runs the given Server until it is given an external shutdown signal
-// using runtimebp.HandleShutdown to handle the signal and shut down the
-// server gracefully.  Returns the (possibly nil) error returned by "Close" or
+// ServeArgs provides a list of arguments to Serve.
+type ServeArgs struct {
+	// Server is the Server that should be run until receiving a shutdown signal.
+	// This is a required argument and baseplate.Serve will panic if this is nil.
+	Server Server
+
+	// PreShutdown is an optional slice of io.Closers that should be gracefully
+	// shut down before the server upon receipt of a shutdown signal.
+	PreShutdown []io.Closer
+
+	// PostShutdown is an optional slice of io.Closers that should be gracefully
+	// shut down after the server upon receipt of a shutdown signal.
+	PostShutdown []io.Closer
+}
+
+// Serve runs the given Server until it is given an external shutdown signal.
+//
+// It uses runtimebp.HandleShutdown to handle the signal and gracefully shut
+// down, in order:
+//
+// * any provided PreShutdown closers,
+//
+// * the Server, and
+//
+// * any provided PostShutdown closers.
+//
+// Returns the (possibly nil) error returned by "Close", or
 // context.DeadlineExceeded if it times out.
 //
 // If a StopTimeout is configured, Serve will wait for that duration for the
@@ -87,7 +111,9 @@ type Server interface {
 //
 // This is the recommended way to run a Baseplate Server rather than calling
 // server.Start/Stop directly.
-func Serve(ctx context.Context, server Server) error {
+func Serve(ctx context.Context, args ServeArgs) error {
+	server := args.Server
+
 	// Initialize a channel to return the response from server.Close() as our
 	// return value.
 	shutdownChannel := make(chan error)
@@ -124,11 +150,14 @@ func Serve(ctx context.Context, server Server) error {
 			// Initialize a channel to pass the result of server.Close().
 			closeChannel := make(chan error)
 
-			// Tell the server to close.
+			// Tell the server and any provided closers to close.
 			//
 			// This is a blocking call, so it is called in a separate goroutine.
 			go func() {
-				closeChannel <- server.Close()
+				bc := batchcloser.New(args.PreShutdown...)
+				bc.Add(server)
+				bc.Add(args.PostShutdown...)
+				closeChannel <- bc.Close()
 			}()
 
 			// Declare the error variable we will use later here so we can set it to

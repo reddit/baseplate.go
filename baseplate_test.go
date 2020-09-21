@@ -3,6 +3,7 @@ package baseplate_test
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"reflect"
 	"strings"
@@ -123,9 +124,13 @@ func TestServe(t *testing.T) {
 			c.name,
 			func(t *testing.T) {
 				ch := make(chan error)
+
 				go func() {
 					// Run Serve in a goroutine since it is blocking
-					ch <- baseplate.Serve(context.Background(), c.server)
+					ch <- baseplate.Serve(
+						context.Background(),
+						baseplate.ServeArgs{Server: c.server},
+					)
 				}()
 
 				time.Sleep(time.Millisecond)
@@ -141,6 +146,64 @@ func TestServe(t *testing.T) {
 					t.Fatalf("error mismatch, expected %#v, got %#v", c.errExpected, err)
 				}
 			},
+		)
+	}
+}
+
+type timestampCloser struct {
+	ts []time.Time
+}
+
+func (c *timestampCloser) Close() error {
+	c.ts = append(c.ts, time.Now())
+	return nil
+}
+
+func TestServeClosers(t *testing.T) {
+	t.Parallel()
+
+	store := newSecretsStore(t)
+	defer store.Close()
+
+	bp := baseplate.NewTestBaseplate(baseplate.Config{StopTimeout: testTimeout}, store)
+
+	pre := &timestampCloser{}
+	post := &timestampCloser{}
+
+	args := baseplate.ServeArgs{
+		Server:       newWaitServer(t, bp, time.Millisecond),
+		PreShutdown:  []io.Closer{pre},
+		PostShutdown: []io.Closer{post},
+	}
+
+	ch := make(chan error)
+
+	p, err := os.FindProcess(syscall.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		// Run Serve in a goroutine since it is blocking
+		ch <- baseplate.Serve(context.Background(), args)
+	}()
+
+	time.Sleep(time.Millisecond)
+	p.Signal(os.Interrupt)
+	<-ch
+
+	if len(pre.ts) != 1 {
+		t.Fatalf("Unexpected number of PreShutdown calls: expected 1, got %v", len(pre.ts))
+	}
+	if len(post.ts) != 1 {
+		t.Fatalf("Unexpected number of PostShutdown calls: expected 1, got %v", len(post.ts))
+	}
+
+	if !pre.ts[0].Before(post.ts[0]) {
+		t.Errorf(
+			"PreShutdown finished after PostShutdown: pre: %v, post: %v",
+			pre.ts[0],
+			post.ts[0],
 		)
 	}
 }
