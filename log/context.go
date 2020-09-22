@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"strconv"
 
 	"go.uber.org/zap"
 )
@@ -30,7 +31,7 @@ func Attach(ctx context.Context, args AttachArgs) context.Context {
 	var kv []interface{}
 
 	if args.TraceID != 0 {
-		kv = append(kv, traceIDKey, args.TraceID)
+		kv = append(kv, traceIDKey, strconv.FormatUint(args.TraceID, 10))
 	}
 
 	logger := C(ctx)
