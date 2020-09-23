@@ -27,16 +27,7 @@ const (
 	DefaultV2Name = "v2"
 )
 
-var serializerPool = thrift.NewTSerializerPool(
-	func() *thrift.TSerializer {
-		trans := thrift.NewTMemoryBufferLen(MaxEventSize)
-		proto := thrift.NewTJSONProtocol(trans)
-		return &thrift.TSerializer{
-			Transport: trans,
-			Protocol:  proto,
-		}
-	},
-)
+var serializerPool = thrift.NewTSerializerPoolSizeFactory(MaxEventSize, thrift.NewTJSONProtocolFactory())
 
 // A Queue is an event queue.
 type Queue struct {
