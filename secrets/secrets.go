@@ -38,6 +38,9 @@ type Secrets struct {
 
 // GetSimpleSecret fetches a simple secret or error if the key is not present.
 func (s *Secrets) GetSimpleSecret(path string) (SimpleSecret, error) {
+	if path == "" {
+		return SimpleSecret{}, ErrEmptySecretKey
+	}
 	secret, ok := s.simpleSecrets[path]
 	if !ok {
 		return secret, SecretNotFoundError(path)
@@ -48,6 +51,9 @@ func (s *Secrets) GetSimpleSecret(path string) (SimpleSecret, error) {
 
 // GetVersionedSecret fetches a versioned secret or error if the key is not present.
 func (s *Secrets) GetVersionedSecret(path string) (VersionedSecret, error) {
+	if path == "" {
+		return VersionedSecret{}, ErrEmptySecretKey
+	}
 	secret, ok := s.versionedSecrets[path]
 	if !ok {
 		return secret, SecretNotFoundError(path)
@@ -59,6 +65,9 @@ func (s *Secrets) GetVersionedSecret(path string) (VersionedSecret, error) {
 // GetCredentialSecret fetches a credential secret or error if the key is not
 // present.
 func (s *Secrets) GetCredentialSecret(path string) (CredentialSecret, error) {
+	if path == "" {
+		return CredentialSecret{}, ErrEmptySecretKey
+	}
 	secret, ok := s.credentialSecrets[path]
 	if !ok {
 		return secret, SecretNotFoundError(path)

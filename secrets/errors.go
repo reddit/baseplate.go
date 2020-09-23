@@ -9,6 +9,9 @@ import (
 // encoding in the secrets.json file.
 var ErrInvalidEncoding = errors.New("secrets: invalid encoding, expected identity, base64 or empty")
 
+// ErrEmptySecretKey is returned when the path for a secret is empty.
+var ErrEmptySecretKey = errors.New("secrets: secret path cannot be empty")
+
 // TooManyFieldsError is a type of errors could be returned by
 // Document.Validate.
 //
