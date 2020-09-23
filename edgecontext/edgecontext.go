@@ -31,28 +31,9 @@ type Impl struct {
 	keysValue atomic.Value
 }
 
-var serializerPool = thrift.NewTSerializerPool(
-	func() *thrift.TSerializer {
-		trans := thrift.NewTMemoryBufferLen(1024)
-		proto := thrift.NewTBinaryProtocolFactoryDefault().GetProtocol(trans)
-
-		return &thrift.TSerializer{
-			Transport: trans,
-			Protocol:  proto,
-		}
-	},
-)
-
-var deserializerPool = thrift.NewTDeserializerPool(
-	func() *thrift.TDeserializer {
-		trans := thrift.NewTMemoryBufferLen(1024)
-		proto := thrift.NewTBinaryProtocolFactoryDefault().GetProtocol(trans)
-
-		return &thrift.TDeserializer{
-			Transport: trans,
-			Protocol:  proto,
-		}
-	},
+var (
+	serializerPool   = thrift.NewTSerializerPoolSizeFactory(1024, thrift.NewTBinaryProtocolFactoryDefault())
+	deserializerPool = thrift.NewTDeserializerPoolSizeFactory(1024, thrift.NewTBinaryProtocolFactoryDefault())
 )
 
 type contextKey int
