@@ -186,7 +186,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		select {
 		default:
 		case <-ctx.Done():
-			return nil, fmt.Errorf("filewatcher: context cancelled while waiting for file to load. %w", ctx.Err())
+			return nil, fmt.Errorf("filewatcher: context cancelled while waiting for file under %q to load. %w", cfg.Path, ctx.Err())
 		}
 
 		var err error
