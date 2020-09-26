@@ -29,3 +29,7 @@ var (
 func DefaultSaramaConfig() *sarama.Config {
 	return sarama.NewConfig()
 }
+
+func NewSaramaConsumer(brokers []string, cfg *sarama.Config) (sarama.Consumer, error) {
+	return sarama.NewConsumer(brokers, cfg)
+}
