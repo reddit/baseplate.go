@@ -2,9 +2,7 @@ package metricsbp
 
 import (
 	"fmt"
-	"time"
 
-	"github.com/go-kit/kit/metrics"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -39,16 +37,15 @@ type spanHook struct {
 	name    string
 	metrics *Statsd
 
-	histogram metrics.Histogram
-	start     time.Time
+	timer *Timer
 }
 
 func newSpanHook(metrics *Statsd, span *tracing.Span) *spanHook {
 	name := span.Component() + "." + span.Name()
 	return &spanHook{
-		name:      name,
-		metrics:   metrics,
-		histogram: metrics.Timing(name),
+		name:    name,
+		metrics: metrics,
+		timer:   NewTimer(metrics.Timing(name)),
 	}
 }
 
@@ -62,9 +59,9 @@ func (h *spanHook) OnCreateChild(parent, child *tracing.Span) error {
 // OnPostStart starts the timer.
 func (h *spanHook) OnPostStart(span *tracing.Span) error {
 	if span.StartTime().IsZero() {
-		h.start = time.Now()
+		h.timer.Start()
 	} else {
-		h.start = span.StartTime()
+		h.timer.OverrideStartTime(span.StartTime())
 	}
 	return nil
 }
@@ -75,13 +72,11 @@ func (h *spanHook) OnPostStart(span *tracing.Span) error {
 // A span is marked as "failure" if `err != nil` otherwise it is marked as
 // "success".
 func (h *spanHook) OnPreStop(span *tracing.Span, err error) error {
-	var duration time.Duration
 	if span.StopTime().IsZero() {
-		duration = time.Since(h.start)
+		h.timer.ObserveDuration()
 	} else {
-		duration = span.StopTime().Sub(h.start)
+		h.timer.ObserveWithEndTime(span.StopTime())
 	}
-	recordDuration(h.histogram, duration)
 
 	var statusMetricPath string
 	if err != nil {

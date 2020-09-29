@@ -41,10 +41,39 @@ func TestTimer(t *testing.T) {
 	}
 }
 
+func TestTimerOverride(t *testing.T) {
+	const duration = time.Second
+	h := mockHistogram{
+		t:        t,
+		expected: float64(duration / time.Millisecond),
+	}
+
+	start, err := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
+	if err != nil {
+		// Should not happen
+		t.Fatal(err)
+	}
+	timer := metricsbp.NewTimer(&h)
+	timer.OverrideStartTime(start)
+	end := start.Add(duration)
+	timer.ObserveWithEndTime(end)
+	if !h.called {
+		t.Error("histogram.Observe not called")
+	}
+}
+
 func TestTimerZero(_ *testing.T) {
 	// Just make sure the code doesn't panic here, no actual tests.
+
 	var t1 *metricsbp.Timer
+	t1.Start()
 	t1.ObserveDuration()
+	t1.OverrideStartTime(time.Now())
+	t1.ObserveWithEndTime(time.Now())
+
 	var t2 metricsbp.Timer
+	t2.Start()
 	t2.ObserveDuration()
+	t2.OverrideStartTime(time.Now())
+	t2.ObserveWithEndTime(time.Now())
 }
