@@ -53,10 +53,8 @@ func TestTimerOverride(t *testing.T) {
 		// Should not happen
 		t.Fatal(err)
 	}
-	timer := metricsbp.NewTimer(&h)
-	timer.OverrideStartTime(start)
 	end := start.Add(duration)
-	timer.ObserveWithEndTime(end)
+	metricsbp.NewTimer(&h).OverrideStartTime(start).ObserveWithEndTime(end)
 	if !h.called {
 		t.Error("histogram.Observe not called")
 	}

@@ -36,17 +36,22 @@ func NewTimer(h metrics.Histogram) *Timer {
 //     t.OverrideStartTime(time.Now())
 //
 // If t is nil, it will be no-op.
-func (t *Timer) Start() {
-	t.OverrideStartTime(time.Now())
+//
+// It returns self for chaining.
+func (t *Timer) Start() *Timer {
+	return t.OverrideStartTime(time.Now())
 }
 
 // OverrideStartTime overrides the start time for the Timer.
 //
 // If t is nil, it will be no-op.
-func (t *Timer) OverrideStartTime(s time.Time) {
+//
+// It returns self for chaining.
+func (t *Timer) OverrideStartTime(s time.Time) *Timer {
 	if t != nil {
 		t.start = s
 	}
+	return t
 }
 
 // ObserveDuration reports the time elapsed via the wrapped histogram.
@@ -58,8 +63,10 @@ func (t *Timer) OverrideStartTime(s time.Time) {
 // If either t or *t is zero value, it will be no-op.
 //
 // The reporting unit is millisecond.
-func (t *Timer) ObserveDuration() {
-	t.ObserveWithEndTime(time.Now())
+//
+// It returns self for chaining.
+func (t *Timer) ObserveDuration() *Timer {
+	return t.ObserveWithEndTime(time.Now())
 }
 
 // ObserveWithEndTime reports the time elapsed via the wrapped histogram.
@@ -67,11 +74,14 @@ func (t *Timer) ObserveDuration() {
 // If either t or *t is zero value, it will be no-op.
 //
 // The reporting unit is millisecond.
-func (t *Timer) ObserveWithEndTime(e time.Time) {
+//
+// It returns self for chaining.
+func (t *Timer) ObserveWithEndTime(e time.Time) *Timer {
 	if t == nil || t.Histogram == nil || t.start.IsZero() {
-		return
+		return t
 	}
 	recordDuration(t.Histogram, e.Sub(t.start))
+	return t
 }
 
 func recordDuration(h metrics.Histogram, duration time.Duration) {
