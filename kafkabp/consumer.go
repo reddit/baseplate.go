@@ -2,7 +2,6 @@ package kafkabp
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -14,10 +13,6 @@ import (
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
-
-func main() {
-	fmt.Println("vim-go")
-}
 
 // ConsumerMessage represents a kafka consumer message.
 type ConsumerMessage struct {
