@@ -158,7 +158,7 @@ func HTMLContentWriter(templates *template.Template) ContentWriter {
 
 			var t *template.Template
 			if t = templates.Lookup(htmlBody.TemplateName()); t == nil {
-				return fmt.Errorf("httpbp: no html template with name %s", htmlBody.TemplateName())
+				return fmt.Errorf("httpbp: no html template with name %q", htmlBody.TemplateName())
 			}
 
 			return t.Execute(w, htmlBody)

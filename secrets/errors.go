@@ -21,7 +21,7 @@ type TooManyFieldsError struct {
 
 func (e TooManyFieldsError) Error() string {
 	return fmt.Sprintf(
-		"secrets: expected %s secret but other fields were present for %s",
+		"secrets: expected %q secret but other fields were present for %q",
 		e.SecretType,
 		e.Key,
 	)

@@ -35,7 +35,7 @@ type MissingBucketKeyError struct {
 
 func (e MissingBucketKeyError) Error() string {
 	return fmt.Sprintf(
-		"experiment: must specify %q in call to variant for experiment %s",
+		"experiment: must specify %q in call to variant for experiment %q",
 		e.ArgsKey,
 		e.ExperimentName,
 	)
@@ -128,7 +128,7 @@ func (e *Experiments) experiment(name string) (*SimpleExperiment, error) {
 		return NewSimpleExperiment(experiment)
 	}
 	return nil, fmt.Errorf(
-		"experiments.Experiments.Variant: unknown experiment %s",
+		"experiments.Experiments.Variant: unknown experiment %q",
 		experiment.Type,
 	)
 }

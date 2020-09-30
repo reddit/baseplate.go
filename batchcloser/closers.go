@@ -23,7 +23,7 @@ type CloseError struct {
 
 // Error implements the interface for error.
 func (err CloseError) Error() string {
-	return fmt.Sprintf("batchcloser: error closing closer %#v : %s", err.Closer, err.Cause.Error())
+	return fmt.Sprintf("batchcloser: error closing closer %#v: %v", err.Closer, err.Cause)
 }
 
 // Unwrap implements helper interface for errors.Is.
