@@ -29,7 +29,7 @@ type ConsumerMessage struct {
 }
 
 // ConsumeMessageFunc is a function type for consuming consumer messages.
-type ConsumeMessageFunc func(ctx context.Context, msg *ConsumerMessage)
+type ConsumeMessageFunc func(ctx context.Context, msg *ConsumerMessage) error
 
 // ConsumeErrorFunc is a function type for consuming consumer errors.
 type ConsumeErrorFunc func(err error)
@@ -40,6 +40,7 @@ type consumer struct {
 	topic   string
 	offset  int64
 	tracing bool
+	name    string
 
 	consumer           atomic.Value // sarama.Consumer
 	partitions         atomic.Value // []int32
@@ -193,8 +194,8 @@ func (kc *consumer) Consume(
 
 	// sarama could close the channels (and cause the goroutines to finish) in
 	// two cases, where we want different behavior:
-	//   (1) partition rebalance: restart goroutines
-	//   (2) call to Close/AsyncClose: exit
+	//   - in case of partition rebalance: restart goroutines
+	//   - in case of call to Close/AsyncClose: exit
 	var wg sync.WaitGroup
 	for {
 		// create a partition consumer for each partition
@@ -217,19 +218,22 @@ func (kc *consumer) Consume(
 					// Wrap in anonymous function for easier defer.
 					func() {
 						ctx := context.Background()
+						var err error
 						if kc.tracing {
 							var span *tracing.Span
-							ctx, span = tracing.StartTopLevelServerSpan(ctx, "kafkaConsumer")
+							spanName := "consumer." + kc.topic
+							ctx, span = tracing.StartTopLevelServerSpan(ctx, spanName)
 							defer func() {
 								span.FinishWithOptions(tracing.FinishOptions{
 									Ctx: ctx,
+									Err: err,
 								}.Convert())
 							}()
 						}
 
 						msg := new(ConsumerMessage)
 						msg.from(m)
-						messagesFunc(ctx, msg)
+						err = messagesFunc(ctx, msg)
 					}()
 				}
 			}(partitionConsumer)
