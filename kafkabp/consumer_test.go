@@ -48,7 +48,7 @@ func TestKafkaConsumer_Consume(t *testing.T) {
 	pc1.YieldMessage(kMsg1)
 	pc1.YieldError(kErr)
 
-	var consumedMsgs []*ConsumerMessage
+	var consumedMsgs []*sarama.ConsumerMessage
 	var msgLock sync.Mutex
 	var consumedErrs []error
 	var errLock sync.Mutex
@@ -58,7 +58,7 @@ func TestKafkaConsumer_Consume(t *testing.T) {
 	// Use a goroutine here since kc.Consume is a blocking call
 	go func() {
 		kc.Consume(
-			func(_ context.Context, msg *ConsumerMessage) error {
+			func(_ context.Context, msg *sarama.ConsumerMessage) error {
 				msgLock.Lock()
 				defer msgLock.Unlock()
 				consumedMsgs = append(consumedMsgs, msg)
@@ -93,7 +93,7 @@ func TestKafkaConsumer_Close(t *testing.T) {
 	pc1.ExpectMessagesDrainedOnClose()
 	pc1.ExpectErrorsDrainedOnClose()
 
-	var consumedMsgs []*ConsumerMessage
+	var consumedMsgs []*sarama.ConsumerMessage
 	var msgLock sync.Mutex
 	var consumedErrs []error
 	var errLock sync.Mutex
@@ -101,7 +101,7 @@ func TestKafkaConsumer_Close(t *testing.T) {
 	// since kc.Consume is a blocking operation
 	go func() {
 		kc.Consume(
-			func(_ context.Context, msg *ConsumerMessage) error {
+			func(_ context.Context, msg *sarama.ConsumerMessage) error {
 				msgLock.Lock()
 				defer msgLock.Unlock()
 				consumedMsgs = append(consumedMsgs, msg)
@@ -178,7 +178,7 @@ func getTestKafkaMessage(key, value string) *sarama.ConsumerMessage {
 	}
 }
 
-func containsMsg(msgs []*ConsumerMessage, msg *sarama.ConsumerMessage) bool {
+func containsMsg(msgs []*sarama.ConsumerMessage, msg *sarama.ConsumerMessage) bool {
 	for _, m := range msgs {
 		if string(m.Key) == string(msg.Key) && string(m.Value) == string(msg.Value) {
 			return true

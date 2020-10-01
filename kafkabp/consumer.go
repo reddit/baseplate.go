@@ -5,7 +5,6 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/Shopify/sarama"
 
@@ -14,17 +13,8 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-// ConsumerMessage represents a kafka consumer message.
-type ConsumerMessage struct {
-	Key, Value []byte
-	Topic      string
-	Partition  int32
-	Offset     int64
-	Timestamp  time.Time
-}
-
 // ConsumeMessageFunc is a function type for consuming consumer messages.
-type ConsumeMessageFunc func(ctx context.Context, msg *ConsumerMessage) error
+type ConsumeMessageFunc func(ctx context.Context, msg *sarama.ConsumerMessage) error
 
 // ConsumeErrorFunc is a function type for consuming consumer errors.
 type ConsumeErrorFunc func(err error)
@@ -104,16 +94,6 @@ func (kc *consumer) Reset() error {
 
 	metricsbp.M.Counter("kafka.consumer.rebalance.success").Add(1)
 	return nil
-}
-
-// from converts a sarama consumer message into a ConsumerMessage{} instance.
-func (kcm *ConsumerMessage) from(msg *sarama.ConsumerMessage) {
-	kcm.Key = msg.Key
-	kcm.Value = msg.Value
-	kcm.Topic = msg.Topic
-	kcm.Partition = msg.Partition
-	kcm.Offset = msg.Offset
-	kcm.Timestamp = msg.Timestamp
 }
 
 // NewConsumer creates a new Kafka consumer.
@@ -230,9 +210,7 @@ func (kc *consumer) Consume(
 							}()
 						}
 
-						msg := new(ConsumerMessage)
-						msg.from(m)
-						err = messagesFunc(ctx, msg)
+						err = messagesFunc(ctx, m)
 					}()
 				}
 			}(partitionConsumer)
