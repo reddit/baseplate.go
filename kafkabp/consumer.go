@@ -141,6 +141,10 @@ func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
 		cfg.Offset = OffsetOldest
 	}
 
+	if cfg.Tracing == nil {
+		*cfg.Tracing = true
+	}
+
 	// Return any errors that occurred while consuming on the Errors channel.
 	cfg.SaramaConfig.Consumer.Return.Errors = true
 
@@ -148,7 +152,7 @@ func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
 		cfg:     cfg,
 		topic:   cfg.Topic,
 		offset:  int64(cfg.Offset),
-		tracing: cfg.Tracing,
+		tracing: *cfg.Tracing,
 	}
 
 	// Initialize Sarama consumer and set atomic values.

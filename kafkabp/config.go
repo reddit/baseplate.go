@@ -19,5 +19,5 @@ type ConsumerConfig struct {
 
 	// Optional. Defaults to true. Set to false to prevent a server span from
 	// being created for every Kafka message consumed.
-	Tracing bool
+	Tracing *bool
 }
