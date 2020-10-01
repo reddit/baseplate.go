@@ -25,7 +25,6 @@ type consumer struct {
 	topic   string
 	offset  int64
 	tracing bool
-	name    string
 
 	consumer           atomic.Value // sarama.Consumer
 	partitions         atomic.Value // []int32
