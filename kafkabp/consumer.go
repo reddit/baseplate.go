@@ -74,7 +74,7 @@ func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
 	kc := &consumer{cfg: cfg}
 
 	// Initialize Sarama consumer and set atomic values.
-	if err := kc.Reset(); err != nil {
+	if err := kc.reset(); err != nil {
 		return nil, err
 	}
 
@@ -96,8 +96,8 @@ func (kc *consumer) getPartitionConsumers() []sarama.PartitionConsumer {
 	return pc
 }
 
-// Reset recreates the consumer and assigns partitions.
-func (kc *consumer) Reset() error {
+// reset recreates the consumer and assigns partitions.
+func (kc *consumer) reset() error {
 	if c := kc.getConsumer(); c != nil {
 		if err := c.Close(); err != nil {
 			log.Warnw("Error closing the consumer", "err", err)
@@ -217,7 +217,7 @@ func (kc *consumer) Consume(
 			return nil
 		}
 
-		if err := kc.Reset(); err != nil {
+		if err := kc.reset(); err != nil {
 			return err
 		}
 	}
