@@ -43,6 +43,44 @@ type Consumer interface {
 	IsHealthy() bool
 }
 
+// NewConsumer creates a new Kafka consumer.
+func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
+	// Validate input parameters.
+	if cfg.SaramaConfig == nil {
+		cfg.SaramaConfig = DefaultSaramaConfig()
+	}
+	if cfg.ClientID != "" {
+		cfg.SaramaConfig.ClientID = cfg.ClientID
+	}
+	if cfg.SaramaConfig.ClientID == "" {
+		return nil, ErrClientIDEmpty
+	}
+
+	if len(cfg.Brokers) == 0 {
+		return nil, ErrBrokersEmpty
+	}
+
+	if cfg.Topic == "" {
+		return nil, ErrTopicEmpty
+	}
+
+	if cfg.Offset != OffsetNewest {
+		cfg.Offset = OffsetOldest
+	}
+
+	// Return any errors that occurred while consuming on the Errors channel.
+	cfg.SaramaConfig.Consumer.Return.Errors = true
+
+	kc := &consumer{cfg: cfg}
+
+	// Initialize Sarama consumer and set atomic values.
+	if err := kc.Reset(); err != nil {
+		return nil, err
+	}
+
+	return kc, nil
+}
+
 func (kc *consumer) getConsumer() sarama.Consumer {
 	c, _ := kc.consumer.Load().(sarama.Consumer)
 	return c
@@ -90,44 +128,6 @@ func (kc *consumer) Reset() error {
 
 	metricsbp.M.Counter("kafka.consumer.rebalance.success").Add(1)
 	return nil
-}
-
-// NewConsumer creates a new Kafka consumer.
-func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
-	// Validate input parameters.
-	if cfg.SaramaConfig == nil {
-		cfg.SaramaConfig = DefaultSaramaConfig()
-	}
-	if cfg.ClientID != "" {
-		cfg.SaramaConfig.ClientID = cfg.ClientID
-	}
-	if cfg.SaramaConfig.ClientID == "" {
-		return nil, ErrClientIDEmpty
-	}
-
-	if len(cfg.Brokers) == 0 {
-		return nil, ErrBrokersEmpty
-	}
-
-	if cfg.Topic == "" {
-		return nil, ErrTopicEmpty
-	}
-
-	if cfg.Offset != OffsetNewest {
-		cfg.Offset = OffsetOldest
-	}
-
-	// Return any errors that occurred while consuming on the Errors channel.
-	cfg.SaramaConfig.Consumer.Return.Errors = true
-
-	kc := &consumer{cfg: cfg}
-
-	// Initialize Sarama consumer and set atomic values.
-	if err := kc.Reset(); err != nil {
-		return nil, err
-	}
-
-	return kc, nil
 }
 
 // Close closes all partition consumers first, then the parent consumer.
