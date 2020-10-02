@@ -17,9 +17,14 @@ const (
 )
 
 var (
+	// ErrClientIDEmpty is thrown when the client ID is empty.
 	ErrClientIDEmpty = errors.New("kafkabp: ClientID is empty")
-	ErrBrokersEmpty  = errors.New("kafkabp: Brokers are empty")
-	ErrTopicEmpty    = errors.New("kafkabp: Topic is empty")
+
+	// ErrBrokersEmpty is thrown when the slice of brokers is empty.
+	ErrBrokersEmpty = errors.New("kafkabp: Brokers are empty")
+
+	// ErrTopicEmpty is thrown when the topic is empty.
+	ErrTopicEmpty = errors.New("kafkabp: Topic is empty")
 )
 
 // DefaultSaramaConfig returns the sane default Sarama configuration.
