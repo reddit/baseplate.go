@@ -16,8 +16,4 @@ type ConsumerConfig struct {
 
 	// Optional. Defaults to OffsetOldest.
 	Offset KafkaOffset `yaml:"kafkaOffset"`
-
-	// Optional. Defaults to true. Set to false to prevent a server span from
-	// being created for every Kafka message consumed.
-	Tracing *bool `yaml:"tracing"`
 }

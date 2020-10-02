@@ -120,18 +120,13 @@ func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
 		cfg.Offset = OffsetOldest
 	}
 
-	if cfg.Tracing == nil {
-		*cfg.Tracing = true
-	}
-
 	// Return any errors that occurred while consuming on the Errors channel.
 	cfg.SaramaConfig.Consumer.Return.Errors = true
 
 	kc := &consumer{
-		cfg:     cfg,
-		topic:   cfg.Topic,
-		offset:  int64(cfg.Offset),
-		tracing: *cfg.Tracing,
+		cfg:    cfg,
+		topic:  cfg.Topic,
+		offset: int64(cfg.Offset),
 	}
 
 	// Initialize Sarama consumer and set atomic values.
@@ -197,17 +192,15 @@ func (kc *consumer) Consume(
 					func() {
 						ctx := context.Background()
 						var err error
-						if kc.tracing {
-							var span *tracing.Span
-							spanName := "consumer." + kc.topic
-							ctx, span = tracing.StartTopLevelServerSpan(ctx, spanName)
-							defer func() {
-								span.FinishWithOptions(tracing.FinishOptions{
-									Ctx: ctx,
-									Err: err,
-								}.Convert())
-							}()
-						}
+						var span *tracing.Span
+						spanName := "consumer." + kc.topic
+						ctx, span = tracing.StartTopLevelServerSpan(ctx, spanName)
+						defer func() {
+							span.FinishWithOptions(tracing.FinishOptions{
+								Ctx: ctx,
+								Err: err,
+							}.Convert())
+						}()
 
 						err = messagesFunc(ctx, m)
 					}()
