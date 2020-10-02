@@ -188,11 +188,3 @@ func containsMsg(msgs []*sarama.ConsumerMessage, msg *sarama.ConsumerMessage) bo
 	}
 	return false
 }
-
-// mocks newConsumer func in kafka.go
-// makes it possible to mock sarama.Consumer instance
-func newMockConsumer(mc sarama.Consumer) func([]string, *sarama.Config) (sarama.Consumer, error) {
-	return func([]string, *sarama.Config) (sarama.Consumer, error) {
-		return mc, nil
-	}
-}
