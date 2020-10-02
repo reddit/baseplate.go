@@ -21,10 +21,7 @@ type ConsumeErrorFunc func(err error)
 
 // consumer is an instance of a Kafka consumer.
 type consumer struct {
-	cfg     ConsumerConfig
-	topic   string
-	offset  int64
-	tracing bool
+	cfg ConsumerConfig
 
 	consumer           atomic.Value // sarama.Consumer
 	partitions         atomic.Value // []int32
@@ -123,11 +120,7 @@ func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
 	// Return any errors that occurred while consuming on the Errors channel.
 	cfg.SaramaConfig.Consumer.Return.Errors = true
 
-	kc := &consumer{
-		cfg:    cfg,
-		topic:  cfg.Topic,
-		offset: cfg.Offset,
-	}
+	kc := &consumer{cfg: cfg}
 
 	// Initialize Sarama consumer and set atomic values.
 	if err := kc.Reset(); err != nil {
@@ -177,7 +170,7 @@ func (kc *consumer) Consume(
 		partitionConsumers := make([]sarama.PartitionConsumer, 0, len(partitions))
 
 		for _, p := range partitions {
-			partitionConsumer, err := consumer.ConsumePartition(kc.topic, p, kc.offset)
+			partitionConsumer, err := consumer.ConsumePartition(kc.cfg.Topic, p, kc.cfg.Offset)
 			if err != nil {
 				return err
 			}
@@ -193,7 +186,7 @@ func (kc *consumer) Consume(
 						ctx := context.Background()
 						var err error
 						var span *tracing.Span
-						spanName := "consumer." + kc.topic
+						spanName := "consumer." + kc.cfg.Topic
 						ctx, span = tracing.StartTopLevelServerSpan(ctx, spanName)
 						defer func() {
 							span.FinishWithOptions(tracing.FinishOptions{
