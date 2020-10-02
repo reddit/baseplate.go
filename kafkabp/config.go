@@ -15,5 +15,5 @@ type ConsumerConfig struct {
 	ClientID string `yaml:"clientID"`
 
 	// Optional. Defaults to OffsetOldest.
-	Offset KafkaOffset `yaml:"kafkaOffset"`
+	Offset int64 `yaml:"kafkaOffset"`
 }

@@ -142,7 +142,7 @@ func TestKafkaConsumer_Close(t *testing.T) {
 func getTestMockConsumer(t *testing.T) *consumer {
 	c := &consumer{
 		topic:  "kafkabp-test",
-		offset: int64(OffsetNewest),
+		offset: OffsetNewest,
 	}
 	consumer, partitions := createMockConsumer(t, c.topic)
 	c.consumer.Store(consumer)
@@ -166,8 +166,8 @@ func setupPartitionConsumers(t *testing.T, kc *consumer) (*mocks.PartitionConsum
 	if !ok {
 		t.Fatalf("kc.consumer is not *mocks.Consumer. %#v", kc.consumer)
 	}
-	pc := mc.ExpectConsumePartition(kc.topic, kc.getPartitions()[0], int64(kc.offset))
-	pc1 := mc.ExpectConsumePartition(kc.topic, kc.getPartitions()[1], int64(kc.offset))
+	pc := mc.ExpectConsumePartition(kc.topic, kc.getPartitions()[0], kc.offset)
+	pc1 := mc.ExpectConsumePartition(kc.topic, kc.getPartitions()[1], kc.offset)
 	return pc, pc1
 }
 

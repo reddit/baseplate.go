@@ -126,7 +126,7 @@ func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
 	kc := &consumer{
 		cfg:    cfg,
 		topic:  cfg.Topic,
-		offset: int64(cfg.Offset),
+		offset: cfg.Offset,
 	}
 
 	// Initialize Sarama consumer and set atomic values.

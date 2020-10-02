@@ -6,17 +6,14 @@ import (
 	"github.com/Shopify/sarama"
 )
 
-// KafkaOffset returns supported Kafka offsets.
-type KafkaOffset int64
-
 const (
 	// OffsetOldest yields the oldest offset available on the broker for a
 	// partition.
-	OffsetOldest = KafkaOffset(sarama.OffsetOldest)
+	OffsetOldest = sarama.OffsetOldest
 
 	// OffsetNewest yields the offset that will be assigned to the next mesage
 	// that will be produced to the partition.
-	OffsetNewest = KafkaOffset(sarama.OffsetNewest)
+	OffsetNewest = sarama.OffsetNewest
 )
 
 var (
