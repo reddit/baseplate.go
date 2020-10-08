@@ -46,8 +46,8 @@ def go_dependencies():
     go_repository(
         name = "com_github_avast_retry_go",
         importpath = "github.com/avast/retry-go",
-        sum = "h1:FelcMrm7Bxacr1/RM8+/eqkDkmVN7tjlsy51dOzB3LI=",
-        version = "v2.6.0+incompatible",
+        sum = "h1:quvLI98pOPWtTq7xnbX4TI5l9PmRJooM2AI1T7mOFUA=",
+        version = "v2.6.1+incompatible",
     )
     go_repository(
         name = "com_github_aymerick_raymond",

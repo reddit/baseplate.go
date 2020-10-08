@@ -7,7 +7,7 @@ require (
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v2.5.0+incompatible
 	github.com/apache/thrift v0.13.1-0.20201008052519-daf620915714
-	github.com/avast/retry-go v2.6.0+incompatible
+	github.com/avast/retry-go v2.6.1+incompatible
 	github.com/getsentry/sentry-go v0.6.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
