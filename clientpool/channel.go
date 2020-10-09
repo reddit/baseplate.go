@@ -1,6 +1,7 @@
 package clientpool
 
 import (
+	"fmt"
 	"sync/atomic"
 )
 
@@ -28,7 +29,12 @@ func NewChannelPool(initialClients, maxClients int, opener ClientOpener) (Pool, 
 	for i := 0; i < initialClients; i++ {
 		c, err := opener()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf(
+				"error creating client #%d/%d: %w",
+				i,
+				initialClients,
+				err,
+			)
 		}
 		pool <- c
 	}
