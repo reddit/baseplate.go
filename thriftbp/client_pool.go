@@ -169,6 +169,22 @@ type ClientPoolConfig struct {
 	BreakerConfig *breakerbp.Config
 }
 
+// Validate checks the ClientPoolConfig for any missing or erroneous values. It
+// returns an errorsbp.Batch to be combineable with other error batching.
+func (c ClientPoolConfig) Validate() error {
+	var batch errorsbp.Batch
+	if c.ServiceSlug == "" {
+		batch.Add(errors.New("ServiceSlug cannot be empty"))
+	}
+	if c.Addr == "" {
+		batch.Add(errors.New("Addr cannot be empty"))
+	}
+	if c.InitialConnections > c.MaxConnections {
+		batch.Add(errors.New("InitialConnections cannot be bigger than MaxConnections"))
+	}
+	return batch
+}
+
 // Client is a client object that implements both the clientpool.Client and
 // thrift.TCLient interfaces.
 //
