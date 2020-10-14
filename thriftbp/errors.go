@@ -16,7 +16,10 @@ type BaseplateErrorCode interface {
 }
 
 var (
-	_ BaseplateErrorCode = (*baseplatethrift.Error)(nil)
+	_                           BaseplateErrorCode = (*baseplatethrift.Error)(nil)
+	ErrConfigMissingServiceSlug                    = errors.New("ServiceSlug cannot be empty")
+	ErrConfigMissingAddr                           = errors.New("Addr cannot be empty")
+	ErrConfigInvalidConnections                    = errors.New("InitialConnections cannot be bigger than MaxConnections")
 )
 
 // WithDefaultRetryableCodes returns a list including the given error codes and

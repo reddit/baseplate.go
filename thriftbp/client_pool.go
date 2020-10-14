@@ -174,15 +174,15 @@ type ClientPoolConfig struct {
 func (c ClientPoolConfig) Validate() error {
 	var batch errorsbp.Batch
 	if c.ServiceSlug == "" {
-		batch.Add(errors.New("ServiceSlug cannot be empty"))
+		batch.Add(ErrConfigMissingServiceSlug)
 	}
 	if c.Addr == "" {
-		batch.Add(errors.New("Addr cannot be empty"))
+		batch.Add(ErrConfigMissingAddr)
 	}
 	if c.InitialConnections > c.MaxConnections {
-		batch.Add(errors.New("InitialConnections cannot be bigger than MaxConnections"))
+		batch.Add(ErrConfigInvalidConnections)
 	}
-	return batch
+	return batch.Compile()
 }
 
 // Client is a client object that implements both the clientpool.Client and
@@ -275,6 +275,10 @@ func NewCustomClientPool(
 	protoFactory thrift.TProtocolFactory,
 	middlewares ...thrift.ClientMiddleware,
 ) (ClientPool, error) {
+	err := cfg.Validate()
+	if err != nil {
+		return nil, err
+	}
 	return newClientPool(cfg, genAddr, protoFactory, middlewares...)
 }
 
