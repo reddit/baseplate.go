@@ -16,10 +16,17 @@ type BaseplateErrorCode interface {
 }
 
 var (
-	_                           BaseplateErrorCode = (*baseplatethrift.Error)(nil)
-	ErrConfigMissingServiceSlug                    = errors.New("ServiceSlug cannot be empty")
-	ErrConfigMissingAddr                           = errors.New("Addr cannot be empty")
-	ErrConfigInvalidConnections                    = errors.New("InitialConnections cannot be bigger than MaxConnections")
+	_ BaseplateErrorCode = (*baseplatethrift.Error)(nil)
+)
+
+var (
+	// ErrConfigMissingServiceSlug is returned when the service slug is missing in ClientPoolConfig
+	ErrConfigMissingServiceSlug = errors.New("ServiceSlug cannot be empty")
+	// ErrConfigMissingAddr is returned when the listener address is missing in ClientPoolConfig
+	ErrConfigMissingAddr = errors.New("Addr cannot be empty")
+	// ErrConfigInvalidConnections is returned when initial connections has a
+	// bigger value than maximum connections.
+	ErrConfigInvalidConnections = errors.New("InitialConnections cannot be bigger than MaxConnections")
 )
 
 // WithDefaultRetryableCodes returns a list including the given error codes and
