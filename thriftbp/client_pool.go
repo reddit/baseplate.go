@@ -171,6 +171,9 @@ type ClientPoolConfig struct {
 
 // Validate checks the ClientPoolConfig for any missing or erroneous values. It
 // returns an errorsbp.Batch to be combineable with other error batching.
+//
+// This method is designated to be used when passing a configuration to
+// NewBaseplateClientPool, for NewCustomClientPool other constraints apply.
 func (c ClientPoolConfig) Validate() error {
 	var batch errorsbp.Batch
 	if c.ServiceSlug == "" {
@@ -247,6 +250,10 @@ func SingleAddressGenerator(addr string) AddressGenerator {
 // BaseplateDefaultClientMiddlewares plus any additional client middlewares
 // passed into this function.
 func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
+	err := cfg.Validate()
+	if err != nil {
+		return nil, err
+	}
 	defaults := BaseplateDefaultClientMiddlewares(
 		DefaultClientMiddlewareArgs{
 			ServiceSlug:         cfg.ServiceSlug,
@@ -275,10 +282,6 @@ func NewCustomClientPool(
 	protoFactory thrift.TProtocolFactory,
 	middlewares ...thrift.ClientMiddleware,
 ) (ClientPool, error) {
-	err := cfg.Validate()
-	if err != nil {
-		return nil, err
-	}
 	return newClientPool(cfg, genAddr, protoFactory, middlewares...)
 }
 
