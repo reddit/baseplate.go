@@ -20,11 +20,17 @@ const (
 
 	// DefaultClientConnectTimeout is used when ServerConfig.ClientConfig.ConnectTimeout
 	// is not set.
-	DefaultClientConnectTimeout = 5 * time.Millisecond
+	//
+	// We use a relatively large number as the default timeout because we often
+	// run tests from virtual environments with very limited resources.
+	DefaultClientConnectTimeout = 500 * time.Millisecond
 
 	// DefaultClientSocketTimeout is used when ServerConfig.ClientConfig.SocketTimeout
 	// is not set.
-	DefaultClientSocketTimeout = 10 * time.Millisecond
+	//
+	// We use a relatively large number as the default timeout because we often
+	// run tests from virtual environments with very limited resources.
+	DefaultClientSocketTimeout = 500 * time.Millisecond
 
 	// DefaultServiceSlug is used when ServerConfig.ClientConfig.ServiceSlug
 	// is not set.
