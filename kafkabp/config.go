@@ -29,7 +29,7 @@ type ConsumerConfig struct {
 	Topic   string   `yaml:"topic"`
 
 	// Required. Populated with Sarama's sane default values, and can be overridden.
-	SaramaConfig *SaramaConsumerConfig `yaml:"sarama"`
+	SaramaConfig SaramaConsumerConfig `yaml:"sarama"`
 }
 
 // NewSaramaConfig instantiates a sarama.Config with sane defaults from
@@ -37,9 +37,6 @@ type ConsumerConfig struct {
 func (cfg ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 	c := sarama.NewConfig()
 
-	if cfg.SaramaConfig == nil {
-		return nil, ErrSaramaConfigEmpty
-	}
 	scc := cfg.SaramaConfig
 
 	if scc.LocalAddr == nil {
