@@ -22,6 +22,7 @@ type ConsumeErrorFunc func(err error)
 // consumer is an instance of a Kafka consumer.
 type consumer struct {
 	cfg ConsumerConfig
+	sc  *sarama.Config
 
 	consumer           atomic.Value // sarama.Consumer
 	partitions         atomic.Value // []int32
@@ -29,6 +30,7 @@ type consumer struct {
 
 	closed          int64
 	consumeReturned int64
+	offset          int64
 
 	wg sync.WaitGroup
 }
@@ -45,17 +47,12 @@ type Consumer interface {
 
 // NewConsumer creates a new Kafka consumer.
 func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
-	// Validate input parameters.
-	if cfg.SaramaConfig == nil {
-		cfg.SaramaConfig = DefaultSaramaConfig()
-	}
-	if cfg.ClientID != "" {
-		cfg.SaramaConfig.ClientID = cfg.ClientID
-	}
-	if cfg.SaramaConfig.ClientID == "" {
-		return nil, ErrClientIDEmpty
+	sc, err := cfg.NewSaramaConfig()
+	if err != nil {
+		return nil, err
 	}
 
+	// Validate input parameters.
 	if len(cfg.Brokers) == 0 {
 		return nil, ErrBrokersEmpty
 	}
@@ -64,14 +61,11 @@ func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
 		return nil, ErrTopicEmpty
 	}
 
-	if cfg.Offset != OffsetNewest {
-		cfg.Offset = OffsetOldest
+	kc := &consumer{
+		cfg:    cfg,
+		sc:     sc,
+		offset: sc.Consumer.Offsets.Initial,
 	}
-
-	// Return any errors that occurred while consuming on the Errors channel.
-	cfg.SaramaConfig.Consumer.Return.Errors = true
-
-	kc := &consumer{cfg: cfg}
 
 	// Initialize Sarama consumer and set atomic values.
 	if err := kc.reset(); err != nil {
@@ -105,7 +99,7 @@ func (kc *consumer) reset() error {
 	}
 
 	rebalance := func() (err error) {
-		c, err := sarama.NewConsumer(kc.cfg.Brokers, kc.cfg.SaramaConfig)
+		c, err := sarama.NewConsumer(kc.cfg.Brokers, kc.sc)
 		if err != nil {
 			return err
 		}
@@ -170,7 +164,7 @@ func (kc *consumer) Consume(
 		partitionConsumers := make([]sarama.PartitionConsumer, 0, len(partitions))
 
 		for _, p := range partitions {
-			partitionConsumer, err := consumer.ConsumePartition(kc.cfg.Topic, p, kc.cfg.Offset)
+			partitionConsumer, err := consumer.ConsumePartition(kc.cfg.Topic, p, kc.offset)
 			if err != nil {
 				return err
 			}

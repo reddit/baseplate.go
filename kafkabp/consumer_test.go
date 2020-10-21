@@ -15,23 +15,15 @@ import (
 func TestNewConsumer(t *testing.T) {
 	var cfg ConsumerConfig
 
-	// Sarama config with no client ID set should not create a new consumer and
-	// throw ErrClientIDEmpty
-	cfg.SaramaConfig = &sarama.Config{}
-	c, err := NewConsumer(cfg)
-	assert.Nil(t, c)
-	assert.Equal(t, ErrClientIDEmpty, err)
-
 	// Config with no Brokers should not create a new consumer and throw
 	// ErrBrokersEmpty
-	cfg.ClientID = "test-client"
-	c, err = NewConsumer(cfg)
+	c, err := NewConsumer(cfg)
 	assert.Nil(t, c)
 	assert.Equal(t, ErrBrokersEmpty, err)
 
 	// Config with no Topic should not create a new consumer and throw
 	// ErrTopicEmpty
-	cfg.Brokers = []string{"broker-1", "broker-2"}
+	cfg.Brokers = []string{"127.0.0.1:9090", "127.0.0.2:9090"}
 	c, err = NewConsumer(cfg)
 	assert.Nil(t, c)
 	assert.Equal(t, ErrTopicEmpty, err)
@@ -141,12 +133,17 @@ func TestKafkaConsumer_Close(t *testing.T) {
 
 func getTestMockConsumer(t *testing.T) *consumer {
 	cfg := ConsumerConfig{
-		Brokers: []string{"foo", "bar"},
+		Brokers: []string{"127.0.0.1:9090", "127.0.0.2:9090"},
 		Topic:   "kafkabp-test",
-		Offset:  OffsetNewest,
 	}
-	c := &consumer{cfg: cfg}
-	consumer, partitions := createMockConsumer(t, c.cfg.Topic)
+
+	sc, _ := cfg.NewSaramaConfig()
+	c := &consumer{
+		cfg:    cfg,
+		sc:     sc,
+		offset: sc.Consumer.Offsets.Initial,
+	}
+	consumer, partitions := createMockConsumer(t, cfg.Topic)
 	c.consumer.Store(consumer)
 	c.partitions.Store(partitions)
 	return c
@@ -168,8 +165,8 @@ func setupPartitionConsumers(t *testing.T, kc *consumer) (*mocks.PartitionConsum
 	if !ok {
 		t.Fatalf("kc.consumer is not *mocks.Consumer. %#v", kc.consumer)
 	}
-	pc := mc.ExpectConsumePartition(kc.cfg.Topic, kc.getPartitions()[0], kc.cfg.Offset)
-	pc1 := mc.ExpectConsumePartition(kc.cfg.Topic, kc.getPartitions()[1], kc.cfg.Offset)
+	pc := mc.ExpectConsumePartition(kc.cfg.Topic, kc.getPartitions()[0], kc.offset)
+	pc1 := mc.ExpectConsumePartition(kc.cfg.Topic, kc.getPartitions()[1], kc.offset)
 	return pc, pc1
 }
 
