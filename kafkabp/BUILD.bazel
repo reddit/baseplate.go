@@ -1,0 +1,33 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "config.go",
+        "consumer.go",
+        "doc.go",
+        "sarama_wrapper.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/kafkabp",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//log:go_default_library",
+        "//metricsbp:go_default_library",
+        "//tracing:go_default_library",
+        "@com_github_shopify_sarama//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "config_test.go",
+        "consumer_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "@com_github_shopify_sarama//:go_default_library",
+        "@com_github_shopify_sarama//mocks:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
+)
