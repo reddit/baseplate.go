@@ -76,10 +76,10 @@ func TestKafkaConsumer_Consume(t *testing.T) {
 	wg.Wait() // wait for all kafka messages and errors to be consumed
 
 	if len(consumedMsgs) != 2 {
-		t.Errorf("expected len(consumedMsgs) == 2, got %v", len(consumedMsgs))
+		t.Errorf("expected len(consumedMsgs) == 2, got %d", len(consumedMsgs))
 	}
 	if len(consumedErrs) != 2 {
-		t.Errorf("expected len(consumedErrs) == 2, got %v", len(consumedErrs))
+		t.Errorf("expected len(consumedErrs) == 2, got %d", len(consumedErrs))
 	}
 	if !containsMsg(consumedMsgs, kMsg) {
 		t.Errorf("expected consumedMsgs to contain kMsg, got %v", consumedMsgs)
@@ -141,10 +141,10 @@ func TestKafkaConsumer_Close(t *testing.T) {
 	kc.Close()
 
 	if len(consumedMsgs) != 10 {
-		t.Errorf("expected len(consumedMsgs) == 10, got %v", len(consumedMsgs))
+		t.Errorf("expected len(consumedMsgs) == 10, got %d", len(consumedMsgs))
 	}
 	if len(consumedErrs) != 10 {
-		t.Errorf("expected len(consumedErrs) == 10, got %v", len(consumedErrs))
+		t.Errorf("expected len(consumedErrs) == 10, got %d", len(consumedErrs))
 	}
 }
 
