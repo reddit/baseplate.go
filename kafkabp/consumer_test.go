@@ -9,7 +9,6 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/Shopify/sarama/mocks"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestNewConsumer(t *testing.T) {
@@ -18,15 +17,23 @@ func TestNewConsumer(t *testing.T) {
 	// Config with no Brokers should not create a new consumer and throw
 	// ErrBrokersEmpty
 	c, err := NewConsumer(cfg)
-	assert.Nil(t, c)
-	assert.Equal(t, ErrBrokersEmpty, err)
+	if c != nil {
+		t.Errorf("expected config to be nil, got %v", c)
+	}
+	if !errors.Is(err, ErrBrokersEmpty) {
+		t.Errorf("expected error %v, got %v", ErrBrokersEmpty, err)
+	}
 
 	// Config with no Topic should not create a new consumer and throw
 	// ErrTopicEmpty
 	cfg.Brokers = []string{"127.0.0.1:9090", "127.0.0.2:9090"}
 	c, err = NewConsumer(cfg)
-	assert.Nil(t, c)
-	assert.Equal(t, ErrTopicEmpty, err)
+	if c != nil {
+		t.Errorf("expected config to be nil, got %v", c)
+	}
+	if !errors.Is(err, ErrTopicEmpty) {
+		t.Errorf("expected error %v, got %v", ErrTopicEmpty, err)
+	}
 }
 
 func TestKafkaConsumer_Consume(t *testing.T) {
@@ -68,10 +75,18 @@ func TestKafkaConsumer_Consume(t *testing.T) {
 
 	wg.Wait() // wait for all kafka messages and errors to be consumed
 
-	assert.Equal(t, 2, len(consumedMsgs))
-	assert.Equal(t, 2, len(consumedErrs))
-	assert.True(t, containsMsg(consumedMsgs, kMsg))
-	assert.True(t, containsMsg(consumedMsgs, kMsg1))
+	if len(consumedMsgs) != 2 {
+		t.Errorf("expected len(consumedMsgs) == 2, got %v", len(consumedMsgs))
+	}
+	if len(consumedErrs) != 2 {
+		t.Errorf("expected len(consumedErrs) == 2, got %v", len(consumedErrs))
+	}
+	if !containsMsg(consumedMsgs, kMsg) {
+		t.Errorf("expected consumedMsgs to contain kMsg, got %v", consumedMsgs)
+	}
+	if !containsMsg(consumedMsgs, kMsg1) {
+		t.Errorf("expected consumedMsgs to contain kMsg, got %v", consumedMsgs)
+	}
 }
 
 // This tests that when Close() is called on a KafkaConsumer instance
@@ -125,8 +140,12 @@ func TestKafkaConsumer_Close(t *testing.T) {
 	// messages and error channels are drained
 	kc.Close()
 
-	assert.Equal(t, 10, len(consumedMsgs))
-	assert.Equal(t, 10, len(consumedErrs))
+	if len(consumedMsgs) != 10 {
+		t.Errorf("expected len(consumedMsgs) == 10, got %v", len(consumedMsgs))
+	}
+	if len(consumedErrs) != 10 {
+		t.Errorf("expected len(consumedErrs) == 10, got %v", len(consumedErrs))
+	}
 }
 
 // Helper functions

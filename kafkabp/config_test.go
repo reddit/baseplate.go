@@ -1,9 +1,8 @@
 package kafkabp
 
 import (
+	"errors"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestConfig(t *testing.T) {
@@ -12,6 +11,10 @@ func TestConfig(t *testing.T) {
 	// ErrOffsetInvalid
 	cfg.Offset = "fanciest"
 	sc, err := cfg.NewSaramaConfig()
-	assert.Nil(t, sc)
-	assert.Equal(t, ErrOffsetInvalid, err)
+	if sc != nil {
+		t.Errorf("expected Sarama config to be nil, got %v", sc)
+	}
+	if !errors.Is(err, ErrOffsetInvalid) {
+		t.Errorf("expected error %v, got %v", ErrOffsetInvalid, err)
+	}
 }
