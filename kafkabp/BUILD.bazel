@@ -28,6 +28,5 @@ go_test(
     deps = [
         "@com_github_shopify_sarama//:go_default_library",
         "@com_github_shopify_sarama//mocks:go_default_library",
-        "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )
