@@ -21,17 +21,28 @@ const (
 //
 // All zero value fields will be ignored and only non-zero values will be
 // attached.
+//
+// AdditionalPairs are provided to add any free form, additional key-value pairs
+// you want to attach to all logs from the same context object.
 type AttachArgs struct {
 	TraceID uint64
+
+	AdditionalPairs map[string]interface{}
 }
 
 // Attach attaches a logger with data extracted from args into the context
 // object.
 func Attach(ctx context.Context, args AttachArgs) context.Context {
-	var kv []interface{}
+	// Number of non-AdditionalPairs fields in AttachArgs struct.
+	const additional = 1
+	kv := make([]interface{}, 0, len(args.AdditionalPairs)*2+additional)
 
 	if args.TraceID != 0 {
-		kv = append(kv, traceIDKey, strconv.FormatUint(args.TraceID, 10))
+		kv = append(kv, zap.String(traceIDKey, strconv.FormatUint(args.TraceID, 10)))
+	}
+
+	for k, v := range args.AdditionalPairs {
+		kv = append(kv, k, v)
 	}
 
 	logger := C(ctx)
