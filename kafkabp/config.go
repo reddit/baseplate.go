@@ -45,13 +45,14 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 	}
 
 	switch cfg.Offset {
+	case "":
+		// OffsetOldest is the "true" default case (in that it will be reached if
+		// an offset isn't specified).
+		fallthrough
 	case "oldest":
 		c.Consumer.Offsets.Initial = sarama.OffsetOldest
 	case "newest":
 		c.Consumer.Offsets.Initial = sarama.OffsetNewest
-	case "":
-		// This is the "true" default case (in that it will be reached if an offset isn't specified).
-		c.Consumer.Offsets.Initial = sarama.OffsetOldest
 	default:
 		return nil, ErrOffsetInvalid
 	}
