@@ -152,7 +152,7 @@ func (kc *consumer) Consume(
 	kc.wg.Add(1)
 	defer kc.wg.Done()
 
-	// sarama could close the channels (and cause the goroutines to finish) in
+	// Sarama could close the channels (and cause the goroutines to finish) in
 	// two cases, where we want different behavior:
 	//   - in case of partition rebalance: restart goroutines
 	//   - in case of call to Close/AsyncClose: exit
@@ -194,8 +194,8 @@ func (kc *consumer) Consume(
 				}
 			}(partitionConsumer)
 
-			wg.Add(1)
 			// consume partition consumer errors
+			wg.Add(1)
 			go func(pc sarama.PartitionConsumer) {
 				defer wg.Done()
 				for err := range pc.Errors() {
@@ -207,10 +207,15 @@ func (kc *consumer) Consume(
 
 		wg.Wait()
 
+		// Close or AsyncClose was called, so exit. The call to Close handles
+		// cleaning up the consumer.
 		if atomic.LoadInt64(&kc.closed) != 0 {
 			return nil
 		}
 
+		// Close was not called, so we've gotten here because Sarama closed the
+		// message channel due to a partition rebalance. Reset the consumer and
+		// restart the goroutines.
 		if err := kc.reset(); err != nil {
 			return err
 		}
