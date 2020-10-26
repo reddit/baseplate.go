@@ -98,7 +98,7 @@ func (kc *consumer) reset() error {
 		}
 	}
 
-	rebalance := func() (err error) {
+	rebalance := func() error {
 		c, err := sarama.NewConsumer(kc.cfg.Brokers, kc.sc)
 		if err != nil {
 			return err
