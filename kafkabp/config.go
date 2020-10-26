@@ -24,8 +24,12 @@ type ConsumerConfig struct {
 	// Required. Topic is used to specify the topic to consume.
 	Topic string `yaml:"topic"`
 
-	// Optional. A user-provided string sent with every request to the brokers
-	// for logging, debugging, and auditing purposes. Defaults to "sarama".
+	// Required. ClientID is a user-provided string sent with every request to
+	// the brokers for logging, debugging, and auditing purposes. The default
+	// Consumer implementation in this library expects every Consumer to have a
+	// unique ClientID.
+	//
+	// The Kubernetes pod ID is usually a good candidate for this unique ID.
 	ClientID string `yaml:"clientID"`
 
 	// Optional. Defaults to "oldest". Valid values are "oldest" and "newest".
@@ -40,8 +44,17 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 	// Return any errors that occurred while consuming on the Errors channel.
 	c.Consumer.Return.Errors = true
 
-	if cfg.ClientID != "" {
-		c.ClientID = cfg.ClientID
+	// Validate input parameters.
+	if len(cfg.Brokers) == 0 {
+		return nil, ErrBrokersEmpty
+	}
+
+	if cfg.Topic == "" {
+		return nil, ErrTopicEmpty
+	}
+
+	if cfg.ClientID == "" {
+		return nil, ErrClientIDEmpty
 	}
 
 	switch cfg.Offset {

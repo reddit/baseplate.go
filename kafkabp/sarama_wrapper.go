@@ -23,6 +23,9 @@ var (
 	// ErrTopicEmpty is thrown when the topic is empty.
 	ErrTopicEmpty = errors.New("kafkabp: Topic is empty")
 
+	// ErrClientIDEmpty is thrown when the client ID is empty.
+	ErrClientIDEmpty = errors.New("kafkabp: ClientID is empty")
+
 	// ErrOffsetInvalid is thrown when an invalid offset is specified.
 	ErrOffsetInvalid = errors.New("kafkabp: Offset is invalid")
 )

@@ -11,31 +11,6 @@ import (
 	"github.com/Shopify/sarama/mocks"
 )
 
-func TestNewConsumer(t *testing.T) {
-	var cfg ConsumerConfig
-
-	// Config with no Brokers should not create a new consumer and throw
-	// ErrBrokersEmpty
-	c, err := NewConsumer(cfg)
-	if c != nil {
-		t.Errorf("expected config to be nil, got %v", c)
-	}
-	if !errors.Is(err, ErrBrokersEmpty) {
-		t.Errorf("expected error %v, got %v", ErrBrokersEmpty, err)
-	}
-
-	// Config with no Topic should not create a new consumer and throw
-	// ErrTopicEmpty
-	cfg.Brokers = []string{"127.0.0.1:9090", "127.0.0.2:9090"}
-	c, err = NewConsumer(cfg)
-	if c != nil {
-		t.Errorf("expected config to be nil, got %v", c)
-	}
-	if !errors.Is(err, ErrTopicEmpty) {
-		t.Errorf("expected error %v, got %v", ErrTopicEmpty, err)
-	}
-}
-
 func TestKafkaConsumer_Consume(t *testing.T) {
 	kc := getTestMockConsumer(t)
 	pc, pc1 := setupPartitionConsumers(t, kc)
@@ -152,8 +127,9 @@ func TestKafkaConsumer_Close(t *testing.T) {
 
 func getTestMockConsumer(t *testing.T) *consumer {
 	cfg := ConsumerConfig{
-		Brokers: []string{"127.0.0.1:9090", "127.0.0.2:9090"},
-		Topic:   "kafkabp-test",
+		Brokers:  []string{"127.0.0.1:9090", "127.0.0.2:9090"},
+		Topic:    "kafkabp-test",
+		ClientID: "test-mock-consumer",
 	}
 
 	sc, _ := cfg.NewSaramaConfig()
