@@ -52,15 +52,6 @@ func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
 		return nil, err
 	}
 
-	// Validate input parameters.
-	if len(cfg.Brokers) == 0 {
-		return nil, ErrBrokersEmpty
-	}
-
-	if cfg.Topic == "" {
-		return nil, ErrTopicEmpty
-	}
-
 	kc := &consumer{
 		cfg:    cfg,
 		sc:     sc,
