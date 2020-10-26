@@ -8,7 +8,6 @@ import (
 
 	"github.com/Shopify/sarama"
 
-	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -89,7 +88,7 @@ func (kc *consumer) getPartitionConsumers() []sarama.PartitionConsumer {
 func (kc *consumer) reset() error {
 	if c := kc.getConsumer(); c != nil {
 		if err := c.Close(); err != nil {
-			log.Warnw("Error closing the consumer", "err", err)
+			return err
 		}
 	}
 
