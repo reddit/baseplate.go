@@ -1,5 +1,4 @@
 load("@bazel_gazelle//:deps.bzl", "go_repository")
-
 def go_dependencies():
     go_repository(
         name = "co_honnef_go_tools",
@@ -127,7 +126,6 @@ def go_dependencies():
         sum = "h1:uDmaGzcdjhF4i/plgjmEsriH11Y0o7RKapEf/LDaM3w=",
         version = "v1.1.9",
     )
-
     go_repository(
         name = "com_github_davecgh_go_spew",
         importpath = "github.com/davecgh/go-spew",
@@ -176,7 +174,6 @@ def go_dependencies():
         sum = "h1:YOEu7KNc61ntiQlcEeUIoDTJ2o8mQznoNvUhiigpIqc=",
         version = "v1.1.0",
     )
-
     go_repository(
         name = "com_github_eknkc_amber",
         importpath = "github.com/eknkc/amber",
@@ -219,7 +216,6 @@ def go_dependencies():
         sum = "h1:Gfh+GAJZOAoKZsIZeZbdn2JF10kN1XHNvjsvQK8gVkE=",
         version = "v1.10.0",
     )
-
     go_repository(
         name = "com_github_fsnotify_fsnotify",
         importpath = "github.com/fsnotify/fsnotify",
@@ -328,7 +324,6 @@ def go_dependencies():
         sum = "h1:Qgr9rKW7uDUkrbSmQeiDsGa8SjGyCOGtuasMWwvp2P4=",
         version = "v0.0.1",
     )
-
     go_repository(
         name = "com_github_gomodule_redigo",
         importpath = "github.com/gomodule/redigo",
@@ -371,7 +366,6 @@ def go_dependencies():
         sum = "h1:cfejS+Tpcp13yd5nYHWDI6qVCny6wyX2Mt5SGur2IGE=",
         version = "v1.0.2",
     )
-
     go_repository(
         name = "com_github_hashicorp_go_version",
         importpath = "github.com/hashicorp/go-version",
@@ -432,7 +426,6 @@ def go_dependencies():
         sum = "h1:J7uCkflzTEhUZ64xqKnkDxq3kzc96ajM1Gli5ktUem8=",
         version = "v1.0.0",
     )
-
     go_repository(
         name = "com_github_joker_hpp",
         importpath = "github.com/Joker/hpp",
@@ -655,7 +648,6 @@ def go_dependencies():
         sum = "h1:fD57ERR4JtEqsWbfPhv4DMiApHyliiK5xCTNVSPiaAs=",
         version = "v0.0.0-20200227124842-a10e7caefd8e",
     )
-
     go_repository(
         name = "com_github_onsi_ginkgo",
         importpath = "github.com/onsi/ginkgo",
@@ -686,7 +678,6 @@ def go_dependencies():
         sum = "h1:WCjObylUIOlKy/+7Abdn34TLIkXiA4UWUMhxq9m9ZXI=",
         version = "v2.5.2+incompatible",
     )
-
     go_repository(
         name = "com_github_pingcap_errors",
         importpath = "github.com/pingcap/errors",
@@ -711,7 +702,6 @@ def go_dependencies():
         sum = "h1:MkV+77GLUNo5oJ0jf870itWm3D0Sjh7+Za9gazKc5LQ=",
         version = "v0.0.0-20200313005456-10cdbea86bc0",
     )
-
     go_repository(
         name = "com_github_reddit_jwt_go_v3",
         importpath = "github.com/reddit/jwt-go/v3",
@@ -760,7 +750,6 @@ def go_dependencies():
         sum = "h1:TKdv8HiTLgE5wdJuEML90aBgNWsokNbMijUGhmcoBJc=",
         version = "v2.1.4+incompatible",
     )
-
     go_repository(
         name = "com_github_shurcool_sanitized_anchor_name",
         importpath = "github.com/shurcooL/sanitized_anchor_name",
@@ -893,7 +882,6 @@ def go_dependencies():
         sum = "h1:d9X0esnoa3dFsV0FG35rAT0RIhYFlPq7MiP+DW89La0=",
         version = "v1.0.0",
     )
-
     go_repository(
         name = "com_github_xeipuuv_gojsonpointer",
         importpath = "github.com/xeipuuv/gojsonpointer",
@@ -1014,7 +1002,6 @@ def go_dependencies():
         sum = "h1:QHIUxTX1ISuAv9dD2wJ9HWQVuWDX/Zc0PfeC2tjc4rU=",
         version = "v1.1.0",
     )
-
     go_repository(
         name = "in_gopkg_mgo_v2",
         importpath = "gopkg.in/mgo.v2",
@@ -1039,7 +1026,6 @@ def go_dependencies():
         sum = "h1:VEmvx0P+GVTgkNu2EdTN988YCZPcD3lo9AoczZpucwc=",
         version = "v3.0.0-20200601152816-913338de1bd2",
     )
-
     go_repository(
         name = "org_golang_x_crypto",
         importpath = "golang.org/x/crypto",
