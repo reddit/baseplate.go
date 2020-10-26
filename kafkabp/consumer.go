@@ -45,7 +45,11 @@ type Consumer interface {
 	IsHealthy() bool
 }
 
-// NewConsumer creates a new Kafka consumer.
+// NewConsumer creates a new Kafka consumer. Unlike a group consumer (which
+// delivers every message exactly once by having one ClientID assigned to every
+// consumer in the group), this consumer is used for consuming some
+// configuration or data by all running consumer instances. This is why the
+// ClientID provided to NewConsumer's ConsumerConfig must be unique.
 func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
 	sc, err := cfg.NewSaramaConfig()
 	if err != nil {
