@@ -11,7 +11,6 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/kafkabp",
     visibility = ["//visibility:public"],
     deps = [
-        "//log:go_default_library",
         "//metricsbp:go_default_library",
         "//tracing:go_default_library",
         "@com_github_shopify_sarama//:go_default_library",
