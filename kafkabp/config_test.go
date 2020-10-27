@@ -30,7 +30,7 @@ func TestConfig(t *testing.T) {
 	}
 
 	// Config with no ClientID should not create a new consumer and throw
-	// ErrTopicEmpty
+	// ErrClientIDEmpty
 	cfg.Topic = "test-topic"
 	sc, err = cfg.NewSaramaConfig()
 	if sc != nil {
