@@ -39,11 +39,6 @@ type ConsumerConfig struct {
 // NewSaramaConfig instantiates a sarama.Config with sane consumer defaults
 // from sarama.NewConfig(), overwritten by values parsed from cfg.
 func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
-	c := sarama.NewConfig()
-
-	// Return any errors that occurred while consuming on the Errors channel.
-	c.Consumer.Return.Errors = true
-
 	// Validate input parameters.
 	if len(cfg.Brokers) == 0 {
 		return nil, ErrBrokersEmpty
@@ -69,6 +64,11 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 	default:
 		return nil, ErrOffsetInvalid
 	}
+
+	c := sarama.NewConfig()
+
+	// Return any errors that occurred while consuming on the Errors channel.
+	c.Consumer.Return.Errors = true
 
 	return c, nil
 }
