@@ -52,20 +52,23 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 		return nil, ErrClientIDEmpty
 	}
 
+	var offset int64
 	switch cfg.Offset {
 	case "":
 		// OffsetOldest is the "true" default case (in that it will be reached if
 		// an offset isn't specified).
 		fallthrough
 	case "oldest":
-		c.Consumer.Offsets.Initial = sarama.OffsetOldest
+		offset = sarama.OffsetOldest
 	case "newest":
-		c.Consumer.Offsets.Initial = sarama.OffsetNewest
+		offset = sarama.OffsetNewest
 	default:
 		return nil, ErrOffsetInvalid
 	}
 
 	c := sarama.NewConfig()
+
+	c.Consumer.Offsets.Initial = offset
 
 	// Return any errors that occurred while consuming on the Errors channel.
 	c.Consumer.Return.Errors = true
