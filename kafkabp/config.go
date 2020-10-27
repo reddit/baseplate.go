@@ -37,7 +37,7 @@ type ConsumerConfig struct {
 	Offset string `yaml:"offset"`
 
 	// Optional. If non-nil, will be used to log errors.
-	Logger log.Wrapper `yaml:-`
+	Logger log.Wrapper `yaml:"-"`
 }
 
 // NewSaramaConfig instantiates a sarama.Config with sane consumer defaults
