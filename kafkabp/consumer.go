@@ -88,7 +88,7 @@ func (kc *consumer) getPartitionConsumers() []sarama.PartitionConsumer {
 func (kc *consumer) reset() error {
 	if c := kc.getConsumer(); c != nil {
 		if err := c.Close(); err != nil {
-			return err
+			kc.cfg.Logger.Log(context.Background(), "kafkabp.consumer.reset: Error closing the consumer:"+err.Error())
 		}
 	}
 

@@ -2,6 +2,7 @@ package kafkabp
 
 import (
 	"github.com/Shopify/sarama"
+	"github.com/reddit/baseplate.go/log"
 )
 
 // ConsumerConfig can be used to configure a kafkabp Consumer.
@@ -34,6 +35,9 @@ type ConsumerConfig struct {
 
 	// Optional. Defaults to "oldest". Valid values are "oldest" and "newest".
 	Offset string `yaml:"offset"`
+
+	// Optional. If non-nil, will be used to log errors.
+	Logger log.Wrapper `yaml:-`
 }
 
 // NewSaramaConfig instantiates a sarama.Config with sane consumer defaults
