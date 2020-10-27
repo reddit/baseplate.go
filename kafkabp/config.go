@@ -36,7 +36,9 @@ type ConsumerConfig struct {
 	// Optional. Defaults to "oldest". Valid values are "oldest" and "newest".
 	Offset string `yaml:"offset"`
 
-	// Optional. If non-nil, will be used to log errors.
+	// Optional. If non-nil, will be used to log errors. At present, this only
+	// pertains to logging errors closing the existing consumer when calling
+	// consumer.reset().
 	Logger log.Wrapper `yaml:"-"`
 }
 
