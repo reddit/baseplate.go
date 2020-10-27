@@ -36,8 +36,8 @@ type ConsumerConfig struct {
 	Offset string `yaml:"offset"`
 }
 
-// NewSaramaConfig instantiates a sarama.Config with sane defaults from
-// sarama.NewConfig(), overwritten by values parsed from cfg.Overrides.
+// NewSaramaConfig instantiates a sarama.Config with sane consumer defaults
+// from sarama.NewConfig(), overwritten by values parsed from cfg.
 func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 	c := sarama.NewConfig()
 
