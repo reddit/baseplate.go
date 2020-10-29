@@ -2,18 +2,12 @@ package kafkabp
 
 import (
 	"errors"
-
-	"github.com/Shopify/sarama"
 )
 
+// Allowed Offset values
 const (
-	// OffsetOldest yields the oldest offset available on the broker for a
-	// partition.
-	OffsetOldest = sarama.OffsetOldest
-
-	// OffsetNewest yields the offset that will be assigned to the next mesage
-	// that will be produced to the partition.
-	OffsetNewest = sarama.OffsetNewest
+	OffsetOldest = "oldest"
+	OffsetNewest = "newest"
 )
 
 var (
