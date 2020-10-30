@@ -9,7 +9,7 @@ type KitWrapper zapcore.Level
 
 // Log implements go-kit/log.Logger interface.
 func (w KitWrapper) Log(keyvals ...interface{}) error {
-	const msg = ""
+	const msg = "log.KitWrapper"
 	switch zapcore.Level(w) {
 	default:
 		// for unknown values, fallback to info level.
