@@ -79,6 +79,7 @@ type Statsd struct {
 	cancel              context.CancelFunc
 	counterSampleRate   float64
 	histogramSampleRate float64
+	writer              *bufferedWriter
 
 	activeRequests int64
 }
@@ -117,6 +118,21 @@ type StatsdConfig struct {
 	// so it shouldn't be used in lieu of discarded metrics in prod code.
 	Address string
 
+	// When Address is configured,
+	// BufferSize can be used to buffer writes to statsd collector together.
+	//
+	// When it's 0 (default) or smaller than a single statsd metric line,
+	// on ReporterTickerInterval we will write one UDP message per metric to the
+	// statsd collector.
+	//
+	// Set it to an appropriate number will reduce the number of UDP messages sent
+	// to the statsd collector. (Recommendation: 4KB)
+	//
+	// It's guaranteed that every single UDP message will not exceed BufferSize,
+	// unless a single metric line exceeds it
+	// (usually around 100 bytes depending on the length of the metric path).
+	BufferSize int
+
 	// The log level used by the reporting goroutine.
 	LogLevel log.Level
 
@@ -150,8 +166,9 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 		prefix = prefix + "."
 	}
 	tags := cfg.Tags.AsStatsdTags()
+	kitlogger := log.KitLogger(cfg.LogLevel)
 	st := &Statsd{
-		statsd:              influxstatsd.New(prefix, log.KitLogger(cfg.LogLevel), tags...),
+		statsd:              influxstatsd.New(prefix, kitlogger, tags...),
 		cfg:                 cfg,
 		counterSampleRate:   convertSampleRate(cfg.CounterSampleRate),
 		histogramSampleRate: convertSampleRate(cfg.HistogramSampleRate),
@@ -159,11 +176,24 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 	st.ctx, st.cancel = context.WithCancel(ctx)
 
 	if cfg.Address != "" {
+		st.writer = newBufferedWriter(
+			conn.NewDefaultManager("udp", cfg.Address, kitlogger),
+			cfg.BufferSize,
+		)
 		go func() {
 			ticker := time.NewTicker(ReporterTickerInterval)
 			defer ticker.Stop()
 
-			st.statsd.SendLoop(st.ctx, ticker.C, "udp", cfg.Address)
+			for {
+				select {
+				case <-ticker.C:
+					st.writer.doWrite(st.statsd, kitlogger)
+				case <-st.ctx.Done():
+					// Flush one more time before returning.
+					st.writer.doWrite(st.statsd, kitlogger)
+					return
+				}
+			}
 		}()
 	}
 
@@ -298,16 +328,10 @@ func (st *Statsd) Ctx() context.Context {
 // and use Close() call to do the cleanup instead of canceling the context.
 func (st *Statsd) Close() error {
 	st.cancel()
-	if st.cfg.Address == "" {
+	if st.writer == nil {
 		return nil
 	}
-
-	_, err := st.statsd.WriteTo(conn.NewDefaultManager(
-		"udp",
-		st.cfg.Address,
-		log.KitLogger(st.cfg.LogLevel),
-	))
-	return err
+	return st.writer.doWrite(st.statsd, log.KitLogger(st.cfg.LogLevel))
 }
 
 // WriteTo calls the underlying statsd implementation's WriteTo function.
