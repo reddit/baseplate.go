@@ -120,13 +120,13 @@ func readNumberFromFile(path string, buf []byte) (float64, error) {
 type MaxProcsFormula func(n float64) int
 
 func defaultMaxProcsFormula(n float64) int {
-	return int(math.Ceil(n*2 - 1))
+	return int(math.Ceil(n))
 }
 
 // GOMAXPROCS sets runtime.GOMAXPROCS with the default formula,
 // in bound of [min, max].
 //
-// Currently the default formula is NumCPU()*2-1 rounding up.
+// Currently the default formula is NumCPU() rounding up.
 func GOMAXPROCS(min, max int) (oldVal, newVal int) {
 	return GOMAXPROCSwithFormula(min, max, defaultMaxProcsFormula)
 }
