@@ -14,9 +14,16 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
-// DefaultSampleRate is the default value to be used when *SampleRate in
-// StatsdConfig is nil (zero value).
-const DefaultSampleRate = 1
+// Default values to be used in the config.
+const (
+	// DefaultSampleRate is the default value to be used when *SampleRate in
+	// StatsdConfig is nil (zero value).
+	DefaultSampleRate = 1
+
+	// DefaultBufferSize is the default value to be used when BufferSize in
+	// StatsdConfig is 0.
+	DefaultBufferSize = 4096
+)
 
 // ReporterTickerInterval is the interval the reporter sends data to statsd
 // server. Default is one minute.
@@ -121,16 +128,19 @@ type StatsdConfig struct {
 	// When Address is configured,
 	// BufferSize can be used to buffer writes to statsd collector together.
 	//
-	// When it's 0 (default) or smaller than a single statsd metric line,
-	// on ReporterTickerInterval we will write one UDP message per metric to the
-	// statsd collector.
-	//
 	// Set it to an appropriate number will reduce the number of UDP messages sent
 	// to the statsd collector. (Recommendation: 4KB)
 	//
 	// It's guaranteed that every single UDP message will not exceed BufferSize,
 	// unless a single metric line exceeds it
 	// (usually around 100 bytes depending on the length of the metric path).
+	//
+	// When it's 0 (default), DefaultBufferSize will be used.
+	//
+	// To disable buffering, set it to negative value (e.g. -1) or a value smaller
+	// than a single statsd metric line (usually around 100, so 1 works),
+	// on ReporterTickerInterval we will write one UDP message per metric to the
+	// statsd collector.
 	BufferSize int
 
 	// The log level used by the reporting goroutine.
@@ -176,6 +186,9 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 	st.ctx, st.cancel = context.WithCancel(ctx)
 
 	if cfg.Address != "" {
+		if cfg.BufferSize == 0 {
+			cfg.BufferSize = DefaultBufferSize
+		}
 		st.writer = newBufferedWriter(
 			conn.NewDefaultManager("udp", cfg.Address, kitlogger),
 			cfg.BufferSize,
