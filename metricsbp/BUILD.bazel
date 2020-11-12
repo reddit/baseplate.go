@@ -34,6 +34,7 @@ go_test(
     srcs = [
         "baseplate_hooks_internal_test.go",
         "baseplate_hooks_test.go",
+        "buffered_writer_test.go",
         "config_test.go",
         "example_baseplate_hooks_test.go",
         "example_nil_check_test.go",
