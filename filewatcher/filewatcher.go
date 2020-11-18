@@ -90,7 +90,7 @@ func (r *Result) watcherLoop(
 			return
 
 		case err := <-watcher.Errors:
-			logger.Log(context.Background(), "watcher error: "+err.Error())
+			logger.Log(context.Background(), "filewatcher: watcher error: "+err.Error())
 
 		case ev := <-watcher.Events:
 			if filepath.Base(ev.Name) != file {
@@ -105,12 +105,13 @@ func (r *Result) watcherLoop(
 				func() {
 					f, err := os.Open(path)
 					if err != nil {
-						logger.Log(context.Background(), "parser error: "+err.Error())
+						logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
+						return
 					}
 					defer f.Close()
 					d, err := parser(f)
 					if err != nil {
-						logger.Log(context.Background(), "parser error: "+err.Error())
+						logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
 					} else {
 						r.data.Store(d)
 					}
