@@ -264,10 +264,13 @@ func SingleAddressGenerator(addr string) AddressGenerator {
 // NewBaseplateClientPool returns a standard ClientPool wrapped with the
 // BaseplateDefaultClientMiddlewares plus any additional client middlewares
 // passed into this function.
+//
+// It always uses SingleAddressGenerator with the server address configured in
+// cfg, and THeader+TCompact as the protocol factory.
 func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
 	err := BaseplateClientPoolConfig(cfg).Validate()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("thriftbp.NewBaseplateClientPool: %w", err)
 	}
 	defaults := BaseplateDefaultClientMiddlewares(
 		DefaultClientMiddlewareArgs{
@@ -278,10 +281,15 @@ func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMi
 		},
 	)
 	middlewares = append(middlewares, defaults...)
+	factory, err := thrift.NewTHeaderProtocolFactoryWithProtocolID(thrift.THeaderProtocolCompact)
+	if err != nil {
+		// Should not happen, but just in case
+		return nil, fmt.Errorf("thriftbp.NewBaseplateClientPool: %w", err)
+	}
 	return NewCustomClientPool(
 		cfg,
 		SingleAddressGenerator(cfg.Addr),
-		thrift.NewTHeaderProtocolFactory(),
+		factory,
 		middlewares...,
 	)
 }
@@ -298,7 +306,7 @@ func NewCustomClientPool(
 	middlewares ...thrift.ClientMiddleware,
 ) (ClientPool, error) {
 	if err := cfg.Validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("thriftbp.NewCustomClientPool: %w", err)
 	}
 	return newClientPool(cfg, genAddr, protoFactory, middlewares...)
 }
