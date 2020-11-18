@@ -60,6 +60,7 @@ func TestCustomClientPool(t *testing.T) {
 
 	if _, err := thriftbp.NewCustomClientPool(
 		thriftbp.ClientPoolConfig{
+			Addr:               ":9090",
 			ServiceSlug:        "test",
 			InitialConnections: 1,
 			MaxConnections:     5,
@@ -98,6 +99,7 @@ func TestInitialConnectionsFallback(t *testing.T) {
 
 	cfg := thriftbp.ClientPoolConfig{
 		ServiceSlug:                      "test",
+		Addr:                             ":9090",
 		InitialConnections:               2,
 		MaxConnections:                   5,
 		ConnectTimeout:                   time.Millisecond * 5,

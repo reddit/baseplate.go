@@ -169,6 +169,40 @@ type ClientPoolConfig struct {
 	BreakerConfig *breakerbp.Config
 }
 
+// Validate checks ClientPoolConfig for any missing or erroneous values.
+//
+// If this is the configuration for a baseplate service
+// BaseplateClientPoolConfig(c).Validate should be used instead.
+func (c ClientPoolConfig) Validate() error {
+	var batch errorsbp.Batch
+	if c.InitialConnections > c.MaxConnections {
+		batch.Add(ErrConfigInvalidConnections)
+	}
+	return batch.Compile()
+}
+
+// BaseplateClientPoolConfig provides a more concrete Validate method tailored
+// to validating baseplate service confgiurations.
+type BaseplateClientPoolConfig ClientPoolConfig
+
+// Validate checks the BaseplateClientPoolConfig for any missing or erroneous values.
+//
+// This method is designated to be used when passing a configuration to
+// NewBaseplateClientPool, for NewCustomClientPool other constraints apply.
+func (c BaseplateClientPoolConfig) Validate() error {
+	var batch errorsbp.Batch
+	if c.ServiceSlug == "" {
+		batch.Add(ErrConfigMissingServiceSlug)
+	}
+	if c.Addr == "" {
+		batch.Add(ErrConfigMissingAddr)
+	}
+	if c.InitialConnections > c.MaxConnections {
+		batch.Add(ErrConfigInvalidConnections)
+	}
+	return batch.Compile()
+}
+
 // Client is a client object that implements both the clientpool.Client and
 // thrift.TCLient interfaces.
 //
@@ -231,6 +265,10 @@ func SingleAddressGenerator(addr string) AddressGenerator {
 // BaseplateDefaultClientMiddlewares plus any additional client middlewares
 // passed into this function.
 func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
+	err := BaseplateClientPoolConfig(cfg).Validate()
+	if err != nil {
+		return nil, err
+	}
 	defaults := BaseplateDefaultClientMiddlewares(
 		DefaultClientMiddlewareArgs{
 			ServiceSlug:         cfg.ServiceSlug,
@@ -259,6 +297,9 @@ func NewCustomClientPool(
 	protoFactory thrift.TProtocolFactory,
 	middlewares ...thrift.ClientMiddleware,
 ) (ClientPool, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 	return newClientPool(cfg, genAddr, protoFactory, middlewares...)
 }
 
