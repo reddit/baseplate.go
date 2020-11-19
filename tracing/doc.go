@@ -3,6 +3,8 @@
 // For thrift services, they should call StartSpanFromThriftContext with the
 // context object injected by thrift library to get a root span for the thrift
 // handler function, then call CreateChildSpan to create child-spans.
+// This is handled by thriftbp.InjectServerSpan processor middleware,
+// and that's one of the default middlewares added by NewBaseplateServer.
 //
 // This package also implements opentracing defined interfaces.
 // As a side effect,
