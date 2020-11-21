@@ -1,4 +1,4 @@
-// Package kafkabp provides a reference Baseplate.go-friendly queue consumer
-// and producer implementation for Apache Kafka by way of the Shopify/sarama Go
-// client library.
+// Package kafkabp provides Apache Kafka library implementations.
+//
+// It wraps the Shopify/sarama Go client library with Baseplate.go integrations.
 package kafkabp

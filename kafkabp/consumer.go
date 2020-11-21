@@ -13,12 +13,46 @@ import (
 )
 
 // ConsumeMessageFunc is a function type for consuming consumer messages.
-type ConsumeMessageFunc func(ctx context.Context, msg *sarama.ConsumerMessage) error
+//
+// The implementation is expected to handle all consuming errors.
+// For example, if there was anything wrong with handling the message and it
+// needs to be retried, the ConsumeMessageFunc implementation should handle the
+// retry (usually put the message into a retry topic).
+type ConsumeMessageFunc func(ctx context.Context, msg *sarama.ConsumerMessage)
 
 // ConsumeErrorFunc is a function type for consuming consumer errors.
+//
+// Note that these are usually system level consuming errors (e.g. read from
+// broker failed, etc.), not individual message consuming errors.
+//
+// In most cases the implementation just needs to log the error and emit a
+// counter, for example:
+//
+//     consumer.Consume(
+//       consumeMessageFunc,
+//       func(err error) {
+//         log.ErrorWithSentry(
+//           context.Background(),
+//           "kafka consumer error",
+//           err,
+//           // additional key value pairs, for example topic info
+//         )
+//         metricsbp.M.Counter("kafka.consumer.errors").With(/* key value pairs */).Add(1)
+//       },
+//     )
 type ConsumeErrorFunc func(err error)
 
-// consumer is an instance of a Kafka consumer.
+// Consumer defines the interface of a consumer struct.
+type Consumer interface {
+	io.Closer
+
+	Consume(ConsumeMessageFunc, ConsumeErrorFunc) error
+
+	// IsHealthy returns false after Consume returns.
+	IsHealthy() bool
+}
+
+// consumer implements a Kafka consumer.
 type consumer struct {
 	cfg ConsumerConfig
 	sc  *sarama.Config
@@ -34,27 +68,34 @@ type consumer struct {
 	wg sync.WaitGroup
 }
 
-// Consumer defines the interface of a consumer struct.
-type Consumer interface {
-	io.Closer
-
-	Consume(ConsumeMessageFunc, ConsumeErrorFunc) error
-
-	// IsHealthy returns false after Consume returns.
-	IsHealthy() bool
-}
-
-// NewConsumer creates a new Kafka consumer. Unlike a group consumer (which
-// delivers every message exactly once by having one ClientID assigned to every
-// consumer in the group), this consumer is used for consuming some
-// configuration or data by all running consumer instances. This is why the
-// ClientID provided to NewConsumer's ConsumerConfig must be unique.
+// NewConsumer creates a new Kafka consumer.
+//
+// It creates one of the two different implementations of Kafka consumer,
+// depending on whether GroupID in config is empty:
+//
+// - If GroupID is non-empty, it creates a consumer that is part of a consumer
+// group (sharing the same GroupID). The group will guarantee that every message
+// is delivered to one of the consumers in the group exactly once. This is
+// suitable for the traditional exactly-once message queue consumer use cases.
+//
+// - If GroupID is empty, it creates a consumer that has the whole view of the
+// topic. This implementation of Kafka consumer is suitable for use cases like
+// deliver config/data through Kafka to services.
 func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
 	sc, err := cfg.NewSaramaConfig()
 	if err != nil {
 		return nil, err
 	}
 
+	switch {
+	default:
+		return newTopicConsumer(cfg, sc)
+	case cfg.GroupID != "":
+		return newGroupConsumer(cfg, sc)
+	}
+}
+
+func newTopicConsumer(cfg ConsumerConfig, sc *sarama.Config) (Consumer, error) {
 	kc := &consumer{
 		cfg:    cfg,
 		sc:     sc,
@@ -88,7 +129,10 @@ func (kc *consumer) getPartitionConsumers() []sarama.PartitionConsumer {
 func (kc *consumer) reset() error {
 	if c := kc.getConsumer(); c != nil {
 		if err := c.Close(); err != nil {
-			kc.cfg.Logger.Log(context.Background(), "kafkabp.consumer.reset: Error closing the consumer:"+err.Error())
+			kc.cfg.Logger.Log(
+				context.Background(),
+				"kafkabp.consumer.reset: Error closing the consumer: "+err.Error(),
+			)
 		}
 	}
 
@@ -100,6 +144,7 @@ func (kc *consumer) reset() error {
 
 		partitions, err := c.Partitions(kc.cfg.Topic)
 		if err != nil {
+			c.Close()
 			return err
 		}
 
@@ -172,18 +217,16 @@ func (kc *consumer) Consume(
 					// Wrap in anonymous function for easier defer.
 					func() {
 						ctx := context.Background()
-						var err error
 						var span *tracing.Span
 						spanName := "consumer." + kc.cfg.Topic
 						ctx, span = tracing.StartTopLevelServerSpan(ctx, spanName)
 						defer func() {
 							span.FinishWithOptions(tracing.FinishOptions{
 								Ctx: ctx,
-								Err: err,
 							}.Convert())
 						}()
 
-						err = messagesFunc(ctx, m)
+						messagesFunc(ctx, m)
 					}()
 				}
 			}(partitionConsumer)
