@@ -1,4 +1,2 @@
-test --test_verbose_timeout_warnings --verbose_failures
-
 # See: https://blog.bazel.build/2016/01/27/continuous-integration.html
 test --genrule_strategy=standalone --spawn_strategy=standalone

@@ -32,12 +32,11 @@ func TestKafkaConsumer_Consume(t *testing.T) {
 	// Use a goroutine here since kc.Consume is a blocking call
 	go func() {
 		kc.Consume(
-			func(_ context.Context, msg *sarama.ConsumerMessage) error {
+			func(_ context.Context, msg *sarama.ConsumerMessage) {
 				msgLock.Lock()
 				defer msgLock.Unlock()
 				consumedMsgs = append(consumedMsgs, msg)
 				wg.Done()
-				return nil
 			},
 			func(err error) {
 				errLock.Lock()
@@ -83,11 +82,10 @@ func TestKafkaConsumer_Close(t *testing.T) {
 	// since kc.Consume is a blocking operation
 	go func() {
 		kc.Consume(
-			func(_ context.Context, msg *sarama.ConsumerMessage) error {
+			func(_ context.Context, msg *sarama.ConsumerMessage) {
 				msgLock.Lock()
 				defer msgLock.Unlock()
 				consumedMsgs = append(consumedMsgs, msg)
-				return nil
 			},
 			func(err error) {
 				errLock.Lock()

@@ -6,7 +6,7 @@ go_library(
         "config.go",
         "consumer.go",
         "doc.go",
-        "sarama_wrapper.go",
+        "group_consumer.go",
     ],
     importpath = "github.com/reddit/baseplate.go/kafkabp",
     visibility = ["//visibility:public"],
@@ -20,6 +20,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    size = "small",
     srcs = [
         "config_test.go",
         "consumer_test.go",
