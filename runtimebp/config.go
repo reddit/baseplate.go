@@ -2,6 +2,7 @@ package runtimebp
 
 import (
 	"fmt"
+	"os"
 )
 
 // Config is the configuration struct for the runtimebp package.
@@ -36,5 +37,5 @@ func InitFromConfig(cfg Config) {
 		min = cfg.NumProcesses.Min
 	}
 	prev, current := GOMAXPROCS(min, max)
-	fmt.Println("GOMAXPROCS:", prev, current)
+	fmt.Fprintf(os.Stderr, "GOMAXPROCS: %d %d\n", prev, current)
 }
