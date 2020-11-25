@@ -2,8 +2,12 @@ package log
 
 import (
 	"context"
+	"encoding"
 	"errors"
+	"fmt"
 	stdlog "log"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -83,6 +87,50 @@ func (w Wrapper) ToThriftLogger() thrift.Logger {
 	}
 	return func(_ string) {}
 }
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+//
+// It makes Wrapper possible to be used directly in yaml and other config files.
+//
+// Please note that this currently only support limited implementations:
+//
+// - "nop" or empty: NopWrapper.
+//
+// - "std": StdWrapper with default stdlib logger
+// (log.New(os.Stderr, "", log.LstdFlags)).
+//
+// - "zap": ZapWrapper on default level (Info).
+//
+// - "zap:level": ZapWrapper with given level, for example "zap:error" means
+// ZapWrapper on Error level.
+//
+// - "sentry": ErrorWithSentryWrapper.
+//
+// See the example on how to extend it to support other implementations.
+func (w *Wrapper) UnmarshalText(text []byte) error {
+	// Special handling for "zap:level" case
+	const zapLevelPrefix = "zap:"
+	if strings.HasPrefix(string(text), zapLevelPrefix) {
+		*w = ZapWrapper(Level(strings.ToLower(string(text[len(zapLevelPrefix):]))))
+		return nil
+	}
+
+	switch string(text) {
+	default:
+		return fmt.Errorf("unsupported log.Wrapper config: %q", text)
+	case "", "nop":
+		*w = NopWrapper
+	case "std":
+		*w = StdWrapper(stdlog.New(os.Stderr, "", stdlog.LstdFlags))
+	case "zap":
+		*w = ZapWrapper(Level(""))
+	case "sentry":
+		*w = ErrorWithSentryWrapper()
+	}
+	return nil
+}
+
+var _ encoding.TextUnmarshaler = (*Wrapper)(nil)
 
 // WrapToThriftLogger wraps a Wrapper into thrift.Logger.
 func WrapToThriftLogger(w Wrapper) thrift.Logger {
