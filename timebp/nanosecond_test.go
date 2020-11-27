@@ -33,7 +33,7 @@ func TestTimestampNanosecondQuick(t *testing.T) {
 	}
 }
 
-func TestTimestampJSONQuick(t *testing.T) {
+func TestTimestampNanoJSONQuick(t *testing.T) {
 	f := func(us int64, duration time.Duration) bool {
 		var v1, v2 jsonTestTypeNanosecond
 
@@ -69,7 +69,7 @@ func TestTimestampJSONQuick(t *testing.T) {
 	}
 }
 
-func TestTimestampJSON(t *testing.T) {
+func TestTimestampNanoJSON(t *testing.T) {
 	var v jsonTestTypeNanosecond
 
 	t.Run(
