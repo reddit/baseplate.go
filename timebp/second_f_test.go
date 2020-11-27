@@ -25,11 +25,11 @@ func (randomSecondFloat) Generate(r *rand.Rand, _ int) reflect.Value {
 func TestTimestampSecondFQuick(t *testing.T) {
 	f := func(s randomSecondFloat) bool {
 		sec := float64(s)
-		time := SecondsToTimeF(sec)
-		actual := TimeToSecondsF(time)
+		timesec := SecondsToTimeF(sec)
+		actual := TimeToSecondsF(timesec)
 		if !floatsEqual(actual, sec) {
 			t.Errorf(
-				"For timestamp %v we got %v and %v", sec, time, actual,
+				"For timestamp %v we got %v and %v", sec, timesec, actual,
 			)
 			return false
 		}

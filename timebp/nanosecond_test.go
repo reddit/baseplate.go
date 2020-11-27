@@ -17,12 +17,12 @@ type jsonTestTypeNanosecond struct {
 }
 
 func TestTimestampNanosecondQuick(t *testing.T) {
-	f := func(us int64) bool {
-		time := timebp.NanosecondsToTime(us)
-		actual := timebp.TimeToNanoseconds(time)
-		if actual != us {
+	f := func(ns int64) bool {
+		timens := timebp.NanosecondsToTime(ns)
+		actual := timebp.TimeToNanoseconds(timens)
+		if actual != ns {
 			t.Errorf(
-				"For timestamp %d we got %v and %d", us, time, actual,
+				"For timestamp %d we got %v and %d", ns, timens, actual,
 			)
 			return false
 		}
