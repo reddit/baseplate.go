@@ -46,24 +46,24 @@ func (ts *TimestampNanosecond) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	us, err := strconv.ParseInt(s, 10, 64)
+	ns, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		return err
 	}
-	*ts = TimestampNanosecond(NanosecondsToTime(us))
+	*ts = TimestampNanosecond(NanosecondsToTime(ns))
 	return nil
 }
 
 // NanosecondsToTime converts milliseconds since EPOCH to time.Time.
-func NanosecondsToTime(us int64) time.Time {
-	if us == 0 {
+func NanosecondsToTime(ns int64) time.Time {
+	if ns == 0 {
 		return time.Time{}
 	}
 	// NOTE: A timestamp before the year 1678 or after 2262 would overflow this,
 	// but that's OK.
 	return time.Unix(
-		us/nanosecondsPerSecond,                        // sec
-		us%nanosecondsPerSecond*int64(time.Nanosecond), // nanosec
+		ns/nanosecondsPerSecond,                        // sec
+		ns%nanosecondsPerSecond*int64(time.Nanosecond), // nanosec
 	)
 }
 
@@ -72,9 +72,9 @@ func TimeToNanoseconds(t time.Time) int64 {
 	if t.IsZero() {
 		return 0
 	}
-	us := t.Unix() * nanosecondsPerSecond
-	us += int64(t.Nanosecond()) / int64(time.Nanosecond)
-	return us
+	ns := t.Unix() * nanosecondsPerSecond
+	ns += int64(t.Nanosecond()) / int64(time.Nanosecond)
+	return ns
 }
 
 // DurationNanosecond implements json encoding/decoding using nanoseconds
