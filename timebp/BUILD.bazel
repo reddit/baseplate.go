@@ -4,9 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "doc.go",
-        "nanosecond.go",
         "microsecond.go",
         "millisecond.go",
+        "nanosecond.go",
         "second_f.go",
     ],
     importpath = "github.com/reddit/baseplate.go/timebp",
@@ -17,9 +17,9 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "nanosecond_test.go",
         "microsecond_test.go",
         "millisecond_test.go",
+        "nanosecond_test.go",
         "second_f_test.go",
     ],
     embed = [":go_default_library"],

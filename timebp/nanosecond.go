@@ -62,7 +62,7 @@ func NanosecondsToTime(us int64) time.Time {
 	// NOTE: A timestamp before the year 1678 or after 2262 would overflow this,
 	// but that's OK.
 	return time.Unix(
-		us/nanosecondsPerSecond,                         // sec
+		us/nanosecondsPerSecond,                        // sec
 		us%nanosecondsPerSecond*int64(time.Nanosecond), // nanosec
 	)
 }
