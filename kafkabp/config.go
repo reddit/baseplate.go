@@ -86,7 +86,7 @@ type ConsumerConfig struct {
 	// Optional. If non-nil, will be used to log errors. At present, this only
 	// pertains to logging errors closing the existing consumer when calling
 	// consumer.reset() when GroupID is empty.
-	Logger log.Wrapper `yaml:"-"`
+	Logger log.Wrapper `yaml:"logger"`
 }
 
 // NewSaramaConfig instantiates a sarama.Config with sane consumer defaults
@@ -119,6 +119,7 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 
 	c := sarama.NewConfig()
 
+	c.ClientID = cfg.ClientID
 	c.Version = version
 
 	if cfg.GroupID == "" {

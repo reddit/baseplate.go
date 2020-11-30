@@ -75,5 +75,8 @@ func TestConsumerConfig(t *testing.T) {
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}
+		if sc.ClientID != cfg.ClientID {
+			t.Errorf("expected sarama client id to be %q, got %q", cfg.ClientID, sc.ClientID)
+		}
 	})
 }
