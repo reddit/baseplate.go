@@ -17,11 +17,11 @@ type jsonTestTypeMillisecond struct {
 
 func TestTimestampMillisecondQuick(t *testing.T) {
 	f := func(ms int64) bool {
-		time := timebp.MillisecondsToTime(ms)
-		actual := timebp.TimeToMilliseconds(time)
+		timems := timebp.MillisecondsToTime(ms)
+		actual := timebp.TimeToMilliseconds(timems)
 		if actual != ms {
 			t.Errorf(
-				"For timestamp %d we got %v and %d", ms, time, actual,
+				"For timestamp %d we got %v and %d", ms, timems, actual,
 			)
 			return false
 		}
