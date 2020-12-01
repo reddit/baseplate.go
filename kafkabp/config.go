@@ -87,7 +87,23 @@ type ConsumerConfig struct {
 	// pertains to logging errors closing the existing consumer when calling
 	// consumer.reset() when GroupID is empty.
 	Logger log.Wrapper `yaml:"logger"`
+
+	// Optional. The function to set rack id for this kafka client.
+	// It should match rack configured on the broker(s).
+	//
+	// Currently it defaults to no rack id.
+	// In the future the default might be changed to AWSAvailabilityZoneRackID.
+	//
+	// This feature is currently experimental.
+	// It might not make any difference on your client,
+	// or it might make things worse.
+	// You are advised to test before using non-empty rack id in production.
+	RackID RackIDFunc `yaml:"rackID"`
 }
+
+// Since not all sarama's default config are zero values,
+// this gives us an easy access to them.
+var defaultSaramaConfig = sarama.NewConfig()
 
 // NewSaramaConfig instantiates a sarama.Config with sane consumer defaults
 // from sarama.NewConfig(), overwritten by values parsed from cfg.
@@ -105,7 +121,7 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 		return nil, ErrClientIDEmpty
 	}
 
-	var version sarama.KafkaVersion
+	version := defaultSaramaConfig.Version
 	if cfg.Version != "" {
 		var err error
 		version, err = sarama.ParseKafkaVersion(cfg.Version)
@@ -119,8 +135,15 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 
 	c := sarama.NewConfig()
 
+	// Return any errors that occurred to the Errors channel.
+	c.Consumer.Return.Errors = true
+
 	c.ClientID = cfg.ClientID
 	c.Version = version
+
+	if cfg.RackID != nil {
+		c.RackID = cfg.RackID()
+	}
 
 	if cfg.GroupID == "" {
 		var offset int64
@@ -136,9 +159,6 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 		}
 		c.Consumer.Offsets.Initial = offset
 	}
-
-	// Return any errors that occurred while consuming on the Errors channel.
-	c.Consumer.Return.Errors = true
 
 	return c, nil
 }

@@ -7,6 +7,7 @@ go_library(
         "consumer.go",
         "doc.go",
         "group_consumer.go",
+        "rack.go",
     ],
     importpath = "github.com/reddit/baseplate.go/kafkabp",
     visibility = ["//visibility:public"],
@@ -24,6 +25,7 @@ go_test(
     srcs = [
         "config_test.go",
         "consumer_test.go",
+        "rack_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

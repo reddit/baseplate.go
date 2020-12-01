@@ -79,4 +79,33 @@ func TestConsumerConfig(t *testing.T) {
 			t.Errorf("expected sarama client id to be %q, got %q", cfg.ClientID, sc.ClientID)
 		}
 	})
+
+	const rackID = "foo"
+	cfg.RackID = kafkabp.FixedRackID(rackID)
+	t.Run("rack-id", func(t *testing.T) {
+		sc, err := cfg.NewSaramaConfig()
+		if sc == nil {
+			t.Error("expected config to be non-nil, got nil")
+		}
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+		if sc.RackID != rackID {
+			t.Errorf("expected sarama rack id to be %q, got %q", rackID, sc.ClientID)
+		}
+	})
+
+	cfg.RackID = nil
+	t.Run("no-rack-id", func(t *testing.T) {
+		sc, err := cfg.NewSaramaConfig()
+		if sc == nil {
+			t.Error("expected config to be non-nil, got nil")
+		}
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+		if sc.RackID != "" {
+			t.Errorf("expected sarama rack id to be empty, got %q", sc.ClientID)
+		}
+	})
 }
