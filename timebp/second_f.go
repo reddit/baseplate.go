@@ -59,8 +59,6 @@ func SecondsToTimeF(s float64) time.Time {
 	}
 	sec := int64(s)
 	nanosec := (s - float64(sec)) * float64(time.Second)
-	// NOTE: A timestamp before the year 1678 or after 2262 would overflow this,
-	// but that's OK.
 	return time.Unix(sec, int64(nanosec))
 }
 

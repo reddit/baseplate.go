@@ -59,8 +59,6 @@ func MicrosecondsToTime(us int64) time.Time {
 	if us == 0 {
 		return time.Time{}
 	}
-	// NOTE: A timestamp before the year 1678 or after 2262 would overflow this,
-	// but that's OK.
 	return time.Unix(
 		us/microsecondsPerSecond,                         // sec
 		us%microsecondsPerSecond*int64(time.Microsecond), // nanosec
