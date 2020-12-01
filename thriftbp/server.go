@@ -31,11 +31,6 @@ type ServerConfig struct {
 	// Optional, used only by NewServer.
 	//
 	// A log wrapper that is used by the TSimpleServer.
-	//
-	// It's compatible with log.Wrapper (with an extra typecasting),
-	// but you should not use log.ErrorWithSentryWrapper for this one,
-	// as it would log all the network I/O errors,
-	// which would be too spammy for sentry.
 	Logger thrift.Logger
 
 	// Optional, used only by NewBaseplateServer.
@@ -44,6 +39,12 @@ type ServerConfig struct {
 	// DefaultProcessorMiddlewaresArgs.ErrorSpanSuppressor for more details
 	// regarding how it is used.
 	ErrorSpanSuppressor errorsbp.Suppressor
+
+	// Optional, used only by NewBaseplateServer.
+	//
+	// Report the payload size metrics with this sample rate.
+	// If not set none of the requests will be sampled.
+	ReportPayloadSizeMetricsSampleRate float64
 
 	// Optional, used only by NewServer.
 	// In NewBaseplateServer the address set in bp.Config() will be used instead.
@@ -114,8 +115,9 @@ func NewBaseplateServer(
 ) (baseplate.Server, error) {
 	middlewares := BaseplateDefaultProcessorMiddlewares(
 		DefaultProcessorMiddlewaresArgs{
-			EdgeContextImpl:     bp.EdgeContextImpl(),
-			ErrorSpanSuppressor: cfg.ErrorSpanSuppressor,
+			EdgeContextImpl:                    bp.EdgeContextImpl(),
+			ErrorSpanSuppressor:                cfg.ErrorSpanSuppressor,
+			ReportPayloadSizeMetricsSampleRate: cfg.ReportPayloadSizeMetricsSampleRate,
 		},
 	)
 	middlewares = append(middlewares, cfg.Middlewares...)
