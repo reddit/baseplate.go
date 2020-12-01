@@ -25,6 +25,7 @@ go_library(
         "//internal/gen-go/reddit/baseplate:go_default_library",
         "//log:go_default_library",
         "//metricsbp:go_default_library",
+        "//randbp:go_default_library",
         "//retrybp:go_default_library",
         "//tracing:go_default_library",
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",

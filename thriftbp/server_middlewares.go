@@ -11,6 +11,8 @@ import (
 	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/reddit/baseplate.go/randbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -38,6 +40,11 @@ type DefaultProcessorMiddlewaresArgs struct {
 	//
 	// This is optional. If it's not set none of the errors will be suppressed.
 	ErrorSpanSuppressor errorsbp.Suppressor
+
+	// Report the payload size metrics with this sample rate.
+	//
+	// This is optional. If it's not set none of the requests will be sampled.
+	ReportPayloadSizeMetricsSampleRate float64
 }
 
 // BaseplateDefaultProcessorMiddlewares returns the default processor
@@ -52,12 +59,15 @@ type DefaultProcessorMiddlewaresArgs struct {
 // 3. InjectEdgeContext
 //
 // 4. AbandonCanceledRequests
+//
+// 5. ReportPayloadSizeMetrics
 func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) []thrift.ProcessorMiddleware {
 	return []thrift.ProcessorMiddleware{
 		ExtractDeadlineBudget,
 		InjectServerSpan(args.ErrorSpanSuppressor),
 		InjectEdgeContext(args.EdgeContextImpl),
 		AbandonCanceledRequests,
+		ReportPayloadSizeMetrics(args.ReportPayloadSizeMetricsSampleRate),
 	}
 }
 
@@ -206,3 +216,101 @@ func AbandonCanceledRequests(name string, next thrift.TProcessorFunction) thrift
 		},
 	}
 }
+
+// ReportPayloadSizeMetrics returns a ProcessorMiddleware that reports metrics
+// (histograms) of request and response payload sizes in bytes.
+//
+// This middleware only works on sampled requests with the given sample rate,
+// but the histograms it reports are overriding global histogram sample rate
+// with 100% sample, to avoid double sampling.
+// Although the overhead it adds is minimal,
+// the sample rate passed in shouldn't be set too high
+// (e.g. 0.01/1% is probably a good sample rate to use).
+//
+// It does not count the bytes on the wire directly,
+// but reconstructs the request/response with the same thrift protocol.
+// As a result, the numbers it reports are not exact numbers,
+// but should be good enough to show the overall trend and ballpark numbers.
+//
+// It also only supports THeaderProtocol.
+// If the request is not in THeaderProtocol it does nothing no matter what the
+// sample rate is.
+//
+// For endpoint named "myEndpoint", it reports histograms at:
+//
+// - payload.size.myEndpoint.request
+//
+// - payload.size.myEndpoint.response
+func ReportPayloadSizeMetrics(rate float64) thrift.ProcessorMiddleware {
+	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+		return thrift.WrappedTProcessorFunction{
+			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+				if randbp.ShouldSampleWithRate(rate) {
+					// Only report for THeader requests
+					if ht, ok := in.Transport().(*thrift.THeaderTransport); ok {
+						protoID := ht.Protocol()
+						// err could only be non-nil when protoID is an unsupported value,
+						// but we got protoID from an existing connection so that should
+						// never happen.
+						//
+						// Since we checked error here, it's safe to ignore error from
+						// thrift.NewTHeaderTransportWithProtocolID.
+						if err := protoID.Validate(); err == nil {
+							var itrans, otrans countingTransport
+							trans, _ := thrift.NewTHeaderTransportWithProtocolID(&itrans, protoID)
+							iproto := thrift.NewTHeaderProtocol(trans)
+							in = &thrift.TDebugProtocol{
+								Logger:      thrift.NopLogger,
+								Delegate:    in,
+								DuplicateTo: iproto,
+							}
+							trans, _ = thrift.NewTHeaderTransportWithProtocolID(&otrans, protoID)
+							oproto := thrift.NewTHeaderProtocol(trans)
+							out = &thrift.TDebugProtocol{
+								Logger:      thrift.NopLogger,
+								Delegate:    out,
+								DuplicateTo: oproto,
+							}
+
+							defer func() {
+								iproto.Flush(ctx)
+								oproto.Flush(ctx)
+
+								metricsbp.M.HistogramWithRate("payload.size."+name+".request", 1).Observe(float64(itrans))
+								metricsbp.M.HistogramWithRate("payload.size."+name+".response", 1).Observe(float64(otrans))
+							}()
+						}
+					}
+				}
+
+				return next.Process(ctx, seqID, in, out)
+			},
+		}
+	}
+}
+
+// countingTransport implements thrift.TTransport
+type countingTransport int64
+
+var _ thrift.TTransport = (*countingTransport)(nil)
+
+func (c *countingTransport) Write(p []byte) (n int, err error) {
+	n = len(p)
+	*c += countingTransport(n)
+	return
+}
+
+func (countingTransport) IsOpen() bool {
+	return true
+}
+
+// All other functions are unimplemented
+func (countingTransport) Close() (err error) { return }
+
+func (countingTransport) Flush(_ context.Context) (err error) { return }
+
+func (countingTransport) Read(_ []byte) (n int, err error) { return }
+
+func (countingTransport) RemainingBytes() (numBytes uint64) { return }
+
+func (countingTransport) Open() (err error) { return }
