@@ -5,6 +5,6 @@ import (
 )
 
 func TestZapLogger(t *testing.T) {
-	InitLogger(DebugLevel)
-	globalLogger.Debug("printing flag values")
+	InitLoggerJSON(DebugLevel)
+	globalLogger.Debugw("This is a log", "int64", 123)
 }

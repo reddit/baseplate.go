@@ -2,7 +2,6 @@ package log
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/reddit/zap"
 )
@@ -38,7 +37,7 @@ func Attach(ctx context.Context, args AttachArgs) context.Context {
 	kv := make([]interface{}, 0, len(args.AdditionalPairs)*2+additional)
 
 	if args.TraceID != 0 {
-		kv = append(kv, zap.String(traceIDKey, strconv.FormatUint(args.TraceID, 10)))
+		kv = append(kv, zap.Uint64(traceIDKey, args.TraceID))
 	}
 
 	for k, v := range args.AdditionalPairs {

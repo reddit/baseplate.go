@@ -72,6 +72,7 @@ func InitLoggerJSON(logLevel Level) {
 	config.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
 	config.EncoderConfig.EncodeTime = JSONTimeEncoder
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	config.EncoderConfig.NumbersAsStrings = true
 	// json keys expected by logdna:
 	config.EncoderConfig.MessageKey = "message"
 	config.EncoderConfig.TimeKey = "timestamp"
