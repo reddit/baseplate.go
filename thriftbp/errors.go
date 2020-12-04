@@ -59,3 +59,13 @@ func BaseplateErrorFilter(codes ...int32) retrybp.Filter {
 		return next(err)
 	}
 }
+
+// NewBaseplateError is a helper function for creating baseplate.Error thrift objects.
+func NewBaseplateError(code baseplatethrift.ErrorCode, message string) *baseplatethrift.Error {
+	asInt32 := int32(code)
+	return &baseplatethrift.Error{
+		Code:    &asInt32,
+		Message: &message,
+		Details: make(map[string]string),
+	}
+}
