@@ -3,7 +3,7 @@ package log
 import (
 	"time"
 
-	"go.uber.org/zap/zapcore"
+	"github.com/reddit/zap/zapcore"
 )
 
 // RFC3339Nano is a time format for TimeEncoder

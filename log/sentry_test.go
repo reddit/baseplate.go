@@ -3,8 +3,8 @@ package log
 import (
 	"testing"
 
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/reddit/zap"
+	"github.com/reddit/zap/zapcore"
 )
 
 type pair struct {

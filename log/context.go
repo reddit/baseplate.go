@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 
-	"go.uber.org/zap"
+	"github.com/reddit/zap"
 )
 
 type contextKeyType struct{}

@@ -1,8 +1,8 @@
 package log
 
 import (
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/reddit/zap"
+	"github.com/reddit/zap/zapcore"
 )
 
 var (

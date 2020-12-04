@@ -1,7 +1,7 @@
 package log
 
 import (
-	"go.uber.org/zap/zapcore"
+	"github.com/reddit/zap/zapcore"
 )
 
 // KitWrapper is a type that implements go-kit/log.Logger interface with zap logger.

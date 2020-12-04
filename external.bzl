@@ -710,6 +710,12 @@ def go_dependencies():
         version = "v3.2.2",
     )
     go_repository(
+        name = "com_github_reddit_zap",
+        importpath = "github.com/reddit/zap",
+        sum = "h1:RPzOcU4y1v20Kqd+UvmLJLTIm0czKn9ODJslsYLPsZc=",
+        version = "v1.16.2",
+    )
+    go_repository(
         name = "com_github_rogpeppe_go_internal",
         importpath = "github.com/rogpeppe/go-internal",
         sum = "h1:RR9dF3JtopPvtkroDZuVD7qquD0bnHlKSqaQhgwt8yk=",
@@ -1098,10 +1104,4 @@ def go_dependencies():
         importpath = "go.uber.org/tools",
         sum = "h1:0mgffUl7nfd+FpvXMVz4IDEaUSmT1ysygQC7qYo7sG4=",
         version = "v0.0.0-20190618225709-2cfd321de3ee",
-    )
-    go_repository(
-        name = "org_uber_go_zap",
-        importpath = "go.uber.org/zap",
-        sum = "h1:ZZCA22JRF2gQE5FoNmhmrf7jeJJ2uhqDUNRYKm8dvmM=",
-        version = "v1.15.0",
     )

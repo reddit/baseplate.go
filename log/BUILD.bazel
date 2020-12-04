@@ -17,8 +17,8 @@ go_library(
     deps = [
         "@com_github_apache_thrift//lib/go/thrift:go_default_library",
         "@com_github_getsentry_sentry_go//:go_default_library",
-        "@org_uber_go_zap//:go_default_library",
-        "@org_uber_go_zap//zapcore:go_default_library",
+        "@com_github_reddit_zap//:go_default_library",
+        "@com_github_reddit_zap//zapcore:go_default_library",
     ],
 )
 
@@ -36,8 +36,8 @@ go_test(
     deps = [
         "//metricsbp:go_default_library",
         "@com_github_go_kit_kit//log:go_default_library",
+        "@com_github_reddit_zap//:go_default_library",
+        "@com_github_reddit_zap//zapcore:go_default_library",
         "@in_gopkg_yaml_v2//:go_default_library",
-        "@org_uber_go_zap//:go_default_library",
-        "@org_uber_go_zap//zapcore:go_default_library",
     ],
 )

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
-	"go.uber.org/zap/zapcore"
+	"github.com/reddit/zap/zapcore"
 )
 
 // DefaultSentryFlushTimeout is the timeout used to call sentry.Flush().
