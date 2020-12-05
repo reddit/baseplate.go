@@ -63,10 +63,10 @@ func BaseplateErrorFilter(codes ...int32) retrybp.Filter {
 }
 
 // NewBaseplateError is a helper function for creating baseplate.Error thrift
-// objects.
+// objects to avoid manual type-conversion that the generated Thrift code requires.
 //
 // detailsKeysValues is used to populate baseplate.Error.Details and should have
-// an even number of values, if it has an odd number of values, the last value
+// an even number of values. If it has an odd number of values the last value
 // will be discarded. The first entry in each pair of values will be the key and
 // the second entry will be the value. If no values are provided, the
 // baseplate.Error will be initialized with an empty map as Details rather than
