@@ -3,7 +3,9 @@ package thriftbp
 import (
 	"errors"
 
+	"github.com/apache/thrift/lib/go/thrift"
 	retry "github.com/avast/retry-go"
+
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/retrybp"
 )
@@ -60,12 +62,24 @@ func BaseplateErrorFilter(codes ...int32) retrybp.Filter {
 	}
 }
 
-// NewBaseplateError is a helper function for creating baseplate.Error thrift objects.
-func NewBaseplateError(code baseplatethrift.ErrorCode, message string) *baseplatethrift.Error {
-	asInt32 := int32(code)
+// NewBaseplateError is a helper function for creating baseplate.Error thrift
+// objects.
+//
+// detailsKeysValues is used to populate baseplate.Error.Details and should have
+// an even number of values, if it has an odd number of values, the last value
+// will be discarded. The first entry in each pair of values will be the key and
+// the second entry will be the value. If no values are provided, the
+// baseplate.Error will be initialized with an empty map as Details rather than
+// nil.
+func NewBaseplateError(code baseplatethrift.ErrorCode, message string, detailsKeysValues ...string) *baseplatethrift.Error {
+	details := make(map[string]string, len(detailsKeysValues)/2)
+	for i := 0; i+1 < len(detailsKeysValues); i += 2 {
+		key, value := detailsKeysValues[i], detailsKeysValues[i+1]
+		details[key] = value
+	}
 	return &baseplatethrift.Error{
-		Code:    &asInt32,
+		Code:    thrift.Int32Ptr(int32(code)),
 		Message: &message,
-		Details: make(map[string]string),
+		Details: details,
 	}
 }

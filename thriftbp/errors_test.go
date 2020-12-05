@@ -127,3 +127,43 @@ func TestBaseplateErrorFilter(t *testing.T) {
 		)
 	}
 }
+
+func TestNewBaseplateError_DetailsKeysValues(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name       string
+		keysValues []string
+		expected   map[string]string
+	}{
+		{
+			name:       "empty",
+			keysValues: []string{},
+			expected:   map[string]string{},
+		},
+		{
+			name:       "even",
+			keysValues: []string{"foo", "bar", "fizz", "buzz"},
+			expected:   map[string]string{"foo": "bar", "fizz": "buzz"},
+		},
+		{
+			name:       "odd",
+			keysValues: []string{"foo", "bar", "fizz"},
+			expected:   map[string]string{"foo": "bar"},
+		},
+	}
+
+	for _, _c := range cases {
+		c := _c
+		t.Run(c.name, func(t *testing.T) {
+			be := thriftbp.NewBaseplateError(
+				baseplatethrift.ErrorCode_BAD_REQUEST,
+				"test",
+				c.keysValues...,
+			)
+			if !reflect.DeepEqual(be.Details, c.expected) {
+				t.Errorf("error.Details do not match, expected %+v, got %+v", c.expected, be.Details)
+			}
+		})
+	}
+}
