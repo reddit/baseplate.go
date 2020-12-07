@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "config.go",
         "context.go",
+        "core_wrapper.go",
         "doc.go",
         "encoder.go",
         "kit_wrapper.go",
@@ -26,6 +27,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "core_wrapper_test.go",
         "kit_wrapper_test.go",
         "log_test.go",
         "sentry_test.go",

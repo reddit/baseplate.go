@@ -85,17 +85,25 @@ func InitLoggerJSON(logLevel Level) {
 // InitLoggerWithConfig provides a quick way to start or replace the global
 // logger.
 //
-// Pass in a cfg to provide a logger with custom setting
+// Pass in a cfg to provide a logger with custom setting.
+//
+// This function also wraps the default zap core to convert all int64 and uint64
+// fields to strings, to prevent the loss of precision by json log ingester.
+// As a result, some of the cfg might get lost during this wrapping, namely
+// OutputPaths and ErrorOutputPaths.
 func InitLoggerWithConfig(logLevel Level, cfg zap.Config) error {
 	if logLevel == NopLevel {
 		globalLogger = zap.NewNop().Sugar()
 		return nil
 	}
-	l, err := cfg.Build(zap.AddCallerSkip(1))
+	l, err := cfg.Build()
 	if err != nil {
 		return err
 	}
-	globalLogger = l.Sugar()
+	globalLogger = zap.New(
+		wrappedCore{Core: l.Core()},
+		zap.AddCallerSkip(1),
+	).Sugar()
 	return nil
 }
 
