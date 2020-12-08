@@ -2,14 +2,14 @@ workspace(name = "baseplate_go")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-GO_VERSION = "1.15.4"
+GO_VERSION = "1.15.6"
 
 # For rules_go
-RULES_GO_VERSION = "v0.24.6"
+RULES_GO_VERSION = "v0.24.9"
 
 http_archive(
     name = "io_bazel_rules_go",
-    sha256 = "b4433651f57560237681cb9caa969106aba614f5b1e66fefa5834c42b8013b42",
+    sha256 = "81eff5df9077783b18e93d0c7ff990d8ad7a3b8b3ca5b785e1c483aacdb342d7",
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/%s/rules_go-%s.tar.gz" % (RULES_GO_VERSION, RULES_GO_VERSION),
         "https://github.com/bazelbuild/rules_go/releases/download/%s/rules_go-%s.tar.gz" % (RULES_GO_VERSION, RULES_GO_VERSION),
