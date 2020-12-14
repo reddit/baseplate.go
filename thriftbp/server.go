@@ -101,14 +101,7 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 }
 
 // NewBaseplateServer returns a new Thrift implementation of a Baseplate
-// server with the given TProcessor.
-//
-// The TProcessor underlying the server will be wrapped in the default
-// Baseplate Middleware and any additional middleware passed in.
-//
-// The suppressor arg will be used as
-// DefaultProcessorMiddlewaresArgs.ErrorSpanSuppressor,
-// please refer to its documentation for more details.
+// server with the given config.
 func NewBaseplateServer(
 	bp baseplate.Baseplate,
 	cfg ServerConfig,

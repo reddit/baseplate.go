@@ -38,7 +38,7 @@ type DefaultProcessorMiddlewaresArgs struct {
 	// Note that this suppressor only affects the errors send to the span. It
 	// won't affect the errors returned to the client.
 	//
-	// This is optional. If it's not set none of the errors will be suppressed.
+	// This is optional. If it's not set IDLExceptionSuppressor will be used.
 	ErrorSpanSuppressor errorsbp.Suppressor
 
 	// Report the payload size metrics with this sample rate.
@@ -118,10 +118,17 @@ func StartSpanFromThriftContext(ctx context.Context, name string) (context.Conte
 // If the function returns an error that's not suppressed by the suppressor,
 // that will be passed to span.Stop.
 //
+// Please note that if suppressor passed in is nil,
+// it will be changed to IDLExceptionSuppressor instead.
+// Please use errorsbp.SuppressNone explicitly instead if that's what's wanted.
+//
 // Note, the span will be created according to tracing related headers already
 // being set on the context object.
 // These should be automatically injected by your thrift.TSimpleServer.
 func InjectServerSpan(suppressor errorsbp.Suppressor) thrift.ProcessorMiddleware {
+	if suppressor == nil {
+		suppressor = IDLExceptionSuppressor
+	}
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
 			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {

@@ -151,7 +151,7 @@ type MonitorClientArgs struct {
 	// Note that this suppressor only affects the errors send to the span. It
 	// won't affect the errors returned to the caller of the client function.
 	//
-	// This is optional. If it's not set none of the errors will be suppressed.
+	// This is optional. If it's not set IDLExceptionSuppressor will be used.
 	ErrorSpanSuppressor errorsbp.Suppressor
 }
 
@@ -164,6 +164,9 @@ type MonitorClientArgs struct {
 func MonitorClient(args MonitorClientArgs) thrift.ClientMiddleware {
 	prefix := args.ServiceSlug + "."
 	s := args.ErrorSpanSuppressor
+	if s == nil {
+		s = IDLExceptionSuppressor
+	}
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
