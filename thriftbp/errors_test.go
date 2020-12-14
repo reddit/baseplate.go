@@ -5,7 +5,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/apache/thrift/lib/go/thrift"
 	retry "github.com/avast/retry-go"
+
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/thriftbp"
 )
@@ -125,5 +127,47 @@ func TestBaseplateErrorFilter(t *testing.T) {
 				}
 			},
 		)
+	}
+}
+
+func TestIDLExceptionSuppressor(t *testing.T) {
+	for _, _c := range []struct {
+		label    string
+		err      error
+		expected bool
+	}{
+		{
+			label:    "baseplate.Error",
+			err:      baseplatethrift.NewError(),
+			expected: true,
+		},
+		{
+			label:    "TTransportException",
+			err:      thrift.NewTTransportException(0, ""),
+			expected: false,
+		},
+		{
+			label:    "TProtocolException",
+			err:      thrift.NewTProtocolException(errors.New("")),
+			expected: false,
+		},
+		{
+			label:    "TApplicationException",
+			err:      thrift.NewTApplicationException(0, ""),
+			expected: false,
+		},
+	} {
+		c := _c
+		t.Run(c.label, func(t *testing.T) {
+			actual := thriftbp.IDLExceptionSuppressor(c.err)
+			if actual != c.expected {
+				t.Errorf(
+					"Expected IDLExceptionSuppressor to return %v for %#v, got %v",
+					c.expected,
+					c.err,
+					actual,
+				)
+			}
+		})
 	}
 }
