@@ -85,8 +85,7 @@ var _ idlException = (*baseplatethrift.Error)(nil)
 // IDLExceptionSuppressor is an errorsbp.Suppressor implementation that returns
 // true on errors from exceptions defined in thrift IDL files.
 func IDLExceptionSuppressor(err error) bool {
-	var idlErr idlException
-	return errors.As(err, &idlErr)
+	return errors.As(err, new(idlException))
 }
 
 var _ errorsbp.Suppressor = IDLExceptionSuppressor
