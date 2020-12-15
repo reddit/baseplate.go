@@ -2,7 +2,7 @@
 //
 // Batch
 //
-// errorsbp.Batch can be used to compile multiple errors into a single one.
+// Batch can be used to compile multiple errors into a single one.
 //
 // An example of how to use it in your functions:
 //
@@ -21,6 +21,7 @@
 //         }
 //
 //         wg.Wait()
+//         close(errChan)
 //         var batch errorsbp.Batch
 //         for err := range errChan {
 //             // nil errors will be auto skipped
@@ -32,7 +33,7 @@
 //         return batch.Compile()
 //     }
 //
-// errorsbp.Batch is not thread-safe.
+// Batch is not thread-safe.
 // The same batch should not be operated on different goroutines concurrently.
 //
 // Suppressor
@@ -42,7 +43,7 @@
 //
 // It's currently used by thriftbp package in both server and client
 // middlewares, to not treat certain errors defined in thrift IDL as span
-// errors. Because of go's type system, we cannot provide a Suppressor
+// errors. Because of go's type system, we cannot reliably provide a Suppressor
 // implementation to suppress all errors defined in all thrift IDLs, as a result
 // we rely on service/client implementations to implement it for the
 // middlewares.
