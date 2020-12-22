@@ -5,26 +5,15 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 GO_VERSION = "1.15.6"
 
 # For rules_go
-RULES_GO_VERSION = "v0.24.9"
+RULES_GO_VERSION = "v0.25.0"
 
 http_archive(
     name = "io_bazel_rules_go",
-    sha256 = "81eff5df9077783b18e93d0c7ff990d8ad7a3b8b3ca5b785e1c483aacdb342d7",
+    sha256 = "6f111c57fd50baf5b8ee9d63024874dd2a014b069426156c55adbf6d3d22cb7b",
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/%s/rules_go-%s.tar.gz" % (RULES_GO_VERSION, RULES_GO_VERSION),
         "https://github.com/bazelbuild/rules_go/releases/download/%s/rules_go-%s.tar.gz" % (RULES_GO_VERSION, RULES_GO_VERSION),
     ],
-)
-
-load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
-
-go_rules_dependencies()
-
-go_register_toolchains(
-    # Note that this is already implicit from rules_go version,
-    # but being explicit about which version of go compiler we are using is a
-    # good thing anyways.
-    go_version = GO_VERSION,
 )
 
 # For gazelle
@@ -39,7 +28,12 @@ http_archive(
     ],
 )
 
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
+
+go_rules_dependencies()
+
+go_register_toolchains(version = GO_VERSION)
 
 gazelle_dependencies()
 
