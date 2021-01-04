@@ -1,7 +1,6 @@
 package thriftbp
 
 import (
-	"context"
 	"errors"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -64,28 +63,14 @@ func BaseplateErrorFilter(codes ...int32) retrybp.Filter {
 	}
 }
 
-// This is an interface implemented by all thrift compiler generated types from
-// exceptions defined in .thrift files.
-//
-// This type might change in the future with thrift compiler changes.
-// As a result we don't want to export it to make it part of our API.
-type idlException interface {
-	thrift.TException
-
-	Read(context.Context, thrift.TProtocol) error
-	Write(context.Context, thrift.TProtocol) error
-
-	// This one is important. Without this one thrift.TApplicationException will
-	// satisfy this interface as well.
-	String() string
-}
-
-var _ idlException = (*baseplatethrift.Error)(nil)
-
 // IDLExceptionSuppressor is an errorsbp.Suppressor implementation that returns
 // true on errors from exceptions defined in thrift IDL files.
 func IDLExceptionSuppressor(err error) bool {
-	return errors.As(err, new(idlException))
+	var te thrift.TException
+	if errors.As(err, &te) {
+		return te.TExceptionType() == thrift.TExceptionTypeCompiled
+	}
+	return false
 }
 
 var _ errorsbp.Suppressor = IDLExceptionSuppressor

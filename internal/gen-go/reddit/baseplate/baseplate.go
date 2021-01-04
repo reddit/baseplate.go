@@ -562,8 +562,14 @@ func (p *Error) String() string {
 }
 
 func (p *Error) Error() string {
-  return p.String()
+return p.String()
 }
+
+func (Error) TExceptionType() thrift.TExceptionType {
+return thrift.TExceptionTypeCompiled
+}
+
+var _ thrift.TException = (*Error)(nil)
 
 type BaseplateService interface {  //The base for any baseplate-based service.
   //
@@ -659,8 +665,8 @@ return self4
 }
 
 func (p *BaseplateServiceProcessor) Process(ctx context.Context, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
-  name, _, seqId, err := iprot.ReadMessageBegin(ctx)
-  if err != nil { return false, err }
+  name, _, seqId, err2 := iprot.ReadMessageBegin(ctx)
+  if err2 != nil { return false, thrift.WrapTException(err2) }
   if processor, ok := p.GetProcessorFunction(name); ok {
     return processor.Process(ctx, seqId, iprot, oprot)
   }
@@ -681,14 +687,15 @@ type baseplateServiceProcessorIsHealthy struct {
 
 func (p *baseplateServiceProcessorIsHealthy) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
   args := BaseplateServiceIsHealthyArgs{}
-  if err = args.Read(ctx, iprot); err != nil {
+  var err2 error
+  if err2 = args.Read(ctx, iprot); err2 != nil {
     iprot.ReadMessageEnd(ctx)
-    x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+    x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err2.Error())
     oprot.WriteMessageBegin(ctx, "is_healthy", thrift.EXCEPTION, seqId)
     x.Write(ctx, oprot)
     oprot.WriteMessageEnd(ctx)
     oprot.Flush(ctx)
-    return false, err
+    return false, thrift.WrapTException(err2)
   }
   iprot.ReadMessageEnd(ctx)
 
@@ -720,33 +727,32 @@ func (p *baseplateServiceProcessorIsHealthy) Process(ctx context.Context, seqId 
 
   result := BaseplateServiceIsHealthyResult{}
   var retval bool
-  var err2 error
   if retval, err2 = p.handler.IsHealthy(ctx); err2 != nil {
     tickerCancel()
     if err2 == thrift.ErrAbandonRequest {
-      return false, err2
+      return false, thrift.WrapTException(err2)
     }
     x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing is_healthy: " + err2.Error())
     oprot.WriteMessageBegin(ctx, "is_healthy", thrift.EXCEPTION, seqId)
     x.Write(ctx, oprot)
     oprot.WriteMessageEnd(ctx)
     oprot.Flush(ctx)
-    return true, err2
+    return true, thrift.WrapTException(err2)
   } else {
     result.Success = &retval
   }
   tickerCancel()
   if err2 = oprot.WriteMessageBegin(ctx, "is_healthy", thrift.REPLY, seqId); err2 != nil {
-    err = err2
+    err = thrift.WrapTException(err2)
   }
   if err2 = result.Write(ctx, oprot); err == nil && err2 != nil {
-    err = err2
+    err = thrift.WrapTException(err2)
   }
   if err2 = oprot.WriteMessageEnd(ctx); err == nil && err2 != nil {
-    err = err2
+    err = thrift.WrapTException(err2)
   }
   if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
-    err = err2
+    err = thrift.WrapTException(err2)
   }
   if err != nil {
     return
@@ -1006,8 +1012,8 @@ return self8
 }
 
 func (p *BaseplateServiceV2Processor) Process(ctx context.Context, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
-  name, _, seqId, err := iprot.ReadMessageBegin(ctx)
-  if err != nil { return false, err }
+  name, _, seqId, err2 := iprot.ReadMessageBegin(ctx)
+  if err2 != nil { return false, thrift.WrapTException(err2) }
   if processor, ok := p.GetProcessorFunction(name); ok {
     return processor.Process(ctx, seqId, iprot, oprot)
   }
@@ -1028,14 +1034,15 @@ type baseplateServiceV2ProcessorIsHealthy struct {
 
 func (p *baseplateServiceV2ProcessorIsHealthy) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
   args := BaseplateServiceV2IsHealthyArgs{}
-  if err = args.Read(ctx, iprot); err != nil {
+  var err2 error
+  if err2 = args.Read(ctx, iprot); err2 != nil {
     iprot.ReadMessageEnd(ctx)
-    x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+    x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err2.Error())
     oprot.WriteMessageBegin(ctx, "is_healthy", thrift.EXCEPTION, seqId)
     x.Write(ctx, oprot)
     oprot.WriteMessageEnd(ctx)
     oprot.Flush(ctx)
-    return false, err
+    return false, thrift.WrapTException(err2)
   }
   iprot.ReadMessageEnd(ctx)
 
@@ -1067,33 +1074,32 @@ func (p *baseplateServiceV2ProcessorIsHealthy) Process(ctx context.Context, seqI
 
   result := BaseplateServiceV2IsHealthyResult{}
   var retval bool
-  var err2 error
   if retval, err2 = p.handler.IsHealthy(ctx, args.Request); err2 != nil {
     tickerCancel()
     if err2 == thrift.ErrAbandonRequest {
-      return false, err2
+      return false, thrift.WrapTException(err2)
     }
     x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing is_healthy: " + err2.Error())
     oprot.WriteMessageBegin(ctx, "is_healthy", thrift.EXCEPTION, seqId)
     x.Write(ctx, oprot)
     oprot.WriteMessageEnd(ctx)
     oprot.Flush(ctx)
-    return true, err2
+    return true, thrift.WrapTException(err2)
   } else {
     result.Success = &retval
   }
   tickerCancel()
   if err2 = oprot.WriteMessageBegin(ctx, "is_healthy", thrift.REPLY, seqId); err2 != nil {
-    err = err2
+    err = thrift.WrapTException(err2)
   }
   if err2 = result.Write(ctx, oprot); err == nil && err2 != nil {
-    err = err2
+    err = thrift.WrapTException(err2)
   }
   if err2 = oprot.WriteMessageEnd(ctx); err == nil && err2 != nil {
-    err = err2
+    err = thrift.WrapTException(err2)
   }
   if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
-    err = err2
+    err = thrift.WrapTException(err2)
   }
   if err != nil {
     return
