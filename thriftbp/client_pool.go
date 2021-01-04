@@ -181,6 +181,21 @@ func (c ClientPoolConfig) Validate() error {
 	return batch.Compile()
 }
 
+var tHeaderProtocolCompact = thrift.THeaderProtocolIDPtrMust(thrift.THeaderProtocolCompact)
+
+// ToTConfiguration generates *thrift.TConfiguration from this config.
+//
+// Note that it always set THeaderProtocolID to thrift.THeaderProtocolCompact,
+// even though that's not part of the ClientPoolConfig.
+// To override this behavior, change the value from the returned TConfiguration.
+func (c ClientPoolConfig) ToTConfiguration() *thrift.TConfiguration {
+	return &thrift.TConfiguration{
+		ConnectTimeout:    c.ConnectTimeout,
+		SocketTimeout:     c.SocketTimeout,
+		THeaderProtocolID: thrift.THeaderProtocolIDPtrMust(*tHeaderProtocolCompact),
+	}
+}
+
 // BaseplateClientPoolConfig provides a more concrete Validate method tailored
 // to validating baseplate service confgiurations.
 type BaseplateClientPoolConfig ClientPoolConfig
@@ -281,15 +296,10 @@ func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMi
 		},
 	)
 	middlewares = append(middlewares, defaults...)
-	factory, err := thrift.NewTHeaderProtocolFactoryWithProtocolID(thrift.THeaderProtocolCompact)
-	if err != nil {
-		// Should not happen, but just in case
-		return nil, fmt.Errorf("thriftbp.NewBaseplateClientPool: %w", err)
-	}
 	return NewCustomClientPool(
 		cfg,
 		SingleAddressGenerator(cfg.Addr),
-		factory,
+		thrift.NewTHeaderProtocolFactoryConf(cfg.ToTConfiguration()),
 		middlewares...,
 	)
 }
@@ -317,11 +327,11 @@ func newClientPool(
 	proto thrift.TProtocolFactory,
 	middlewares ...thrift.ClientMiddleware,
 ) (*clientPool, error) {
+	tConfig := cfg.ToTConfiguration()
 	tags := cfg.MetricsTags.AsStatsdTags()
 	opener := func() (clientpool.Client, error) {
 		return newClient(
-			cfg.ConnectTimeout,
-			cfg.SocketTimeout,
+			tConfig,
 			cfg.MaxConnectionAge,
 			genAddr,
 			proto,
@@ -388,8 +398,7 @@ func newClientPool(
 }
 
 func newClient(
-	connectTimeout time.Duration,
-	socketTimeout time.Duration,
+	cfg *thrift.TConfiguration,
 	maxConnectionAge time.Duration,
 	genAddr AddressGenerator,
 	protoFactory thrift.TProtocolFactory,
@@ -399,7 +408,7 @@ func newClient(
 		return nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client: %w", err)
 	}
 
-	trans, err := thrift.NewTSocketTimeout(addr, connectTimeout, socketTimeout)
+	trans, err := thrift.NewTSocketConf(addr, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("thriftbp: error building TSocket for new Thrift client: %w", err)
 	}

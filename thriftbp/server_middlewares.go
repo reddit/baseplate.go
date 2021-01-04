@@ -217,7 +217,7 @@ func AbandonCanceledRequests(name string, next thrift.TProcessorFunction) thrift
 		Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
 			ok, err := next.Process(ctx, seqID, in, out)
 			if errors.Is(err, context.Canceled) {
-				err = thrift.ErrAbandonRequest
+				err = thrift.WrapTException(thrift.ErrAbandonRequest)
 			}
 			return ok, err
 		},
@@ -256,37 +256,32 @@ func ReportPayloadSizeMetrics(rate float64) thrift.ProcessorMiddleware {
 					// Only report for THeader requests
 					if ht, ok := in.Transport().(*thrift.THeaderTransport); ok {
 						protoID := ht.Protocol()
-						// err could only be non-nil when protoID is an unsupported value,
-						// but we got protoID from an existing connection so that should
-						// never happen.
-						//
-						// Since we checked error here, it's safe to ignore error from
-						// thrift.NewTHeaderTransportWithProtocolID.
-						if err := protoID.Validate(); err == nil {
-							var itrans, otrans countingTransport
-							trans, _ := thrift.NewTHeaderTransportWithProtocolID(&itrans, protoID)
-							iproto := thrift.NewTHeaderProtocol(trans)
-							in = &thrift.TDebugProtocol{
-								Logger:      thrift.NopLogger,
-								Delegate:    in,
-								DuplicateTo: iproto,
-							}
-							trans, _ = thrift.NewTHeaderTransportWithProtocolID(&otrans, protoID)
-							oproto := thrift.NewTHeaderProtocol(trans)
-							out = &thrift.TDebugProtocol{
-								Logger:      thrift.NopLogger,
-								Delegate:    out,
-								DuplicateTo: oproto,
-							}
-
-							defer func() {
-								iproto.Flush(ctx)
-								oproto.Flush(ctx)
-
-								metricsbp.M.HistogramWithRate("payload.size."+name+".request", 1).Observe(float64(itrans))
-								metricsbp.M.HistogramWithRate("payload.size."+name+".response", 1).Observe(float64(otrans))
-							}()
+						cfg := &thrift.TConfiguration{
+							THeaderProtocolID: &protoID,
 						}
+						var itrans, otrans countingTransport
+						trans := thrift.NewTHeaderTransportConf(&itrans, cfg)
+						iproto := thrift.NewTHeaderProtocol(trans)
+						in = &thrift.TDebugProtocol{
+							Logger:      thrift.NopLogger,
+							Delegate:    in,
+							DuplicateTo: iproto,
+						}
+						trans = thrift.NewTHeaderTransportConf(&otrans, cfg)
+						oproto := thrift.NewTHeaderProtocol(trans)
+						out = &thrift.TDebugProtocol{
+							Logger:      thrift.NopLogger,
+							Delegate:    out,
+							DuplicateTo: oproto,
+						}
+
+						defer func() {
+							iproto.Flush(ctx)
+							oproto.Flush(ctx)
+
+							metricsbp.M.HistogramWithRate("payload.size."+name+".request", 1).Observe(float64(itrans))
+							metricsbp.M.HistogramWithRate("payload.size."+name+".response", 1).Observe(float64(otrans))
+						}()
 					}
 				}
 

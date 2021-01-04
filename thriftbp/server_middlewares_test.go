@@ -58,7 +58,7 @@ func TestInjectServerSpan(t *testing.T) {
 		map[string]thrift.TProcessorFunction{
 			name: thrift.WrappedTProcessorFunction{
 				Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
-					return false, errors.New("TError")
+					return false, thrift.WrapTException(errors.New("TError"))
 				},
 			},
 		},
