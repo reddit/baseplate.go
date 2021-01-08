@@ -57,12 +57,19 @@ var HeadersToForward = []string{
 // EdgeRequestContext set to forward using the "Edge-Request" header on any
 // Thrift calls made with that context object.
 func AttachEdgeRequestContext(ctx context.Context, ec *edgecontext.EdgeRequestContext) context.Context {
-	headers := thrift.GetWriteHeaderList(ctx)
 	if ec == nil {
-		ctx = thrift.UnsetHeader(ctx, HeaderEdgeRequest)
-	} else {
-		ctx = thrift.SetHeader(ctx, HeaderEdgeRequest, ec.Header())
-		headers = append(headers, HeaderEdgeRequest)
+		return thrift.UnsetHeader(ctx, HeaderEdgeRequest)
 	}
+	return AddClientHeader(ctx, HeaderEdgeRequest, ec.Header())
+}
+
+// AddClientHeader adds a key-value pair to thrift client's headers.
+//
+// It takes care of setting the header in context (overwrite previous value if
+// any), and also adding the header to the write header list.
+func AddClientHeader(ctx context.Context, key, value string) context.Context {
+	headers := thrift.GetWriteHeaderList(ctx)
+	ctx = thrift.SetHeader(ctx, key, value)
+	headers = append(headers, key)
 	return thrift.SetWriteHeaderList(ctx, headers)
 }

@@ -216,17 +216,7 @@ func TestForwardEdgeRequestContext(t *testing.T) {
 	}
 
 	ctx = recorder.Calls()[0].Ctx
-	headers := thrift.GetWriteHeaderList(ctx)
-	var found bool
-	for _, key := range headers {
-		if key == thriftbp.HeaderEdgeRequest {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("header not added to thrift write list")
-	}
+	headerInWriteHeaderList(ctx, t, thriftbp.HeaderEdgeRequest)
 
 	header, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
 	if !ok {
@@ -261,7 +251,7 @@ func TestForwardEdgeRequestContextNotSet(t *testing.T) {
 	}
 }
 
-func TesetSetDeadlineBudget(t *testing.T) {
+func TestSetDeadlineBudget(t *testing.T) {
 	mock, recorder, client := initClients()
 	mock.AddMockCall(
 		method,
@@ -313,6 +303,8 @@ func TesetSetDeadlineBudget(t *testing.T) {
 					v,
 				)
 			}
+
+			headerInWriteHeaderList(ctx, t, thriftbp.HeaderDeadlineBudget)
 		},
 	)
 }
