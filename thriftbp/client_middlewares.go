@@ -229,7 +229,7 @@ func SetDeadlineBudget(next thrift.TClient) thrift.TClient {
 					ms = 1
 				}
 				value := strconv.FormatInt(ms, 10)
-				ctx = thrift.SetHeader(ctx, HeaderDeadlineBudget, value)
+				ctx = AddClientHeader(ctx, HeaderDeadlineBudget, value)
 			}
 
 			return next.Call(ctx, method, args, result)
