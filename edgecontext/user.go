@@ -113,7 +113,7 @@ func (u User) VariantInputs() map[string]interface{} {
 	u.UpdateExperimentEvent(&ee)
 
 	// Reference for the keys:
-	// https://github.com/reddit/baseplate.py/blob/5c7231de2e94323cd90a831fcfa601693909384f/baseplate/lib/edge_context.py#L248-L252
+	// https://github.com/reddit/edgecontext.py/blob/420e58728ee7085a2f91c5db45df233142b251f9/reddit_edgecontext/__init__.py#L262-L266
 	return map[string]interface{}{
 		"user_id":                  stringOrNil(ee.UserID),
 		"logged_in":                *ee.LoggedIn,

@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "GoUnusedProtection__.go",
+        "edgecontext.go",
+        "edgecontext-consts.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/internal/gen-go/reddit/edgecontext",
+    visibility = ["//:__subpackages__"],
+    deps = ["@com_github_apache_thrift//lib/go/thrift:go_default_library"],
+)
