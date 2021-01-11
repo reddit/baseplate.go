@@ -14,10 +14,7 @@ import (
 )
 
 const (
-	// copied from https://github.com/reddit/baseplate.py/blob/db9c1d7cddb1cb242546349e821cad0b0cbd6fce/tests/__init__.py#L56
-	headerWithNoAuthNoDevice = "\x0c\x00\x01\x0b\x00\x01\x00\x00\x00\x0bt2_deadbeef\n\x00\x02\x00\x00\x00\x00\x00\x01\x86\xa0\x00\x0c\x00\x02\x0b\x00\x01\x00\x00\x00\x08beefdead\x00\x00"
-
-	// copied from https://github.com/reddit/baseplate.py/blob/6ede8853db33d5ed81c8404d607f6ba450ab17ee/tests/__init__.py#L55-L59
+	// copied from https://github.com/reddit/edgecontext.py/blob/420e58728ee7085a2f91c5db45df233142b251f9/tests/edge_context_tests.py#L55-L58
 	headerWithNoAuth      = "\x0c\x00\x01\x0b\x00\x01\x00\x00\x00\x0bt2_deadbeef\n\x00\x02\x00\x00\x00\x00\x00\x01\x86\xa0\x00\x0c\x00\x02\x0b\x00\x01\x00\x00\x00\x08beefdead\x00\x0c\x00\x04\x0b\x00\x01\x00\x00\x00$becc50f6-ff3d-407a-aa49-fa49531363be\x00\x00"
 	headerWithValidAuth   = "\x0c\x00\x01\x0b\x00\x01\x00\x00\x00\x0bt2_deadbeef\n\x00\x02\x00\x00\x00\x00\x00\x01\x86\xa0\x00\x0c\x00\x02\x0b\x00\x01\x00\x00\x00\x08beefdead\x00\x0b\x00\x03\x00\x00\x01\xaeeyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0Ml9leGFtcGxlIiwiZXhwIjoyNTI0NjA4MDAwfQ.dRzzfc9GmzyqfAbl6n_C55JJueraXk9pp3v0UYXw0ic6W_9RVa7aA1zJWm7slX9lbuYldwUtHvqaSsOpjF34uqr0-yMoRDVpIrbkwwJkNuAE8kbXGYFmXf3Ip25wMHtSXn64y2gJN8TtgAAnzjjGs9yzK9BhHILCDZTtmPbsUepxKmWTiEX2BdurUMZzinbcvcKY4Rb_Fl0pwsmBJFs7nmk5PvTyC6qivCd8ZmMc7dwL47mwy_7ouqdqKyUEdLoTEQ_psuy9REw57PRe00XCHaTSTRDCLmy4gAN6J0J056XoRHLfFcNbtzAmqmtJ_D9HGIIXPKq-KaggwK9I4qLX7g\x0c\x00\x04\x0b\x00\x01\x00\x00\x00$becc50f6-ff3d-407a-aa49-fa49531363be\x00\x0c\x00\x05\x0b\x00\x01\x00\x00\x00\tbaseplate\x00\x0c\x00\x06\x0b\x00\x01\x00\x00\x00\x02OK\x00\x00"
 	headerWithExpiredAuth = "\x0c\x00\x01\x0b\x00\x01\x00\x00\x00\x0bt2_deadbeef\n\x00\x02\x00\x00\x00\x00\x00\x01\x86\xa0\x00\x0c\x00\x02\x0b\x00\x01\x00\x00\x00\x08beefdead\x00\x0b\x00\x03\x00\x00\x01\xaeeyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0Ml9leGFtcGxlIiwiZXhwIjoxMjYyMzA0MDAwfQ.iUD0J2blW-HGtH86s66msBXymCRCgyxAZJ6xX2_SXD-kegm-KjOlIemMWFZtsNv9DJI147cNP81_gssewvUnhIHLVvXWCTOROasXbA9Yf2GUsjxoGSB7474ziPOZquAJKo8ikERlhOOVk3r4xZIIYCuc4vGZ7NfqFxjDGKAWj5Tt4VUiWXK1AdxQck24GyNOSXs677vIJnoD8EkgWqNuuwY-iFOAPVcoHmEuzhU_yUeQnY8D-VztJkip5-YPEnuuf-dTSmPbdm9ZTOP8gjTsG0Sdvb9NdLId0nEwawRy8CfFEGQulqHgd1bqTm25U-NyXQi7zroi1GEdykZ3w9fVNQ\x00"
@@ -243,60 +240,6 @@ func TestFromHeader(t *testing.T) {
 			if e != nil {
 				t.Errorf("Expected EdgeRequestContext to be nil, got %#v", e)
 			}
-		},
-	)
-
-	t.Run(
-		"no-device-id-no-origin",
-		func(t *testing.T) {
-
-			e, err := edgecontext.FromHeader(context.Background(), headerWithNoAuthNoDevice, globalTestImpl)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if e.DeviceID() != "" {
-				t.Errorf("Unexpected device id %q", e.DeviceID())
-			}
-
-			if e.OriginService().Name() != "" {
-				t.Errorf("Unexpected origin name %q", e.OriginService().Name())
-			}
-
-			t.Run(
-				"experiment-event",
-				func(t *testing.T) {
-					// Make deep copy from base
-					emptyEvent := emptyExperimentEventBase
-					e.UpdateExperimentEvent(&emptyEvent)
-					compareUntouchedFields(t, emptyExperimentEventBase, emptyEvent)
-					compareTouchedFields(
-						t,
-						emptyEvent,
-						expectedLoID,
-						false, // logged in
-						expectedCookieTime,
-						"", // oauth client id
-						expectedSessionID,
-						emptyDeviceID,
-					)
-
-					// Make deep copy from base
-					fullEvent := fullExperimentEventBase
-					e.UpdateExperimentEvent(&fullEvent)
-					compareUntouchedFields(t, fullExperimentEventBase, fullEvent)
-					compareTouchedFields(
-						t,
-						fullEvent,
-						expectedLoID,
-						false, // logged in
-						expectedCookieTime,
-						"", // oauth client id
-						expectedSessionID,
-						emptyDeviceID,
-					)
-				},
-			)
 		},
 	)
 

@@ -9,7 +9,7 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 
-	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+	ecthrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/edgecontext"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/timebp"
@@ -99,37 +99,37 @@ type NewArgs struct {
 // This function should be used by services on the edge talking to clients
 // directly, after talked to authentication service to get the auth token.
 func New(ctx context.Context, impl *Impl, args NewArgs) (*EdgeRequestContext, error) {
-	request := baseplate.NewRequest()
+	request := ecthrift.NewRequest()
 	if args.LoID != "" {
 		if !strings.HasPrefix(args.LoID, userPrefix) {
 			return nil, ErrLoIDWrongPrefix
 		}
-		request.Loid = &baseplate.Loid{
+		request.Loid = &ecthrift.Loid{
 			ID:        args.LoID,
 			CreatedMs: timebp.TimeToMilliseconds(args.LoIDCreatedAt),
 		}
 	}
 	if args.SessionID != "" {
-		request.Session = &baseplate.Session{
+		request.Session = &ecthrift.Session{
 			ID: args.SessionID,
 		}
 	}
 	if args.DeviceID != "" {
-		request.Device = &baseplate.Device{
+		request.Device = &ecthrift.Device{
 			ID: args.DeviceID,
 		}
 	}
 	if args.OriginServiceName != "" {
-		request.OriginService = &baseplate.OriginService{
+		request.OriginService = &ecthrift.OriginService{
 			Name: args.OriginServiceName,
 		}
 	}
 	if args.CountryCode != "" {
-		request.Geolocation = &baseplate.Geolocation{
-			CountryCode: baseplate.CountryCode(args.CountryCode),
+		request.Geolocation = &ecthrift.Geolocation{
+			CountryCode: ecthrift.CountryCode(args.CountryCode),
 		}
 	}
-	request.AuthenticationToken = baseplate.AuthenticationToken(args.AuthToken)
+	request.AuthenticationToken = ecthrift.AuthenticationToken(args.AuthToken)
 
 	header, err := serializerPool.WriteString(ctx, request)
 	if err != nil {
@@ -150,7 +150,7 @@ func FromHeader(ctx context.Context, header string, impl *Impl) (*EdgeRequestCon
 		return nil, nil
 	}
 
-	request := baseplate.NewRequest()
+	request := ecthrift.NewRequest()
 	if err := deserializerPool.ReadString(ctx, request, header); err != nil {
 		return nil, err
 	}
