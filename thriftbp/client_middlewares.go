@@ -75,7 +75,7 @@ type DefaultClientMiddlewareArgs struct {
 	//
 	// See MonitorClientArgs.ErrorSpanSuppressor for more details.
 	//
-	// This is optional. If it's not set none of the errors will be suppressed.
+	// This is optional. If it's not set IDLExceptionSuppressor will be used.
 	ErrorSpanSuppressor errorsbp.Suppressor
 
 	// When BreakerConfig is non-nil,
