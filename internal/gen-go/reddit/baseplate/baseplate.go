@@ -562,11 +562,11 @@ func (p *Error) String() string {
 }
 
 func (p *Error) Error() string {
-return p.String()
+  return p.String()
 }
 
 func (Error) TExceptionType() thrift.TExceptionType {
-return thrift.TExceptionTypeCompiled
+  return thrift.TExceptionTypeCompiled
 }
 
 var _ thrift.TException = (*Error)(nil)
@@ -599,6 +599,7 @@ type BaseplateService interface {  //The base for any baseplate-based service.
 //
 type BaseplateServiceClient struct {
   c thrift.TClient
+  meta thrift.ResponseMeta
 }
 
 func NewBaseplateServiceClientFactory(t thrift.TTransport, f thrift.TProtocolFactory) *BaseplateServiceClient {
@@ -622,6 +623,15 @@ func NewBaseplateServiceClient(c thrift.TClient) *BaseplateServiceClient {
 func (p *BaseplateServiceClient) Client_() thrift.TClient {
   return p.c
 }
+
+func (p *BaseplateServiceClient) LastResponseMeta_() thrift.ResponseMeta {
+  return p.meta
+}
+
+func (p *BaseplateServiceClient) SetLastResponseMeta_(meta thrift.ResponseMeta) {
+  p.meta = meta
+}
+
 // Return whether or not the service is healthy.
 // 
 // The healthchecker (baseplate.server.healthcheck) expects this endpoint to
@@ -633,7 +643,10 @@ func (p *BaseplateServiceClient) Client_() thrift.TClient {
 func (p *BaseplateServiceClient) IsHealthy(ctx context.Context) (r bool, err error) {
   var _args2 BaseplateServiceIsHealthyArgs
   var _result3 BaseplateServiceIsHealthyResult
-  if err = p.Client_().Call(ctx, "is_healthy", &_args2, &_result3); err != nil {
+  var meta thrift.ResponseMeta
+  meta, err = p.Client_().Call(ctx, "is_healthy", &_args2, &_result3)
+  p.SetLastResponseMeta_(meta)
+  if err != nil {
     return
   }
   return _result3.GetSuccess(), nil
@@ -942,6 +955,7 @@ type BaseplateServiceV2 interface {  //The base for any baseplate-based service.
 //
 type BaseplateServiceV2Client struct {
   c thrift.TClient
+  meta thrift.ResponseMeta
 }
 
 func NewBaseplateServiceV2ClientFactory(t thrift.TTransport, f thrift.TProtocolFactory) *BaseplateServiceV2Client {
@@ -965,6 +979,15 @@ func NewBaseplateServiceV2Client(c thrift.TClient) *BaseplateServiceV2Client {
 func (p *BaseplateServiceV2Client) Client_() thrift.TClient {
   return p.c
 }
+
+func (p *BaseplateServiceV2Client) LastResponseMeta_() thrift.ResponseMeta {
+  return p.meta
+}
+
+func (p *BaseplateServiceV2Client) SetLastResponseMeta_(meta thrift.ResponseMeta) {
+  p.meta = meta
+}
+
 // Return whether or not the service is healthy.
 // 
 // The healthchecker (baseplate.server.healthcheck) expects this endpoint to
@@ -980,7 +1003,10 @@ func (p *BaseplateServiceV2Client) IsHealthy(ctx context.Context, request *IsHea
   var _args6 BaseplateServiceV2IsHealthyArgs
   _args6.Request = request
   var _result7 BaseplateServiceV2IsHealthyResult
-  if err = p.Client_().Call(ctx, "is_healthy", &_args6, &_result7); err != nil {
+  var meta thrift.ResponseMeta
+  meta, err = p.Client_().Call(ctx, "is_healthy", &_args6, &_result7)
+  p.SetLastResponseMeta_(meta)
+  if err != nil {
     return
   }
   return _result7.GetSuccess(), nil

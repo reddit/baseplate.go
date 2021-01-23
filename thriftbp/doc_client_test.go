@@ -45,7 +45,7 @@ func NewMyServiceClient(_ thrift.TClient) MyService {
 
 func LoggingMiddleware(next thrift.TClient) thrift.TClient {
 	return thrift.WrappedTClient{
-		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
+		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 			log.Infof("pre: %s", method)
 			log.Infof("args: %#v", args)
 			defer func() {

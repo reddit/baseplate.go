@@ -169,7 +169,7 @@ func MonitorClient(args MonitorClientArgs) thrift.ClientMiddleware {
 	}
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
-			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (_ thrift.ResponseMeta, err error) {
 				span, ctx := opentracing.StartSpanFromContext(
 					ctx,
 					prefix+method,
@@ -197,7 +197,7 @@ func MonitorClient(args MonitorClientArgs) thrift.ClientMiddleware {
 // ClientMiddleware to NewBaseplateClientPool.
 func ForwardEdgeRequestContext(next thrift.TClient) thrift.TClient {
 	return thrift.WrappedTClient{
-		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
+		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 			if ec, ok := edgecontext.GetEdgeContext(ctx); ok {
 				ctx = AttachEdgeRequestContext(ctx, ec)
 			}
@@ -210,10 +210,10 @@ func ForwardEdgeRequestContext(next thrift.TClient) thrift.TClient {
 // deadline propogation.
 func SetDeadlineBudget(next thrift.TClient) thrift.TClient {
 	return thrift.WrappedTClient{
-		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
+		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 			if ctx.Err() != nil {
 				// Deadline already passed, no need to even try
-				return ctx.Err()
+				return thrift.ResponseMeta{}, ctx.Err()
 			}
 
 			if deadline, ok := ctx.Deadline(); ok {
@@ -242,11 +242,14 @@ func SetDeadlineBudget(next thrift.TClient) thrift.TClient {
 func Retry(defaults ...retry.Option) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
-			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
-				return retrybp.Do(
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				var lastMeta thrift.ResponseMeta
+				return lastMeta, retrybp.Do(
 					ctx,
 					func() error {
-						return next.Call(ctx, method, args, result)
+						var err error
+						lastMeta, err = next.Call(ctx, method, args, result)
+						return err
 					},
 					defaults...,
 				)

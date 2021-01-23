@@ -90,32 +90,32 @@ func TestWrapMonitoredClient(t *testing.T) {
 	}{
 		{
 			name: "server span: success",
-			call: func(ctx context.Context, args, result thrift.TStruct) error {
-				return nil
+			call: func(ctx context.Context, args, result thrift.TStruct) (meta thrift.ResponseMeta, err error) {
+				return
 			},
 			errorExpected: false,
 			initSpan:      initServerSpan,
 		},
 		{
 			name: "server span: error",
-			call: func(ctx context.Context, args, result thrift.TStruct) error {
-				return errors.New("test error")
+			call: func(ctx context.Context, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				return thrift.ResponseMeta{}, errors.New("test error")
 			},
 			errorExpected: true,
 			initSpan:      initServerSpan,
 		},
 		{
 			name: "local span: success",
-			call: func(ctx context.Context, args, result thrift.TStruct) error {
-				return nil
+			call: func(ctx context.Context, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				return thrift.ResponseMeta{}, nil
 			},
 			errorExpected: false,
 			initSpan:      initLocalSpan,
 		},
 		{
 			name: "local span: error",
-			call: func(ctx context.Context, args, result thrift.TStruct) error {
-				return errors.New("test error")
+			call: func(ctx context.Context, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				return thrift.ResponseMeta{}, errors.New("test error")
 			},
 			errorExpected: true,
 			initSpan:      initLocalSpan,
@@ -134,7 +134,7 @@ func TestWrapMonitoredClient(t *testing.T) {
 				mock.AddMockCall(method, c.call)
 
 				ctx, mmq := c.initSpan(context.Background(), t)
-				if err := client.Call(ctx, method, nil, nil); !c.errorExpected && err != nil {
+				if _, err := client.Call(ctx, method, nil, nil); !c.errorExpected && err != nil {
 					t.Fatal(err)
 				} else if c.errorExpected && err == nil {
 					t.Fatal("expected an error, got nil")
@@ -202,12 +202,12 @@ func TestForwardEdgeRequestContext(t *testing.T) {
 	mock, recorder, client := initClients()
 	mock.AddMockCall(
 		method,
-		func(ctx context.Context, args, result thrift.TStruct) error {
-			return nil
+		func(ctx context.Context, args, result thrift.TStruct) (meta thrift.ResponseMeta, err error) {
+			return
 		},
 	)
 
-	if err := client.Call(ctx, method, nil, nil); err != nil {
+	if _, err := client.Call(ctx, method, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -231,12 +231,12 @@ func TestForwardEdgeRequestContextNotSet(t *testing.T) {
 	mock, recorder, client := initClients()
 	mock.AddMockCall(
 		method,
-		func(ctx context.Context, args, result thrift.TStruct) error {
-			return nil
+		func(ctx context.Context, args, result thrift.TStruct) (meta thrift.ResponseMeta, err error) {
+			return
 		},
 	)
 
-	if err := client.Call(context.Background(), method, nil, nil); err != nil {
+	if _, err := client.Call(context.Background(), method, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -255,8 +255,8 @@ func TestSetDeadlineBudget(t *testing.T) {
 	mock, recorder, client := initClients()
 	mock.AddMockCall(
 		method,
-		func(ctx context.Context, args, result thrift.TStruct) error {
-			return nil
+		func(ctx context.Context, args, result thrift.TStruct) (meta thrift.ResponseMeta, err error) {
+			return
 		},
 	)
 
@@ -266,7 +266,7 @@ func TestSetDeadlineBudget(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
-			err := client.Call(ctx, method, nil, nil)
+			_, err := client.Call(ctx, method, nil, nil)
 			if err == nil {
 				t.Error("Expect error when ctx is already cancelled, got nil")
 			}
@@ -283,7 +283,7 @@ func TestSetDeadlineBudget(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond-1)
 			defer cancel()
 
-			if err := client.Call(ctx, method, nil, nil); err != nil {
+			if _, err := client.Call(ctx, method, nil, nil); err != nil {
 				t.Fatal(err)
 			}
 
@@ -309,13 +309,15 @@ func TestSetDeadlineBudget(t *testing.T) {
 	)
 }
 
+const retryTestTimeout = 10 * time.Millisecond
+
 type BaseplateService struct {
-	Sever baseplate.Server
+	server baseplate.Server
 }
 
 func (srv BaseplateService) IsHealthy(ctx context.Context, _ *baseplatethrift.IsHealthyRequest) (r bool, err error) {
-	srv.Sever.Close()
-	time.Sleep(10 * time.Millisecond)
+	srv.server.Close()
+	time.Sleep(retryTestTimeout)
 	return true, nil
 }
 
@@ -355,20 +357,24 @@ func TestRetry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler.Sever = server
+	handler.server = server
 	server.Start(ctx)
 
 	client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool)
+	ctx, cancel = context.WithTimeout(ctx, retryTestTimeout)
+	defer cancel()
 	_, err = client.IsHealthy(
 		ctx,
 		&baseplatethrift.IsHealthyRequest{
 			Probe: baseplatethrift.IsHealthyProbePtr(baseplatethrift.IsHealthyProbe_READINESS),
 		},
 	)
+	t.Logf("error: %v", err)
 	if err == nil {
-		t.Errorf("expected an error, got nil")
+		t.Error("expected an error, got nil")
 	}
-	if c.count != 1 {
-		t.Errorf("expected middleware to trigger a retry.")
+	const expected = 1
+	if c.count != expected {
+		t.Errorf("expected middleware to trigger a retry %d times, got %d", expected, c.count)
 	}
 }

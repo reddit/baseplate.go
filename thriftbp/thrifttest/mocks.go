@@ -91,7 +91,7 @@ var (
 
 // MockCall is a mock function that can be registered to a method in a
 // MockClient.
-type MockCall func(ctx context.Context, args, result thrift.TStruct) error
+type MockCall func(ctx context.Context, args, result thrift.TStruct) (thrift.ResponseMeta, error)
 
 // MockClient implements thrift.TClient and Client,
 // and can be used to mock out thrift calls in testing by using it as the base
@@ -111,8 +111,8 @@ type MockClient struct {
 	methods map[string]MockCall
 }
 
-func nopMockCall(ctx context.Context, args, result thrift.TStruct) error {
-	return nil
+func nopMockCall(ctx context.Context, args, result thrift.TStruct) (meta thrift.ResponseMeta, err error) {
+	return
 }
 
 // AddNopMockCalls registers the nop MockCall to the given methods.
@@ -144,14 +144,14 @@ func (c *MockClient) AddMockCall(method string, mock MockCall) {
 // If the method is not registered,
 // it returns an error when FailUnregisteredMethods is true,
 // nil otherwise.
-func (c *MockClient) Call(ctx context.Context, method string, args, result thrift.TStruct) error {
+func (c *MockClient) Call(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 	if m, ok := c.methods[method]; ok {
 		return m(ctx, args, result)
 	}
 	if c.FailUnregisteredMethods {
-		return errors.New("thrifttest.MockClient: unregistered method: " + method)
+		return thrift.ResponseMeta{}, errors.New("thrifttest.MockClient: unregistered method: " + method)
 	}
-	return nil
+	return thrift.ResponseMeta{}, nil
 }
 
 // Close implements Client and is a nop that always returns nil.
@@ -204,7 +204,7 @@ func (c RecordedClient) Calls() []RecordedCall {
 // Call fufills the thrift.TClient interface. It will record the inputs to Call
 // and either return the result of the inner client.Call or nil if the inner
 // client is nil.
-func (c *RecordedClient) Call(ctx context.Context, method string, args, result thrift.TStruct) error {
+func (c *RecordedClient) Call(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 	c.calls = append(c.calls, RecordedCall{
 		Ctx:    ctx,
 		Method: method,
@@ -214,7 +214,7 @@ func (c *RecordedClient) Call(ctx context.Context, method string, args, result t
 	if c.client != nil {
 		return c.client.Call(ctx, method, args, result)
 	}
-	return nil
+	return thrift.ResponseMeta{}, nil
 }
 
 // MockClientPool is a ClientPool implementation can be used in test code.
@@ -242,10 +242,10 @@ func (m MockClientPool) IsExhausted() bool {
 // it creates a new client using the CreateClient field if it's set
 // or uses default MockClient otherwise
 // and uses that to implement Call.
-func (m MockClientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) error {
+func (m MockClientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 	client, err := m.getClient()
 	if err != nil {
-		return thriftbp.PoolError{Cause: err}
+		return thrift.ResponseMeta{}, thriftbp.PoolError{Cause: err}
 	}
 	return client.Call(ctx, method, args, result)
 }
