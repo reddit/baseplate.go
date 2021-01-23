@@ -455,7 +455,7 @@ type clientPool struct {
 	wrappedClient thrift.TClient
 }
 
-func (p *clientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
+func (p *clientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 	// A clientPool needs to be set up properly before it can be used,
 	// specifically use p.wrapCalls to set up p.wrappedClient before using it.
 	//
@@ -470,7 +470,7 @@ func (p *clientPool) Call(ctx context.Context, method string, args, result thrif
 // already takes care of this for you.
 func (p *clientPool) wrapCalls(middlewares ...thrift.ClientMiddleware) {
 	p.wrappedClient = thrift.WrapClient(thrift.WrappedTClient{
-		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
+		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 			return p.pooledCall(ctx, method, args, result)
 		},
 	}, middlewares...)
@@ -481,10 +481,10 @@ func (p *clientPool) wrapCalls(middlewares ...thrift.ClientMiddleware) {
 //
 // This is not called directly, but is rather the inner "Call" wrapped by
 // wrapCalls, so it runs after all of the middleware.
-func (p *clientPool) pooledCall(ctx context.Context, method string, args, result thrift.TStruct) (err error) {
+func (p *clientPool) pooledCall(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 	client, err := p.getClient()
 	if err != nil {
-		return PoolError{Cause: err}
+		return thrift.ResponseMeta{}, PoolError{Cause: err}
 	}
 	defer func() {
 		if shouldCloseConnection(err) {

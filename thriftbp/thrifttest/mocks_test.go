@@ -19,7 +19,7 @@ func TestMockClientPool(t *testing.T) {
 				t.Error("Expected default MockClientPool to report not exhausted.")
 			}
 
-			if err := pool.Call(context.Background(), "test", nil, nil); err != nil {
+			if _, err := pool.Call(context.Background(), "test", nil, nil); err != nil {
 				t.Fatal(err)
 			}
 		},
@@ -34,7 +34,7 @@ func TestMockClientPool(t *testing.T) {
 				t.Error("Expected MockClientPool to report exhausted when set to true")
 			}
 
-			err := pool.Call(context.Background(), "test", nil, nil)
+			_, err := pool.Call(context.Background(), "test", nil, nil)
 			if !errors.Is(err, clientpool.ErrExhausted) {
 				t.Errorf("Expected returned error to wrap exhausted error, got %v", err)
 			}

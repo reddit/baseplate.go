@@ -108,11 +108,12 @@ func (cb FailureRatioBreaker) Execute(fn func() (interface{}, error)) (interface
 // ThriftMiddleware is a thrift.ClientMiddleware that handles circuit breaking.
 func (cb FailureRatioBreaker) ThriftMiddleware(next thrift.TClient) thrift.TClient {
 	return thrift.WrappedTClient{
-		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) error {
-			_, err := cb.Execute(func() (interface{}, error) {
-				return nil, next.Call(ctx, method, args, result)
+		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+			m, err := cb.Execute(func() (interface{}, error) {
+				return next.Call(ctx, method, args, result)
 			})
-			return err
+			meta, _ := m.(thrift.ResponseMeta)
+			return meta, err
 		},
 	}
 }
