@@ -96,14 +96,16 @@ func InitLoggerWithConfig(logLevel Level, cfg zap.Config) error {
 		globalLogger = zap.NewNop().Sugar()
 		return nil
 	}
-	l, err := cfg.Build()
+	l, err := cfg.Build(
+		zap.AddCallerSkip(1),
+		zap.WrapCore(func(core zapcore.Core) zapcore.Core {
+			return wrappedCore{Core: core}
+		}),
+	)
 	if err != nil {
 		return err
 	}
-	globalLogger = zap.New(
-		wrappedCore{Core: l.Core()},
-		zap.AddCallerSkip(1),
-	).Sugar()
+	globalLogger = l.Sugar()
 	return nil
 }
 
