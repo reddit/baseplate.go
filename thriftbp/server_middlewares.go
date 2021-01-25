@@ -3,6 +3,7 @@ package thriftbp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -283,8 +284,9 @@ func ReportPayloadSizeMetrics(rate float64) thrift.ProcessorMiddleware {
 								iproto.Flush(ctx)
 								oproto.Flush(ctx)
 
-								metricsbp.M.HistogramWithRate("payload.size."+name+".request", 1).Observe(float64(itrans))
-								metricsbp.M.HistogramWithRate("payload.size."+name+".response", 1).Observe(float64(otrans))
+								proto := "header-" + tHeaderProtocol2String(protoID)
+								metricsbp.M.HistogramWithRate("payload.size."+name+".request", 1).With("proto", proto).Observe(float64(itrans))
+								metricsbp.M.HistogramWithRate("payload.size."+name+".response", 1).With("proto", proto).Observe(float64(otrans))
 							}()
 						}
 					}
@@ -321,3 +323,14 @@ func (countingTransport) Read(_ []byte) (n int, err error) { return }
 func (countingTransport) RemainingBytes() (numBytes uint64) { return }
 
 func (countingTransport) Open() (err error) { return }
+
+func tHeaderProtocol2String(proto thrift.THeaderProtocolID) string {
+	switch proto {
+	default:
+		return fmt.Sprintf("%v", proto)
+	case thrift.THeaderProtocolCompact:
+		return "compact"
+	case thrift.THeaderProtocolBinary:
+		return "binary"
+	}
+}
