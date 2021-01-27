@@ -481,8 +481,9 @@ func (p *clientPool) wrapCalls(middlewares ...thrift.ClientMiddleware) {
 //
 // This is not called directly, but is rather the inner "Call" wrapped by
 // wrapCalls, so it runs after all of the middleware.
-func (p *clientPool) pooledCall(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-	client, err := p.getClient()
+func (p *clientPool) pooledCall(ctx context.Context, method string, args, result thrift.TStruct) (_ thrift.ResponseMeta, err error) {
+	var client Client
+	client, err = p.getClient()
 	if err != nil {
 		return thrift.ResponseMeta{}, PoolError{Cause: err}
 	}
@@ -520,6 +521,21 @@ func (p *clientPool) releaseClient(c Client) {
 func shouldCloseConnection(err error) bool {
 	if err == nil {
 		return false
+	}
+	var te thrift.TException
+	if errors.As(err, &te) {
+		switch te.TExceptionType() {
+		case thrift.TExceptionTypeApplication, thrift.TExceptionTypeProtocol, thrift.TExceptionTypeTransport:
+			// We definitely should close the connection on TTransportException.
+			// We probably don't need to close the connection on TApplicationException
+			// and TProtocolException, but just close them to be safe, as the
+			// connection might be in some weird state when those errors happen.
+			return true
+		case thrift.TExceptionTypeCompiled:
+			// For exceptions defined from the IDL, we definitely shouldn't close the
+			// connection.
+			return false
+		}
 	}
 	// We should avoid reusing the client if it hits a network error.
 	// We should also actively close the connection if it's a timeout,
