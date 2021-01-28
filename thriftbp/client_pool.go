@@ -385,6 +385,9 @@ func newClientPool(
 		poolExhaustedCounter: metricsbp.M.Counter(
 			cfg.ServiceSlug + ".pool-exhausted",
 		).With(tags...),
+		poolClosedConnectionsCounter: metricsbp.M.Counter(
+			cfg.ServiceSlug + ".pool-closed-connections",
+		).With(tags...),
 		releaseErrorCounter: metricsbp.M.Counter(
 			cfg.ServiceSlug + ".pool-release-error",
 		).With(tags...),
@@ -449,8 +452,9 @@ func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, t
 type clientPool struct {
 	clientpool.Pool
 
-	poolExhaustedCounter metrics.Counter
-	releaseErrorCounter  metrics.Counter
+	poolExhaustedCounter         metrics.Counter
+	releaseErrorCounter          metrics.Counter
+	poolClosedConnectionsCounter metrics.Counter
 
 	wrappedClient thrift.TClient
 }
@@ -489,6 +493,7 @@ func (p *clientPool) pooledCall(ctx context.Context, method string, args, result
 	}
 	defer func() {
 		if shouldCloseConnection(err) {
+			p.poolClosedConnectionsCounter.Add(1)
 			if e := client.Close(); e != nil {
 				log.Errorw("Failed to close client", "origErr", err, "closeErr", e)
 			}
