@@ -65,7 +65,7 @@ func cappedExponentialBackoffFunc(args CappedExponentialBackoffArgs) retry.Delay
 
 	maxInt64 := uint64(math.MaxInt64)
 
-	return func(n uint, _ *retry.Config) time.Duration {
+	return func(n uint, _ error, _ *retry.Config) time.Duration {
 		if n > uMaxExponent {
 			n = uMaxExponent
 		}
@@ -111,7 +111,7 @@ func FixedDelay(delay time.Duration) retry.Option {
 
 // FixedDelayFunc is an retry.DelayTypeFunc implementation causing fixed delays.
 func FixedDelayFunc(delay time.Duration) retry.DelayTypeFunc {
-	return func(_ uint, _ *retry.Config) time.Duration {
+	return func(_ uint, _ error, _ *retry.Config) time.Duration {
 		return delay
 	}
 }
