@@ -153,7 +153,7 @@ func TestCappedExponentialBackoff(t *testing.T) {
 					MaxDelay:     c.maxDelay,
 					MaxExponent:  c.maxExponent,
 					MaxJitter:    c.maxJitter,
-				})(c.n, nil)
+				})(c.n, nil, nil)
 				if delay < c.min || delay > c.max {
 					t.Errorf("Delay %v not in range [%v, %v]", delay, c.min, c.max)
 				}
@@ -171,7 +171,7 @@ func TestCappedExponentialBackoffQuick(t *testing.T) {
 		MaxJitter: max,
 	})
 	f := func() bool {
-		delay := delayFunc(n, nil)
+		delay := delayFunc(n, nil, nil)
 		if delay > max || delay <= 0 {
 			t.Errorf("Delay result overflew: %v", delay)
 		}
