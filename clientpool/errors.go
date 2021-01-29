@@ -1,12 +1,24 @@
 package clientpool
 
 import (
-	"errors"
 	"fmt"
 )
 
 // ErrExhausted is the error returned by Get when the pool is exhausted.
-var ErrExhausted = errors.New("clientpool: exhausted")
+var ErrExhausted = exhaustedError{}
+
+type exhaustedError struct{}
+
+func (exhaustedError) Error() string {
+	return "clientpool: exhausted"
+}
+
+// Retryable implements retrybp.RetryableError.
+//
+// It always returns 1 to indicate that it's retryable.
+func (exhaustedError) Retryable() int {
+	return 1
+}
 
 // ConfigError is the error type returned when trying to open a new
 // client pool, but the configuration values passed in won't work.

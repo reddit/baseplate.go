@@ -89,6 +89,10 @@ func NetworkErrorFilter(err error, next retry.RetryIfFunc) bool {
 // This is safe to use even if a request is not idempotent as this error happens
 // before any network calls are made.  It is best paired with some backoff
 // though to give the pool some time to recover.
+//
+// DEPRECATED: clientpool.ErrExhausted implements RetryableError,
+// so RetryableErrorFilter covers the functionality of this filter and should be
+// used instead.
 func PoolExhaustedFilter(err error, next retry.RetryIfFunc) bool {
 	if errors.Is(err, clientpool.ErrExhausted) {
 		return true
@@ -103,11 +107,79 @@ func PoolExhaustedFilter(err error, next retry.RetryIfFunc) bool {
 // retry.Unrecoverable.  It also does not use the "errors" helpers so if the
 // the error returned by retry.Unrecoverable is further wrapped, this will not
 // be able to make a decision.
+//
+// DEPRECATED: Please use retrybp.Unrecoverable and RetryableErrorFilter instead.
 func UnrecoverableErrorFilter(err error, next retry.RetryIfFunc) bool {
-	if !retry.IsRecoverable(err) {
+	return RetryableErrorFilter(err, next)
+}
+
+// RetryableError defines an optional error interface to return retryable info.
+type RetryableError interface {
+	error
+
+	// Errors should return 0 if there's not enough information to make a
+	// decision, or >0 to indicate that it's retryable, and <0 means it's not.
+	Retryable() int
+}
+
+// RetryableErrorFilter is a Filter implementation that checks RetryableError.
+//
+// If err is not an implementation of RetryableError, or if its Retryable()
+// returns nil, it defers to the next filter.
+// Otherwise it use the Retryable() result.
+//
+// In addition, it also checks retry.IsRecoverable, in case retry.Unrecoverable
+// was used instead of retrybp.Unrecoverable.
+//
+// In most cases this should be the first in the filter chain,
+// because functions could use Unrecoverable to wrap errors that would return
+// true in other filter implementations to explicitly override those filter
+// behaviors.
+func RetryableErrorFilter(err error, next retry.RetryIfFunc) bool {
+	var re RetryableError
+	if errors.As(err, &re) {
+		if v := re.Retryable(); v != 0 {
+			return v > 0
+		}
+	} else if !retry.IsRecoverable(err) {
+		// In case users are mistakenly using retry.Unrecoverable instead of
+		// retrybp.Unrecoverable.
 		return false
 	}
 	return next(err)
+}
+
+type retryableWrapper struct {
+	err       error
+	retryable int
+}
+
+func (e retryableWrapper) Error() string {
+	return e.err.Error()
+}
+
+func (e retryableWrapper) Unwrap() error {
+	return e.err
+}
+
+func (e retryableWrapper) Retryable() int {
+	return e.retryable
+}
+
+// Unrecoverable wraps an error and mark it as unrecoverable by implementing
+// RetryableError and returning false on Retryable().
+//
+// It's similar to retry.Unrecoverable,
+// but properly implements error unwrapping API in go 1.13+.
+// As a result, it's preferred over retry.Unrecoverable.
+func Unrecoverable(err error) error {
+	if err == nil {
+		return nil
+	}
+	return retryableWrapper{
+		err:       err,
+		retryable: -1,
+	}
 }
 
 var (
@@ -115,4 +187,7 @@ var (
 	_ Filter = NetworkErrorFilter
 	_ Filter = PoolExhaustedFilter
 	_ Filter = UnrecoverableErrorFilter
+	_ Filter = RetryableErrorFilter
+
+	_ RetryableError = retryableWrapper{}
 )
