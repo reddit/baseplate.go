@@ -3,6 +3,7 @@ package httpbp_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/reddit/baseplate.go/httpbp"
+	"github.com/reddit/baseplate.go/retrybp"
 )
 
 func TestErrorResponse(t *testing.T) {
@@ -439,5 +441,99 @@ func TestRetryable(t *testing.T) {
 				}
 			},
 		)
+	}
+}
+
+func TestClientError(t *testing.T) {
+	for _, c := range []struct {
+		label              string
+		handler            http.HandlerFunc
+		expectError        bool
+		expectedCode       int
+		expectedRetryAfter time.Duration
+	}{
+		{
+			label: "normal",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				fmt.Fprintf(w, "hello")
+			},
+		},
+		{
+			label: "normal-with-retry-after",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				httpbp.ServiceUnavailable().Retryable(w, time.Minute)
+				fmt.Fprintf(w, "hello")
+			},
+		},
+		{
+			label: "502",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(502)
+				fmt.Fprintf(w, "hello")
+			},
+			expectError:  true,
+			expectedCode: 502,
+		},
+		{
+			label: "retry-after",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				httpbp.ServiceUnavailable().Retryable(w, time.Minute)
+				w.WriteHeader(502)
+				fmt.Fprintf(w, "hello")
+			},
+			expectError:        true,
+			expectedCode:       502,
+			expectedRetryAfter: time.Minute,
+		},
+		{
+			label: "sub-second-retry-after",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				httpbp.ServiceUnavailable().Retryable(w, time.Second/2)
+				w.WriteHeader(502)
+				fmt.Fprintf(w, "hello")
+			},
+			expectError:        true,
+			expectedCode:       502,
+			expectedRetryAfter: time.Second / 2,
+		},
+	} {
+		t.Run(c.label, func(t *testing.T) {
+			ts := httptest.NewServer(c.handler)
+			defer ts.Close()
+
+			resp, err := http.Get(ts.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = httpbp.ClientErrorFromResponse(resp)
+
+			if err == nil {
+				if c.expectError {
+					t.Error("Expected error, got nil")
+				}
+				return
+			}
+
+			if !c.expectError {
+				t.Fatalf("Did not expect error, got %v", err)
+			}
+			var ce *httpbp.ClientError
+			if !errors.As(err, &ce) {
+				t.Fatalf("Expected err to be of type *httpbp.ClientError, got %T: %v", err, err)
+			}
+
+			if ce.StatusCode != c.expectedCode {
+				t.Errorf("Expected status code %d, got %d", c.expectedCode, ce.StatusCode)
+			}
+
+			var rae retrybp.RetryAfterError
+			if !errors.As(err, &rae) {
+				t.Fatalf("Expected err to implement retrybp.RetryAfterError, got %T: %v", err, err)
+			}
+			actual := rae.RetryAfterDuration()
+			if actual != c.expectedRetryAfter {
+				t.Errorf("Expected RetryAfter %v, got %v", c.expectedRetryAfter, actual)
+			}
+		})
 	}
 }

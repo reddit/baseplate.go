@@ -82,6 +82,18 @@ func TestActualMaxExponent(t *testing.T) {
 	}
 }
 
+type retryAfterError time.Duration
+
+var _ RetryAfterError = retryAfterError(0)
+
+func (e retryAfterError) Error() string {
+	return "error"
+}
+
+func (e retryAfterError) RetryAfterDuration() time.Duration {
+	return time.Duration(e)
+}
+
 func TestCappedExponentialBackoff(t *testing.T) {
 	for _, c := range []struct {
 		label       string
@@ -90,6 +102,7 @@ func TestCappedExponentialBackoff(t *testing.T) {
 		maxDelay    time.Duration
 		maxExponent int
 		maxJitter   time.Duration
+		err         error
 		// The range of the expected result
 		min, max time.Duration
 	}{
@@ -144,6 +157,48 @@ func TestCappedExponentialBackoff(t *testing.T) {
 			min:       time.Second,
 			max:       time.Second + time.Millisecond,
 		},
+		{
+			label:   "retry-after",
+			n:       0,
+			initial: time.Millisecond,
+			err:     retryAfterError(time.Second),
+			min:     time.Second,
+			max:     time.Second,
+		},
+		{
+			label:     "retry-after-with-jitter",
+			n:         0,
+			initial:   time.Millisecond,
+			maxJitter: time.Millisecond,
+			err:       retryAfterError(time.Second),
+			min:       time.Second,
+			max:       time.Second + time.Millisecond,
+		},
+		{
+			label:    "retry-after-larger-than-max-delay",
+			n:        0,
+			initial:  time.Millisecond,
+			maxDelay: time.Millisecond,
+			err:      retryAfterError(time.Second),
+			min:      time.Second,
+			max:      time.Second,
+		},
+		{
+			label:   "zero-retry-after",
+			n:       0,
+			initial: time.Millisecond,
+			err:     retryAfterError(0),
+			min:     time.Millisecond,
+			max:     time.Millisecond,
+		},
+		{
+			label:   "negative-retry-after",
+			n:       0,
+			initial: time.Millisecond,
+			err:     retryAfterError(-1),
+			min:     time.Millisecond,
+			max:     time.Millisecond,
+		},
 	} {
 		t.Run(
 			c.label,
@@ -153,7 +208,7 @@ func TestCappedExponentialBackoff(t *testing.T) {
 					MaxDelay:     c.maxDelay,
 					MaxExponent:  c.maxExponent,
 					MaxJitter:    c.maxJitter,
-				})(c.n, nil, nil)
+				})(c.n, c.err, nil)
 				if delay < c.min || delay > c.max {
 					t.Errorf("Delay %v not in range [%v, %v]", delay, c.min, c.max)
 				}
