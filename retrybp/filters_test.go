@@ -181,32 +181,39 @@ func TestPoolExhaustedFilter(t *testing.T) {
 		},
 	}
 
-	for _, _c := range cases {
-		c := _c
-		t.Run(
-			c.name,
-			func(t *testing.T) {
-				counter := &counter{err: c.err}
-				retrybp.Do(
-					context.TODO(),
-					counter.call,
-					retry.Attempts(maxAttempts),
-					retry.Delay(0),
-					retry.DelayType(retry.FixedDelay),
-					retrybp.Filters(
-						retrybp.PoolExhaustedFilter,
-						doNotFilter,
-					),
+	for name, f := range map[string]retrybp.Filter{
+		"RetryableErrorFilter": retrybp.RetryableErrorFilter,
+		"PoolExhaustedFilter":  retrybp.PoolExhaustedFilter,
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, _c := range cases {
+				c := _c
+				t.Run(
+					c.name,
+					func(t *testing.T) {
+						counter := &counter{err: c.err}
+						retrybp.Do(
+							context.TODO(),
+							counter.call,
+							retry.Attempts(maxAttempts),
+							retry.Delay(0),
+							retry.DelayType(retry.FixedDelay),
+							retrybp.Filters(
+								f,
+								doNotFilter,
+							),
+						)
+						if counter.calls != c.expected {
+							t.Errorf(
+								"number of calls did not match, expected %v, got %v",
+								c.expected,
+								counter.calls,
+							)
+						}
+					},
 				)
-				if counter.calls != c.expected {
-					t.Errorf(
-						"number of calls did not match, expected %v, got %v",
-						c.expected,
-						counter.calls,
-					)
-				}
-			},
-		)
+			}
+		})
 	}
 }
 

@@ -537,3 +537,5 @@ func TestClientError(t *testing.T) {
 		})
 	}
 }
+
+var _ retrybp.RetryableError = httpbp.ClientError{}

@@ -34,17 +34,14 @@ const MonitorClientWrappedSlugSuffix = "-with-retry"
 // WithDefaultRetryFilters returns a list of retrybp.Filters by appending the
 // given filters to the "default" retry filters:
 //
-// 1. ContextErrorFilter - do not retry on context cancellation/timeout.
+// 1. RetryableErrorFilter - handle errors already provided retryable
+// information, this includes clientpool.ErrExhausted
 //
-// 2. UnrecoverableErrorFilter - do not retry errors marked as unrecoverable with
-//    retry.Unrecoverable.
-//
-// 3. PoolExhaustedFilter - do retry on clientpool.PoolExhausted errors.
+// 2. ContextErrorFilter - do not retry on context cancellation/timeout.
 func WithDefaultRetryFilters(filters ...retrybp.Filter) []retrybp.Filter {
 	return append([]retrybp.Filter{
+		retrybp.RetryableErrorFilter,
 		retrybp.ContextErrorFilter,
-		retrybp.UnrecoverableErrorFilter,
-		retrybp.PoolExhaustedFilter,
 	}, filters...)
 }
 

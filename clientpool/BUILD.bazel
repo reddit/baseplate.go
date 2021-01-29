@@ -18,7 +18,9 @@ go_test(
     srcs = [
         "bench_test.go",
         "channel_test.go",
+        "errors_test.go",
         "interface_test.go",
     ],
     embed = [":go_default_library"],
+    deps = ["//retrybp:go_default_library"],
 )
