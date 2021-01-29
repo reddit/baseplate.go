@@ -30,6 +30,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "errors_example_test.go",
         "errors_test.go",
         "example_server_test.go",
         "fixtures_test.go",
@@ -48,6 +49,7 @@ go_test(
         "//log:go_default_library",
         "//mqsend:go_default_library",
         "//redisbp:go_default_library",
+        "//retrybp:go_default_library",
         "//secrets:go_default_library",
         "//tracing:go_default_library",
     ],

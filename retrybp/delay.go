@@ -1,6 +1,7 @@
 package retrybp
 
 import (
+	"errors"
 	"math"
 	"time"
 
@@ -8,6 +9,18 @@ import (
 
 	"github.com/reddit/baseplate.go/randbp"
 )
+
+// RetryAfterError defines a type of errors that contain retry-after
+// information (for example, HTTP's Retry-After header).
+//
+// httpbp.ClientError is an error type that implements this interface.
+type RetryAfterError interface {
+	error
+
+	// If RetryAfterDuration returns a duration <= 0,
+	// it's considered as not having retry-after info.
+	RetryAfterDuration() time.Duration
+}
 
 // CappedExponentialBackoffArgs defines the args used in
 // CappedExponentialBackoff retry option.
@@ -40,6 +53,16 @@ type CappedExponentialBackoffArgs struct {
 	// Max random jitter to be added to each retry delay.
 	// If <=0, no random jitter will be added.
 	MaxJitter time.Duration
+
+	// When IgnoreRetryAfterError is set to false (default),
+	// and the error caused the retry implements RetryAfterError,
+	// and the returned RetryAfterDuration > 0,
+	// it's guaranteed that the delay value is at least RetryAfterDuration + jitter.
+	//
+	// If the returned RetryAfterDuration conflicts with (is larger than) MaxDelay
+	// or the calculated delay result from MaxExponent,
+	// RetryAfterDuration takes priority.
+	IgnoreRetryAfterError bool
 }
 
 // CappedExponentialBackoff is an exponentially backoff delay implementation
@@ -65,7 +88,7 @@ func cappedExponentialBackoffFunc(args CappedExponentialBackoffArgs) retry.Delay
 
 	maxInt64 := uint64(math.MaxInt64)
 
-	return func(n uint, _ error, _ *retry.Config) time.Duration {
+	return func(n uint, err error, _ *retry.Config) time.Duration {
 		if n > uMaxExponent {
 			n = uMaxExponent
 		}
@@ -73,6 +96,14 @@ func cappedExponentialBackoffFunc(args CappedExponentialBackoffArgs) retry.Delay
 		if args.MaxDelay > 0 && delay > uint64(args.MaxDelay) {
 			delay = uint64(args.MaxDelay)
 		}
+
+		var rae RetryAfterError
+		if !args.IgnoreRetryAfterError && errors.As(err, &rae) {
+			if minDelay := rae.RetryAfterDuration(); minDelay > 0 && delay < uint64(minDelay) {
+				delay = uint64(minDelay)
+			}
+		}
+
 		if args.MaxJitter > 0 {
 			delay += uint64(randbp.R.Int63n(int64(args.MaxJitter)))
 		}

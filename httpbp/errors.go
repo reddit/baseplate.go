@@ -3,9 +3,14 @@ package httpbp
 import (
 	"fmt"
 	"html/template"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/reddit/baseplate.go/errorsbp"
 )
 
 const (
@@ -632,4 +637,91 @@ func ErrorForCode(code int) *ErrorResponse {
 		return f()
 	}
 	return InternalServerError()
+}
+
+// ClientError defines the client side error constructed from an HTTP response.
+//
+// Please see ClientErrorFromResponse for more details.
+type ClientError struct {
+	Status     string
+	StatusCode int
+	RetryAfter time.Duration
+
+	AdditionalInfo string
+}
+
+func (ce ClientError) Error() string {
+	var sb strings.Builder
+	sb.WriteString("httpbp.ClientError: ")
+	if ce.Status == "" {
+		sb.WriteString("nil response")
+	} else {
+		sb.WriteString("http status ")
+		sb.WriteString(ce.Status)
+	}
+	if ce.AdditionalInfo != "" {
+		sb.WriteString(": ")
+		sb.WriteString(ce.AdditionalInfo)
+	}
+	return sb.String()
+}
+
+// RetryAfterDuration implements retrybp.RetryAfterError.
+func (ce ClientError) RetryAfterDuration() time.Duration {
+	return ce.RetryAfter
+}
+
+// ClientErrorFromResponse creates ClientError from http response.
+//
+// It returns nil error when the response code are in range of [200, 400),
+// or non-nil error otherwise (including response being nil).
+// When the returned error is non-nil,
+// it's guaranteed to be of type *ClientError.
+//
+// It does not read from resp.Body in any case,
+// even if the returned error is non-nil.
+// So it's always the caller's responsibility to read/close the body to ensure
+// the HTTP connection can be reused with keep-alive.
+//
+// The caller can (optionally) choose to read the body and feed that back into
+// ClientError.AdditionalInfo (it's always empty string when returned).
+// See the example for more details regarding this.
+func ClientErrorFromResponse(resp *http.Response) error {
+	if resp == nil {
+		return &ClientError{}
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
+		return nil
+	}
+	ce := &ClientError{
+		Status:     resp.Status,
+		StatusCode: resp.StatusCode,
+	}
+	if retryAfter := strings.TrimSpace(resp.Header.Get(RetryAfterHeader)); retryAfter != "" {
+		// Retry-After header could be either an absolute time or a relative time.
+		t, err := http.ParseTime(retryAfter)
+		if err == nil {
+			ce.RetryAfter = t.Sub(time.Now())
+		} else {
+			// RFC says the relative time format of RetryAfter should be an integer,
+			// but in reality floats could be used for better precision.
+			seconds, err := strconv.ParseFloat(retryAfter, 64)
+			if err == nil {
+				ce.RetryAfter = time.Duration(seconds * float64(time.Second))
+			}
+		}
+	}
+	return ce
+}
+
+// DrainAndClose reads r fully then closes it.
+//
+// It's required for http response bodies by stdlib http clients to reuse
+// keep-alive connections, so you should always defer it after checking error.
+func DrainAndClose(r io.ReadCloser) error {
+	var batch errorsbp.Batch
+	_, err := io.Copy(ioutil.Discard, r)
+	batch.Add(err)
+	batch.Add(r.Close())
+	return batch.Compile()
 }
