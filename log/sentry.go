@@ -87,6 +87,11 @@ func InitSentry(cfg SentryConfig) (io.Closer, error) {
 			})
 		}
 	}
+	if Version != "" {
+		sentry.CurrentHub().ConfigureScope(func(scope *sentry.Scope) {
+			scope.SetTag("version", Version)
+		})
+	}
 	return closer(cfg.FlushTimeout), nil
 }
 
