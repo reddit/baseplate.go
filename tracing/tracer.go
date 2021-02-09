@@ -87,6 +87,14 @@ type TracerConfig struct {
 	// including the ones with debug flag set.
 	QueueName string
 
+	// The max size of the message queue (number of messages).
+	//
+	// If it <=0 or > MaxQueueSize (the constant, 10000),
+	// MaxQueueSize constant will be used instead.
+	//
+	// This is only used when QueueName is non-empty.
+	MaxQueueSize int64
+
 	// In test code,
 	// this field can be used to set the message queue the tracer publishes to,
 	// usually an *mqsend.MockMessageQueue.
@@ -106,9 +114,12 @@ type TracerConfig struct {
 // and the error will be logged if logger is non-nil.
 func InitGlobalTracer(cfg TracerConfig) error {
 	if cfg.QueueName != "" {
+		if cfg.MaxQueueSize <= 0 || cfg.MaxQueueSize > MaxQueueSize {
+			cfg.MaxQueueSize = MaxQueueSize
+		}
 		recorder, err := mqsend.OpenMessageQueue(mqsend.MessageQueueConfig{
 			Name:           QueueNamePrefix + cfg.QueueName,
-			MaxQueueSize:   MaxQueueSize,
+			MaxQueueSize:   cfg.MaxQueueSize,
 			MaxMessageSize: MaxSpanSize,
 		})
 		if err != nil {
