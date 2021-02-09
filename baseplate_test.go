@@ -13,6 +13,7 @@ import (
 	"time"
 
 	baseplate "github.com/reddit/baseplate.go"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/runtimebp"
@@ -93,7 +94,11 @@ func TestServe(t *testing.T) {
 	store := newSecretsStore(t)
 	defer store.Close()
 
-	bp := baseplate.NewTestBaseplate(baseplate.Config{StopTimeout: testTimeout}, store)
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config:          baseplate.Config{StopTimeout: testTimeout},
+		Store:           store,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
 	closeError := errors.New("test close error")
 
 	cases := []struct {
@@ -165,7 +170,11 @@ func TestServeClosers(t *testing.T) {
 	store := newSecretsStore(t)
 	defer store.Close()
 
-	bp := baseplate.NewTestBaseplate(baseplate.Config{StopTimeout: testTimeout}, store)
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config:          baseplate.Config{StopTimeout: testTimeout},
+		Store:           store,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
 
 	pre := &timestampCloser{}
 	post := &timestampCloser{}

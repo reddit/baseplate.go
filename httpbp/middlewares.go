@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -45,7 +45,7 @@ func Wrap(name string, handle HandlerFunc, middlewares ...Middleware) HandlerFun
 // Middlewares
 type DefaultMiddlewareArgs struct {
 	// The edgecontext implementation to use. Required.
-	EdgeContextImpl *edgecontext.Impl
+	EdgeContextImpl ecinterface.Interface
 
 	// The HeaderTrustHandler to use.
 	// If empty, NeverTrustHeaders will be used instead.
@@ -161,20 +161,19 @@ func InitializeEdgeContextFromTrustedRequest(
 		args.Logger.Log(ctx, "Error while parsing EdgeRequestContext: "+err.Error())
 		return ctx
 	}
-	ec, err := edgecontext.FromHeader(ctx, string(header), args.EdgeContextImpl)
+	ctx, err = args.EdgeContextImpl.HeaderToContext(ctx, string(header))
 	if err != nil {
 		args.Logger.Log(ctx, "Error while parsing EdgeRequestContext: "+err.Error())
-		return ctx
 	}
 
-	return edgecontext.SetEdgeContext(ctx, ec)
+	return ctx
 }
 
 // InjectEdgeRequestContextArgs are the args to be passed into
 // InjectEdgeRequestContext function.
 type InjectEdgeRequestContextArgs struct {
 	// The edgecontext implementation to use. Required.
-	EdgeContextImpl *edgecontext.Impl
+	EdgeContextImpl ecinterface.Interface
 
 	// The HeaderTrustHandler to use.
 	// If empty, NeverTrustHeaders{} will be used instead.

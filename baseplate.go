@@ -11,7 +11,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/reddit/baseplate.go/batchcloser"
-	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
@@ -51,7 +51,7 @@ type Baseplate interface {
 	io.Closer
 
 	Config() Config
-	EdgeContextImpl() *edgecontext.Impl
+	EdgeContextImpl() ecinterface.Interface
 	Secrets() *secrets.Store
 }
 
@@ -233,17 +233,31 @@ func DecodeConfigYAML(reader io.ReadSeeker, serviceCfg interface{}) (Config, err
 	return cfg, nil
 }
 
+// NewArgs defines the args used in New functino.
+type NewArgs struct {
+	// Required.
+	ConfigPath string
+
+	// Required. New will panic if this is not set.
+	//
+	// The factory to be used to create edge context implementation.
+	EdgeContextFactory ecinterface.Factory
+
+	// Optional.
+	//
+	// If it is non-nil, it should be a pointer and New will also decode the
+	// config file at the path to set it up.
+	// This can be used to parse additional, service specific config values from
+	// the same config file.
+	ServiceCfg interface{}
+}
+
 // New parses the config file at the given path, initializes the monitoring and
 // logging frameworks, and returns the "serve" context and a new Baseplate to
 // run your service on.  The returned context will be cancelled when the
 // Baseplate is closed.
-//
-// serviceCfg is optional, if it is non-nil, it should be a pointer and New
-// will also decode the config file at the path to set it up.  This can be used
-// to parse additional, service specific config values from the same config
-// file.
-func New(ctx context.Context, path string, serviceCfg interface{}) (context.Context, Baseplate, error) {
-	cfg, err := ParseConfig(path, serviceCfg)
+func New(ctx context.Context, args NewArgs) (context.Context, Baseplate, error) {
+	cfg, err := ParseConfig(args.ConfigPath, args.ServiceCfg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -278,17 +292,20 @@ func New(ctx context.Context, path string, serviceCfg interface{}) (context.Cont
 	}
 	bp.closers.Add(closer)
 
-	bp.ecImpl = edgecontext.Init(edgecontext.Config{
-		Store:  bp.secrets,
-		Logger: log.ErrorWithSentryWrapper(),
+	bp.ecImpl, err = args.EdgeContextFactory(ecinterface.FactoryArgs{
+		Store: bp.secrets,
 	})
+	if err != nil {
+		bp.Close()
+		return nil, nil, err
+	}
 	return ctx, bp, nil
 }
 
 type impl struct {
 	closers *batchcloser.BatchCloser
 	cfg     Config
-	ecImpl  *edgecontext.Impl
+	ecImpl  ecinterface.Interface
 	secrets *secrets.Store
 }
 
@@ -300,7 +317,7 @@ func (bp impl) Secrets() *secrets.Store {
 	return bp.secrets
 }
 
-func (bp impl) EdgeContextImpl() *edgecontext.Impl {
+func (bp impl) EdgeContextImpl() ecinterface.Interface {
 	return bp.ecImpl
 }
 
@@ -333,16 +350,23 @@ func (bp impl) Close() error {
 	return err
 }
 
+// NewTestBaseplateArgs defines the args used by NewTestBaseplate.
+type NewTestBaseplateArgs struct {
+	Config          Config
+	Store           *secrets.Store
+	EdgeContextImpl ecinterface.Interface
+}
+
 // NewTestBaseplate returns a new Baseplate using the given Config and secrets
 // Store that can be used in testing.
 //
 // NewTestBaseplate only returns a Baseplate, it does not initialize any of
 // the monitoring or logging frameworks.
-func NewTestBaseplate(cfg Config, store *secrets.Store) Baseplate {
+func NewTestBaseplate(args NewTestBaseplateArgs) Baseplate {
 	return &impl{
-		cfg:     cfg,
-		secrets: store,
-		ecImpl:  edgecontext.Init(edgecontext.Config{Store: store}),
+		cfg:     args.Config,
+		secrets: args.Store,
+		ecImpl:  args.EdgeContextImpl,
 		closers: batchcloser.New(),
 	}
 }

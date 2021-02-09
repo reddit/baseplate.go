@@ -7,6 +7,7 @@ import (
 	"time"
 
 	baseplate "github.com/reddit/baseplate.go"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/redisbp"
@@ -92,7 +93,13 @@ var (
 // Baseplate HTTP service.
 func ExampleNewBaseplateServer() {
 	var cfg config
-	ctx, bp, err := baseplate.New(context.Background(), "example.yaml", &cfg)
+	// In real code this MUST be replaced by the factory from the actual implementation.
+	var ecFactory ecinterface.Factory
+	ctx, bp, err := baseplate.New(context.Background(), baseplate.NewArgs{
+		ConfigPath:         "example.yaml",
+		EdgeContextFactory: ecFactory,
+		ServiceCfg:         &cfg,
+	})
 	if err != nil {
 		panic(err)
 	}

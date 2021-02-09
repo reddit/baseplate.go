@@ -9,7 +9,7 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 
-	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
@@ -21,14 +21,14 @@ const (
 )
 
 type edgecontextRecorder struct {
-	EdgeContext *edgecontext.EdgeRequestContext
+	header string
 }
 
-func edgecontextRecorderMiddleware(recorder *edgecontextRecorder) thrift.ProcessorMiddleware {
+func edgecontextRecorderMiddleware(impl ecinterface.Interface, recorder *edgecontextRecorder) thrift.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
 			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
-				recorder.EdgeContext, _ = edgecontext.GetEdgeContext(ctx)
+				recorder.header, _ = impl.ContextToHeader(ctx)
 				return next.Process(ctx, seqID, in, out)
 			},
 		}
@@ -138,40 +138,30 @@ func TestStartSpanFromThriftContext(t *testing.T) {
 }
 
 func TestInitializeEdgeContext(t *testing.T) {
-	store := newSecretsStore(t)
-	defer store.Close()
+	const expectedHeader = "dummy-edge-context"
 
-	const expectedID = "t2_example"
-	impl := edgecontext.Init(edgecontext.Config{Store: store})
+	impl := ecinterface.Mock()
 
 	ctx := thrift.SetHeader(
 		context.Background(),
 		thriftbp.HeaderEdgeRequest,
-		headerWithValidAuth,
+		expectedHeader,
 	)
 
 	ctx = thriftbp.InitializeEdgeContext(ctx, impl)
-	ec, ok := edgecontext.GetEdgeContext(ctx)
+	header, ok := impl.ContextToHeader(ctx)
 	if !ok {
 		t.Error("EdgeRequestContext not set on context")
 	}
-
-	userID, ok := ec.User().ID()
-	if !ok {
-		t.Error("user should be logged in")
-	}
-	if userID != expectedID {
-		t.Errorf("user ID mismatch, expected %q, got %q", expectedID, userID)
+	if header != expectedHeader {
+		t.Errorf("Header expected %q, got %q", expectedHeader, header)
 	}
 }
 
 func TestInjectEdgeContext(t *testing.T) {
-	const expectedID = "t2_example"
+	const expectedHeader = "dummy-edge-context"
 
-	store := newSecretsStore(t)
-	defer store.Close()
-
-	impl := edgecontext.Init(edgecontext.Config{Store: store})
+	impl := ecinterface.Mock()
 
 	name := "test"
 	processor := thrifttest.NewMockTProcessor(
@@ -188,26 +178,18 @@ func TestInjectEdgeContext(t *testing.T) {
 	ctx := thrift.SetHeader(
 		context.Background(),
 		thriftbp.HeaderEdgeRequest,
-		headerWithValidAuth,
+		expectedHeader,
 	)
 	ctx = thrifttest.SetMockTProcessorName(ctx, name)
 	recorder := edgecontextRecorder{}
 	wrapped := thrift.WrapProcessor(
 		processor,
 		thriftbp.InjectEdgeContext(impl),
-		edgecontextRecorderMiddleware(&recorder),
+		edgecontextRecorderMiddleware(impl, &recorder),
 	)
 	wrapped.Process(ctx, nil, nil)
-	if recorder.EdgeContext == nil {
-		t.Fatal("edge context not set")
-	}
-
-	userID, ok := recorder.EdgeContext.User().ID()
-	if !ok {
-		t.Fatal("user should be logged in")
-	}
-	if userID != expectedID {
-		t.Fatalf("user ID does not match, expected %q, got %q", expectedID, userID)
+	if recorder.header != expectedHeader {
+		t.Errorf("Expected edge-context header %q, got %q", expectedHeader, recorder.header)
 	}
 }
 

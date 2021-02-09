@@ -15,7 +15,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//batchcloser:go_default_library",
-        "//edgecontext:go_default_library",
+        "//ecinterface:go_default_library",
         "//errorsbp:go_default_library",
         "//log:go_default_library",
         "//metricsbp:go_default_library",
@@ -32,6 +32,7 @@ go_test(
     srcs = ["baseplate_test.go"],
     embed = [":go_default_library"],
     deps = [
+        "//ecinterface:go_default_library",
         "//log:go_default_library",
         "//metricsbp:go_default_library",
         "//runtimebp:go_default_library",

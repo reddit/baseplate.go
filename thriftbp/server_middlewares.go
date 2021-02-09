@@ -9,7 +9,7 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 
-	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
@@ -27,7 +27,7 @@ var (
 // middlewares.
 type DefaultProcessorMiddlewaresArgs struct {
 	// The edge context implementation. Required.
-	EdgeContextImpl *edgecontext.Impl
+	EdgeContextImpl ecinterface.Interface
 
 	// Suppress some of the errors returned by the server before sending them to
 	// the server span.
@@ -150,22 +150,17 @@ func InjectServerSpan(suppressor errorsbp.Suppressor) thrift.ProcessorMiddleware
 // InitializeEdgeContext sets an edge request context created from the Thrift
 // headers set on the context onto the context and configures Thrift to forward
 // the edge requent context header on any Thrift calls made by the server.
-func InitializeEdgeContext(ctx context.Context, impl *edgecontext.Impl) context.Context {
+func InitializeEdgeContext(ctx context.Context, impl ecinterface.Interface) context.Context {
 	header, ok := thrift.GetHeader(ctx, HeaderEdgeRequest)
 	if !ok {
 		return ctx
 	}
 
-	ec, err := edgecontext.FromHeader(ctx, header, impl)
+	ctx, err := impl.HeaderToContext(ctx, header)
 	if err != nil {
 		log.Error("Error while parsing EdgeRequestContext: " + err.Error())
-		return ctx
 	}
-	if ec == nil {
-		return ctx
-	}
-
-	return edgecontext.SetEdgeContext(ctx, ec)
+	return ctx
 }
 
 // InjectEdgeContext returns a ProcessorMiddleware that injects an edge request
@@ -175,7 +170,7 @@ func InitializeEdgeContext(ctx context.Context, impl *edgecontext.Impl) context.
 // Note, this depends on the edge context headers already being set on the
 // context object.  These should be automatically injected by your
 // thrift.TSimpleServer.
-func InjectEdgeContext(impl *edgecontext.Impl) thrift.ProcessorMiddleware {
+func InjectEdgeContext(impl ecinterface.Interface) thrift.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
 			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {

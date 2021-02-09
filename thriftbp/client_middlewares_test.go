@@ -12,7 +12,7 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 
 	baseplate "github.com/reddit/baseplate.go"
-	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/ecinterface"
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/retrybp"
@@ -26,13 +26,19 @@ const (
 	method  = "testMethod"
 )
 
-func initClients() (*thrifttest.MockClient, *thrifttest.RecordedClient, thrift.TClient) {
+func initClients(ecImpl ecinterface.Interface) (*thrifttest.MockClient, *thrifttest.RecordedClient, thrift.TClient) {
+	if ecImpl == nil {
+		ecImpl = ecinterface.Mock()
+	}
 	mock := &thrifttest.MockClient{FailUnregisteredMethods: true}
 	recorder := thrifttest.NewRecordedClient(mock)
 	client := thrift.WrapClient(
 		recorder,
 		thriftbp.BaseplateDefaultClientMiddlewares(
-			thriftbp.DefaultClientMiddlewareArgs{ServiceSlug: service},
+			thriftbp.DefaultClientMiddlewareArgs{
+				EdgeContextImpl: ecImpl,
+				ServiceSlug:     service,
+			},
 		)...,
 	)
 	return mock, recorder, client
@@ -130,7 +136,7 @@ func TestWrapMonitoredClient(t *testing.T) {
 					tracing.InitGlobalTracer(tracing.TracerConfig{})
 				}()
 
-				mock, recorder, client := initClients()
+				mock, recorder, client := initClients(nil)
 				mock.AddMockCall(method, c.call)
 
 				ctx, mmq := c.initSpan(context.Background(), t)
@@ -183,23 +189,13 @@ func TestWrapMonitoredClient(t *testing.T) {
 }
 
 func TestForwardEdgeRequestContext(t *testing.T) {
-	store := newSecretsStore(t)
-	defer store.Close()
+	const expectedHeader = "dummy-edge-context"
 
-	impl := edgecontext.Init(edgecontext.Config{Store: store})
-	ec, err := edgecontext.FromHeader(context.Background(), headerWithValidAuth, impl)
-	if err != nil {
-		t.Fatal(err)
-	}
+	impl := ecinterface.Mock()
+	ctx, _ := impl.HeaderToContext(context.Background(), expectedHeader)
+	ctx = thriftbp.AttachEdgeRequestContext(ctx, impl)
 
-	ctx := thrift.SetHeader(
-		context.Background(),
-		thriftbp.HeaderEdgeRequest,
-		headerWithValidAuth,
-	)
-	ctx = thriftbp.InitializeEdgeContext(ctx, impl)
-
-	mock, recorder, client := initClients()
+	mock, recorder, client := initClients(impl)
 	mock.AddMockCall(
 		method,
 		func(ctx context.Context, args, result thrift.TStruct) (meta thrift.ResponseMeta, err error) {
@@ -222,13 +218,13 @@ func TestForwardEdgeRequestContext(t *testing.T) {
 	if !ok {
 		t.Fatal("header not set")
 	}
-	if header != ec.Header() {
-		t.Errorf("header mismatch, expected %q, got %q", ec.Header(), header)
+	if header != expectedHeader {
+		t.Errorf("header mismatch, expected %q, got %q", expectedHeader, header)
 	}
 }
 
 func TestForwardEdgeRequestContextNotSet(t *testing.T) {
-	mock, recorder, client := initClients()
+	mock, recorder, client := initClients(ecinterface.Mock())
 	mock.AddMockCall(
 		method,
 		func(ctx context.Context, args, result thrift.TStruct) (meta thrift.ResponseMeta, err error) {
@@ -252,7 +248,7 @@ func TestForwardEdgeRequestContextNotSet(t *testing.T) {
 }
 
 func TestSetDeadlineBudget(t *testing.T) {
-	mock, recorder, client := initClients()
+	mock, recorder, client := initClients(nil)
 	mock.AddMockCall(
 		method,
 		func(ctx context.Context, args, result thrift.TStruct) (meta thrift.ResponseMeta, err error) {
@@ -347,6 +343,7 @@ func TestRetry(t *testing.T) {
 		Processor:   processor,
 		SecretStore: store,
 		ClientConfig: thriftbp.ClientPoolConfig{
+			EdgeContextImpl: ecinterface.Mock(),
 			DefaultRetryOptions: []retry.Option{
 				retry.Attempts(2),
 				retrybp.Filters(retrybp.NetworkErrorFilter),

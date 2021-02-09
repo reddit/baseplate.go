@@ -16,7 +16,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//:go_default_library",
-        "//edgecontext:go_default_library",
+        "//ecinterface:go_default_library",
         "//errorsbp:go_default_library",
         "//internal/gen-go/reddit/baseplate:go_default_library",
         "//log:go_default_library",
@@ -44,7 +44,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//:go_default_library",
-        "//edgecontext:go_default_library",
+        "//ecinterface:go_default_library",
         "//internal/gen-go/reddit/baseplate:go_default_library",
         "//log:go_default_library",
         "//mqsend:go_default_library",

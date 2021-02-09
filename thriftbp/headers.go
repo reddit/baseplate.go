@@ -5,7 +5,7 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 
-	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/ecinterface"
 )
 
 // Edge request context propagation related headers, as defined in
@@ -53,14 +53,15 @@ var HeadersToForward = []string{
 	HeaderTracingFlags,
 }
 
-// AttachEdgeRequestContext returns a context that has the header of the given
-// EdgeRequestContext set to forward using the "Edge-Request" header on any
-// Thrift calls made with that context object.
-func AttachEdgeRequestContext(ctx context.Context, ec *edgecontext.EdgeRequestContext) context.Context {
-	if ec == nil {
+// AttachEdgeRequestContext returns a context that has the header of the edge
+// context attached to ctx object set to forward using the "Edge-Request" header
+// on any Thrift calls made with that context object.
+func AttachEdgeRequestContext(ctx context.Context, ecImpl ecinterface.Interface) context.Context {
+	header, ok := ecImpl.ContextToHeader(ctx)
+	if !ok {
 		return thrift.UnsetHeader(ctx, HeaderEdgeRequest)
 	}
-	return AddClientHeader(ctx, HeaderEdgeRequest, ec.Header())
+	return AddClientHeader(ctx, HeaderEdgeRequest, header)
 }
 
 // AddClientHeader adds a key-value pair to thrift client's headers.

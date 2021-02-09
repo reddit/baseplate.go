@@ -26,6 +26,7 @@ var (
 var (
 	ErrConfigMissingServiceSlug = errors.New("ServiceSlug cannot be empty")
 	ErrConfigMissingAddr        = errors.New("Addr cannot be empty")
+	ErrConfigMissingEdgeContext = errors.New("EdgeContextImpl cannot be empty")
 	ErrConfigInvalidConnections = errors.New("InitialConnections cannot be bigger than MaxConnections")
 )
 

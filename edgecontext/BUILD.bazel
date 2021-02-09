@@ -15,6 +15,7 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/edgecontext",
     visibility = ["//visibility:public"],
     deps = [
+        "//ecinterface:go_default_library",
         "//experiments:go_default_library",
         "//internal/gen-go/reddit/edgecontext:go_default_library",
         "//log:go_default_library",
