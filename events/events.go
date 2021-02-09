@@ -51,6 +51,12 @@ type Config struct {
 	//
 	// If MaxPutTimeout <= 0, DefaultMaxPutTimeout will be used instead.
 	MaxPutTimeout time.Duration
+
+	// The max size of the message queue (number of messages).
+	//
+	// If it <=0 or > MaxQueueSize (the constant, 10000),
+	// MaxQueueSize constant will be used instead.
+	MaxQueueSize int64
 }
 
 // V2 initializes a new v2 event queue with default configurations.
@@ -64,9 +70,12 @@ func V2WithConfig(cfg Config) (*Queue, error) {
 	if name == "" {
 		name = DefaultV2Name
 	}
+	if cfg.MaxQueueSize <= 0 || cfg.MaxQueueSize > MaxQueueSize {
+		cfg.MaxQueueSize = MaxQueueSize
+	}
 	queue, err := mqsend.OpenMessageQueue(mqsend.MessageQueueConfig{
 		Name:           QueueNamePrefix + name,
-		MaxQueueSize:   MaxQueueSize,
+		MaxQueueSize:   cfg.MaxQueueSize,
 		MaxMessageSize: MaxEventSize,
 	})
 	if err != nil {
