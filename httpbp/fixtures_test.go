@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/secrets"
 )
@@ -46,13 +46,13 @@ func newSecretsStore(t testing.TB) *secrets.Store {
 }
 
 type edgecontextRecorder struct {
-	EdgeContext *edgecontext.EdgeRequestContext
+	header string
 }
 
-func edgecontextRecorderMiddleware(recorder *edgecontextRecorder) httpbp.Middleware {
+func edgecontextRecorderMiddleware(impl ecinterface.Interface, recorder *edgecontextRecorder) httpbp.Middleware {
 	return func(name string, next httpbp.HandlerFunc) httpbp.HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-			recorder.EdgeContext, _ = edgecontext.GetEdgeContext(ctx)
+			recorder.header, _ = impl.ContextToHeader(ctx)
 			return next(ctx, w, r)
 		}
 	}
@@ -71,7 +71,7 @@ func newTestHandler(plan testHandlerPlan) httpbp.HandlerFunc {
 		if plan.headers != nil {
 			for k, values := range plan.headers {
 				for _, v := range values {
-					w.Header().Add(k, v)
+					w.Header().Set(k, v)
 				}
 			}
 		}
@@ -109,14 +109,17 @@ func testMiddleware(c *counter) httpbp.Middleware {
 	}
 }
 
-func newRequest(t testing.TB) *http.Request {
+func newRequest(t testing.TB, ecHeader string) *http.Request {
 	t.Helper()
 
 	req, err := http.NewRequest("get", "localhost:9090", strings.NewReader("test"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Header.Add(httpbp.EdgeContextHeader, base64.StdEncoding.EncodeToString([]byte(headerWithValidAuth)))
-	req.Header.Add(httpbp.SpanSampledHeader, "1")
+	if ecHeader != "" {
+		str := base64.StdEncoding.EncodeToString([]byte(ecHeader))
+		req.Header.Set(httpbp.EdgeContextHeader, str)
+	}
+	req.Header.Set(httpbp.SpanSampledHeader, "1")
 	return req
 }

@@ -8,6 +8,7 @@ import (
 
 	baseplate "github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/batchcloser"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/thriftbp"
@@ -181,7 +182,11 @@ func NewBaseplateServer(cfg ServerConfig) (*Server, error) {
 	}
 
 	cfg.ServerConfig.Addr = socket.Addr().String()
-	bp := baseplate.NewTestBaseplate(cfg.ServerConfig, cfg.SecretStore)
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config:          cfg.ServerConfig,
+		Store:           cfg.SecretStore,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
 	middlewares := thriftbp.BaseplateDefaultProcessorMiddlewares(
 		thriftbp.DefaultProcessorMiddlewaresArgs{
 			EdgeContextImpl:     bp.EdgeContextImpl(),
@@ -214,6 +219,9 @@ func NewBaseplateServer(cfg ServerConfig) (*Server, error) {
 	}
 	if cfg.ClientConfig.ServiceSlug == "" {
 		cfg.ClientConfig.ServiceSlug = DefaultServiceSlug
+	}
+	if cfg.ClientConfig.EdgeContextImpl == nil {
+		cfg.ClientConfig.EdgeContextImpl = ecinterface.Mock()
 	}
 	if cfg.ClientConfig.MaxConnections == 0 {
 		cfg.ClientConfig.MaxConnections = DefaultClientMaxConnections

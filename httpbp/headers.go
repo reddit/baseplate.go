@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/reddit/baseplate.go/edgecontext"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/signing"
 )
@@ -74,8 +73,8 @@ func NewEdgeContextHeaders(h http.Header) (EdgeContextHeaders, error) {
 }
 
 // SetEdgeContextHeader attach EdgeRequestContext into response header.
-func SetEdgeContextHeader(ec *edgecontext.EdgeRequestContext, w http.ResponseWriter) {
-	w.Header().Set(EdgeContextHeader, encodeEdgeContextHeader([]byte(ec.Header())))
+func SetEdgeContextHeader(header string, w http.ResponseWriter) {
+	w.Header().Set(EdgeContextHeader, encodeEdgeContextHeader([]byte(header)))
 }
 
 // AsMap returns the EdgeContextHeaders as a map of header keys to header

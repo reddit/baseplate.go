@@ -3,12 +3,14 @@ package edgecontext
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
 
+	"github.com/reddit/baseplate.go/ecinterface"
 	ecthrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/edgecontext"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
@@ -24,11 +26,33 @@ var ErrLoIDWrongPrefix = errors.New("edgecontext: loid should have " + LoIDPrefi
 
 // An Impl is an initialized edge context implementation.
 //
+// It implements ecinterface.Interface.
+//
 // Please call Init function to initialize it.
 type Impl struct {
 	store     *secrets.Store
 	logger    log.Wrapper
 	keysValue atomic.Value
+}
+
+var _ ecinterface.Interface = (*Impl)(nil)
+
+// ContextToHeader implements ecinterface.Interface.
+func (impl *Impl) ContextToHeader(ctx context.Context) (header string, ok bool) {
+	ec, ok := GetEdgeContext(ctx)
+	if !ok {
+		return "", false
+	}
+	return ec.Header(), true
+}
+
+// HeaderToContext implements ecinterface.Interface.
+func (impl *Impl) HeaderToContext(ctx context.Context, header string) (context.Context, error) {
+	ec, err := FromHeader(ctx, header, impl)
+	if err != nil {
+		return ctx, fmt.Errorf("edgecontext.Impl.HeaderToContext: failed to parse header: %w", err)
+	}
+	return SetEdgeContext(ctx, ec), nil
 }
 
 var (
@@ -63,6 +87,16 @@ type Config struct {
 	Store *secrets.Store
 	// The logger to log key decoding errors
 	Logger log.Wrapper
+}
+
+// Factory returns an ecinterface.Factory implementation by wrapping Init.
+//
+// The Store in cfg will be replaced by the Factory arg.
+func Factory(cfg Config) ecinterface.Factory {
+	return func(args ecinterface.FactoryArgs) (ecinterface.Interface, error) {
+		cfg.Store = args.Store
+		return Init(cfg), nil
+	}
 }
 
 // Init intializes an Impl.

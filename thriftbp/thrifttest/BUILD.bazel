@@ -13,6 +13,7 @@ go_library(
         "//:go_default_library",
         "//batchcloser:go_default_library",
         "//clientpool:go_default_library",
+        "//ecinterface:go_default_library",
         "//errorsbp:go_default_library",
         "//secrets:go_default_library",
         "//thriftbp:go_default_library",

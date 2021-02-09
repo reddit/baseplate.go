@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/reddit/baseplate.go"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
@@ -138,7 +139,11 @@ func TestServerArgsValidateAndSetDefaults(t *testing.T) {
 	store := newSecretsStore(t)
 	defer store.Close()
 
-	bp := baseplate.NewTestBaseplate(baseplate.Config{Addr: ":8080"}, store)
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config:          baseplate.Config{Addr: ":8080"},
+		Store:           store,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
 
 	type expectation struct {
 		args httpbp.ServerArgs
@@ -222,7 +227,11 @@ func TestServerArgsSetupEndpoints(t *testing.T) {
 	store := newSecretsStore(t)
 	defer store.Close()
 
-	bp := baseplate.NewTestBaseplate(baseplate.Config{Addr: ":8080"}, store)
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config:          baseplate.Config{Addr: ":8080"},
+		Store:           store,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
 
 	t.Run(
 		"validation-error",
@@ -253,7 +262,7 @@ func TestServerArgsSetupEndpoints(t *testing.T) {
 				},
 				EndpointRegistry: &mockEndpointRegistry{},
 				Middlewares: []httpbp.Middleware{
-					edgecontextRecorderMiddleware(&recorder),
+					edgecontextRecorderMiddleware(ecinterface.Mock(), &recorder),
 				},
 				TrustHandler: httpbp.AlwaysTrustHeaders{},
 				Logger:       log.TestWrapper(t),
@@ -295,13 +304,13 @@ func TestServerArgsSetupEndpoints(t *testing.T) {
 			})
 			startFailing()
 
-			req := newRequest(t)
+			req := newRequest(t, "foo")
 			req.Method = http.MethodGet
 			handle.ServeHTTP(httptest.NewRecorder(), req)
 
 			// Test that the EdgeRequestContext midddleware was set up
-			if recorder.EdgeContext == nil {
-				t.Fatal("edge request context not set")
+			if recorder.header == "" {
+				t.Error("edge request context not set")
 			}
 
 			// Test that the Span middleware was set up
@@ -337,7 +346,11 @@ func TestNewTestBaseplateServer(t *testing.T) {
 	store := newSecretsStore(t)
 	defer store.Close()
 
-	bp := baseplate.NewTestBaseplate(baseplate.Config{Addr: ":8080"}, store)
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config:          baseplate.Config{Addr: ":8080"},
+		Store:           store,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
 
 	c := counter{}
 	args := httpbp.ServerArgs{

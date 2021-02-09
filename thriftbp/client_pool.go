@@ -14,6 +14,7 @@ import (
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/clientpool"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
@@ -45,6 +46,9 @@ var (
 
 // ClientPoolConfig is the configuration struct for creating a new ClientPool.
 type ClientPoolConfig struct {
+	// The edge context implementation. Required.
+	EdgeContextImpl ecinterface.Interface
+
 	// ServiceSlug is a short identifier for the thrift service you are creating
 	// clients for.  The preferred convention is to take the service's name,
 	// remove the 'Service' prefix, if present, and convert from camel case to
@@ -175,6 +179,9 @@ type ClientPoolConfig struct {
 // BaseplateClientPoolConfig(c).Validate should be used instead.
 func (c ClientPoolConfig) Validate() error {
 	var batch errorsbp.Batch
+	if c.EdgeContextImpl == nil {
+		batch.Add(ErrConfigMissingEdgeContext)
+	}
 	if c.InitialConnections > c.MaxConnections {
 		batch.Add(ErrConfigInvalidConnections)
 	}
@@ -289,6 +296,7 @@ func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMi
 	}
 	defaults := BaseplateDefaultClientMiddlewares(
 		DefaultClientMiddlewareArgs{
+			EdgeContextImpl:     cfg.EdgeContextImpl,
 			ServiceSlug:         cfg.ServiceSlug,
 			RetryOptions:        cfg.DefaultRetryOptions,
 			ErrorSpanSuppressor: cfg.ErrorSpanSuppressor,

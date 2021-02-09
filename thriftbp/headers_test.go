@@ -6,21 +6,16 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 
-	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/thriftbp"
 )
 
 func TestAttachEdgeRequestContext(t *testing.T) {
-	store := newSecretsStore(t)
-	defer store.Close()
+	const expectedHeader = "dummy-edge-context"
 
-	impl := edgecontext.Init(edgecontext.Config{Store: store})
-	ec, err := edgecontext.FromHeader(context.Background(), headerWithValidAuth, impl)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ctx := thriftbp.AttachEdgeRequestContext(context.Background(), ec)
+	impl := ecinterface.Mock()
+	ctx, _ := impl.HeaderToContext(context.Background(), expectedHeader)
+	ctx = thriftbp.AttachEdgeRequestContext(ctx, impl)
 	headers := thrift.GetWriteHeaderList(ctx)
 	var found bool
 	for _, key := range headers {
@@ -37,8 +32,8 @@ func TestAttachEdgeRequestContext(t *testing.T) {
 	if !ok {
 		t.Fatal("header not set")
 	}
-	if header != ec.Header() {
-		t.Errorf("header mismatch, expected %q, got %q", ec.Header(), header)
+	if header != expectedHeader {
+		t.Errorf("header mismatch, expected %q, got %q", expectedHeader, header)
 	}
 }
 
@@ -47,7 +42,7 @@ func TestAttachEdgeRequestContextNilHeader(t *testing.T) {
 		context.Background(),
 		[]string{thriftbp.HeaderEdgeRequest},
 	)
-	ctx = thriftbp.AttachEdgeRequestContext(ctx, nil)
+	ctx = thriftbp.AttachEdgeRequestContext(ctx, ecinterface.Mock())
 
 	_, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
 	if ok {

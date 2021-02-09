@@ -10,7 +10,7 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/breakerbp"
-	"github.com/reddit/baseplate.go/edgecontext"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
@@ -47,6 +47,9 @@ func WithDefaultRetryFilters(filters ...retrybp.Filter) []retrybp.Filter {
 
 // DefaultClientMiddlewareArgs is the arg struct for BaseplateDefaultClientMiddlewares.
 type DefaultClientMiddlewareArgs struct {
+	// The edge context implementation. Required.
+	EdgeContextImpl ecinterface.Interface
+
 	// ServiceSlug is a short identifier for the thrift service you are creating
 	// clients for.  The preferred convention is to take the service's name,
 	// remove the 'Service' prefix, if present, and convert from camel case to
@@ -86,7 +89,7 @@ type DefaultClientMiddlewareArgs struct {
 //
 // Currently they are (in order):
 //
-// 1. ForwardEdgeRequestContext
+// 1. ForwardEdgeRequestContext.
 //
 // 2. MonitorClient with MonitorClientWrappedSlugSuffix - This creates the spans
 // from the view of the client that group all retries into a single,
@@ -106,7 +109,7 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
 	}
 	middlewares := []thrift.ClientMiddleware{
-		ForwardEdgeRequestContext,
+		ForwardEdgeRequestContext(args.EdgeContextImpl),
 		MonitorClient(MonitorClientArgs{
 			ServiceSlug:         args.ServiceSlug + MonitorClientWrappedSlugSuffix,
 			ErrorSpanSuppressor: args.ErrorSpanSuppressor,
@@ -192,14 +195,14 @@ func MonitorClient(args MonitorClientArgs) thrift.ClientMiddleware {
 // If you are using a thrift ClientPool created by NewBaseplateClientPool,
 // this will be included automatically and should not be passed in as a
 // ClientMiddleware to NewBaseplateClientPool.
-func ForwardEdgeRequestContext(next thrift.TClient) thrift.TClient {
-	return thrift.WrappedTClient{
-		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-			if ec, ok := edgecontext.GetEdgeContext(ctx); ok {
-				ctx = AttachEdgeRequestContext(ctx, ec)
-			}
-			return next.Call(ctx, method, args, result)
-		},
+func ForwardEdgeRequestContext(ecImpl ecinterface.Interface) thrift.ClientMiddleware {
+	return func(next thrift.TClient) thrift.TClient {
+		return thrift.WrappedTClient{
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				ctx = AttachEdgeRequestContext(ctx, ecImpl)
+				return next.Call(ctx, method, args, result)
+			},
+		}
 	}
 }
 
@@ -256,6 +259,5 @@ func Retry(defaults ...retry.Option) thrift.ClientMiddleware {
 }
 
 var (
-	_ thrift.ClientMiddleware = ForwardEdgeRequestContext
 	_ thrift.ClientMiddleware = SetDeadlineBudget
 )

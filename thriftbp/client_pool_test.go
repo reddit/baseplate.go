@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/thriftbp"
 )
 
@@ -39,6 +41,7 @@ func TestNewBaseplateClientPool(t *testing.T) {
 	if _, err = thriftbp.NewBaseplateClientPool(
 		thriftbp.ClientPoolConfig{
 			Addr:               ln.Addr().String(),
+			EdgeContextImpl:    ecinterface.Mock(),
 			ServiceSlug:        "test",
 			InitialConnections: 1,
 			MaxConnections:     5,
@@ -61,6 +64,7 @@ func TestCustomClientPool(t *testing.T) {
 	if _, err := thriftbp.NewCustomClientPool(
 		thriftbp.ClientPoolConfig{
 			Addr:               ":9090",
+			EdgeContextImpl:    ecinterface.Mock(),
 			ServiceSlug:        "test",
 			InitialConnections: 1,
 			MaxConnections:     5,
@@ -99,6 +103,7 @@ func TestInitialConnectionsFallback(t *testing.T) {
 
 	cfg := thriftbp.ClientPoolConfig{
 		ServiceSlug:                      "test",
+		EdgeContextImpl:                  ecinterface.Mock(),
 		Addr:                             ":9090",
 		InitialConnections:               2,
 		MaxConnections:                   5,
