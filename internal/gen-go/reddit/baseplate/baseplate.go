@@ -5,7 +5,6 @@ package baseplate
 import(
 	"bytes"
 	"context"
-	"reflect"
 	"database/sql/driver"
 	"errors"
 	"fmt"
@@ -17,7 +16,6 @@ import(
 var _ = thrift.ZERO
 var _ = fmt.Printf
 var _ = context.Background
-var _ = reflect.DeepEqual
 var _ = time.Now
 var _ = bytes.Equal
 
@@ -322,6 +320,21 @@ func (p *IsHealthyRequest) writeField1(ctx context.Context, oprot thrift.TProtoc
   return err
 }
 
+func (p *IsHealthyRequest) Equals(other *IsHealthyRequest) bool {
+  if p == other {
+    return true
+  } else if p == nil || other == nil {
+    return false
+  }
+  if p.Probe != other.Probe {
+    if p.Probe == nil || other.Probe == nil {
+      return false
+    }
+    if (*p.Probe) != (*other.Probe) { return false }
+  }
+  return true
+}
+
 func (p *IsHealthyRequest) String() string {
   if p == nil {
     return "<nil>"
@@ -348,10 +361,16 @@ func (p *IsHealthyRequest) String() string {
 //         "post.title": "This field is too long.",
 //         "post.kind": "This field is required."
 //     }
+//  - Retryable: Server could choose to set this field to true to explicitly indicate
+// that client shall retry this request, and false to explicitly indicate that
+// client shall not retry this request. Unset means that it's up to the client
+// to decide (using other information, for example the code) whether to retry
+// this request.
 type Error struct {
   Code *int32 `thrift:"code,1" db:"code" json:"code,omitempty"`
   Message *string `thrift:"message,2" db:"message" json:"message,omitempty"`
   Details map[string]string `thrift:"details,3" db:"details" json:"details,omitempty"`
+  Retryable *bool `thrift:"retryable,4" db:"retryable" json:"retryable,omitempty"`
 }
 
 func NewError() *Error {
@@ -377,6 +396,13 @@ var Error_Details_DEFAULT map[string]string
 func (p *Error) GetDetails() map[string]string {
   return p.Details
 }
+var Error_Retryable_DEFAULT bool
+func (p *Error) GetRetryable() bool {
+  if !p.IsSetRetryable() {
+    return Error_Retryable_DEFAULT
+  }
+return *p.Retryable
+}
 func (p *Error) IsSetCode() bool {
   return p.Code != nil
 }
@@ -387,6 +413,10 @@ func (p *Error) IsSetMessage() bool {
 
 func (p *Error) IsSetDetails() bool {
   return p.Details != nil
+}
+
+func (p *Error) IsSetRetryable() bool {
+  return p.Retryable != nil
 }
 
 func (p *Error) Read(ctx context.Context, iprot thrift.TProtocol) error {
@@ -425,6 +455,16 @@ func (p *Error) Read(ctx context.Context, iprot thrift.TProtocol) error {
     case 3:
       if fieldTypeId == thrift.MAP {
         if err := p.ReadField3(ctx, iprot); err != nil {
+          return err
+        }
+      } else {
+        if err := iprot.Skip(ctx, fieldTypeId); err != nil {
+          return err
+        }
+      }
+    case 4:
+      if fieldTypeId == thrift.BOOL {
+        if err := p.ReadField4(ctx, iprot); err != nil {
           return err
         }
       } else {
@@ -493,6 +533,15 @@ var _val1 string
   return nil
 }
 
+func (p *Error)  ReadField4(ctx context.Context, iprot thrift.TProtocol) error {
+  if v, err := iprot.ReadBool(ctx); err != nil {
+  return thrift.PrependError("error reading field 4: ", err)
+} else {
+  p.Retryable = &v
+}
+  return nil
+}
+
 func (p *Error) Write(ctx context.Context, oprot thrift.TProtocol) error {
   if err := oprot.WriteStructBegin(ctx, "Error"); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
@@ -500,6 +549,7 @@ func (p *Error) Write(ctx context.Context, oprot thrift.TProtocol) error {
     if err := p.writeField1(ctx, oprot); err != nil { return err }
     if err := p.writeField2(ctx, oprot); err != nil { return err }
     if err := p.writeField3(ctx, oprot); err != nil { return err }
+    if err := p.writeField4(ctx, oprot); err != nil { return err }
   }
   if err := oprot.WriteFieldStop(ctx); err != nil {
     return thrift.PrependError("write field stop error: ", err) }
@@ -552,6 +602,50 @@ func (p *Error) writeField3(ctx context.Context, oprot thrift.TProtocol) (err er
       return thrift.PrependError(fmt.Sprintf("%T write field end error 3:details: ", p), err) }
   }
   return err
+}
+
+func (p *Error) writeField4(ctx context.Context, oprot thrift.TProtocol) (err error) {
+  if p.IsSetRetryable() {
+    if err := oprot.WriteFieldBegin(ctx, "retryable", thrift.BOOL, 4); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field begin error 4:retryable: ", p), err) }
+    if err := oprot.WriteBool(ctx, bool(*p.Retryable)); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T.retryable (4) field write error: ", p), err) }
+    if err := oprot.WriteFieldEnd(ctx); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field end error 4:retryable: ", p), err) }
+  }
+  return err
+}
+
+func (p *Error) Equals(other *Error) bool {
+  if p == other {
+    return true
+  } else if p == nil || other == nil {
+    return false
+  }
+  if p.Code != other.Code {
+    if p.Code == nil || other.Code == nil {
+      return false
+    }
+    if (*p.Code) != (*other.Code) { return false }
+  }
+  if p.Message != other.Message {
+    if p.Message == nil || other.Message == nil {
+      return false
+    }
+    if (*p.Message) != (*other.Message) { return false }
+  }
+  if len(p.Details) != len(other.Details) { return false }
+  for k, _tgt := range p.Details {
+    _src2 := other.Details[k]
+    if _tgt != _src2 { return false }
+  }
+  if p.Retryable != other.Retryable {
+    if p.Retryable == nil || other.Retryable == nil {
+      return false
+    }
+    if (*p.Retryable) != (*other.Retryable) { return false }
+  }
+  return true
 }
 
 func (p *Error) String() string {
@@ -641,15 +735,15 @@ func (p *BaseplateServiceClient) SetLastResponseMeta_(meta thrift.ResponseMeta) 
 // unhealthy, it can return False or raise an exception.
 // 
 func (p *BaseplateServiceClient) IsHealthy(ctx context.Context) (r bool, err error) {
-  var _args2 BaseplateServiceIsHealthyArgs
-  var _result3 BaseplateServiceIsHealthyResult
+  var _args3 BaseplateServiceIsHealthyArgs
+  var _result4 BaseplateServiceIsHealthyResult
   var meta thrift.ResponseMeta
-  meta, err = p.Client_().Call(ctx, "is_healthy", &_args2, &_result3)
+  meta, err = p.Client_().Call(ctx, "is_healthy", &_args3, &_result4)
   p.SetLastResponseMeta_(meta)
   if err != nil {
     return
   }
-  return _result3.GetSuccess(), nil
+  return _result4.GetSuccess(), nil
 }
 
 type BaseplateServiceProcessor struct {
@@ -672,9 +766,9 @@ func (p *BaseplateServiceProcessor) ProcessorMap() map[string]thrift.TProcessorF
 
 func NewBaseplateServiceProcessor(handler BaseplateService) *BaseplateServiceProcessor {
 
-  self4 := &BaseplateServiceProcessor{handler:handler, processorMap:make(map[string]thrift.TProcessorFunction)}
-  self4.processorMap["is_healthy"] = &baseplateServiceProcessorIsHealthy{handler:handler}
-return self4
+  self5 := &BaseplateServiceProcessor{handler:handler, processorMap:make(map[string]thrift.TProcessorFunction)}
+  self5.processorMap["is_healthy"] = &baseplateServiceProcessorIsHealthy{handler:handler}
+return self5
 }
 
 func (p *BaseplateServiceProcessor) Process(ctx context.Context, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
@@ -685,12 +779,12 @@ func (p *BaseplateServiceProcessor) Process(ctx context.Context, iprot, oprot th
   }
   iprot.Skip(ctx, thrift.STRUCT)
   iprot.ReadMessageEnd(ctx)
-  x5 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function " + name)
+  x6 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function " + name)
   oprot.WriteMessageBegin(ctx, name, thrift.EXCEPTION, seqId)
-  x5.Write(ctx, oprot)
+  x6.Write(ctx, oprot)
   oprot.WriteMessageEnd(ctx)
   oprot.Flush(ctx)
-  return false, x5
+  return false, x6
 
 }
 
@@ -1000,16 +1094,16 @@ func (p *BaseplateServiceV2Client) SetLastResponseMeta_(meta thrift.ResponseMeta
 // Parameters:
 //  - Request
 func (p *BaseplateServiceV2Client) IsHealthy(ctx context.Context, request *IsHealthyRequest) (r bool, err error) {
-  var _args6 BaseplateServiceV2IsHealthyArgs
-  _args6.Request = request
-  var _result7 BaseplateServiceV2IsHealthyResult
+  var _args7 BaseplateServiceV2IsHealthyArgs
+  _args7.Request = request
+  var _result8 BaseplateServiceV2IsHealthyResult
   var meta thrift.ResponseMeta
-  meta, err = p.Client_().Call(ctx, "is_healthy", &_args6, &_result7)
+  meta, err = p.Client_().Call(ctx, "is_healthy", &_args7, &_result8)
   p.SetLastResponseMeta_(meta)
   if err != nil {
     return
   }
-  return _result7.GetSuccess(), nil
+  return _result8.GetSuccess(), nil
 }
 
 type BaseplateServiceV2Processor struct {
@@ -1032,9 +1126,9 @@ func (p *BaseplateServiceV2Processor) ProcessorMap() map[string]thrift.TProcesso
 
 func NewBaseplateServiceV2Processor(handler BaseplateServiceV2) *BaseplateServiceV2Processor {
 
-  self8 := &BaseplateServiceV2Processor{handler:handler, processorMap:make(map[string]thrift.TProcessorFunction)}
-  self8.processorMap["is_healthy"] = &baseplateServiceV2ProcessorIsHealthy{handler:handler}
-return self8
+  self9 := &BaseplateServiceV2Processor{handler:handler, processorMap:make(map[string]thrift.TProcessorFunction)}
+  self9.processorMap["is_healthy"] = &baseplateServiceV2ProcessorIsHealthy{handler:handler}
+return self9
 }
 
 func (p *BaseplateServiceV2Processor) Process(ctx context.Context, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
@@ -1045,12 +1139,12 @@ func (p *BaseplateServiceV2Processor) Process(ctx context.Context, iprot, oprot 
   }
   iprot.Skip(ctx, thrift.STRUCT)
   iprot.ReadMessageEnd(ctx)
-  x9 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function " + name)
+  x10 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function " + name)
   oprot.WriteMessageBegin(ctx, name, thrift.EXCEPTION, seqId)
-  x9.Write(ctx, oprot)
+  x10.Write(ctx, oprot)
   oprot.WriteMessageEnd(ctx)
   oprot.Flush(ctx)
-  return false, x9
+  return false, x10
 
 }
 

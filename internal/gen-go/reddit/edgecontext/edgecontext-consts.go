@@ -5,7 +5,6 @@ package edgecontext
 import(
 	"bytes"
 	"context"
-	"reflect"
 	"fmt"
 	"time"
 	"github.com/apache/thrift/lib/go/thrift"
@@ -15,7 +14,6 @@ import(
 var _ = thrift.ZERO
 var _ = fmt.Printf
 var _ = context.Background
-var _ = reflect.DeepEqual
 var _ = time.Now
 var _ = bytes.Equal
 
