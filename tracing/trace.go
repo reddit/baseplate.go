@@ -26,9 +26,9 @@ type trace struct {
 	tracer *Tracer
 
 	name     string
-	traceID  uint64
-	spanID   uint64
-	parentID uint64
+	traceID  string
+	spanID   string
+	parentID string
 	sampled  bool
 	flags    int64
 
@@ -49,8 +49,8 @@ func newTrace(tracer *Tracer, name string) *trace {
 		tracer: tracer,
 
 		name:    name,
-		traceID: nonZeroRandUint64(),
-		spanID:  nonZeroRandUint64(),
+		traceID: tracer.newID(),
+		spanID:  tracer.newID(),
 		start:   time.Now(),
 
 		counters: make(map[string]float64),

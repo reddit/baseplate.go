@@ -14,6 +14,8 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
+const maxIDLength = 1024
+
 var (
 	_ opentracing.SpanContext = (*Span)(nil)
 	_ opentracing.Span        = (*Span)(nil)
@@ -117,7 +119,7 @@ func (s *Span) onStart() {
 }
 
 // ID returns the ID for the Span.
-func (s Span) ID() uint64 {
+func (s Span) ID() string {
 	return s.trace.spanID
 }
 
@@ -132,12 +134,12 @@ func (s Span) SpanType() SpanType {
 }
 
 // TraceID returns the ID for the Trace that this span is a part of.
-func (s Span) TraceID() uint64 {
+func (s Span) TraceID() string {
 	return s.trace.traceID
 }
 
 // ParentID returns the ID for the parent span of the current span.
-func (s Span) ParentID() uint64 {
+func (s Span) ParentID() string {
 	return s.trace.parentID
 }
 
@@ -489,56 +491,46 @@ func (h Headers) AnySet() bool {
 		h.Sampled != nil
 }
 
-// ParseTraceID attempts to convert h.TraceID into a uint64, if it succeeds it
-// returns the value and 'true'.  If it fails, either because h.TraceID is not
-// set or it is malformed, ok will be 'false' and you should not rely on the ID
-// returned.
+// ParseTraceID attempts to validate h.TraceID, if it succeeds it returns the
+// value and 'true'.  If it fails, either because h.TraceID is not set or it is
+// malformed, ok will be 'false' and you should not rely on the ID returned.
 //
 // If h.TraceID was malformed, an error will be logged using the global tracer's
 // logger but no error will be returned.
-func (h Headers) ParseTraceID() (id uint64, ok bool) {
+func (h Headers) ParseTraceID() (id string, ok bool) {
 	if h.TraceID == "" {
 		return
 	}
 
-	var err error
-	id, err = strconv.ParseUint(h.TraceID, 10, 64)
-	if err != nil {
+	if len(h.TraceID) > maxIDLength {
 		globalTracer.logger.Log(context.Background(), fmt.Sprintf(
-			"Malformed trace id in http ctx: %q, %v",
+			"Malformed trace id in ctx: %q",
 			h.TraceID,
-			err,
 		))
 		return
 	}
-	ok = true
-	return
+	return h.TraceID, true
 }
 
-// ParseSpanID attempts to convert h.SpanID into a uint64, if it succeeds it
-// returns the value and 'true'.  If it fails, either because h.SpanID is not
-// set or it is malformed, ok will be 'false' and you should not rely on the ID
-// returned.
+// ParseSpanID attempts to validate h.SpanID, if it succeeds it returns the
+// value and 'true'.  If it fails, either because h.SpanID is not set or it is
+// malformed, ok will be 'false' and you should not rely on the ID returned.
 //
 // If h.SpanID was malformed, an error will be logged using the global tracer's
 // logger but no error will be returned.
-func (h Headers) ParseSpanID() (id uint64, ok bool) {
+func (h Headers) ParseSpanID() (id string, ok bool) {
 	if h.SpanID == "" {
 		return
 	}
 
-	var err error
-	id, err = strconv.ParseUint(h.SpanID, 10, 64)
-	if err != nil {
+	if len(h.SpanID) > maxIDLength {
 		globalTracer.logger.Log(context.Background(), fmt.Sprintf(
-			"Malformed span id in http ctx: %q, %v",
+			"Malformed span id in ctx: %q",
 			h.SpanID,
-			err,
 		))
 		return
 	}
-	ok = true
-	return
+	return h.SpanID, true
 }
 
 // ParseFlags attempts to convert h.Flags into an int64, if it succeeds it
@@ -644,7 +636,7 @@ func initRootSpan(s *Span) {
 		hub = hub.Clone()
 	}
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetTag("trace_id", strconv.FormatUint(s.TraceID(), 10))
+		scope.SetTag("trace_id", s.TraceID())
 	})
 	s.hub = hub
 }

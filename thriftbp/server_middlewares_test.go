@@ -95,13 +95,9 @@ func TestInjectServerSpan(t *testing.T) {
 
 func TestStartSpanFromThriftContext(t *testing.T) {
 	const (
-		name = "foo"
-
-		traceInt = 12345
-		traceStr = "12345"
-
-		spanInt = 54321
-		spanStr = "54321"
+		name   = "foo"
+		trace  = "12345"
+		spanID = "54321"
 	)
 
 	defer func() {
@@ -115,23 +111,23 @@ func TestStartSpanFromThriftContext(t *testing.T) {
 	startFailing()
 
 	ctx := context.Background()
-	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingTrace, traceStr)
-	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSpan, spanStr)
+	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingTrace, trace)
+	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSpan, spanID)
 
 	ctx, span := thriftbp.StartSpanFromThriftContext(ctx, name)
 
-	if span.TraceID() != traceInt {
+	if span.TraceID() != trace {
 		t.Errorf(
-			"span's traceID expected %d, got %d",
-			traceInt,
+			"span's traceID expected %q, got %q",
+			trace,
 			span.TraceID(),
 		)
 	}
 
-	if span.ParentID() != spanInt {
+	if span.ParentID() != spanID {
 		t.Errorf(
-			"span's parent id expected %d, got %d",
-			spanInt,
+			"span's parent id expected %q, got %q",
+			spanID,
 			span.ParentID(),
 		)
 	}

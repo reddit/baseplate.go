@@ -23,19 +23,19 @@ func TestZipkinSpan(t *testing.T) {
 	}
 	cases := map[string]tracing.ZipkinSpan{
 		"optional-absent": {
-			TraceID:  1234,
+			TraceID:  "1234",
 			Name:     "foo",
-			SpanID:   4321,
+			SpanID:   "4321",
 			Start:    timebp.TimestampMicrosecond(now),
 			Duration: timebp.DurationMicrosecond(duration),
 		},
 		"optional-filled": {
-			TraceID:  1234,
+			TraceID:  "1234",
 			Name:     "foo",
-			SpanID:   4321,
+			SpanID:   "4321",
 			Start:    timebp.TimestampMicrosecond(now),
 			Duration: timebp.DurationMicrosecond(duration),
-			ParentID: 54321,
+			ParentID: "54321",
 			TimeAnnotations: []tracing.ZipkinTimeAnnotation{
 				{
 					Endpoint:  endpoint,

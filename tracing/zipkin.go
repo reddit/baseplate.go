@@ -13,15 +13,14 @@ import (
 // https://github.com/reddit/baseplate.py/blob/1ca8488bcd42c8786e6a3db35b2a99517fd07a99/baseplate/observers/tracing.py#L266-L280
 type ZipkinSpan struct {
 	// Required fields.
-	TraceID  uint64                      `json:"traceId"`
+	TraceID  string                      `json:"traceId"`
 	Name     string                      `json:"name"`
-	SpanID   uint64                      `json:"id"`
+	SpanID   string                      `json:"id"`
 	Start    timebp.TimestampMicrosecond `json:"timestamp"`
 	Duration timebp.DurationMicrosecond  `json:"duration"`
 
-	// parentId is actually optional,
-	// but when it's absent 0 needs to be set explicitly.
-	ParentID uint64 `json:"parentId"`
+	// parentId is optional,
+	ParentID string `json:"parentId,omitempty"`
 
 	// Annotations are all optional.
 	TimeAnnotations   []ZipkinTimeAnnotation   `json:"annotations,omitempty"`
