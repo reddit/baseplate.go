@@ -122,11 +122,28 @@ type RetryableError interface {
 	Retryable() int
 }
 
+// Any thrift exception with an optional boolean field named "retryable" would
+// generate go code that implements this interface.
+//
+// It's unexported as future thrift compiler changes could change the actual
+// function name and as a result we don't want to make it part of our public
+// API.
+type thriftRetryableError interface {
+	error
+
+	IsSetRetryable() bool
+	GetRetryable() bool
+}
+
 // RetryableErrorFilter is a Filter implementation that checks RetryableError.
 //
 // If err is not an implementation of RetryableError, or if its Retryable()
 // returns nil, it defers to the next filter.
 // Otherwise it use the Retryable() result.
+//
+// It also checks against thrift exceptions with an optional boolean field named
+// "retryable" defined, and use that field as the decision (unset means no
+// decision).
 //
 // In addition, it also checks retry.IsRecoverable, in case retry.Unrecoverable
 // was used instead of retrybp.Unrecoverable.
@@ -137,9 +154,14 @@ type RetryableError interface {
 // behaviors.
 func RetryableErrorFilter(err error, next retry.RetryIfFunc) bool {
 	var re RetryableError
+	var tre thriftRetryableError
 	if errors.As(err, &re) {
 		if v := re.Retryable(); v != 0 {
 			return v > 0
+		}
+	} else if errors.As(err, &tre) {
+		if tre.IsSetRetryable() {
+			return tre.GetRetryable()
 		}
 	} else if !retry.IsRecoverable(err) {
 		// In case users are mistakenly using retry.Unrecoverable instead of

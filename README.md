@@ -21,7 +21,7 @@ with `*-remote` directories removed.
 They are excluded from the linter.
 DO NOT EDIT.
 
-They were generated with [thrift compiler c2ddaf0][thrift-version] against
+They were generated with [thrift compiler 0.14.0][thrift-version] against
 [`baseplate.thrift`][baseplate.thrift] and
 [`edgecontext.thrift`][edgecontext.thrift]
 using the following commands under `internal/`:
@@ -66,7 +66,7 @@ bazel test //...:all
 
 [baseplate.py]: https://github.com/reddit/baseplate.py
 
-[baseplate.thrift]: https://github.com/reddit/baseplate.py/blob/c7fd98cea3865159690c07301b9ff12aabb8e61e/baseplate/thrift/baseplate.thrift
+[baseplate.thrift]: https://github.com/reddit/baseplate.py/blob/b1e1dbddd0994c2b2a36c8c456fe8f08dadf1c9d/baseplate/thrift/baseplate.thrift
 
 [edgecontext.thrift]: https://github.com/reddit/edgecontext.py/blob/420e58728ee7085a2f91c5db45df233142b251f9/reddit_edgecontext/edgecontext.thrift
 
@@ -74,4 +74,4 @@ bazel test //...:all
 
 [godev]: https://pkg.go.dev/github.com/reddit/baseplate.go
 
-[thrift-version]: https://github.com/apache/thrift/tree/c2ddaf0766499ab522cb7c0ca011d579707fcb5f
+[thrift-version]: https://github.com/apache/thrift/releases/tag/v0.14.0

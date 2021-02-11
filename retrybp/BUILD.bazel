@@ -23,6 +23,7 @@ go_test(
     size = "small",
     srcs = [
         "delay_test.go",
+        "filters_internal_test.go",
         "filters_test.go",
         "fixtures_test.go",
         "retry_test.go",
@@ -31,6 +32,8 @@ go_test(
     deps = [
         "//clientpool:go_default_library",
         "//errorsbp:go_default_library",
+        "//internal/gen-go/reddit/baseplate:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
         "@com_github_avast_retry_go//:go_default_library",
     ],
 )

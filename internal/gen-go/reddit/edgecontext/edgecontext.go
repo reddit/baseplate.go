@@ -5,7 +5,6 @@ package edgecontext
 import(
 	"bytes"
 	"context"
-	"reflect"
 	"fmt"
 	"time"
 	"github.com/apache/thrift/lib/go/thrift"
@@ -15,7 +14,6 @@ import(
 var _ = thrift.ZERO
 var _ = fmt.Printf
 var _ = context.Background
-var _ = reflect.DeepEqual
 var _ = time.Now
 var _ = bytes.Equal
 
@@ -161,6 +159,17 @@ func (p *Loid) writeField2(ctx context.Context, oprot thrift.TProtocol) (err err
   return err
 }
 
+func (p *Loid) Equals(other *Loid) bool {
+  if p == other {
+    return true
+  } else if p == nil || other == nil {
+    return false
+  }
+  if p.ID != other.ID { return false }
+  if p.CreatedMs != other.CreatedMs { return false }
+  return true
+}
+
 func (p *Loid) String() string {
   if p == nil {
     return "<nil>"
@@ -261,6 +270,16 @@ func (p *Session) writeField1(ctx context.Context, oprot thrift.TProtocol) (err 
   return err
 }
 
+func (p *Session) Equals(other *Session) bool {
+  if p == other {
+    return true
+  } else if p == nil || other == nil {
+    return false
+  }
+  if p.ID != other.ID { return false }
+  return true
+}
+
 func (p *Session) String() string {
   if p == nil {
     return "<nil>"
@@ -359,6 +378,16 @@ func (p *Device) writeField1(ctx context.Context, oprot thrift.TProtocol) (err e
   if err := oprot.WriteFieldEnd(ctx); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write field end error 1:id: ", p), err) }
   return err
+}
+
+func (p *Device) Equals(other *Device) bool {
+  if p == other {
+    return true
+  } else if p == nil || other == nil {
+    return false
+  }
+  if p.ID != other.ID { return false }
+  return true
 }
 
 func (p *Device) String() string {
@@ -462,6 +491,16 @@ func (p *OriginService) writeField1(ctx context.Context, oprot thrift.TProtocol)
   return err
 }
 
+func (p *OriginService) Equals(other *OriginService) bool {
+  if p == other {
+    return true
+  } else if p == nil || other == nil {
+    return false
+  }
+  if p.Name != other.Name { return false }
+  return true
+}
+
 func (p *OriginService) String() string {
   if p == nil {
     return "<nil>"
@@ -560,6 +599,16 @@ func (p *Geolocation) writeField1(ctx context.Context, oprot thrift.TProtocol) (
   if err := oprot.WriteFieldEnd(ctx); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write field end error 1:country_code: ", p), err) }
   return err
+}
+
+func (p *Geolocation) Equals(other *Geolocation) bool {
+  if p == other {
+    return true
+  } else if p == nil || other == nil {
+    return false
+  }
+  if p.CountryCode != other.CountryCode { return false }
+  return true
 }
 
 func (p *Geolocation) String() string {
@@ -875,6 +924,21 @@ func (p *Request) writeField6(ctx context.Context, oprot thrift.TProtocol) (err 
   if err := oprot.WriteFieldEnd(ctx); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write field end error 6:geolocation: ", p), err) }
   return err
+}
+
+func (p *Request) Equals(other *Request) bool {
+  if p == other {
+    return true
+  } else if p == nil || other == nil {
+    return false
+  }
+  if !p.Loid.Equals(other.Loid) { return false }
+  if !p.Session.Equals(other.Session) { return false }
+  if p.AuthenticationToken != other.AuthenticationToken { return false }
+  if !p.Device.Equals(other.Device) { return false }
+  if !p.OriginService.Equals(other.OriginService) { return false }
+  if !p.Geolocation.Equals(other.Geolocation) { return false }
+  return true
 }
 
 func (p *Request) String() string {
