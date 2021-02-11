@@ -87,7 +87,7 @@ func TestCreateThriftContextFromSpan(t *testing.T) {
 			}
 
 			checkContextKey(t, ctx, thriftbp.HeaderTracingSpan)
-			expectedSpanID := fmt.Sprintf("%d", child.ID())
+			expectedSpanID := child.ID()
 			if v, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingSpan); !ok || v != expectedSpanID {
 				t.Errorf(
 					"span in the context expected to be %q, got %q & %v",
@@ -144,7 +144,7 @@ func TestCreateThriftContextFromSpan(t *testing.T) {
 			}
 
 			checkContextKey(t, ctx, thriftbp.HeaderTracingSpan)
-			expectedSpanID := fmt.Sprintf("%d", child.ID())
+			expectedSpanID := child.ID()
 			if v, ok := thrift.GetHeader(ctx, thriftbp.HeaderTracingSpan); !ok || v != expectedSpanID {
 				t.Errorf(
 					"span in the context expected to be %q, got %q & %v",

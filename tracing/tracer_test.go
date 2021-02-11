@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"testing/quick"
 	"time"
 
+	"github.com/gofrs/uuid"
 	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/log"
@@ -132,4 +134,22 @@ func TestTracer(t *testing.T) {
 			t.Logf("Encoded span: %s", msg)
 		},
 	)
+}
+
+func TestFakeUUIDQuick(t *testing.T) {
+	f := func() bool {
+		s := fakeUUID()
+		id, err := uuid.FromString(s)
+		if err != nil {
+			t.Errorf("Failed to parse %q as uuid: %v", s, err)
+		}
+		if s != id.String() {
+			t.Errorf("fake uuid %q parsed differently as %q", s, id.String())
+		}
+		return !t.Failed()
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Error(err)
+	}
+	t.Log(fakeUUID())
 }

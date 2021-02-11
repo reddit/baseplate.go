@@ -2,12 +2,15 @@ package tracing
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"time"
 
+	"github.com/gofrs/uuid"
 	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/log"
@@ -46,6 +49,7 @@ type Tracer struct {
 	logger           log.Wrapper
 	endpoint         ZipkinEndpointInfo
 	maxRecordTimeout time.Duration
+	useUUID          bool
 }
 
 // TracerConfig are the configuration values to be used in InitGlobalTracer.
@@ -95,6 +99,13 @@ type TracerConfig struct {
 	// This is only used when QueueName is non-empty.
 	MaxQueueSize int64
 
+	// If this is set to true, when generating new trace/span IDs we will use
+	// UUID4 instead of uint64.
+	//
+	// You should only set this to true if you know all of your upstream servers
+	// can handle UUID trace ids (Baseplate.go v0.8.0+ or Baseplate.py v2.0.0+).
+	UseUUID bool
+
 	// In test code,
 	// this field can be used to set the message queue the tracer publishes to,
 	// usually an *mqsend.MockMessageQueue.
@@ -131,6 +142,7 @@ func InitGlobalTracer(cfg TracerConfig) error {
 	}
 
 	globalTracer.sampleRate = cfg.SampleRate
+	globalTracer.useUUID = cfg.UseUUID
 
 	logger := cfg.Logger
 	if logger == nil {
@@ -261,7 +273,7 @@ func (t *Tracer) StartSpan(operationName string, opts ...opentracing.StartSpanOp
 	if parent != nil {
 		parent.initChildSpan(span)
 	} else {
-		span.trace.traceID = nonZeroRandUint64()
+		span.trace.traceID = t.newID()
 		span.trace.sampled = randbp.ShouldSampleWithRate(t.sampleRate)
 		initRootSpan(span)
 	}
@@ -294,6 +306,28 @@ func (t *Tracer) Extract(format interface{}, carrier interface{}) (opentracing.S
 	return nil, opentracing.ErrInvalidCarrier
 }
 
+func (t *Tracer) newID() string {
+	if t.useUUID {
+		id, err := uuid.NewV4()
+		if err != nil {
+			t.logger.Log(
+				context.Background(),
+				fmt.Sprintf("Failed to generate uuid: %v", err),
+			)
+			// On modern linux kernel, after the system entropy pool is initialized
+			// it's guaranteed to be able to get up to 256 bytes in one call without
+			// error [1], so this should never happen.
+			//
+			// But just in case, use fake uuid as a fallback.
+			//
+			// [1]: https://man7.org/linux/man-pages/man2/getrandom.2.html
+			return fakeUUID()
+		}
+		return id.String()
+	}
+	return strconv.FormatUint(nonZeroRandUint64(), 10)
+}
+
 func findFirstParentReference(refs []opentracing.SpanReference) *Span {
 	for _, s := range refs {
 		if s.Type == opentracing.ChildOfRef {
@@ -315,4 +349,36 @@ func CloseTracer() error {
 		return tracer.Close()
 	}
 	return nil
+}
+
+// fakeUUID generates a fake UUID using pseudo random number generator.
+//
+// It does that by getting 16 bytes from PRNG,
+// then feed them into uuid.FromBytes().
+// It's fake as in the following senses:
+//
+// 1. An UUID should be generated from crypto random source, not PRNG.
+//
+// 2. None of the defined UUID version is just using 16 random bytes.
+//
+// We only use this function as a last resort,
+// when we encounter errors getting enough entropy from crypto random source.
+// As this still looks like an UUID so it's "good enough" for trace/span id
+// purposes, and it's better than either panic or empty id.
+func fakeUUID() string {
+	const (
+		uuidBytes   = 16
+		uint32Bytes = 4
+	)
+	b := make([]byte, uuidBytes)
+	for i := 0; i < uuidBytes; i += uint32Bytes {
+		// We generate 4 random uint32 instead of using the reader to read 16 bytes
+		// directly, because the reader implementation decided that even if we are
+		// reading 16 bytes out of the random number generator, we only have 8 bytes
+		// of randomness, because we generate a random uint64 to seed the reader.
+		binary.BigEndian.PutUint32(b[i:], randbp.R.Uint32())
+	}
+	// It's safe to use uuid.Must here because the only way uuid.FromBytes could
+	// return error is that the length of b is not 16.
+	return uuid.Must(uuid.FromBytes(b)).String()
 }

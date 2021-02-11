@@ -3,6 +3,7 @@ package tracing
 import (
 	"math/rand"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/quick"
 	"time"
@@ -223,7 +224,7 @@ func TestChildSpan(t *testing.T) {
 		}
 
 		if child.trace.parentID != span.trace.spanID {
-			t.Errorf("Parent spanID %d != child parentID %d", span.trace.spanID, child.trace.parentID)
+			t.Errorf("Parent spanID %q != child parentID %q", span.trace.spanID, child.trace.parentID)
 		}
 		if child.trace.tracer != span.trace.tracer {
 			t.Errorf(
@@ -233,7 +234,7 @@ func TestChildSpan(t *testing.T) {
 			)
 		}
 		if child.trace.traceID != span.trace.traceID {
-			t.Errorf("Parent traceID %d != child traceID %d", span.trace.traceID, child.trace.traceID)
+			t.Errorf("Parent traceID %q != child traceID %q", span.trace.traceID, child.trace.traceID)
 		}
 		if child.trace.sampled != span.trace.sampled {
 			t.Errorf("Parent sampled %v != child sampled %v", span.trace.sampled, child.trace.sampled)
@@ -324,6 +325,7 @@ func TestHeadersAnySet(t *testing.T) {
 		flags         = "0"
 		invalidIntVal = "invalid"
 	)
+	invalidID := strings.Repeat("1", maxIDLength+1)
 
 	cases := []struct {
 		name     string
@@ -394,14 +396,14 @@ func TestHeadersAnySet(t *testing.T) {
 		{
 			name: "trace-id-set",
 			headers: Headers{
-				TraceID: invalidIntVal,
+				TraceID: invalidID,
 			},
 			expected: true,
 		},
 		{
 			name: "span-id-set",
 			headers: Headers{
-				SpanID: invalidIntVal,
+				SpanID: invalidID,
 			},
 			expected: true,
 		},
@@ -422,9 +424,9 @@ func TestHeadersAnySet(t *testing.T) {
 		{
 			name: "all-set-invalid",
 			headers: Headers{
-				TraceID: invalidIntVal,
-				SpanID:  invalidIntVal,
-				Flags:   invalidIntVal,
+				TraceID: invalidID,
+				SpanID:  invalidID,
+				Flags:   invalidID,
 				Sampled: &notSampled,
 			},
 			expected: true,
@@ -448,7 +450,7 @@ func TestHeadersParseTraceID(t *testing.T) {
 	t.Parallel()
 
 	type expectation struct {
-		id uint64
+		id string
 		ok bool
 	}
 	cases := []struct {
@@ -457,16 +459,24 @@ func TestHeadersParseTraceID(t *testing.T) {
 		expected expectation
 	}{
 		{
-			name:    "ok",
+			name:    "uint64",
 			headers: Headers{TraceID: "1"},
 			expected: expectation{
-				id: 1,
+				id: "1",
+				ok: true,
+			},
+		},
+		{
+			name:    "uuid",
+			headers: Headers{TraceID: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"},
+			expected: expectation{
+				id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
 				ok: true,
 			},
 		},
 		{
 			name:    "invalid",
-			headers: Headers{TraceID: "foo"},
+			headers: Headers{TraceID: strings.Repeat("1", maxIDLength+1)},
 			expected: expectation{
 				ok: false,
 			},
@@ -495,7 +505,7 @@ func TestHeadersParseTraceID(t *testing.T) {
 				}
 
 				if id != c.expected.id {
-					t.Errorf("parsed ID mismatch, expected %d, got %d", c.expected.id, id)
+					t.Errorf("parsed ID mismatch, expected %q, got %q", c.expected.id, id)
 				}
 			},
 		)
@@ -506,7 +516,7 @@ func TestHeadersParseSpanID(t *testing.T) {
 	t.Parallel()
 
 	type expectation struct {
-		id uint64
+		id string
 		ok bool
 	}
 	cases := []struct {
@@ -515,16 +525,24 @@ func TestHeadersParseSpanID(t *testing.T) {
 		expected expectation
 	}{
 		{
-			name:    "ok",
+			name:    "uint64",
 			headers: Headers{SpanID: "1"},
 			expected: expectation{
-				id: 1,
+				id: "1",
+				ok: true,
+			},
+		},
+		{
+			name:    "uuid",
+			headers: Headers{SpanID: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"},
+			expected: expectation{
+				id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
 				ok: true,
 			},
 		},
 		{
 			name:    "invalid",
-			headers: Headers{SpanID: "foo"},
+			headers: Headers{TraceID: strings.Repeat("1", maxIDLength+1)},
 			expected: expectation{
 				ok: false,
 			},
@@ -553,7 +571,7 @@ func TestHeadersParseSpanID(t *testing.T) {
 				}
 
 				if id != c.expected.id {
-					t.Errorf("parsed ID mismatch, expected %d, got %d", c.expected.id, id)
+					t.Errorf("parsed ID mismatch, expected %q, got %q", c.expected.id, id)
 				}
 			},
 		)

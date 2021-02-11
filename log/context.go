@@ -2,7 +2,6 @@ package log
 
 import (
 	"context"
-	"strconv"
 
 	"go.uber.org/zap"
 )
@@ -13,7 +12,7 @@ var contextKey contextKeyType
 
 // logger keys for attached data.
 const (
-	traceIDKey = "trace_id"
+	traceIDKey = "traceID"
 )
 
 // AttachArgs are used to create loggers to be attached to context object with
@@ -25,7 +24,7 @@ const (
 // AdditionalPairs are provided to add any free form, additional key-value pairs
 // you want to attach to all logs from the same context object.
 type AttachArgs struct {
-	TraceID uint64
+	TraceID string
 
 	AdditionalPairs map[string]interface{}
 }
@@ -37,8 +36,8 @@ func Attach(ctx context.Context, args AttachArgs) context.Context {
 	const additional = 1
 	kv := make([]interface{}, 0, len(args.AdditionalPairs)*2+additional)
 
-	if args.TraceID != 0 {
-		kv = append(kv, zap.String(traceIDKey, strconv.FormatUint(args.TraceID, 10)))
+	if args.TraceID != "" {
+		kv = append(kv, zap.String(traceIDKey, args.TraceID))
 	}
 
 	for k, v := range args.AdditionalPairs {

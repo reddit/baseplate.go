@@ -36,14 +36,14 @@ func CreateThriftContextFromSpan(ctx context.Context, span *tracing.Span) contex
 	ctx = thrift.SetHeader(
 		ctx,
 		HeaderTracingTrace,
-		strconv.FormatUint(span.TraceID(), 10),
+		span.TraceID(),
 	)
 	headers = append(headers, HeaderTracingTrace)
 
 	ctx = thrift.SetHeader(
 		ctx,
 		HeaderTracingSpan,
-		strconv.FormatUint(span.ID(), 10),
+		span.ID(),
 	)
 	headers = append(headers, HeaderTracingSpan)
 
@@ -54,11 +54,11 @@ func CreateThriftContextFromSpan(ctx context.Context, span *tracing.Span) contex
 	)
 	headers = append(headers, HeaderTracingFlags)
 
-	if span.ParentID() != 0 {
+	if span.ParentID() != "" {
 		ctx = thrift.SetHeader(
 			ctx,
 			HeaderTracingParent,
-			strconv.FormatUint(span.ParentID(), 10),
+			span.ParentID(),
 		)
 		headers = append(headers, HeaderTracingParent)
 	} else {
