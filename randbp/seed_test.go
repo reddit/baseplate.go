@@ -3,7 +3,7 @@ package randbp
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"sync"
 	"testing"
 )
@@ -18,7 +18,7 @@ func TestGetSeed(t *testing.T) {
 		getSeedLogOutput = oldLogOutput
 	}()
 
-	getSeedLogOutput = ioutil.Discard
+	getSeedLogOutput = io.Discard
 
 	readerGenerator := func(t *testing.T, n int) func(p []byte) (int, error) {
 		var err error

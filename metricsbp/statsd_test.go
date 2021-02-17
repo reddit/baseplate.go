@@ -3,7 +3,7 @@ package metricsbp_test
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 
@@ -22,7 +22,7 @@ func TestGlobalStatsd(t *testing.T) {
 	metricsbp.M.TimingWithRate("timing", 0.1).Observe(1)
 	metricsbp.M.Gauge("gauge").Set(1)
 	metricsbp.M.RuntimeGauge("gauge").Set(1)
-	metricsbp.M.WriteTo(ioutil.Discard)
+	metricsbp.M.WriteTo(io.Discard)
 }
 
 func TestNilStatsd(t *testing.T) {
@@ -38,7 +38,7 @@ func TestNilStatsd(t *testing.T) {
 	st.TimingWithRate("timing", 0.1).Observe(1)
 	st.Gauge("gauge").Set(1)
 	st.RuntimeGauge("gauge").Set(1)
-	st.WriteTo(ioutil.Discard)
+	st.WriteTo(io.Discard)
 }
 
 func TestNoFallback(t *testing.T) {

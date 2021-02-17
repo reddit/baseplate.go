@@ -1,7 +1,6 @@
 package runtimebp
 
 import (
-	"io/ioutil"
 	"math"
 	"os"
 	"testing"
@@ -20,7 +19,7 @@ func TestReadNumberFromFile(t *testing.T) {
 	writeFile := func(t *testing.T, content string) string {
 		t.Helper()
 
-		file, err := ioutil.TempFile("", "")
+		file, err := os.CreateTemp("", "")
 		if err != nil {
 			t.Fatal(err)
 		}

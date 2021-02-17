@@ -5,7 +5,6 @@ import (
 	"encoding"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync"
@@ -137,10 +136,10 @@ func SimpleHTTPRackID(cfg SimpleHTTPRackIDConfig) RackIDFunc {
 		}
 
 		defer func() {
-			io.Copy(ioutil.Discard, resp.Body)
+			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}()
-		content, err := ioutil.ReadAll(io.LimitReader(resp.Body, cfg.Limit))
+		content, err := io.ReadAll(io.LimitReader(resp.Body, cfg.Limit))
 		if err != nil {
 			cfg.Logger.Log(context.Background(), fmt.Sprintf(
 				"Failed to read rack id response from %s: %v",

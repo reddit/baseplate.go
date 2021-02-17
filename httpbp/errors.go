@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -765,7 +764,7 @@ func ClientErrorFromResponse(resp *http.Response) error {
 // keep-alive connections, so you should always defer it after checking error.
 func DrainAndClose(r io.ReadCloser) error {
 	var batch errorsbp.Batch
-	_, err := io.Copy(ioutil.Discard, r)
+	_, err := io.Copy(io.Discard, r)
 	batch.Add(err)
 	batch.Add(r.Close())
 	return batch.Compile()
