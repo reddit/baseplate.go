@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +17,7 @@ import (
 )
 
 func parser(f io.Reader) (interface{}, error) {
-	return ioutil.ReadAll(f)
+	return io.ReadAll(f)
 }
 
 func compareBytesData(t *testing.T, data interface{}, expected []byte) {
@@ -47,7 +46,7 @@ func TestFileWatcher(t *testing.T) {
 	payload1 := []byte("Hello, world!")
 	payload2 := []byte("Bye, world!")
 
-	dir, err := ioutil.TempDir("", "filewatcher_test_")
+	dir, err := os.MkdirTemp("", "filewatcher_test_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +104,7 @@ func TestFileWatcherTimeout(t *testing.T) {
 	round := interval * 20
 	timeout := round * 4
 
-	dir, err := ioutil.TempDir("", "filewatcher_test_")
+	dir, err := os.MkdirTemp("", "filewatcher_test_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +142,7 @@ func TestFileWatcherRename(t *testing.T) {
 	payload1 := []byte("Hello, world!")
 	payload2 := []byte("Bye, world!")
 
-	dir, err := ioutil.TempDir("", "filewatcher_test_")
+	dir, err := os.MkdirTemp("", "filewatcher_test_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +154,8 @@ func TestFileWatcherRename(t *testing.T) {
 		time.Sleep(writeDelay)
 		f, err := os.Create(path)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 		defer f.Close()
 		if _, err := f.Write(payload1); err != nil {
@@ -220,7 +220,7 @@ func TestParserFailure(t *testing.T) {
 		t.Log(msg)
 	}
 
-	dir, err := ioutil.TempDir("", "filewatcher_test_")
+	dir, err := os.MkdirTemp("", "filewatcher_test_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +296,7 @@ func TestParserFailure(t *testing.T) {
 
 func limitedParser(t *testing.T, expectedSize int) filewatcher.Parser {
 	return func(f io.Reader) (interface{}, error) {
-		buf, err := ioutil.ReadAll(f)
+		buf, err := io.ReadAll(f)
 		if err != nil {
 			t.Error(err)
 			return nil, err
@@ -325,7 +325,7 @@ func TestParserSizeLimit(t *testing.T) {
 	payload2 := []byte("Bye, world!")
 	expectedPayload2 := payload2[:size]
 
-	dir, err := ioutil.TempDir("", "filewatcher_test_")
+	dir, err := os.MkdirTemp("", "filewatcher_test_")
 	if err != nil {
 		t.Fatal(err)
 	}

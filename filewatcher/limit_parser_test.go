@@ -2,7 +2,6 @@ package filewatcher
 
 import (
 	"io"
-	"io/ioutil"
 	"strings"
 	"testing"
 )
@@ -15,7 +14,7 @@ func TestLimitParser(t *testing.T) {
 	)
 
 	parser := func(data io.Reader) (interface{}, error) {
-		buf, err := ioutil.ReadAll(data)
+		buf, err := io.ReadAll(data)
 		if err != nil {
 			t.Error(err)
 			return nil, err

@@ -2,7 +2,6 @@ package secrets
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -45,7 +44,7 @@ func TestNewStore(t *testing.T) {
 		},
 	}
 
-	dir, err := ioutil.TempDir("", "secret_test_")
+	dir, err := os.MkdirTemp("", "secret_test_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +54,7 @@ func TestNewStore(t *testing.T) {
 		t.Run(
 			tt.name,
 			func(t *testing.T) {
-				tmpFile, err := ioutil.TempFile(dir, "secrets.json")
+				tmpFile, err := os.CreateTemp(dir, "secrets.json")
 				if err != nil {
 					t.Fatal(err)
 				}

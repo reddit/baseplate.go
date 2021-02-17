@@ -2,7 +2,7 @@ package httpbp_test
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/reddit/baseplate.go/httpbp"
@@ -22,7 +22,7 @@ func ExampleClientError() {
 	if err != nil {
 		var ce *httpbp.ClientError
 		if errors.As(err, &ce) {
-			if body, e := ioutil.ReadAll(resp.Body); e == nil {
+			if body, e := io.ReadAll(resp.Body); e == nil {
 				ce.AdditionalInfo = string(body)
 			}
 		}

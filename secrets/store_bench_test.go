@@ -3,7 +3,7 @@ package secrets_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/reddit/baseplate.go/log"
@@ -11,15 +11,17 @@ import (
 )
 
 func BenchmarkStoreMiddlewares(b *testing.B) {
-	dir, err := ioutil.TempDir("", "secret_test_")
+	dir, err := os.MkdirTemp("", "secret_test_")
 	if err != nil {
 		b.Fatal(err)
 	}
+	defer os.RemoveAll(dir)
 
-	tmpFile, err := ioutil.TempFile(dir, "secrets.json")
+	tmpFile, err := os.CreateTemp(dir, "secrets.json")
 	if err != nil {
 		b.Fatal(err)
 	}
+	defer tmpFile.Close()
 	tmpFile.Write([]byte(specificationExample))
 
 	var middleware = func(next secrets.SecretHandlerFunc) secrets.SecretHandlerFunc {
