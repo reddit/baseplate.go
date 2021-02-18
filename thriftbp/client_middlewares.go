@@ -173,7 +173,9 @@ func MonitorClient(args MonitorClientArgs) thrift.ClientMiddleware {
 				span, ctx := opentracing.StartSpanFromContext(
 					ctx,
 					prefix+method,
-					tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
+					tracing.SpanTypeOption{
+						Type: tracing.SpanTypeClient,
+					},
 				)
 				ctx = CreateThriftContextFromSpan(ctx, tracing.AsSpan(span))
 				defer func() {

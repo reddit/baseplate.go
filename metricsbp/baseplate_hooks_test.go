@@ -2,7 +2,7 @@ package metricsbp_test
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"reflect"
 	"regexp"
 	"sort"
@@ -16,11 +16,12 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-func runSpan(tb testing.TB, st *metricsbp.Statsd, spanErr error) (counter string, statusCounters []string, histogram string) {
-	ctx, span := tracing.StartSpanFromHeaders(context.Background(), "foo", tracing.Headers{})
+func runSpan(tb testing.TB, st *metricsbp.Statsd, span *tracing.Span, spanErr error) (counter string, statusCounters []string, histograms []string) {
 	time.Sleep(time.Millisecond)
-	span.AddCounter("bar.count", 1.0)
-	span.Stop(ctx, spanErr)
+	span.AddCounter("bar.count", 1)
+	span.FinishWithOptions(tracing.FinishOptions{
+		Err: spanErr,
+	}.Convert())
 	var unaccounted []string
 
 	var sb strings.Builder
@@ -35,16 +36,25 @@ func runSpan(tb testing.TB, st *metricsbp.Statsd, spanErr error) (counter string
 		} else if strings.HasSuffix(stat, "|c") {
 			statusCounters = append(statusCounters, stat)
 		} else if strings.HasSuffix(stat, "|ms") {
-			histogram = stat
+			histograms = append(histograms, stat)
 		} else if stat != "" {
 			unaccounted = append(unaccounted, stat)
 		}
 	}
 	if len(unaccounted) > 0 {
-		tb.Fatalf("unaccounted for stats: %+v", unaccounted)
+		tb.Errorf("unaccounted for stats: %#v", unaccounted)
 	}
 	sort.Strings(statusCounters)
 	return
+}
+
+func foundHistogram(histograms []string, pattern *regexp.Regexp) bool {
+	for _, histo := range histograms {
+		if pattern.MatchString(histo) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestOnCreateServerSpan(t *testing.T) {
@@ -57,66 +67,270 @@ func TestOnCreateServerSpan(t *testing.T) {
 	tracing.RegisterCreateServerSpanHooks(hook)
 	defer tracing.ResetHooks()
 
-	histogramRegex, err := regexp.Compile(`^server\.foo:\d\.\d+\|ms$`)
-	if err != nil {
-		t.Fatal(err)
+	serverGenerator := func() *tracing.Span {
+		_, span := tracing.StartSpanFromHeaders(context.Background(), "foo", tracing.Headers{})
+		return span
+	}
+	clientGenerator := func() *tracing.Span {
+		ctx, _ := tracing.StartSpanFromHeaders(context.Background(), "server", tracing.Headers{})
+		span, _ := opentracing.StartSpanFromContext(
+			ctx,
+			"service.foo",
+			tracing.SpanTypeOption{
+				Type: tracing.SpanTypeClient,
+			},
+		)
+		return tracing.AsSpan(span)
+	}
+	localGenerator := func() *tracing.Span {
+		ctx, _ := tracing.StartSpanFromHeaders(context.Background(), "server", tracing.Headers{})
+		span, _ := opentracing.StartSpanFromContext(
+			ctx,
+			"foo",
+			tracing.SpanTypeOption{
+				Type: tracing.SpanTypeLocal,
+			},
+		)
+		return tracing.AsSpan(span)
 	}
 
-	t.Run(
-		"success",
-		func(t *testing.T) {
-			counter, statusCounters, histogram := runSpan(t, st, nil)
+	for _, c := range []struct {
+		label            string
+		spanGenerator    func() *tracing.Span
+		err              error
+		expectedCounters []string
+		expectedRates    [][]string
+		expectedHistoREs []string
+	}{
+		{
+			label:         "server-success",
+			spanGenerator: serverGenerator,
+			err:           nil,
+			expectedCounters: []string{
+				"bar.count,endpoint=foo:1.000000|c",
+			},
+			expectedRates: [][]string{
+				{
+					"baseplate.server.rate,endpoint=foo,success=True:1.000000|c",
+					"server.foo.success:1.000000|c",
+					"server.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.server.rate,success=True,endpoint=foo:1.000000|c",
+					"server.foo.success:1.000000|c",
+					"server.foo.total:1.000000|c",
+				},
+			},
+			expectedHistoREs: []string{
+				// Example: "baseplate.server.latency,endpoint=foo:3600000.000000|ms"
+				`^baseplate\.server\.latency,endpoint=foo:\d+\.\d+\|ms$`,
+				// Example: "server.foo:3600000.000000|ms"
+				`^server\.foo:\d+\.\d+\|ms$`,
+			},
+		},
+		{
+			label:         "server-failure",
+			spanGenerator: serverGenerator,
+			err:           errors.New("error"),
+			expectedCounters: []string{
+				"bar.count,endpoint=foo:1.000000|c",
+			},
+			expectedRates: [][]string{
+				{
+					"baseplate.server.rate,endpoint=foo,success=False:1.000000|c",
+					"server.foo.failure:1.000000|c",
+					"server.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.server.rate,success=False,endpoint=foo:1.000000|c",
+					"server.foo.failure:1.000000|c",
+					"server.foo.total:1.000000|c",
+				},
+			},
+			expectedHistoREs: []string{
+				`^baseplate\.server\.latency,endpoint=foo:\d+\.\d+\|ms$`,
+				`^server\.foo:\d+\.\d+\|ms$`,
+			},
+		},
+		{
+			label:         "client-success",
+			spanGenerator: clientGenerator,
+			err:           nil,
+			expectedCounters: []string{
+				"bar.count,endpoint=foo,client=service:1.000000|c",
+				"bar.count,client=service,endpoint=foo:1.000000|c",
+			},
+			expectedRates: [][]string{
+				{
+					"baseplate.client.rate,endpoint=foo,success=True,client=service:1.000000|c",
+					"clients.service.foo.success:1.000000|c",
+					"clients.service.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.client.rate,success=True,endpoint=foo,client=service:1.000000|c",
+					"clients.service.foo.success:1.000000|c",
+					"clients.service.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.client.rate,endpoint=foo,client=service,success=True:1.000000|c",
+					"clients.service.foo.success:1.000000|c",
+					"clients.service.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.client.rate,success=True,client=service,endpoint=foo:1.000000|c",
+					"clients.service.foo.success:1.000000|c",
+					"clients.service.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.client.rate,client=service,endpoint=foo,success=True:1.000000|c",
+					"clients.service.foo.success:1.000000|c",
+					"clients.service.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.client.rate,client=service,success=True,endpoint=foo:1.000000|c",
+					"clients.service.foo.success:1.000000|c",
+					"clients.service.foo.total:1.000000|c",
+				},
+			},
+			expectedHistoREs: []string{
+				`^baseplate\.client\.latency,(endpoint=foo,client=service)|(client=service,endpoint=foo):\d+\.\d+\|ms$`,
+				`^clients\.service\.foo:\d+\.\d+\|ms$`,
+			},
+		},
+		{
+			label:         "client-failure",
+			spanGenerator: clientGenerator,
+			err:           errors.New("error"),
+			expectedCounters: []string{
+				"bar.count,endpoint=foo,client=service:1.000000|c",
+				"bar.count,client=service,endpoint=foo:1.000000|c",
+			},
+			expectedRates: [][]string{
+				{
+					"baseplate.client.rate,endpoint=foo,success=False,client=service:1.000000|c",
+					"clients.service.foo.failure:1.000000|c",
+					"clients.service.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.client.rate,success=False,endpoint=foo,client=service:1.000000|c",
+					"clients.service.foo.failure:1.000000|c",
+					"clients.service.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.client.rate,endpoint=foo,client=service,success=False:1.000000|c",
+					"clients.service.foo.failure:1.000000|c",
+					"clients.service.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.client.rate,success=False,client=service,endpoint=foo:1.000000|c",
+					"clients.service.foo.failure:1.000000|c",
+					"clients.service.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.client.rate,client=service,endpoint=foo,success=False:1.000000|c",
+					"clients.service.foo.failure:1.000000|c",
+					"clients.service.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.client.rate,client=service,success=False,endpoint=foo:1.000000|c",
+					"clients.service.foo.failure:1.000000|c",
+					"clients.service.foo.total:1.000000|c",
+				},
+			},
+			expectedHistoREs: []string{
+				`^baseplate\.client\.latency,(endpoint=foo,client=service)|(client=service,endpoint=foo):\d+\.\d+\|ms$`,
+				`^clients\.service\.foo:\d+\.\d+\|ms$`,
+			},
+		},
+		{
+			label:         "local-success",
+			spanGenerator: localGenerator,
+			err:           nil,
+			expectedCounters: []string{
+				"bar.count,endpoint=foo:1.000000|c",
+			},
+			expectedRates: [][]string{
+				{
+					"baseplate.local.rate,endpoint=foo,success=True:1.000000|c",
+					"local.foo.success:1.000000|c",
+					"local.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.local.rate,success=True,endpoint=foo:1.000000|c",
+					"local.foo.success:1.000000|c",
+					"local.foo.total:1.000000|c",
+				},
+			},
+			expectedHistoREs: []string{
+				`^baseplate\.local\.latency,endpoint=foo:\d+\.\d+\|ms$`,
+				`^local\.foo:\d+\.\d+\|ms$`,
+			},
+		},
+		{
+			label:         "local-failure",
+			spanGenerator: localGenerator,
+			err:           errors.New("error"),
+			expectedCounters: []string{
+				"bar.count,endpoint=foo:1.000000|c",
+			},
+			expectedRates: [][]string{
+				{
+					"baseplate.local.rate,endpoint=foo,success=False:1.000000|c",
+					"local.foo.failure:1.000000|c",
+					"local.foo.total:1.000000|c",
+				},
+				{
+					"baseplate.local.rate,success=False,endpoint=foo:1.000000|c",
+					"local.foo.failure:1.000000|c",
+					"local.foo.total:1.000000|c",
+				},
+			},
+			expectedHistoREs: []string{
+				`^baseplate\.local\.latency,endpoint=foo:\d+\.\d+\|ms$`,
+				`^local\.foo:\d+\.\d+\|ms$`,
+			},
+		},
+	} {
+		t.Run(c.label, func(t *testing.T) {
+			span := c.spanGenerator()
+			counter, statusCounters, histograms := runSpan(t, st, span, c.err)
 
-			expectedCounter := "bar.count:1.000000|c"
-			if counter != expectedCounter {
-				t.Errorf("Expected counter: %s\nGot: %s", expectedCounter, counter)
+			var counterMatched bool
+			for _, expected := range c.expectedCounters {
+				if counter == expected {
+					counterMatched = true
+					break
+				}
+			}
+			if !counterMatched {
+				t.Errorf("Expected counter to be one of %#v, got: %s", c.expectedCounters, counter)
 			}
 
-			expected := []string{
-				"server.foo.success:1.000000|c",
-				"server.foo.total:1.000000|c",
+			var ratesMatched bool
+			for _, expected := range c.expectedRates {
+				if reflect.DeepEqual(statusCounters, expected) {
+					ratesMatched = true
+					break
+				}
 			}
-			if !reflect.DeepEqual(statusCounters, expected) {
+			if !ratesMatched {
 				t.Errorf(
-					"Expected status counters: %+v, got: %+v",
-					expected,
+					"Expected rate counters to be one of %#v, got: %#v",
+					c.expectedRates,
 					statusCounters,
 				)
 			}
 
-			if !histogramRegex.MatchString(histogram) {
-				t.Errorf("Histogram %s did not match expected format", histogram)
+			for _, reStr := range c.expectedHistoREs {
+				re, err := regexp.Compile(reStr)
+				if err != nil {
+					t.Errorf("Failed to compile regexp %s: %v", reStr, err)
+				} else if !foundHistogram(histograms, re) {
+					t.Errorf("Histograms %#v did not match expected regexp %s", histograms, reStr)
+				}
 			}
-		},
-	)
-
-	t.Run(
-		"failure",
-		func(t *testing.T) {
-			counter, statusCounters, histogram := runSpan(t, st, fmt.Errorf("test error"))
-
-			expectedCounter := "bar.count:1.000000|c"
-			if counter != expectedCounter {
-				t.Errorf("Expected counter: %s\nGot: %s", expectedCounter, counter)
-			}
-
-			expected := []string{
-				"server.foo.failure:1.000000|c",
-				"server.foo.total:1.000000|c",
-			}
-			if !reflect.DeepEqual(statusCounters, expected) {
-				t.Errorf(
-					"Expected status counters: %+v, got: %+v",
-					expected,
-					statusCounters,
-				)
-			}
-
-			if !histogramRegex.MatchString(histogram) {
-				t.Errorf("Histogram %s did not match expected format", histogram)
-			}
-		},
-	)
+		})
+	}
 }
 
 func TestWithStartAndFinishTimes(t *testing.T) {
@@ -143,7 +357,7 @@ func TestWithStartAndFinishTimes(t *testing.T) {
 	opts.FinishTime = stopTime
 	span.FinishWithOptions(opts)
 
-	var histogram string
+	var histograms []string
 	var sb strings.Builder
 	if _, err := st.WriteTo(&sb); err != nil {
 		return
@@ -151,14 +365,25 @@ func TestWithStartAndFinishTimes(t *testing.T) {
 	stats := strings.Split(sb.String(), "\n")
 	for _, stat := range stats {
 		if strings.HasSuffix(stat, "|ms") {
-			histogram = stat
-			break
+			histograms = append(histograms, stat)
 		}
 	}
 
-	expected := "server.foo:3600000.000000|ms"
-	if strings.Compare(histogram, expected) != 0 {
-		t.Errorf("histogram mismatch, expected %q, got %q", expected, histogram)
+	// The order of emitted histograms are indeterministic
+	expected1 := []string{
+		"baseplate.server.latency,endpoint=foo:3600000.000000|ms",
+		"server.foo:3600000.000000|ms",
 	}
-
+	expected2 := []string{
+		"server.foo:3600000.000000|ms",
+		"baseplate.server.latency,endpoint=foo:3600000.000000|ms",
+	}
+	if !reflect.DeepEqual(histograms, expected1) && !reflect.DeepEqual(histograms, expected2) {
+		t.Errorf(
+			"histograms mismatch, expected one of %#v & %#v, got %#v",
+			expected1,
+			expected2,
+			histograms,
+		)
+	}
 }

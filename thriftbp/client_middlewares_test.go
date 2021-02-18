@@ -76,7 +76,9 @@ func initLocalSpan(ctx context.Context, t *testing.T) (context.Context, *mqsend.
 	_, ctx = opentracing.StartSpanFromContext(
 		ctx,
 		"local-test",
-		tracing.LocalComponentOption{Name: ""},
+		tracing.SpanTypeOption{
+			Type: tracing.SpanTypeLocal,
+		},
 	)
 	return ctx, recorder
 }

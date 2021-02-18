@@ -35,9 +35,11 @@ const (
 	DefaultMaxRecordTimeout = time.Millisecond * 50
 )
 
-// Register an empty Tracer implementation as opentracing's global tracer.
 func init() {
+	// Register an empty Tracer implementation as opentracing's global tracer.
 	opentracing.SetGlobalTracer(&globalTracer)
+	// Init the global allow-list
+	SetMetricsTagsAllowList(nil)
 }
 
 var globalTracer = Tracer{logger: log.NopWrapper}
@@ -265,10 +267,10 @@ func (t *Tracer) StartSpan(operationName string, opts ...opentracing.StartSpanOp
 	}
 
 	span := newSpan(t, operationName, sso.Type)
-	span.component = sso.ComponentName
 	if !sso.OpenTracingOptions.StartTime.IsZero() {
 		span.trace.start = sso.OpenTracingOptions.StartTime
 	}
+
 	parent := findFirstParentReference(sso.OpenTracingOptions.References)
 	if parent != nil {
 		parent.initChildSpan(span)
@@ -278,8 +280,7 @@ func (t *Tracer) StartSpan(operationName string, opts ...opentracing.StartSpanOp
 		initRootSpan(span)
 	}
 
-	switch span.spanType {
-	case SpanTypeServer:
+	if span.spanType == SpanTypeServer {
 		// Special handlings for server spans. See also: Span.initChildSpan.
 		onCreateServerSpan(span)
 		span.onStart()
