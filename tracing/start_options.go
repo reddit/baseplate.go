@@ -8,8 +8,7 @@ import (
 type StartSpanOptions struct {
 	OpenTracingOptions opentracing.StartSpanOptions
 
-	Type          SpanType
-	ComponentName string
+	Type SpanType
 }
 
 // Apply calls opt.Apply against sso.OpenTracingOptions.
@@ -47,21 +46,6 @@ func (s SpanTypeOption) ApplyBP(sso *StartSpanOptions) {
 	sso.Type = s.Type
 }
 
-// LocalComponentOption implements StartSpanOption to set the type to local and
-// also sets the local component name.
-type LocalComponentOption struct {
-	nopOption
-
-	Name string
-}
-
-// ApplyBP implements StartSpanOption.
-func (l LocalComponentOption) ApplyBP(sso *StartSpanOptions) {
-	sso.Type = SpanTypeLocal
-	sso.ComponentName = l.Name
-}
-
 var (
 	_ StartSpanOption = SpanTypeOption{}
-	_ StartSpanOption = LocalComponentOption{}
 )

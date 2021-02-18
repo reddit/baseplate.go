@@ -197,7 +197,7 @@ func TestChildSpan(t *testing.T) {
 	startFailing()
 
 	f := func(
-		parentName, childName, component randomName,
+		parentName, childName randomName,
 		childType randomSpanType,
 		flags int64,
 	) bool {
@@ -219,7 +219,7 @@ func TestChildSpan(t *testing.T) {
 			child = AsSpan(opentracing.StartSpan(
 				string(childName),
 				opentracing.ChildOf(span),
-				LocalComponentOption{Name: string(component)},
+				SpanTypeOption{Type: SpanTypeLocal},
 			))
 		}
 
@@ -251,8 +251,17 @@ func TestChildSpan(t *testing.T) {
 		if child.trace.parentID == span.trace.parentID {
 			t.Error("Child should not inherit parent's parentID")
 		}
-		if len(child.trace.tags) > 1 {
-			t.Error("Child should not inherit parent's tags")
+		var baseTagNum int
+		for _, tag := range []string{
+			TagKeyClient,
+			ZipkinBinaryAnnotationKeyComponent,
+		} {
+			if _, ok := child.trace.tags[tag]; ok {
+				baseTagNum++
+			}
+		}
+		if len(child.trace.tags) > baseTagNum {
+			t.Errorf("Child should not inherit parent's tags: %v", child.trace.tags)
 		}
 		if len(child.trace.counters) > 0 {
 			t.Error("Child should not inherit parent's counters")
@@ -719,5 +728,33 @@ func TestStartAndFinishTimes(t *testing.T) {
 	span.FinishWithOptions(opentracing.FinishOptions{FinishTime: stopTime})
 	if !span.StopTime().Equal(stopTime) {
 		t.Fatalf("start time mismatch, expected %v, got %v", stopTime, span.StopTime())
+	}
+}
+
+func TestSpanMetricsTags(t *testing.T) {
+	backupAllowList := getAllowList()
+	t.Cleanup(func() {
+		SetMetricsTagsAllowList(backupAllowList)
+	})
+
+	const (
+		endpoint = "endpoint"
+		key      = "key"
+		value    = "value"
+	)
+
+	SetMetricsTagsAllowList([]string{key})
+	span := newSpan(nil, "foo", SpanTypeLocal)
+	span.SetTag(TagKeyEndpoint, endpoint)
+	span.SetTag(key, value)
+	span.SetTag("bar", "baz")
+
+	tags := span.MetricsTags()
+	expected := map[string]string{
+		TagKeyEndpoint: endpoint,
+		key:            value,
+	}
+	if !reflect.DeepEqual(expected, tags) {
+		t.Errorf("Expected %v, got %v", expected, tags)
 	}
 }

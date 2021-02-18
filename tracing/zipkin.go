@@ -60,8 +60,7 @@ const (
 // Zipkin span well-known binary annotation keys.
 const (
 	// String values
-	ZipkinBinaryAnnotationKeyComponent      = "component"
-	ZipkinBinaryAnnotationKeyLocalComponent = "lc"
+	ZipkinBinaryAnnotationKeyComponent = "component"
 
 	// Boolean values
 	ZipkinBinaryAnnotationKeyDebug   = "debug"

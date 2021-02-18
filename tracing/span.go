@@ -102,10 +102,9 @@ func newSpan(tracer *Tracer, name string, spanType SpanType) *Span {
 type Span struct {
 	trace *trace
 
-	component string
-	hooks     []interface{}
-	spanType  SpanType
-	hub       *sentry.Hub
+	hooks    []interface{}
+	spanType SpanType
+	hub      *sentry.Hub
 }
 
 func (s *Span) onStart() {
@@ -229,23 +228,29 @@ func (s *Span) AddCounter(key string, delta float64) {
 	}
 }
 
-// Component returns the local component name of this span, with special cases.
+// Component returns the string version of the span type,
+// except for client spans it returns "clients" instead of "client".
 //
-// For local spans,
-// this returns the component name set while starting the span,
-// or "local" if it's empty.
-// For client spans, this returns "clients".
-// For all other span types, this returns the string version of the span type.
+// DEPRECATED: To be removed in 0.9.0.
 func (s *Span) Component() string {
 	switch s.spanType {
 	case SpanTypeClient:
 		return "clients"
-	case SpanTypeLocal:
-		if s.component != "" {
-			return s.component
-		}
 	}
 	return s.spanType.String()
+}
+
+// MetricsTags returns a subset of span's tags filtered by the allow-list set
+// from SetMetricsTagsAllowList().
+func (s *Span) MetricsTags() map[string]string {
+	l := getAllowList()
+	m := make(map[string]string, len(l))
+	for _, key := range l {
+		if value := s.trace.tags[key]; value != "" {
+			m[key] = value
+		}
+	}
+	return m
 }
 
 // initChildSpan do the initialization for the child span to inherit from the
@@ -296,16 +301,9 @@ func (s *Span) Stop(ctx context.Context, err error) error {
 
 func (s *Span) preStop(err error) {
 	// We intentionally don't use the top level span.SetTag function
-	// because we don't want to trigger any OnSetTag Hooks in this case.
-	switch s.spanType {
-	case SpanTypeServer:
-		if err != nil && errors.Is(err, context.DeadlineExceeded) {
-			s.trace.setTag(ZipkinBinaryAnnotationKeyTimeOut, true)
-		}
-	case SpanTypeLocal:
-		if s.component != "" {
-			s.trace.setTag(ZipkinBinaryAnnotationKeyLocalComponent, s.component)
-		}
+	// because we don't want to trigger any OnSetTag Hooks in these cases.
+	if s.spanType == SpanTypeServer && err != nil && errors.Is(err, context.DeadlineExceeded) {
+		s.trace.setTag(ZipkinBinaryAnnotationKeyTimeOut, true)
 	}
 	if err != nil {
 		s.trace.setTag(ZipkinBinaryAnnotationKeyError, true)

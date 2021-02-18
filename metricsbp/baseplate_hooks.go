@@ -2,14 +2,22 @@ package metricsbp
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/reddit/baseplate.go/tracing"
 )
 
+// DEPRECATED: to be removed in 0.9.0.
 const (
 	success = "success"
 	failure = "failure"
 	total   = "total"
+)
+
+const (
+	baseplateTimer   = "baseplate.%s.latency"
+	baseplateCounter = "baseplate.%s.rate"
 )
 
 // CreateServerSpanHook registers each Server Span with a MetricsSpanHook.
@@ -30,22 +38,25 @@ func (h CreateServerSpanHook) OnCreateServerSpan(span *tracing.Span) error {
 	return nil
 }
 
-// spanHook wraps a Span in a Timer and records a "total" and "success"/"failure"
-// metric when the Span ends based on whether an error was passed to `span.End`
-// or not.
+// spanHook wraps a Span in a timer and records a counter metric when the Span
+// ends, with success=True/False tags for the counter based on whether an error
+// was passed to `span.End` or not.
 type spanHook struct {
-	name    string
 	metrics *Statsd
 
-	timer *Timer
+	startTime time.Time
+
+	// DEPRECATED: to be removed in 0.9.0
+	legacyName  string
+	legacyTimer *Timer
 }
 
 func newSpanHook(metrics *Statsd, span *tracing.Span) *spanHook {
-	name := span.Component() + "." + span.Name()
+	legacyName := span.Component() + "." + span.Name()
 	return &spanHook{
-		name:    name,
-		metrics: metrics,
-		timer:   NewTimer(metrics.Timing(name)),
+		metrics:     metrics,
+		legacyName:  legacyName,
+		legacyTimer: NewTimer(metrics.Timing(legacyName)),
 	}
 }
 
@@ -56,13 +67,32 @@ func (h *spanHook) OnCreateChild(parent, child *tracing.Span) error {
 	return nil
 }
 
-// OnPostStart starts the timer.
-func (h *spanHook) OnPostStart(span *tracing.Span) error {
-	if span.StartTime().IsZero() {
-		h.timer.Start()
-	} else {
-		h.timer.OverrideStartTime(span.StartTime())
+func splitClientSpanName(name string) (client, endpoint string) {
+	index := strings.LastIndexByte(name, '.')
+	if index < 0 {
+		// No client name
+		return "", name
 	}
+	return name[:index], name[index+1:]
+}
+
+// OnPostStart records the start time for the timer,
+// and also sets the endpoint and client tags for the span.
+func (h *spanHook) OnPostStart(span *tracing.Span) error {
+	if span.SpanType() == tracing.SpanTypeClient {
+		client, endpoint := splitClientSpanName(span.Name())
+		span.SetTag(tracing.TagKeyClient, client)
+		span.SetTag(tracing.TagKeyEndpoint, endpoint)
+	} else {
+		span.SetTag(tracing.TagKeyEndpoint, span.Name())
+	}
+
+	if span.StartTime().IsZero() {
+		h.startTime = time.Now()
+	} else {
+		h.startTime = span.StartTime()
+	}
+	h.legacyTimer.OverrideStartTime(h.startTime)
 	return nil
 }
 
@@ -72,27 +102,43 @@ func (h *spanHook) OnPostStart(span *tracing.Span) error {
 // A span is marked as "failure" if `err != nil` otherwise it is marked as
 // "success".
 func (h *spanHook) OnPreStop(span *tracing.Span, err error) error {
-	if span.StopTime().IsZero() {
-		h.timer.ObserveDuration()
-	} else {
-		h.timer.ObserveWithEndTime(span.StopTime())
+	stop := span.StopTime()
+	if stop.IsZero() {
+		stop = time.Now()
 	}
+	typeStr := span.SpanType().String()
+	tags := Tags(span.MetricsTags())
+	timer := NewTimer(h.metrics.Timing(
+		fmt.Sprintf(baseplateTimer, typeStr),
+	).With(tags.AsStatsdTags()...))
+	timer.OverrideStartTime(h.startTime).ObserveWithEndTime(stop)
+
+	// DEPRECATED: to be removed in 0.9.0.
+	h.legacyTimer.ObserveWithEndTime(stop)
 
 	var statusMetricPath string
+	var successResult string
 	if err != nil {
-		statusMetricPath = fmt.Sprintf("%s.%s", h.name, failure)
+		statusMetricPath = fmt.Sprintf("%s.%s", h.legacyName, failure)
+		successResult = "False"
 	} else {
-		statusMetricPath = fmt.Sprintf("%s.%s", h.name, success)
+		statusMetricPath = fmt.Sprintf("%s.%s", h.legacyName, success)
+		successResult = "True"
 	}
+	tags[tracing.TagKeySuccess] = successResult
+	h.metrics.Counter(fmt.Sprintf(baseplateCounter, typeStr)).With(tags.AsStatsdTags()...).Add(1)
+
+	// DEPRECATED: to be removed in 0.9.0.
 	h.metrics.Counter(statusMetricPath).Add(1)
-	h.metrics.Counter(fmt.Sprintf("%s.%s", h.name, total)).Add(1)
+	h.metrics.Counter(fmt.Sprintf("%s.%s", h.legacyName, total)).Add(1)
+
 	return nil
 }
 
 // OnAddCounter will increment a metric by "delta" using "key" as the metric
 // "name"
 func (h *spanHook) OnAddCounter(span *tracing.Span, key string, delta float64) error {
-	h.metrics.Counter(key).Add(delta)
+	h.metrics.Counter(key).With(Tags(span.MetricsTags()).AsStatsdTags()...).Add(delta)
 	return nil
 }
 

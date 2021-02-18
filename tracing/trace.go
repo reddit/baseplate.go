@@ -9,6 +9,13 @@ import (
 	"github.com/reddit/baseplate.go/timebp"
 )
 
+// Well-known (special) span tag keys
+const (
+	TagKeyClient   = "client"
+	TagKeyEndpoint = "endpoint"
+	TagKeySuccess  = "success"
+)
+
 // FlagMask values.
 //
 // Reference: https://github.com/reddit/baseplate.py/blob/1ca8488bcd42c8786e6a3db35b2a99517fd07a99/baseplate/observers/tracing.py#L60-L64
