@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v7"
-	"github.com/reddit/baseplate.go/redisbp"
+	"github.com/reddit/baseplate.go/redis/deprecated/redisbp"
 	"gopkg.in/yaml.v2"
 )
 

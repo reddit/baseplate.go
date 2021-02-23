@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-redis/redis/v7"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/reddit/baseplate.go/redisbp"
+	"github.com/reddit/baseplate.go/redis/deprecated/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
