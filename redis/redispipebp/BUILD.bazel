@@ -1,0 +1,56 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "baseplate.go",
+        "breaker.go",
+        "config.go",
+        "doc.go",
+        "errors.go",
+        "monitored.go",
+        "retry.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/redis/redispipebp",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//breakerbp:go_default_library",
+        "//redis/redisx:go_default_library",
+        "//retrybp:go_default_library",
+        "//tracing:go_default_library",
+        "@com_github_avast_retry_go//:go_default_library",
+        "@com_github_joomcode_errorx//:go_default_library",
+        "@com_github_joomcode_redispipe//redis:go_default_library",
+        "@com_github_joomcode_redispipe//rediscluster:go_default_library",
+        "@com_github_joomcode_redispipe//redisconn:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "breaker_test.go",
+        "config_test.go",
+        "errors_test.go",
+        "init_test.go",
+        "monitored_test.go",
+        "retry_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//breakerbp:go_default_library",
+        "//mqsend:go_default_library",
+        "//redis/redisx:go_default_library",
+        "//retrybp:go_default_library",
+        "//tracing:go_default_library",
+        "@com_github_alicebob_miniredis_v2//:go_default_library",
+        "@com_github_avast_retry_go//:go_default_library",
+        "@com_github_joomcode_errorx//:go_default_library",
+        "@com_github_joomcode_redispipe//redis:go_default_library",
+        "@com_github_joomcode_redispipe//rediscluster:go_default_library",
+        "@com_github_joomcode_redispipe//redisconn:go_default_library",
+        "@com_github_sony_gobreaker//:go_default_library",
+        "@in_gopkg_yaml_v2//:go_default_library",
+    ],
+)
