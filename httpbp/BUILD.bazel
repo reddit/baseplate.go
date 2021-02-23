@@ -48,7 +48,7 @@ go_test(
         "//internal/gen-go/reddit/baseplate:go_default_library",
         "//log:go_default_library",
         "//mqsend:go_default_library",
-        "//redisbp:go_default_library",
+        "//redis/deprecated/redisbp:go_default_library",
         "//retrybp:go_default_library",
         "//secrets:go_default_library",
         "//tracing:go_default_library",

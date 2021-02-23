@@ -16,15 +16,16 @@ def go_dependencies():
     go_repository(
         name = "com_github_alicebob_gopher_json",
         importpath = "github.com/alicebob/gopher-json",
-        sum = "h1:45bxf7AZMwWcqkLzDAQugVEwedisr5nRJ1r+7LYnv0U=",
-        version = "v0.0.0-20180125190556-5a6b3ba71ee6",
+        sum = "h1:HbKu58rmZpUGpz5+4FfNmIU+FmZg2P3Xaj2v2bfNWmk=",
+        version = "v0.0.0-20200520072559-a9ecdc9d1d3a",
     )
     go_repository(
-        name = "com_github_alicebob_miniredis",
-        importpath = "github.com/alicebob/miniredis",
-        sum = "h1:yBHoLpsyjupjz3NL3MhKMVkR41j82Yjf3KFv7ApYzUI=",
-        version = "v2.5.0+incompatible",
+        name = "com_github_alicebob_miniredis_v2",
+        importpath = "github.com/alicebob/miniredis/v2",
+        sum = "h1:QWoo2wchYmLgOB6ctlTt2dewQ1Vu6phl+iQbwT8SYGo=",
+        version = "v2.14.3",
     )
+
     go_repository(
         name = "com_github_andreasbriese_bbloom",
         importpath = "github.com/AndreasBriese/bbloom",
@@ -61,6 +62,13 @@ def go_dependencies():
         sum = "h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=",
         version = "v0.3.1",
     )
+    go_repository(
+        name = "com_github_chasex_redis_go_cluster",
+        importpath = "github.com/chasex/redis-go-cluster",
+        sum = "h1:eryAqclX9j1cX/BaR2mXZBQo4JdJdXSEZFWWgbl/7o8=",
+        version = "v1.0.0",
+    )
+
     go_repository(
         name = "com_github_chzyer_logex",
         importpath = "github.com/chzyer/logex",
@@ -223,6 +231,13 @@ def go_dependencies():
         sum = "h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=",
         version = "v1.4.7",
     )
+    go_repository(
+        name = "com_github_garyburd_redigo",
+        importpath = "github.com/garyburd/redigo",
+        sum = "h1:yE/pwKCrbLpLpQICzYTeZ7JsTA/C53wFTJHaEtRqniM=",
+        version = "v1.6.2",
+    )
+
     go_repository(
         name = "com_github_gavv_httpexpect",
         importpath = "github.com/gavv/httpexpect",
@@ -440,6 +455,19 @@ def go_dependencies():
         version = "v1.0.1-0.20190614124447-d475f43051e7",
     )
     go_repository(
+        name = "com_github_joomcode_errorx",
+        importpath = "github.com/joomcode/errorx",
+        sum = "h1:3e1mi0u7/HTPNdg6d6DYyKGBhA5l9XpsfuVE29NxnWw=",
+        version = "v1.0.3",
+    )
+    go_repository(
+        name = "com_github_joomcode_redispipe",
+        importpath = "github.com/joomcode/redispipe",
+        sum = "h1:K6KIzEguZ7i1Cy20UeShk2YO01hhFg+lqauxmcA747o=",
+        version = "v0.9.4",
+    )
+
+    go_repository(
         name = "com_github_json_iterator_go",
         importpath = "github.com/json-iterator/go",
         sum = "h1:MrUvLMLTMxbqFJ9kzlvat/rYZqZnW3u4wkLzWTaFwKs=",
@@ -583,6 +611,13 @@ def go_dependencies():
         sum = "h1:3dQJqqDouawQgl3gBE1PNHKFkJYGEuFb1DbSlaxdosE=",
         version = "v0.0.0-20181029021733-cb65787f37ed",
     )
+    go_repository(
+        name = "com_github_mediocregopher_radix_v2",
+        importpath = "github.com/mediocregopher/radix.v2",
+        sum = "h1:ViNuGS149jgnttqhc6XQNPwdupEMBXqCx9wtlW7P3sA=",
+        version = "v0.0.0-20181115013041-b67df6e626f9",
+    )
+
     go_repository(
         name = "com_github_mediocregopher_radix_v3",
         importpath = "github.com/mediocregopher/radix/v3",
@@ -940,8 +975,8 @@ def go_dependencies():
     go_repository(
         name = "com_github_yuin_gopher_lua",
         importpath = "github.com/yuin/gopher-lua",
-        sum = "h1:ZkM6LRnq40pR1Ox0hTHlnpkcOTuFIDQpZ1IN8rKKhX0=",
-        version = "v0.0.0-20191220021717-ab39c6098bdb",
+        sum = "h1:NimzV1aGyq29m5ukMK0AMWEhFaL/lrEOaephfuoiARg=",
+        version = "v0.0.0-20200816102855-ee81675732da",
     )
     go_repository(
         name = "in_gopkg_check_v1",
@@ -1027,6 +1062,7 @@ def go_dependencies():
         sum = "h1:VEmvx0P+GVTgkNu2EdTN988YCZPcD3lo9AoczZpucwc=",
         version = "v3.0.0-20200601152816-913338de1bd2",
     )
+
     go_repository(
         name = "org_golang_x_crypto",
         importpath = "golang.org/x/crypto",
