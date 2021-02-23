@@ -1,0 +1,36 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "errors.go",
+        "request.go",
+        "sync.go",
+        "syncx.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/redis/redisx",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//errorsbp:go_default_library",
+        "//retrybp:go_default_library",
+        "@com_github_joomcode_redispipe//redis:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "init_test.go",
+        "request_benchmark_test.go",
+        "syncx_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//errorsbp:go_default_library",
+        "@com_github_alicebob_miniredis_v2//:go_default_library",
+        "@com_github_joomcode_errorx//:go_default_library",
+        "@com_github_joomcode_redispipe//redis:go_default_library",
+        "@com_github_joomcode_redispipe//redisconn:go_default_library",
+    ],
+)
