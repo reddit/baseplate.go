@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "doc.go",
         "failure_ratio.go",
+        "interface.go",
     ],
     importpath = "github.com/reddit/baseplate.go/breakerbp",
     visibility = ["//visibility:public"],
