@@ -12,12 +12,6 @@ import (
 	"github.com/reddit/baseplate.go/metricsbp"
 )
 
-// CircuitBreaker is the interface that baseplate expects a circuit breaker to implement.
-type CircuitBreaker interface {
-	// Execute should wrap the given function call in circuit breaker logic and return the result.
-	Execute(func() (interface{}, error)) (interface{}, error)
-}
-
 // FailureRatioBreaker is a circuit breaker based on gobreaker that uses a low-water-mark and
 // % failure threshold to trip.
 type FailureRatioBreaker struct {
