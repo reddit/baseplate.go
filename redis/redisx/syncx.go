@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/joomcode/redispipe/redis"
+
 	"github.com/reddit/baseplate.go/errorsbp"
 )
 

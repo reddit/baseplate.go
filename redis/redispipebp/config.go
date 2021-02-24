@@ -115,19 +115,19 @@ type Opts struct {
 	// commands to flush.
 	//
 	// Maps to redisconn.Opts.WritePause
-	WritePause *time.Duration `yaml:"writePause"`
+	WritePause time.Duration `yaml:"writePause"`
 
 	// ReconnectPause is how long the client will wait to attempt to make a
 	// connection the previous attempt fails.
 	//
 	// Maps to redisconn.Opts.ReconnectPause
-	ReconnectPause *time.Duration `yaml:"reconnectPause"`
+	ReconnectPause time.Duration `yaml:"reconnectPause"`
 
 	// TCPKeepAlive is the KeepAlive parameter for the net.Dial used to make a new
 	// connection.
 	//
 	// Maps to redisconn.Opts.TCPKeepAlive
-	TCPKeepAlive *time.Duration `yaml:"tcpKeepAlive"`
+	TCPKeepAlive time.Duration `yaml:"tcpKeepAlive"`
 
 	// Timeouts is used to configure the different connection timeouts.
 	Timeouts Timeouts `yaml:"timeouts"`
@@ -140,14 +140,14 @@ func (o Opts) ApplyOpts(opts *redisconn.Opts) {
 	if o.DB != nil {
 		opts.DB = *o.DB
 	}
-	if o.WritePause != nil {
-		opts.WritePause = *o.WritePause
+	if o.WritePause > 0 {
+		opts.WritePause = o.WritePause
 	}
-	if o.ReconnectPause != nil {
-		opts.ReconnectPause = *o.ReconnectPause
+	if o.ReconnectPause > 0 {
+		opts.ReconnectPause = o.ReconnectPause
 	}
-	if o.TCPKeepAlive != nil {
-		opts.TCPKeepAlive = *o.TCPKeepAlive
+	if o.TCPKeepAlive > 0 {
+		opts.TCPKeepAlive = o.TCPKeepAlive
 	}
 	o.Timeouts.ApplyOpts(opts)
 }
@@ -161,22 +161,22 @@ type Timeouts struct {
 	// Dial is the timeout for the net.Dialer used to create a connection.
 	//
 	// Maps to redisconn.Opts.DialTimeout
-	Dial *time.Duration `yaml:"dial"`
+	Dial time.Duration `yaml:"dial"`
 
 	// IO is the timeout for read/write operations on the socket.
 	//
 	// Maps to redisconn.Opts.IOTimeout
-	IO *time.Duration `yaml:"io"`
+	IO time.Duration `yaml:"io"`
 }
 
 // ApplyOpts applies any values set in t to opts, if a value is not set on t, then
 // we don't update opts and allow redispipe to use its defaults.
 func (t Timeouts) ApplyOpts(opts *redisconn.Opts) {
-	if t.Dial != nil {
-		opts.DialTimeout = *t.Dial
+	if t.Dial > 0 {
+		opts.DialTimeout = t.Dial
 	}
-	if t.IO != nil {
-		opts.IOTimeout = *t.IO
+	if t.IO > 0 {
+		opts.IOTimeout = t.IO
 	}
 }
 
@@ -190,13 +190,13 @@ type ClusterOpts struct {
 	// Name is the name of the cluster.
 	//
 	// Maps to rediscluster.Opts.Name
-	Name *string `yaml:"name"`
+	Name string `yaml:"name"`
 }
 
 // ApplyOpts applies any values set in o to opts, if a value is not set on o, then
 // we don't update opts and allow redispipe to use its defaults.
 func (o ClusterOpts) ApplyOpts(opts *rediscluster.Opts) {
-	if o.Name != nil {
-		opts.Name = *o.Name
+	if o.Name != "" {
+		opts.Name = o.Name
 	}
 }
