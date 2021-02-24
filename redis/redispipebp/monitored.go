@@ -7,9 +7,9 @@ import (
 	"github.com/joomcode/errorx"
 	"github.com/joomcode/redispipe/redis"
 	"github.com/opentracing/opentracing-go"
-	"github.com/reddit/baseplate.go/tracing"
 
 	"github.com/reddit/baseplate.go/redis/redisx"
+	"github.com/reddit/baseplate.go/tracing"
 )
 
 // MonitoredSync wraps Sync methods in client spans.

@@ -6,9 +6,9 @@ import (
 
 	"github.com/avast/retry-go"
 	"github.com/joomcode/redispipe/redis"
-	"github.com/reddit/baseplate.go/retrybp"
 
 	"github.com/reddit/baseplate.go/redis/redisx"
+	"github.com/reddit/baseplate.go/retrybp"
 )
 
 // RetrySync wraps redis calls in retry logic using the given Options.

@@ -33,6 +33,7 @@ func (e *RedispipeError) As(v interface{}) bool {
 }
 
 // Unwrap implements helper interface for errors.Unwrap.
+//
 // Unwraps the underlying errorx.Error by calling Cause() and wrapping
 // the result.
 func (e *RedispipeError) Unwrap() error {
