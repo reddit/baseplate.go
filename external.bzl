@@ -25,7 +25,6 @@ def go_dependencies():
         sum = "h1:QWoo2wchYmLgOB6ctlTt2dewQ1Vu6phl+iQbwT8SYGo=",
         version = "v2.14.3",
     )
-
     go_repository(
         name = "com_github_andreasbriese_bbloom",
         importpath = "github.com/AndreasBriese/bbloom",
@@ -68,7 +67,6 @@ def go_dependencies():
         sum = "h1:eryAqclX9j1cX/BaR2mXZBQo4JdJdXSEZFWWgbl/7o8=",
         version = "v1.0.0",
     )
-
     go_repository(
         name = "com_github_chzyer_logex",
         importpath = "github.com/chzyer/logex",
@@ -237,7 +235,6 @@ def go_dependencies():
         sum = "h1:yE/pwKCrbLpLpQICzYTeZ7JsTA/C53wFTJHaEtRqniM=",
         version = "v1.6.2",
     )
-
     go_repository(
         name = "com_github_gavv_httpexpect",
         importpath = "github.com/gavv/httpexpect",
@@ -466,7 +463,6 @@ def go_dependencies():
         sum = "h1:K6KIzEguZ7i1Cy20UeShk2YO01hhFg+lqauxmcA747o=",
         version = "v0.9.4",
     )
-
     go_repository(
         name = "com_github_json_iterator_go",
         importpath = "github.com/json-iterator/go",
@@ -617,7 +613,6 @@ def go_dependencies():
         sum = "h1:ViNuGS149jgnttqhc6XQNPwdupEMBXqCx9wtlW7P3sA=",
         version = "v0.0.0-20181115013041-b67df6e626f9",
     )
-
     go_repository(
         name = "com_github_mediocregopher_radix_v3",
         importpath = "github.com/mediocregopher/radix/v3",
@@ -1062,7 +1057,6 @@ def go_dependencies():
         sum = "h1:VEmvx0P+GVTgkNu2EdTN988YCZPcD3lo9AoczZpucwc=",
         version = "v3.0.0-20200601152816-913338de1bd2",
     )
-
     go_repository(
         name = "org_golang_x_crypto",
         importpath = "golang.org/x/crypto",
