@@ -10,7 +10,7 @@ import (
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/redisbp"
+	"github.com/reddit/baseplate.go/redis/deprecated/redisbp"
 	"github.com/reddit/baseplate.go/secrets"
 )
 

@@ -135,3 +135,8 @@ func (cb FailureRatioBreaker) stateChanged(name string, from gobreaker.State, to
 	message := fmt.Sprintf("circuit breaker %v state changed from %v to %v", name, from, to)
 	cb.logger.Log(context.Background(), message)
 }
+
+var (
+	_ CircuitBreaker = FailureRatioBreaker{}
+	_ CircuitBreaker = (*gobreaker.CircuitBreaker)(nil)
+)

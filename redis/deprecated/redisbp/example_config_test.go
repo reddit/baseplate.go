@@ -6,7 +6,7 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
-	"github.com/reddit/baseplate.go/redisbp"
+	"github.com/reddit/baseplate.go/redis/deprecated/redisbp"
 )
 
 type Config struct {
