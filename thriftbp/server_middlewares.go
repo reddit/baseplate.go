@@ -276,8 +276,16 @@ func ReportPayloadSizeMetrics(rate float64) thrift.ProcessorMiddleware {
 							oproto.Flush(ctx)
 
 							proto := "header-" + tHeaderProtocol2String(protoID)
-							metricsbp.M.HistogramWithRate("payload.size."+name+".request", 1).With("proto", proto).Observe(float64(itrans))
-							metricsbp.M.HistogramWithRate("payload.size."+name+".response", 1).With("proto", proto).Observe(float64(otrans))
+							metricsbp.M.HistogramWithRate(metricsbp.RateArgs{
+								Name:             "payload.size." + name + ".request",
+								Rate:             1,
+								AlreadySampledAt: metricsbp.Float64Ptr(rate),
+							}).With("proto", proto).Observe(float64(itrans))
+							metricsbp.M.HistogramWithRate(metricsbp.RateArgs{
+								Name:             "payload.size." + name + ".response",
+								Rate:             1,
+								AlreadySampledAt: metricsbp.Float64Ptr(rate),
+							}).With("proto", proto).Observe(float64(otrans))
 						}()
 					}
 				}
