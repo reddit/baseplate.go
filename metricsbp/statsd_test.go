@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"math"
 	"strings"
 	"testing"
 
@@ -15,11 +16,11 @@ func TestGlobalStatsd(t *testing.T) {
 	// tests here:
 	metricsbp.M.RunSysStats()
 	metricsbp.M.Counter("counter").Add(1)
-	metricsbp.M.CounterWithRate("counter", 0.1).Add(1)
+	metricsbp.M.CounterWithRate(metricsbp.RateArgs{}).Add(1)
 	metricsbp.M.Histogram("hitogram").Observe(1)
-	metricsbp.M.HistogramWithRate("hitogram", 0.1).Observe(1)
+	metricsbp.M.HistogramWithRate(metricsbp.RateArgs{}).Observe(1)
 	metricsbp.M.Timing("timing").Observe(1)
-	metricsbp.M.TimingWithRate("timing", 0.1).Observe(1)
+	metricsbp.M.TimingWithRate(metricsbp.RateArgs{}).Observe(1)
 	metricsbp.M.Gauge("gauge").Set(1)
 	metricsbp.M.RuntimeGauge("gauge").Set(1)
 	metricsbp.M.WriteTo(io.Discard)
@@ -31,11 +32,11 @@ func TestNilStatsd(t *testing.T) {
 	// tests here:
 	st.RunSysStats()
 	st.Counter("counter").Add(1)
-	st.CounterWithRate("counter", 0.1).Add(1)
+	st.CounterWithRate(metricsbp.RateArgs{}).Add(1)
 	st.Histogram("hitogram").Observe(1)
-	st.HistogramWithRate("hitogram", 0.1).Observe(1)
+	st.HistogramWithRate(metricsbp.RateArgs{}).Observe(1)
 	st.Timing("timing").Observe(1)
-	st.TimingWithRate("timing", 0.1).Observe(1)
+	st.TimingWithRate(metricsbp.RateArgs{}).Observe(1)
 	st.Gauge("gauge").Set(1)
 	st.RuntimeGauge("gauge").Set(1)
 	st.WriteTo(io.Discard)
@@ -257,4 +258,71 @@ func BenchmarkStatsd(b *testing.B) {
 			)
 		},
 	)
+}
+
+func TestRateArgsReportingRate(t *testing.T) {
+	const epsilon = 1e-9
+	for _, c := range []struct {
+		label    string
+		expected float64
+		args     metricsbp.RateArgs
+	}{
+		{
+			label:    "1-nil",
+			expected: 1,
+			args: metricsbp.RateArgs{
+				Rate: 1,
+			},
+		},
+		{
+			label:    "0-nil",
+			expected: 0,
+			args: metricsbp.RateArgs{
+				Rate: 0,
+			},
+		},
+		{
+			label:    "0.5-nil",
+			expected: 0.5,
+			args: metricsbp.RateArgs{
+				Rate: 0.5,
+			},
+		},
+		{
+			label:    "0.5-0.5",
+			expected: 0.25,
+			args: metricsbp.RateArgs{
+				Rate:             0.5,
+				AlreadySampledAt: metricsbp.Float64Ptr(0.5),
+			},
+		},
+		{
+			label:    "0.5-1.5",
+			expected: 0.5,
+			args: metricsbp.RateArgs{
+				Rate:             0.5,
+				AlreadySampledAt: metricsbp.Float64Ptr(1.5),
+			},
+		},
+		{
+			label:    "negative",
+			expected: 0,
+			args: metricsbp.RateArgs{
+				Rate:             0.5,
+				AlreadySampledAt: metricsbp.Float64Ptr(-1),
+			},
+		},
+	} {
+		t.Run(c.label, func(t *testing.T) {
+			rate := c.args.ReportingRate()
+			if math.Abs(rate-c.expected) > epsilon {
+				t.Errorf(
+					"Expected ReportingRate for %#v to be %v, got %v",
+					c.args,
+					c.expected,
+					rate,
+				)
+			}
+		})
+	}
 }

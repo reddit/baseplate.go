@@ -213,24 +213,80 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 	return st
 }
 
+// RateArgs defines the args used by -WithRate functions.
+type RateArgs struct {
+	// Name of the metric, required.
+	Name string
+
+	// Sampling rate, required.
+	//
+	// If AlreadySampledAt is nil,
+	// this controls both the sample rate reported to statsd and the rate we use
+	// for reporting the metrics.
+	//
+	// If AlreadySampledAt is non-nil,
+	// The sample rate reported to statsd will be Rate*AlreadySampledAt,
+	// and Rate controls how we randomly report this metric.
+	// It's useful when you are reporting a metric from an already sampled code
+	// block, for example:
+	//
+	//     const rate = 0.01
+	//     if randbp.ShouldSampleWithRate(rate) {
+	//       if err := myFancyWork(); err != nil {
+	//         metricsbp.M.CounterWithRate(metricsbp.RateArgs{
+	//           Name: "my.fancy.work.errors",
+	//           // 100% report it because we are already sampling it.
+	//           Rate: 1,
+	//           // but adjust the reporting rate to the actual sample rate.
+	//           AlreadySampledAt: metricsbp.Float64Ptr(rate),
+	//         }).Add(1)
+	//       }
+	//     }
+	Rate float64
+
+	// Optional. Default to 1 (100%) if it's nil.
+	// See the comment on Rate for more details.
+	//
+	// It will be treated as 1 if >=1, and be trated as 0 if <=0.
+	AlreadySampledAt *float64
+}
+
+// ReportingRate returns the reporting rate according to the args.
+func (ra RateArgs) ReportingRate() float64 {
+	if ra.AlreadySampledAt == nil {
+		return ra.Rate
+	}
+	rate := *ra.AlreadySampledAt
+	if rate >= 1 {
+		return ra.Rate
+	}
+	if rate <= 0 {
+		return 0
+	}
+	return rate * ra.Rate
+}
+
 // Counter returns a counter metrics to the name,
 // with sample rate inherited from StatsdConfig.
 func (st *Statsd) Counter(name string) metrics.Counter {
 	st = st.fallback()
-	return st.CounterWithRate(name, st.counterSampleRate)
+	return st.CounterWithRate(RateArgs{
+		Name: name,
+		Rate: st.counterSampleRate,
+	})
 }
 
 // CounterWithRate returns a counter metrics to the name,
 // with sample rate passed in instead of inherited from StatsdConfig.
-func (st *Statsd) CounterWithRate(name string, rate float64) metrics.Counter {
+func (st *Statsd) CounterWithRate(args RateArgs) metrics.Counter {
 	st = st.fallback()
-	counter := st.statsd.NewCounter(name, rate)
-	if rate >= 1 {
+	counter := st.statsd.NewCounter(args.Name, args.ReportingRate())
+	if args.Rate >= 1 {
 		return counter
 	}
 	return SampledCounter{
 		Counter: counter,
-		Rate:    rate,
+		Rate:    args.Rate,
 	}
 }
 
@@ -238,20 +294,23 @@ func (st *Statsd) CounterWithRate(name string, rate float64) metrics.Counter {
 // with sample rate inherited from StatsdConfig.
 func (st *Statsd) Histogram(name string) metrics.Histogram {
 	st = st.fallback()
-	return st.HistogramWithRate(name, st.histogramSampleRate)
+	return st.HistogramWithRate(RateArgs{
+		Name: name,
+		Rate: st.histogramSampleRate,
+	})
 }
 
 // HistogramWithRate returns a histogram metrics to the name with no specific
 // unit, with sample rate passed in instead of inherited from StatsdConfig.
-func (st *Statsd) HistogramWithRate(name string, rate float64) metrics.Histogram {
+func (st *Statsd) HistogramWithRate(args RateArgs) metrics.Histogram {
 	st = st.fallback()
-	histogram := st.statsd.NewHistogram(name, rate)
-	if rate >= 1 {
+	histogram := st.statsd.NewHistogram(args.Name, args.ReportingRate())
+	if args.Rate >= 1 {
 		return histogram
 	}
 	return SampledHistogram{
 		Histogram: histogram,
-		Rate:      rate,
+		Rate:      args.Rate,
 	}
 }
 
@@ -259,20 +318,23 @@ func (st *Statsd) HistogramWithRate(name string, rate float64) metrics.Histogram
 // with sample rate inherited from StatsdConfig.
 func (st *Statsd) Timing(name string) metrics.Histogram {
 	st = st.fallback()
-	return st.TimingWithRate(name, st.histogramSampleRate)
+	return st.TimingWithRate(RateArgs{
+		Name: name,
+		Rate: st.histogramSampleRate,
+	})
 }
 
 // TimingWithRate returns a histogram metrics to the name with milliseconds as
 // the unit, with sample rate passed in instead of inherited from StatsdConfig.
-func (st *Statsd) TimingWithRate(name string, rate float64) metrics.Histogram {
+func (st *Statsd) TimingWithRate(args RateArgs) metrics.Histogram {
 	st = st.fallback()
-	histogram := st.statsd.NewTiming(name, rate)
-	if rate >= 1 {
+	histogram := st.statsd.NewTiming(args.Name, args.ReportingRate())
+	if args.Rate >= 1 {
 		return histogram
 	}
 	return SampledHistogram{
 		Histogram: histogram,
-		Rate:      rate,
+		Rate:      args.Rate,
 	}
 }
 

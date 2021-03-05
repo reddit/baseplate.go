@@ -52,7 +52,24 @@ func TestSampledHistogram(t *testing.T) {
 		return statsd.Histogram("histo").With("key", "value")
 	}
 	histoOverrideRate := func(statsd *Statsd) metrics.Histogram {
-		return statsd.HistogramWithRate("histo", rate)
+		return statsd.HistogramWithRate(RateArgs{
+			Name: "histo",
+			Rate: rate,
+		})
+	}
+	histoAlreadySampled := func(statsd *Statsd) metrics.Histogram {
+		return statsd.HistogramWithRate(RateArgs{
+			Name:             "histo",
+			Rate:             1,
+			AlreadySampledAt: Float64Ptr(rate),
+		})
+	}
+	histoOverrideAlreadySampled := func(statsd *Statsd) metrics.Histogram {
+		return statsd.HistogramWithRate(RateArgs{
+			Name:             "histo",
+			Rate:             rate,
+			AlreadySampledAt: Float64Ptr(rate),
+		})
 	}
 
 	cases := []struct {
@@ -115,6 +132,18 @@ func TestSampledHistogram(t *testing.T) {
 			statsd:   statsd,
 			newHisto: histoOverrideRate,
 		},
+		{
+			tag:      "already-sampled",
+			sampled:  false,
+			statsd:   statsd,
+			newHisto: histoAlreadySampled,
+		},
+		{
+			tag:      "override-already-sampled",
+			sampled:  true,
+			statsd:   statsd,
+			newHisto: histoOverrideAlreadySampled,
+		},
 	}
 
 	for _, c := range cases {
@@ -153,7 +182,12 @@ func TestSampledHistogram(t *testing.T) {
 }
 
 func TestSampledCounter(t *testing.T) {
-	const rate = 0.3
+	const (
+		rate = 0.3
+
+		alreadySampled     = 0.5
+		alreadySampledRate = rate * alreadySampled
+	)
 
 	// Line examples:
 	// counter:20.000000|c
@@ -205,68 +239,95 @@ func TestSampledCounter(t *testing.T) {
 		return statsd.Counter("counter").With("key", "value")
 	}
 	counterOverrideRate := func(statsd *Statsd) metrics.Counter {
-		return statsd.CounterWithRate("counter", rate)
+		return statsd.CounterWithRate(RateArgs{
+			Name: "counter",
+			Rate: rate,
+		})
+	}
+	counterAlreadySampled := func(statsd *Statsd) metrics.Counter {
+		return statsd.CounterWithRate(RateArgs{
+			Name:             "counter",
+			Rate:             rate,
+			AlreadySampledAt: Float64Ptr(alreadySampled),
+		})
 	}
 
 	cases := []struct {
-		tag        string
-		sampled    bool
-		statsd     *Statsd
-		newCounter counterFunc
+		tag          string
+		sampled      bool
+		expectedRate float64
+		statsd       *Statsd
+		newCounter   counterFunc
 	}{
 		{
-			tag:        "not-sampled-no-tags",
-			sampled:    false,
-			statsd:     statsd,
-			newCounter: counterNoLabel,
+			tag:          "not-sampled-no-tags",
+			sampled:      false,
+			expectedRate: 1,
+			statsd:       statsd,
+			newCounter:   counterNoLabel,
 		},
 		{
-			tag:        "not-sampled-no-tags-with",
-			sampled:    false,
-			statsd:     statsd,
-			newCounter: counterLabel,
+			tag:          "not-sampled-no-tags-with",
+			sampled:      false,
+			expectedRate: 1,
+			statsd:       statsd,
+			newCounter:   counterLabel,
 		},
 		{
-			tag:        "sampled-no-tags",
-			sampled:    true,
-			statsd:     statsdSampled,
-			newCounter: counterNoLabel,
+			tag:          "sampled-no-tags",
+			sampled:      true,
+			expectedRate: rate,
+			statsd:       statsdSampled,
+			newCounter:   counterNoLabel,
 		},
 		{
-			tag:        "sampled-no-tags-with",
-			sampled:    true,
-			statsd:     statsdSampled,
-			newCounter: counterLabel,
+			tag:          "sampled-no-tags-with",
+			sampled:      true,
+			expectedRate: rate,
+			statsd:       statsdSampled,
+			newCounter:   counterLabel,
 		},
 		{
-			tag:        "not-sampled-tags",
-			sampled:    false,
-			statsd:     statsdWithTags,
-			newCounter: counterNoLabel,
+			tag:          "not-sampled-tags",
+			sampled:      false,
+			expectedRate: 1,
+			statsd:       statsdWithTags,
+			newCounter:   counterNoLabel,
 		},
 		{
-			tag:        "not-sampled-tags-with",
-			sampled:    false,
-			statsd:     statsdWithTags,
-			newCounter: counterLabel,
+			tag:          "not-sampled-tags-with",
+			sampled:      false,
+			expectedRate: 1,
+			statsd:       statsdWithTags,
+			newCounter:   counterLabel,
 		},
 		{
-			tag:        "sampled-tags",
-			sampled:    true,
-			statsd:     statsdWithTagsSampled,
-			newCounter: counterNoLabel,
+			tag:          "sampled-tags",
+			sampled:      true,
+			expectedRate: rate,
+			statsd:       statsdWithTagsSampled,
+			newCounter:   counterNoLabel,
 		},
 		{
-			tag:        "sampled-tags-with",
-			sampled:    true,
-			statsd:     statsdWithTagsSampled,
-			newCounter: counterLabel,
+			tag:          "sampled-tags-with",
+			sampled:      true,
+			expectedRate: rate,
+			statsd:       statsdWithTagsSampled,
+			newCounter:   counterLabel,
 		},
 		{
-			tag:        "override-sampled",
-			sampled:    true,
-			statsd:     statsd,
-			newCounter: counterOverrideRate,
+			tag:          "override-sampled",
+			sampled:      true,
+			expectedRate: rate,
+			statsd:       statsd,
+			newCounter:   counterOverrideRate,
+		},
+		{
+			tag:          "already-sampled",
+			sampled:      true,
+			expectedRate: alreadySampledRate,
+			statsd:       statsd,
+			newCounter:   counterAlreadySampled,
 		},
 	}
 
@@ -317,10 +378,10 @@ func TestSampledCounter(t *testing.T) {
 							line,
 						)
 					}
-					if math.Abs(value-rate) > epsilon {
+					if math.Abs(value-c.expectedRate) > epsilon {
 						t.Errorf(
 							"Expected sample rate %v, got %v, line: %q",
-							rate,
+							c.expectedRate,
 							value,
 							line,
 						)
