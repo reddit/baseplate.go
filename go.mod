@@ -6,7 +6,7 @@ require (
 	github.com/Shopify/sarama v1.27.0
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/alicebob/miniredis/v2 v2.14.3
-	github.com/apache/thrift v0.14.0
+	github.com/apache/thrift v0.14.1
 	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/chasex/redis-go-cluster v1.0.0 // indirect
 	github.com/garyburd/redigo v1.6.2 // indirect

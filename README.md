@@ -21,7 +21,7 @@ with `*-remote` directories removed.
 They are excluded from the linter.
 DO NOT EDIT.
 
-They were generated with [thrift compiler 0.14.0][thrift-version] against
+They were generated with [thrift compiler v0.14.1][thrift-version] against
 [`baseplate.thrift`][baseplate.thrift] and
 [`edgecontext.thrift`][edgecontext.thrift]
 using the following commands under `internal/`:
@@ -74,4 +74,4 @@ bazel test //...:all
 
 [godev]: https://pkg.go.dev/github.com/reddit/baseplate.go
 
-[thrift-version]: https://github.com/apache/thrift/releases/tag/v0.14.0
+[thrift-version]: https://github.com/apache/thrift/releases/tag/v0.14.1
