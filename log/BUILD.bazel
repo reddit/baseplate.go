@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "log",
     srcs = [
         "config.go",
         "context.go",
@@ -16,15 +16,15 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/log",
     visibility = ["//visibility:public"],
     deps = [
-        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
-        "@com_github_getsentry_sentry_go//:go_default_library",
-        "@org_uber_go_zap//:go_default_library",
-        "@org_uber_go_zap//zapcore:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift",
+        "@com_github_getsentry_sentry_go//:sentry-go",
+        "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zapcore",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "log_test",
     size = "small",
     srcs = [
         "core_wrapper_test.go",
@@ -34,12 +34,12 @@ go_test(
         "wrapper_example_test.go",
         "wrapper_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":log"],
     deps = [
-        "//metricsbp:go_default_library",
-        "@com_github_go_kit_kit//log:go_default_library",
-        "@in_gopkg_yaml_v2//:go_default_library",
-        "@org_uber_go_zap//:go_default_library",
-        "@org_uber_go_zap//zapcore:go_default_library",
+        "//metricsbp",
+        "@com_github_go_kit_kit//log",
+        "@in_gopkg_yaml_v2//:yaml_v2",
+        "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zapcore",
     ],
 )

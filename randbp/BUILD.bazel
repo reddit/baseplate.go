@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "randbp",
     srcs = [
         "doc.go",
         "rand.go",
@@ -15,7 +15,7 @@ go_library(
 )
 
 go_test(
-    name = "go_default_test",
+    name = "randbp_test",
     size = "small",
     srcs = [
         "rand_test.go",
@@ -24,5 +24,5 @@ go_test(
         "string_example_test.go",
         "string_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":randbp"],
 )

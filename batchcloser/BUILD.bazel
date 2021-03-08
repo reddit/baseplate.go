@@ -1,19 +1,19 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "batchcloser",
     srcs = [
         "closers.go",
         "doc.go",
     ],
     importpath = "github.com/reddit/baseplate.go/batchcloser",
     visibility = ["//visibility:public"],
-    deps = ["//errorsbp:go_default_library"],
+    deps = ["//errorsbp"],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "batchcloser_test",
     size = "small",
     srcs = ["closers_test.go"],
-    embed = [":go_default_library"],
+    deps = [":batchcloser"],
 )
