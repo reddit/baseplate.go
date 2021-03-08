@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "edgecontext",
     srcs = [
         "doc.go",
         "edgecontext.go",
@@ -15,33 +15,33 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/edgecontext",
     visibility = ["//visibility:public"],
     deps = [
-        "//ecinterface:go_default_library",
-        "//experiments:go_default_library",
-        "//internal/gen-go/reddit/edgecontext:go_default_library",
-        "//log:go_default_library",
-        "//secrets:go_default_library",
-        "//timebp:go_default_library",
-        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
-        "@com_github_gofrs_uuid//:go_default_library",
-        "@com_github_reddit_jwt_go_v3//:go_default_library",
+        "//ecinterface",
+        "//experiments",
+        "//internal/gen-go/reddit/edgecontext",
+        "//log",
+        "//secrets",
+        "//timebp",
+        "@com_github_apache_thrift//lib/go/thrift",
+        "@com_github_gofrs_uuid//:uuid",
+        "@com_github_reddit_jwt_go_v3//:jwt-go",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "edgecontext_test",
     size = "small",
     srcs = [
         "edgecontext_test.go",
         "init_test.go",
         "validator_test.go",
     ],
-    embed = [":go_default_library"],
     deps = [
-        "//experiments:go_default_library",
-        "//log:go_default_library",
-        "//secrets:go_default_library",
-        "//timebp:go_default_library",
-        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
-        "@com_github_gofrs_uuid//:go_default_library",
+        ":edgecontext",
+        "//experiments",
+        "//log",
+        "//secrets",
+        "//timebp",
+        "@com_github_apache_thrift//lib/go/thrift",
+        "@com_github_gofrs_uuid//:uuid",
     ],
 )

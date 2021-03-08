@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "redisbp",
     srcs = [
         "config.go",
         "doc.go",
@@ -11,16 +11,16 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/redis/deprecated/redisbp",
     visibility = ["//visibility:public"],
     deps = [
-        "//errorsbp:go_default_library",
-        "//metricsbp:go_default_library",
-        "//tracing:go_default_library",
-        "@com_github_go_redis_redis_v7//:go_default_library",
-        "@com_github_opentracing_opentracing_go//:go_default_library",
+        "//errorsbp",
+        "//metricsbp",
+        "//tracing",
+        "@com_github_go_redis_redis_v7//:redis",
+        "@com_github_opentracing_opentracing_go//:opentracing-go",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "redisbp_test",
     size = "small",
     srcs = [
         "config_test.go",
@@ -30,17 +30,17 @@ go_test(
         "hooks_test.go",
         "monitored_client_test.go",
     ],
-    embed = [":go_default_library"],
     deps = [
-        "//:go_default_library",
-        "//ecinterface:go_default_library",
-        "//metricsbp:go_default_library",
-        "//mqsend:go_default_library",
-        "//thriftbp:go_default_library",
-        "//tracing:go_default_library",
-        "@com_github_alicebob_miniredis_v2//:go_default_library",
-        "@com_github_go_redis_redis_v7//:go_default_library",
-        "@com_github_opentracing_opentracing_go//:go_default_library",
-        "@in_gopkg_yaml_v2//:go_default_library",
+        ":redisbp",
+        "//:baseplate_go",
+        "//ecinterface",
+        "//metricsbp",
+        "//mqsend",
+        "//thriftbp",
+        "//tracing",
+        "@com_github_alicebob_miniredis_v2//:miniredis",
+        "@com_github_go_redis_redis_v7//:redis",
+        "@com_github_opentracing_opentracing_go//:opentracing-go",
+        "@in_gopkg_yaml_v2//:yaml_v2",
     ],
 )

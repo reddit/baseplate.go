@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "events",
     srcs = [
         "doc.go",
         "events.go",
@@ -9,22 +9,22 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/events",
     visibility = ["//visibility:public"],
     deps = [
-        "//mqsend:go_default_library",
-        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+        "//mqsend",
+        "@com_github_apache_thrift//lib/go/thrift",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "events_test",
     size = "small",
     srcs = ["events_test.go"],
-    embed = [":go_default_library"],
+    embed = [":events"],
     # This test is marked as flaky as sometimes the running environment in drone
     # is just too slow that TestV2Put would fail because of the timeout.
     # See https://cloud.drone.io/reddit/baseplate.go/496/1/2 for an example.
     flaky = True,
     deps = [
-        "//mqsend:go_default_library",
-        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+        "//mqsend",
+        "@com_github_apache_thrift//lib/go/thrift",
     ],
 )

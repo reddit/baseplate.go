@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "retrybp",
     srcs = [
         "delay.go",
         "doc.go",
@@ -11,15 +11,15 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/retrybp",
     visibility = ["//visibility:public"],
     deps = [
-        "//clientpool:go_default_library",
-        "//errorsbp:go_default_library",
-        "//randbp:go_default_library",
-        "@com_github_avast_retry_go//:go_default_library",
+        "//clientpool",
+        "//errorsbp",
+        "//randbp",
+        "@com_github_avast_retry_go//:retry-go",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "retrybp_test",
     size = "small",
     srcs = [
         "delay_test.go",
@@ -28,12 +28,12 @@ go_test(
         "fixtures_test.go",
         "retry_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":retrybp"],
     deps = [
-        "//clientpool:go_default_library",
-        "//errorsbp:go_default_library",
-        "//internal/gen-go/reddit/baseplate:go_default_library",
-        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
-        "@com_github_avast_retry_go//:go_default_library",
+        "//clientpool",
+        "//errorsbp",
+        "//internal/gen-go/reddit/baseplate",
+        "@com_github_apache_thrift//lib/go/thrift",
+        "@com_github_avast_retry_go//:retry-go",
     ],
 )

@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "experiments",
     srcs = [
         "doc.go",
         "experiments.go",
@@ -11,21 +11,21 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/experiments",
     visibility = ["//visibility:public"],
     deps = [
-        "//filewatcher:go_default_library",
-        "//log:go_default_library",
-        "//timebp:go_default_library",
-        "@com_github_gofrs_uuid//:go_default_library",
+        "//filewatcher",
+        "//log",
+        "//timebp",
+        "@com_github_gofrs_uuid//:uuid",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "experiments_test",
     size = "small",
     srcs = [
         "experiments_test.go",
         "targeting_test.go",
         "variants_test.go",
     ],
-    embed = [":go_default_library"],
-    deps = ["//timebp:go_default_library"],
+    embed = [":experiments"],
+    deps = ["//timebp"],
 )

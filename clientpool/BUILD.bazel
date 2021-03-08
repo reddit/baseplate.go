@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "clientpool",
     srcs = [
         "channel.go",
         "doc.go",
@@ -13,7 +13,7 @@ go_library(
 )
 
 go_test(
-    name = "go_default_test",
+    name = "clientpool_test",
     size = "small",
     srcs = [
         "bench_test.go",
@@ -21,6 +21,8 @@ go_test(
         "errors_test.go",
         "interface_test.go",
     ],
-    embed = [":go_default_library"],
-    deps = ["//retrybp:go_default_library"],
+    deps = [
+        ":clientpool",
+        "//retrybp",
+    ],
 )

@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "tracing",
     srcs = [
         "config.go",
         "doc.go",
@@ -20,20 +20,20 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/tracing",
     visibility = ["//visibility:public"],
     deps = [
-        "//log:go_default_library",
-        "//mqsend:go_default_library",
-        "//randbp:go_default_library",
-        "//runtimebp:go_default_library",
-        "//timebp:go_default_library",
-        "@com_github_getsentry_sentry_go//:go_default_library",
-        "@com_github_gofrs_uuid//:go_default_library",
-        "@com_github_opentracing_opentracing_go//:go_default_library",
-        "@com_github_opentracing_opentracing_go//log:go_default_library",
+        "//log",
+        "//mqsend",
+        "//randbp",
+        "//runtimebp",
+        "//timebp",
+        "@com_github_getsentry_sentry_go//:sentry-go",
+        "@com_github_gofrs_uuid//:uuid",
+        "@com_github_opentracing_opentracing_go//:opentracing-go",
+        "@com_github_opentracing_opentracing_go//log",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "tracing_test",
     size = "small",
     srcs = [
         "example_error_reporter_hooks_test.go",
@@ -44,14 +44,14 @@ go_test(
         "tracer_test.go",
         "zipkin_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":tracing"],
     deps = [
-        "//log:go_default_library",
-        "//mqsend:go_default_library",
-        "//randbp:go_default_library",
-        "//thriftbp:go_default_library",
-        "//timebp:go_default_library",
-        "@com_github_gofrs_uuid//:go_default_library",
-        "@com_github_opentracing_opentracing_go//:go_default_library",
+        "//log",
+        "//mqsend",
+        "//randbp",
+        "//thriftbp",
+        "//timebp",
+        "@com_github_gofrs_uuid//:uuid",
+        "@com_github_opentracing_opentracing_go//:opentracing-go",
     ],
 )

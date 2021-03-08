@@ -6,7 +6,7 @@ load("@bazel_gazelle//:def.bzl", "gazelle")
 gazelle(name = "gazelle")
 
 go_library(
-    name = "go_default_library",
+    name = "baseplate_go",
     srcs = [
         "baseplate.go",
         "doc.go",
@@ -14,29 +14,29 @@ go_library(
     importpath = "github.com/reddit/baseplate.go",
     visibility = ["//visibility:public"],
     deps = [
-        "//batchcloser:go_default_library",
-        "//ecinterface:go_default_library",
-        "//errorsbp:go_default_library",
-        "//log:go_default_library",
-        "//metricsbp:go_default_library",
-        "//runtimebp:go_default_library",
-        "//secrets:go_default_library",
-        "//tracing:go_default_library",
-        "@in_gopkg_yaml_v2//:go_default_library",
+        "//batchcloser",
+        "//ecinterface",
+        "//errorsbp",
+        "//log",
+        "//metricsbp",
+        "//runtimebp",
+        "//secrets",
+        "//tracing",
+        "@in_gopkg_yaml_v2//:yaml_v2",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "baseplate_go_test",
     size = "small",
     srcs = ["baseplate_test.go"],
-    embed = [":go_default_library"],
     deps = [
-        "//ecinterface:go_default_library",
-        "//log:go_default_library",
-        "//metricsbp:go_default_library",
-        "//runtimebp:go_default_library",
-        "//secrets:go_default_library",
-        "//tracing:go_default_library",
+        ":baseplate_go",
+        "//ecinterface",
+        "//log",
+        "//metricsbp",
+        "//runtimebp",
+        "//secrets",
+        "//tracing",
     ],
 )

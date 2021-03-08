@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "httpbp",
     srcs = [
         "doc.go",
         "errors.go",
@@ -15,19 +15,19 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/httpbp",
     visibility = ["//visibility:public"],
     deps = [
-        "//:go_default_library",
-        "//ecinterface:go_default_library",
-        "//errorsbp:go_default_library",
-        "//internal/gen-go/reddit/baseplate:go_default_library",
-        "//log:go_default_library",
-        "//secrets:go_default_library",
-        "//signing:go_default_library",
-        "//tracing:go_default_library",
+        "//:baseplate_go",
+        "//ecinterface",
+        "//errorsbp",
+        "//internal/gen-go/reddit/baseplate",
+        "//log",
+        "//secrets",
+        "//signing",
+        "//tracing",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "httpbp_test",
     size = "small",
     srcs = [
         "errors_example_test.go",
@@ -41,16 +41,16 @@ go_test(
         "response_test.go",
         "server_test.go",
     ],
-    embed = [":go_default_library"],
     deps = [
-        "//:go_default_library",
-        "//ecinterface:go_default_library",
-        "//internal/gen-go/reddit/baseplate:go_default_library",
-        "//log:go_default_library",
-        "//mqsend:go_default_library",
-        "//redis/deprecated/redisbp:go_default_library",
-        "//retrybp:go_default_library",
-        "//secrets:go_default_library",
-        "//tracing:go_default_library",
+        ":httpbp",
+        "//:baseplate_go",
+        "//ecinterface",
+        "//internal/gen-go/reddit/baseplate",
+        "//log",
+        "//mqsend",
+        "//redis/deprecated/redisbp",
+        "//retrybp",
+        "//secrets",
+        "//tracing",
     ],
 )

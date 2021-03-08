@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "ecinterface",
     srcs = [
         "doc.go",
         "interface.go",
@@ -9,5 +9,5 @@ go_library(
     ],
     importpath = "github.com/reddit/baseplate.go/ecinterface",
     visibility = ["//visibility:public"],
-    deps = ["//secrets:go_default_library"],
+    deps = ["//secrets"],
 )

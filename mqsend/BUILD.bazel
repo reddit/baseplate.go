@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "mqsend",
     srcs = [
         "doc.go",
         "errors.go",
@@ -14,17 +14,17 @@ go_library(
     visibility = ["//visibility:public"],
     deps = select({
         "@io_bazel_rules_go//go/platform:android": [
-            "@org_golang_x_sys//unix:go_default_library",
+            "@org_golang_x_sys//unix",
         ],
         "@io_bazel_rules_go//go/platform:linux": [
-            "@org_golang_x_sys//unix:go_default_library",
+            "@org_golang_x_sys//unix",
         ],
         "//conditions:default": [],
     }),
 )
 
 go_test(
-    name = "go_default_test",
+    name = "mqsend_test",
     size = "small",
     srcs = [
         "mqsend_linux_test.go",
@@ -32,15 +32,15 @@ go_test(
         "mqsend_other_test.go",
         "mqsend_test.go",
     ],
-    embed = [":go_default_library"],
     deps = [
-        "//randbp:go_default_library",
+        ":mqsend",
+        "//randbp",
     ] + select({
         "@io_bazel_rules_go//go/platform:android": [
-            "@org_golang_x_sys//unix:go_default_library",
+            "@org_golang_x_sys//unix",
         ],
         "@io_bazel_rules_go//go/platform:linux": [
-            "@org_golang_x_sys//unix:go_default_library",
+            "@org_golang_x_sys//unix",
         ],
         "//conditions:default": [],
     }),
