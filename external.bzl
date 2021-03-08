@@ -34,8 +34,8 @@ def go_dependencies():
     go_repository(
         name = "com_github_apache_thrift",
         importpath = "github.com/apache/thrift",
-        sum = "h1:vqZ2DP42i8th2OsgCcYZkirtbzvpZEFx53LiWDJXIAs=",
-        version = "v0.14.0",
+        sum = "h1:Yh8v0hpCj63p5edXOLaqTJW0IJ1p+eMW6+YSOqw1d6s=",
+        version = "v0.14.1",
     )
     go_repository(
         name = "com_github_armon_consul_api",
