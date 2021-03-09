@@ -47,9 +47,6 @@ func WithDefaultRetryFilters(filters ...retrybp.Filter) []retrybp.Filter {
 
 // DefaultClientMiddlewareArgs is the arg struct for BaseplateDefaultClientMiddlewares.
 type DefaultClientMiddlewareArgs struct {
-	// The edge context implementation. Required.
-	EdgeContextImpl ecinterface.Interface
-
 	// ServiceSlug is a short identifier for the thrift service you are creating
 	// clients for.  The preferred convention is to take the service's name,
 	// remove the 'Service' prefix, if present, and convert from camel case to
@@ -82,6 +79,11 @@ type DefaultClientMiddlewareArgs struct {
 	// a breakerbp.FailureRatioBreaker will be created for the pool,
 	// and its middleware will be set for the pool.
 	BreakerConfig *breakerbp.Config
+
+	// The edge context implementation. Optional.
+	//
+	// If it's not set, the global one from ecinterface.Get will be used instead.
+	EdgeContextImpl ecinterface.Interface
 }
 
 // BaseplateDefaultClientMiddlewares returns the default client middlewares that
@@ -198,6 +200,9 @@ func MonitorClient(args MonitorClientArgs) thrift.ClientMiddleware {
 // this will be included automatically and should not be passed in as a
 // ClientMiddleware to NewBaseplateClientPool.
 func ForwardEdgeRequestContext(ecImpl ecinterface.Interface) thrift.ClientMiddleware {
+	if ecImpl == nil {
+		ecImpl = ecinterface.Get()
+	}
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {

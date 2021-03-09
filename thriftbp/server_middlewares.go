@@ -26,9 +26,6 @@ var (
 // BaseplateDefaultProcessorMiddlewares function to create default processor
 // middlewares.
 type DefaultProcessorMiddlewaresArgs struct {
-	// The edge context implementation. Required.
-	EdgeContextImpl ecinterface.Interface
-
 	// Suppress some of the errors returned by the server before sending them to
 	// the server span.
 	//
@@ -46,6 +43,11 @@ type DefaultProcessorMiddlewaresArgs struct {
 	//
 	// This is optional. If it's not set none of the requests will be sampled.
 	ReportPayloadSizeMetricsSampleRate float64
+
+	// The edge context implementation. Optional.
+	//
+	// If it's not set, the global one from ecinterface.Get will be used instead.
+	EdgeContextImpl ecinterface.Interface
 }
 
 // BaseplateDefaultProcessorMiddlewares returns the default processor
@@ -171,6 +173,9 @@ func InitializeEdgeContext(ctx context.Context, impl ecinterface.Interface) cont
 // context object.  These should be automatically injected by your
 // thrift.TSimpleServer.
 func InjectEdgeContext(impl ecinterface.Interface) thrift.ProcessorMiddleware {
+	if impl == nil {
+		impl = ecinterface.Get()
+	}
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
 			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {

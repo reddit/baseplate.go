@@ -46,9 +46,6 @@ var (
 
 // ClientPoolConfig is the configuration struct for creating a new ClientPool.
 type ClientPoolConfig struct {
-	// The edge context implementation. Required.
-	EdgeContextImpl ecinterface.Interface
-
 	// ServiceSlug is a short identifier for the thrift service you are creating
 	// clients for.  The preferred convention is to take the service's name,
 	// remove the 'Service' prefix, if present, and convert from camel case to
@@ -171,6 +168,11 @@ type ClientPoolConfig struct {
 	// a breakerbp.FailureRatioBreaker will be created for the pool,
 	// and its middleware will be set for the pool.
 	BreakerConfig *breakerbp.Config
+
+	// The edge context implementation. Optional.
+	//
+	// If it's not set, the global one from ecinterface.Get will be used instead.
+	EdgeContextImpl ecinterface.Interface
 }
 
 // Validate checks ClientPoolConfig for any missing or erroneous values.
@@ -179,9 +181,6 @@ type ClientPoolConfig struct {
 // BaseplateClientPoolConfig(c).Validate should be used instead.
 func (c ClientPoolConfig) Validate() error {
 	var batch errorsbp.Batch
-	if c.EdgeContextImpl == nil {
-		batch.Add(ErrConfigMissingEdgeContext)
-	}
 	if c.InitialConnections > c.MaxConnections {
 		batch.Add(ErrConfigInvalidConnections)
 	}

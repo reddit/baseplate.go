@@ -57,6 +57,9 @@ var HeadersToForward = []string{
 // context attached to ctx object set to forward using the "Edge-Request" header
 // on any Thrift calls made with that context object.
 func AttachEdgeRequestContext(ctx context.Context, ecImpl ecinterface.Interface) context.Context {
+	if ecImpl == nil {
+		ecImpl = ecinterface.Get()
+	}
 	header, ok := ecImpl.ContextToHeader(ctx)
 	if !ok {
 		return thrift.UnsetHeader(ctx, HeaderEdgeRequest)

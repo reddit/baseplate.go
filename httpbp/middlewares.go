@@ -44,15 +44,16 @@ func Wrap(name string, handle HandlerFunc, middlewares ...Middleware) HandlerFun
 // DefaultMiddlewareArgs provides the arguments for the default, Baseplate
 // Middlewares
 type DefaultMiddlewareArgs struct {
-	// The edgecontext implementation to use. Required.
-	EdgeContextImpl ecinterface.Interface
-
 	// The HeaderTrustHandler to use.
 	// If empty, NeverTrustHeaders will be used instead.
 	TrustHandler HeaderTrustHandler
 
 	// The logger to be called when edgecontext parsing failed.
 	Logger log.Wrapper
+
+	// The edgecontext implementation to use. Optional.
+	// If not set, the global one from ecinterface.Get will be used instead.
+	EdgeContextImpl ecinterface.Interface
 }
 
 // DefaultMiddleware returns a slice of all of the default Middleware for a
@@ -161,6 +162,9 @@ func InitializeEdgeContextFromTrustedRequest(
 		args.Logger.Log(ctx, "Error while parsing EdgeRequestContext: "+err.Error())
 		return ctx
 	}
+	if args.EdgeContextImpl == nil {
+		args.EdgeContextImpl = ecinterface.Get()
+	}
 	ctx, err = args.EdgeContextImpl.HeaderToContext(ctx, string(header))
 	if err != nil {
 		args.Logger.Log(ctx, "Error while parsing EdgeRequestContext: "+err.Error())
@@ -172,15 +176,16 @@ func InitializeEdgeContextFromTrustedRequest(
 // InjectEdgeRequestContextArgs are the args to be passed into
 // InjectEdgeRequestContext function.
 type InjectEdgeRequestContextArgs struct {
-	// The edgecontext implementation to use. Required.
-	EdgeContextImpl ecinterface.Interface
-
 	// The HeaderTrustHandler to use.
 	// If empty, NeverTrustHeaders{} will be used instead.
 	TrustHandler HeaderTrustHandler
 
 	// The logger to be called when edgecontext parsing failed.
 	Logger log.Wrapper
+
+	// The edgecontext implementation to use. Optional.
+	// If not set, the global one from ecinterface.Get will be used instead.
+	EdgeContextImpl ecinterface.Interface
 }
 
 // InjectEdgeRequestContext returns a Middleware that will automatically parse
@@ -191,6 +196,9 @@ type InjectEdgeRequestContextArgs struct {
 // the NewBaseplateServer function which will automatically include
 // InjectEdgeRequestContext as one of the Middlewares to wrap your handlers in.
 func InjectEdgeRequestContext(args InjectEdgeRequestContextArgs) Middleware {
+	if args.EdgeContextImpl == nil {
+		args.EdgeContextImpl = ecinterface.Get()
+	}
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 			ctx = InitializeEdgeContextFromTrustedRequest(ctx, r, args)
