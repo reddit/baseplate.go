@@ -100,12 +100,15 @@ func Factory(cfg Config) ecinterface.Factory {
 }
 
 // Init intializes an Impl.
+//
+// It also calls ecinterface.Set to store the implementation created globally.
 func Init(cfg Config) *Impl {
 	impl := &Impl{
 		store:  cfg.Store,
 		logger: cfg.Logger,
 	}
 	impl.store.AddMiddlewares(impl.validatorMiddleware)
+	ecinterface.Set(impl)
 	return impl
 }
 

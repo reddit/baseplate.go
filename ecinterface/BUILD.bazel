@@ -4,10 +4,14 @@ go_library(
     name = "ecinterface",
     srcs = [
         "doc.go",
+        "global.go",
         "interface.go",
         "mock.go",
     ],
     importpath = "github.com/reddit/baseplate.go/ecinterface",
     visibility = ["//visibility:public"],
-    deps = ["//secrets"],
+    deps = [
+        "//log",
+        "//secrets",
+    ],
 )
