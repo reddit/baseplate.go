@@ -126,6 +126,7 @@ type TracerConfig struct {
 // If it fails to do so, UndefinedIP will be used instead,
 // and the error will be logged if logger is non-nil.
 func InitGlobalTracer(cfg TracerConfig) error {
+	var tracer Tracer
 	if cfg.QueueName != "" {
 		if cfg.MaxQueueSize <= 0 || cfg.MaxQueueSize > MaxQueueSize {
 			cfg.MaxQueueSize = MaxQueueSize
@@ -138,35 +139,36 @@ func InitGlobalTracer(cfg TracerConfig) error {
 		if err != nil {
 			return err
 		}
-		globalTracer.recorder = recorder
+		tracer.recorder = recorder
 	} else {
-		globalTracer.recorder = cfg.TestOnlyMockMessageQueue
+		tracer.recorder = cfg.TestOnlyMockMessageQueue
 	}
 
-	globalTracer.sampleRate = cfg.SampleRate
-	globalTracer.useUUID = cfg.UseUUID
+	tracer.sampleRate = cfg.SampleRate
+	tracer.useUUID = cfg.UseUUID
 
 	logger := cfg.Logger
 	if logger == nil {
 		logger = log.NopWrapper
 	}
-	globalTracer.logger = logger
+	tracer.logger = logger
 
 	timeout := cfg.MaxRecordTimeout
 	if timeout <= 0 {
 		timeout = DefaultMaxRecordTimeout
 	}
-	globalTracer.maxRecordTimeout = timeout
+	tracer.maxRecordTimeout = timeout
 
 	ip, err := runtimebp.GetFirstIPv4()
 	if err != nil {
 		logger(context.Background(), `Unable to get local ip address: `+err.Error())
 	}
-	globalTracer.endpoint = ZipkinEndpointInfo{
+	tracer.endpoint = ZipkinEndpointInfo{
 		ServiceName: cfg.ServiceName,
 		IPv4:        ip,
 	}
 
+	globalTracer = tracer
 	opentracing.SetGlobalTracer(&globalTracer)
 	return nil
 }
