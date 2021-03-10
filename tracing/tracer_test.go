@@ -3,6 +3,7 @@ package tracing
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"testing/quick"
 	"time"
@@ -137,13 +138,16 @@ func TestTracer(t *testing.T) {
 }
 
 func TestFakeUUIDQuick(t *testing.T) {
-	f := func() bool {
-		s := fakeUUID()
+	f := func(removeHyphen bool) bool {
+		tracer := Tracer{
+			uuidRemoveHyphen: removeHyphen,
+		}
+		s := tracer.fakeUUID()
 		id, err := uuid.FromString(s)
 		if err != nil {
 			t.Errorf("Failed to parse %q as uuid: %v", s, err)
 		}
-		if s != id.String() {
+		if s != tracer.uuidToString(id) {
 			t.Errorf("fake uuid %q parsed differently as %q", s, id.String())
 		}
 		return !t.Failed()
@@ -151,5 +155,34 @@ func TestFakeUUIDQuick(t *testing.T) {
 	if err := quick.Check(f, nil); err != nil {
 		t.Error(err)
 	}
-	t.Log(fakeUUID())
+	t.Log(new(Tracer).fakeUUID())
+}
+
+func TestUUIDRemoveHyphenQuick(t *testing.T) {
+	tracer := Tracer{
+		useUUID:          true,
+		uuidRemoveHyphen: true,
+	}
+	f := func(useFake bool) bool {
+		var s string
+		if useFake {
+			s = tracer.newID()
+		} else {
+			s = tracer.fakeUUID()
+		}
+		if strings.Contains(s, "-") {
+			t.Errorf("uuid %q contains hyphen", s)
+		}
+		id, err := uuid.FromString(s)
+		if err != nil {
+			t.Errorf("Failed to parse %q as uuid: %v", s, err)
+		}
+		if s != tracer.uuidToString(id) {
+			t.Errorf("uuid %q parsed differently as %q", s, id.String())
+		}
+		return !t.Failed()
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Error(err)
+	}
 }

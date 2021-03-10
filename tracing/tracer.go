@@ -3,6 +3,7 @@ package tracing
 import (
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,6 +53,7 @@ type Tracer struct {
 	endpoint         ZipkinEndpointInfo
 	maxRecordTimeout time.Duration
 	useUUID          bool
+	uuidRemoveHyphen bool
 }
 
 // TracerConfig are the configuration values to be used in InitGlobalTracer.
@@ -101,12 +103,21 @@ type TracerConfig struct {
 	// This is only used when QueueName is non-empty.
 	MaxQueueSize int64
 
-	// If this is set to true, when generating new trace/span IDs we will use
+	// If UseUUID is set to true, when generating new trace/span IDs we will use
 	// UUID4 instead of uint64.
 	//
 	// You should only set this to true if you know all of your upstream servers
 	// can handle UUID trace ids (Baseplate.go v0.8.0+ or Baseplate.py v2.0.0+).
-	UseUUID bool
+	//
+	// By default (UUIDIntact == false), we remove the hyphens from generated uuid
+	// so they are in lowercase hex format [1],
+	// as some zipkin validators would reject ids with hyphens in them [2].
+	// Set UUIDIntact to true to disable this behavior and keep hyphens in them.
+	//
+	// [1]: example: "cced093a-76ee-a418-ffdc9bb9a6453df3" -> "cced093a76eea418ffdc9bb9a6453df3"
+	// [2]: https://github.com/Findorgri/zipkin/blob/ac83af336faf831b197a8af76d1b35343496d27c/zipkin/src/main/java/zipkin2/internal/HexCodec.java#L58
+	UseUUID    bool
+	UUIDIntact bool
 
 	// In test code,
 	// this field can be used to set the message queue the tracer publishes to,
@@ -146,6 +157,7 @@ func InitGlobalTracer(cfg TracerConfig) error {
 
 	tracer.sampleRate = cfg.SampleRate
 	tracer.useUUID = cfg.UseUUID
+	tracer.uuidRemoveHyphen = !cfg.UUIDIntact
 
 	logger := cfg.Logger
 	if logger == nil {
@@ -324,9 +336,9 @@ func (t *Tracer) newID() string {
 			// But just in case, use fake uuid as a fallback.
 			//
 			// [1]: https://man7.org/linux/man-pages/man2/getrandom.2.html
-			return fakeUUID()
+			return t.fakeUUID()
 		}
-		return id.String()
+		return t.uuidToString(id)
 	}
 	return strconv.FormatUint(nonZeroRandUint64(), 10)
 }
@@ -368,7 +380,7 @@ func CloseTracer() error {
 // when we encounter errors getting enough entropy from crypto random source.
 // As this still looks like an UUID so it's "good enough" for trace/span id
 // purposes, and it's better than either panic or empty id.
-func fakeUUID() string {
+func (t *Tracer) fakeUUID() string {
 	const (
 		uuidBytes   = 16
 		uint32Bytes = 4
@@ -383,5 +395,12 @@ func fakeUUID() string {
 	}
 	// It's safe to use uuid.Must here because the only way uuid.FromBytes could
 	// return error is that the length of b is not 16.
-	return uuid.Must(uuid.FromBytes(b)).String()
+	return t.uuidToString(uuid.Must(uuid.FromBytes(b)))
+}
+
+func (t *Tracer) uuidToString(id uuid.UUID) string {
+	if t.uuidRemoveHyphen {
+		return hex.EncodeToString(id.Bytes())
+	}
+	return id.String()
 }
