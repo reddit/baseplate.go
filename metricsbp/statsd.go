@@ -109,6 +109,11 @@ type StatsdConfig struct {
 	//
 	// To override global sample rate set here for particular counters/histograms,
 	// use CounterWithRate/HistogramWithRate/TimingWithRate.
+	//
+	// DEPRECATED: CounterSampleRate is deprecated.
+	// There's not really a reason to sample counters in Baseplate.go as they are
+	// always aggregated in memory.
+	// CounterSampleRate will be removed in a future release.
 	CounterSampleRate   *float64
 	HistogramSampleRate *float64
 
