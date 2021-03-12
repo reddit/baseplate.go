@@ -22,21 +22,25 @@ type Config struct {
 	// Tags are the base tags that will be applied to all metrics.
 	Tags Tags `yaml:"tags"`
 
+	// DEPRECATED: There's not really a reason to sample counters in Baseplate.go
+	// as they are always aggregated in memory. This config will be removed in a
+	// future release.
+	//
 	// CounterSampleRate is the fraction of counters that you want to send to your
 	// metrics backend.
 	//
-	// Optional, defaults to 1.0
+	// Optional, defaults to 1 (100%).
 	CounterSampleRate *float64 `yaml:"counterSampleRate"`
 
-	// CounterSampleRate is the fraction of histograms that you want to send to
-	// your metrics  backend.
+	// HistogramSampleRate is the fraction of histograms (including timings) that
+	// you want to send to your metrics  backend.
 	//
-	// Optional, defaults to 1.0
+	// Optional, defaults to 1 (100%).
 	HistogramSampleRate *float64 `yaml:"histogramSampleRate"`
 
 	// RunSysStats indicates that you want to publish system stats.
 	//
-	// Optional, defaults to false
+	// Optional, defaults to false.
 	RunSysStats bool `yaml:"runSysStats"`
 }
 
