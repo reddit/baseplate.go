@@ -734,12 +734,6 @@ def go_dependencies():
         version = "v0.0.0-20200313005456-10cdbea86bc0",
     )
     go_repository(
-        name = "com_github_reddit_jwt_go_v3",
-        importpath = "github.com/reddit/jwt-go/v3",
-        sum = "h1:aAQBB/BEQCT6sxety7YUQ+8PZVZHUI15pJZQ9K0LUf4=",
-        version = "v3.2.2",
-    )
-    go_repository(
         name = "com_github_rogpeppe_go_internal",
         importpath = "github.com/rogpeppe/go-internal",
         sum = "h1:RR9dF3JtopPvtkroDZuVD7qquD0bnHlKSqaQhgwt8yk=",

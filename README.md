@@ -22,13 +22,11 @@ They are excluded from the linter.
 DO NOT EDIT.
 
 They were generated with [thrift compiler v0.14.1][thrift-version] against
-[`baseplate.thrift`][baseplate.thrift] and
-[`edgecontext.thrift`][edgecontext.thrift]
+[`baseplate.thrift`][baseplate.thrift]
 using the following commands under `internal/`:
 
 ```
 thrift --gen go:package_prefix=github.com/reddit/baseplate.go/ path/to/baseplate.thrift
-thrift --gen go:package_prefix=github.com/reddit/baseplate.go/ path/to/edgecontext.thrift
 find gen-go -depth -name "*-remote" -type d -exec rm -Rf {} \;
 ```
 
@@ -67,8 +65,6 @@ bazel test //...:all
 [baseplate.py]: https://github.com/reddit/baseplate.py
 
 [baseplate.thrift]: https://github.com/reddit/baseplate.py/blob/b1e1dbddd0994c2b2a36c8c456fe8f08dadf1c9d/baseplate/thrift/baseplate.thrift
-
-[edgecontext.thrift]: https://github.com/reddit/edgecontext.py/blob/420e58728ee7085a2f91c5db45df233142b251f9/reddit_edgecontext/edgecontext.thrift
 
 [bazel]: https://bazel.build/
 
