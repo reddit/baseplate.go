@@ -20,7 +20,6 @@ require (
 	github.com/joomcode/redispipe v0.9.4
 	github.com/mediocregopher/radix.v2 v0.0.0-20181115013041-b67df6e626f9 // indirect
 	github.com/opentracing/opentracing-go v1.1.0
-	github.com/reddit/jwt-go/v3 v3.2.2
 	github.com/sony/gobreaker v0.4.1
 	go.uber.org/zap v1.15.0
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
