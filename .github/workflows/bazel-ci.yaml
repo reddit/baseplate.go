@@ -1,0 +1,32 @@
+name: Bazel test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  lint-and-test:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        bazel-version: [3.5.0]
+
+    container:
+      image: l.gcr.io/google/bazel::${{ matrix.bazel-version }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Test
+        run: |
+          bazel --bazelrc=.bazelrc.ci test //...:all
+
+      - name: Bazel status check
+        run: |
+          sh ./scripts/bazel_cleanup.sh
+          git status
+          git diff
+          test -z "$(git status --porcelain)"
