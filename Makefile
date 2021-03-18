@@ -16,5 +16,4 @@ bazeltest:
 	$(BAZEL_TEST)
 
 gotest:
-	if [ -n "$(shell which $(BAZEL))" ]; then $(BAZEL_CLEAN); fi
 	$(GO_TEST)
