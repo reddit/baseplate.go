@@ -23,6 +23,11 @@ type Config struct {
 
 	// SampleRate is the % of new trace's to sample.
 	SampleRate float64 `yaml:"sampleRate"`
+
+	// Generate UUID instead of uint64 for new trace/span IDs.
+	// NOTE: Only enable this if you know all your upstream services can handle
+	// UUID trace/span IDs (Baseplate.go v0.8.0+ or Baseplate.py v2.0.0+).
+	UseUUID bool `yaml:"useUUID"`
 }
 
 // InitFromConfig initializes the global tracer using the given Config and
@@ -37,6 +42,7 @@ func InitFromConfig(cfg Config) (io.Closer, error) {
 		SampleRate:       cfg.SampleRate,
 		MaxRecordTimeout: cfg.RecordTimeout,
 		QueueName:        cfg.QueueName,
+		UseUUID:          cfg.UseUUID,
 		Logger:           log.ErrorWithSentryWrapper(),
 	})
 	if err != nil {
