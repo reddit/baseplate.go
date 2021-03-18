@@ -1,0 +1,31 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "healthcheck",
+    srcs = [
+        "doc.go",
+        "healthcheck.go",
+        "oneof.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/cmd/lib/healthcheck",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//httpbp",
+        "//internal/gen-go/reddit/baseplate",
+        "//thriftbp",
+        "@com_github_apache_thrift//lib/go/thrift",
+    ],
+)
+
+go_test(
+    name = "healthcheck_test",
+    size = "small",
+    srcs = ["healthcheck_test.go"],
+    deps = [
+        ":healthcheck",
+        "//httpbp",
+        "//internal/gen-go/reddit/baseplate",
+        "//thriftbp",
+        "@com_github_apache_thrift//lib/go/thrift",
+    ],
+)
