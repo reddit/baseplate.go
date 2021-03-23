@@ -1,6 +1,7 @@
 package timebp
 
 import (
+	"encoding"
 	"encoding/json"
 	"math"
 	"strconv"
@@ -8,23 +9,25 @@ import (
 )
 
 var (
-	_ json.Unmarshaler = (*TimestampSecondF)(nil)
-	_ json.Marshaler   = TimestampSecondF{}
+	_ json.Unmarshaler         = (*TimestampSecondF)(nil)
+	_ json.Marshaler           = TimestampSecondF{}
+	_ encoding.TextUnmarshaler = (*TimestampSecondF)(nil)
+	_ encoding.TextMarshaler   = TimestampSecondF{}
 )
 
 // float64 does not really have the nanosecond precision for a timestamp around
 // year 2020, so we only keep the precision up to microseconds.
 const secondFRound = time.Microsecond
 
-// 1 microsecond is 1e-6
+// 1 microsecond is 1e-6 seconds.
 const epsilon = 1e-6
 
 func floatsEqual(a, b float64) bool {
 	return math.Abs(a-b) < epsilon
 }
 
-// TimestampSecondF implements json encoding/decoding using float number seconds
-// since EPOCH, with precision up to microseconds.
+// TimestampSecondF implements json/text encoding/decoding using float number
+// seconds since EPOCH, with precision up to microseconds.
 type TimestampSecondF time.Time
 
 func (ts TimestampSecondF) String() string {
@@ -36,6 +39,22 @@ func (ts TimestampSecondF) ToTime() time.Time {
 	return time.Time(ts).Round(secondFRound)
 }
 
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (ts *TimestampSecondF) UnmarshalText(data []byte) error {
+	// Empty/default
+	if len(data) == 0 {
+		*ts = TimestampSecondF{}
+		return nil
+	}
+
+	sec, err := strconv.ParseFloat(string(data), 64)
+	if err != nil {
+		return err
+	}
+	*ts = TimestampSecondF(SecondsToTimeF(sec))
+	return nil
+}
+
 // UnmarshalJSON implements json.Unmarshaler.
 func (ts *TimestampSecondF) UnmarshalJSON(data []byte) error {
 	s := string(data)
@@ -44,12 +63,7 @@ func (ts *TimestampSecondF) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	sec, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return err
-	}
-	*ts = TimestampSecondF(SecondsToTimeF(sec))
-	return nil
+	return ts.UnmarshalText(data)
 }
 
 // SecondsToTimeF converts float seconds since EPOCH to time.Time.
@@ -62,6 +76,16 @@ func SecondsToTimeF(s float64) time.Time {
 	return time.Unix(sec, int64(nanosec))
 }
 
+// MarshalText implements encoding.TextMarshaler.
+func (ts TimestampSecondF) MarshalText() ([]byte, error) {
+	t := ts.ToTime()
+	if t.IsZero() {
+		return nil, nil
+	}
+
+	return []byte(formatSecondF(TimeToSecondsF(t))), nil
+}
+
 // MarshalJSON implements json.Marshaler.
 func (ts TimestampSecondF) MarshalJSON() ([]byte, error) {
 	t := ts.ToTime()
@@ -69,7 +93,7 @@ func (ts TimestampSecondF) MarshalJSON() ([]byte, error) {
 		return []byte("null"), nil
 	}
 
-	return []byte(formatSecondF(TimeToSecondsF(t))), nil
+	return ts.MarshalText()
 }
 
 // TimeToSecondsF converts time.Time to float seconds since EPOCH.
