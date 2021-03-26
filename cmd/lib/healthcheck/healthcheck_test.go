@@ -1,4 +1,4 @@
-package healthcheck_test
+package healthcheck
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 
-	"github.com/reddit/baseplate.go/cmd/lib/healthcheck"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/thriftbp"
@@ -255,7 +254,7 @@ func TestRunArgs(t *testing.T) {
 			}
 			args = append(args, c.args...)
 
-			err := healthcheck.RunArgs(args)
+			err := runArgs(args, io.Discard)
 			if err != nil {
 				t.Logf("error: %v", err)
 			}
@@ -270,4 +269,68 @@ func TestRunArgs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunArgsPositional(t *testing.T) {
+	const timeout = time.Millisecond * 100
+
+	t.Run("normal", func(t *testing.T) {
+		service := thriftService(allHealthy)
+		service.up(t)
+		t.Cleanup(func() {
+			service.down(t)
+		})
+
+		args := []string{"./healthcheck", "--timeout", timeout.String(), service.addr}
+
+		err := runArgs(args, io.Discard)
+		if err != nil {
+			t.Errorf("Did not expect error, got: %v", err)
+		}
+	})
+
+	t.Run("override", func(t *testing.T) {
+		service := thriftService(allHealthy)
+		service.up(t)
+		t.Cleanup(func() {
+			service.down(t)
+		})
+
+		args := []string{"./healthcheck", "--timeout", timeout.String(), "--type", "http", "thrift", service.addr}
+
+		err := runArgs(args, io.Discard)
+		if err != nil {
+			t.Errorf("Did not expect error, got: %v", err)
+		}
+	})
+
+	t.Run("wrong-type", func(t *testing.T) {
+		service := thriftService(allHealthy)
+		service.up(t)
+		t.Cleanup(func() {
+			service.down(t)
+		})
+
+		args := []string{"./healthcheck", "fancy", service.addr}
+
+		err := runArgs(args, io.Discard)
+		if err == nil {
+			t.Error("Expected error, got none")
+		}
+	})
+
+	t.Run("more-than-3", func(t *testing.T) {
+		service := thriftService(allHealthy)
+		service.up(t)
+		t.Cleanup(func() {
+			service.down(t)
+		})
+
+		args := []string{"./healthcheck", "thrift", service.addr, "foo"}
+
+		err := runArgs(args, io.Discard)
+		if err == nil {
+			t.Error("Expected error, got none")
+		}
+	})
 }

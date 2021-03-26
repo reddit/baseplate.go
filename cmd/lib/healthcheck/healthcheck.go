@@ -34,7 +34,7 @@ const (
 //     }
 func Run() (ret int) {
 	if err := RunArgs(os.Args); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return -1
 	}
 	fmt.Println("OK!")
@@ -55,11 +55,26 @@ var probes = map[string]interface{}{
 	"startup":   baseplate.IsHealthyProbe_STARTUP,
 }
 
-// RunArgs is the more customizable/testable version of Run.
+// RunArgs is the more customizable version of Run.
 //
 // In production code it expects you to pass in os.Args as the arg.
 func RunArgs(args []string) error {
+	return runArgs(args, nil)
+}
+
+func runArgs(args []string, output io.Writer) error {
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
+	if output != nil {
+		fs.SetOutput(output)
+	}
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: %s --args [[type] endpoint]\n", args[0])
+		fmt.Fprintln(fs.Output(), "")
+		fmt.Fprintln(fs.Output(), "Up to 2 positional args are supported, they must be after all other flags.")
+		fmt.Fprintln(fs.Output(), "")
+		fmt.Fprintln(fs.Output(), "Args:")
+		fs.PrintDefaults()
+	}
 	addr := fs.String(
 		"endpoint",
 		"localhost:9090",
@@ -90,6 +105,23 @@ func RunArgs(args []string) error {
 	)
 	if err := fs.Parse(args[1:]); err != nil {
 		return fmt.Errorf("failed to parse args: %w", err)
+	}
+	switch len(fs.Args()) {
+	default:
+		fs.Usage()
+		return fmt.Errorf("only up to 2 positional args are supported, got: %+v", fs.Args())
+	case 0:
+		// Do nothing
+	case 1:
+		// When there's only 1 positional arg, it's the endpoint.
+		*addr = fs.Arg(0)
+	case 2:
+		// For 2 positional args, it's type and endpoint.
+		if err := check.Set(fs.Arg(0)); err != nil {
+			fs.Usage()
+			return err
+		}
+		*addr = fs.Arg(1)
 	}
 	return check.getValue().(checker)(
 		*addr,
