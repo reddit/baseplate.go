@@ -21,8 +21,8 @@ go_test(
     name = "healthcheck_test",
     size = "small",
     srcs = ["healthcheck_test.go"],
+    embed = [":healthcheck"],
     deps = [
-        ":healthcheck",
         "//httpbp",
         "//internal/gen-go/reddit/baseplate",
         "//thriftbp",
