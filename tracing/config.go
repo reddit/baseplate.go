@@ -18,6 +18,9 @@ type Config struct {
 	// to be read by a trace publisher sidecar.
 	QueueName string `yaml:"queueName"`
 
+	// The max size of the message queue (number of messages).
+	MaxQueueSize int64 `yaml:"maxQueueSize"`
+
 	// RecordTimeout is the timeout on writing a trace to the POSIX queue.
 	RecordTimeout time.Duration `yaml:"recordTimeout"`
 
@@ -42,6 +45,7 @@ func InitFromConfig(cfg Config) (io.Closer, error) {
 		SampleRate:       cfg.SampleRate,
 		MaxRecordTimeout: cfg.RecordTimeout,
 		QueueName:        cfg.QueueName,
+		MaxQueueSize:     cfg.MaxQueueSize,
 		UseUUID:          cfg.UseUUID,
 		Logger:           log.ErrorWithSentryWrapper(),
 	})
