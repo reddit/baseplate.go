@@ -148,7 +148,9 @@ func Serve(ctx context.Context, args ServeArgs) error {
 			}
 
 			// Initialize a channel to pass the result of server.Close().
-			closeChannel := make(chan error)
+			//
+			// It's buffered with size 1 to avoid blocking the goroutine forever.
+			closeChannel := make(chan error, 1)
 
 			// Tell the server and any provided closers to close.
 			//
