@@ -408,10 +408,7 @@ func (st *Statsd) Ctx() context.Context {
 // and use Close() call to do the cleanup instead of canceling the context.
 func (st *Statsd) Close() error {
 	st.cancel()
-	if st.writer == nil {
-		return nil
-	}
-	return st.writer.doWrite(st.statsd, log.KitLogger(st.cfg.LogLevel))
+	return nil
 }
 
 // WriteTo calls the underlying statsd implementation's WriteTo function.
