@@ -236,6 +236,13 @@ type Client interface {
 
 // ClientPool defines an object that implements thrift.TClient using a pool of
 // Client objects.
+//
+// A ClientPool is safe to be shared across different goroutines,
+// but a concrete thrift client created on top of it is not.
+// A concrete thrift client is the one you created from thrift compiled go
+// code, for example baseplate.NewBaseplateServiceV2Client(pool).
+// You need to create a concrete thrift client for each of your goroutines,
+// but they can share the same ClientPool underneath.
 type ClientPool interface {
 	// ClientPool implements TClient by grabbing a Client from it's pool and
 	// releasing that Client after it's Call method completes.
@@ -255,7 +262,7 @@ type ClientPool interface {
 	//
 	// If Call fails to release the client back to the pool,
 	// it will log the error on error level but not return it to the caller.
-	// It also increase ServiceSlug+".pool-release-error" counter.
+	// It also increases ServiceSlug+".pool-release-error" counter.
 	thrift.TClient
 
 	// Passthrough APIs from clientpool.Pool:

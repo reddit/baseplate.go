@@ -23,19 +23,26 @@ func ExampleMonitorClient() {
 		transport thrift.TTransport
 		factory   thrift.TProtocolFactory
 	)
-	// Create an actual service client
-	client := baseplate.NewBaseplateServiceV2Client(
-		// Use MonitoredClient to wrap a standard thrift client
-		thrift.WrapClient(
-			thrift.NewTStandardClient(
-				factory.GetProtocol(transport),
-				factory.GetProtocol(transport),
-			),
-			thriftbp.MonitorClient(thriftbp.MonitorClientArgs{
-				ServiceSlug: "service",
-			}),
+	// Use MonitoredClient to wrap a standard thrift client
+	//
+	// The TClient returned by thrift.WrapClient *could* be shareable across
+	// multiple goroutines. For example, the one create here using protocol
+	// factory, or the one created via
+	// thriftbp.NewBaseplateClientPool/NewCustomClientPool.
+	shareableClient := thrift.WrapClient(
+		thrift.NewTStandardClient(
+			factory.GetProtocol(transport),
+			factory.GetProtocol(transport),
 		),
+		thriftbp.MonitorClient(thriftbp.MonitorClientArgs{
+			ServiceSlug: "service",
+		}),
 	)
+	// Create an actual service client
+	//
+	// The actual client is NOT shareable between multiple goroutines and you
+	// should always create one on top of the shareable TClient for each call.
+	client := baseplate.NewBaseplateServiceV2Client(shareableClient)
 	// Create a context with a server span
 	_, ctx := opentracing.StartSpanFromContext(
 		context.Background(),
