@@ -2,6 +2,8 @@ package thriftbp
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/apache/thrift/lib/go/thrift"
 	retry "github.com/avast/retry-go"
@@ -18,8 +20,28 @@ type BaseplateErrorCode interface {
 	GetCode() int32
 }
 
+// baseplateError defines the interface of thrift compiled baseplate.Error
+// that will be satisfied as long as services are using the same version of
+// thrift compiler.
+type baseplateError interface {
+	thrift.TException
+
+	IsSetMessage() bool
+	GetMessage() string
+
+	IsSetCode() bool
+	GetCode() int32
+
+	IsSetRetryable() bool
+	GetRetryable() bool
+
+	IsSetDetails() bool
+	GetDetails() map[string]string
+}
+
 var (
 	_ BaseplateErrorCode = (*baseplatethrift.Error)(nil)
+	_ baseplateError     = (*baseplatethrift.Error)(nil)
 )
 
 // ClientPoolConfig errors are returned if the configuration validation fails.
@@ -57,10 +79,10 @@ func WithDefaultRetryableCodes(codes ...int32) []int32 {
 	}, codes...)
 }
 
-// BaseplateErrorFilter returns true if the given error is a BaseplateError and
-// returns one of the given codes and false if it is a BaseplateError but does
-// not return one of the given codes otherwise it calls the next filter in the
-// chain.
+// BaseplateErrorFilter returns true if the given error is a BaseplateErrorCode
+// and returns one of the given codes and false if it is a BaseplateErrorCode
+// but does not return one of the given codes otherwise it calls the next filter
+// in the chain.
 func BaseplateErrorFilter(codes ...int32) retrybp.Filter {
 	codeMap := make(map[int32]bool, len(codes))
 	for _, code := range codes {
@@ -86,3 +108,59 @@ func IDLExceptionSuppressor(err error) bool {
 }
 
 var _ errorsbp.Suppressor = IDLExceptionSuppressor
+
+type wrappedBaseplateError struct {
+	cause baseplateError
+}
+
+func (e wrappedBaseplateError) Error() string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("baseplate.Error: %q", e.cause.GetMessage()))
+	first := true
+	writeSeparator := func() {
+		if first {
+			first = false
+			sb.WriteString(" (")
+		} else {
+			sb.WriteString(", ")
+		}
+	}
+	if e.cause.IsSetCode() {
+		writeSeparator()
+		sb.WriteString(fmt.Sprintf("code=%d", e.cause.GetCode()))
+	}
+	if e.cause.IsSetRetryable() {
+		writeSeparator()
+		sb.WriteString(fmt.Sprintf("retryable=%v", e.cause.GetRetryable()))
+	}
+	if e.cause.IsSetDetails() {
+		writeSeparator()
+		sb.WriteString(fmt.Sprintf("details=%#v", e.cause.GetDetails()))
+	}
+	if !first {
+		sb.WriteString(")")
+	}
+	return sb.String()
+}
+
+func (e wrappedBaseplateError) Unwrap() error {
+	return e.cause
+}
+
+// WrapBaseplateError wraps e to an error with more meaningful error message if
+// e is Error defined in baseplate.thrift. Otherwise it returns e as-is.
+//
+// NOTE: This in general should only be used in clients.
+// If you wrap *baseplate.Error returned in server code,
+// it could cause the error no longer being recognized as an error defined in
+// thrift IDL by the thrift server, and the client could get a generic
+// TApplicationException instead.
+func WrapBaseplateError(e error) error {
+	var bpErr baseplateError
+	if errors.As(e, &bpErr) {
+		return wrappedBaseplateError{
+			cause: bpErr,
+		}
+	}
+	return e
+}
