@@ -105,7 +105,9 @@ type DefaultClientMiddlewareArgs struct {
 //
 // 5. MonitorClient - This creates the spans of the raw client calls.
 //
-// 6. SetDeadlineBudget
+// 6. BaseplateErrorWrapper
+//
+// 7. SetDeadlineBudget
 func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
@@ -130,6 +132,7 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 			ServiceSlug:         args.ServiceSlug,
 			ErrorSpanSuppressor: args.ErrorSpanSuppressor,
 		}),
+		BaseplateErrorWrapper,
 		SetDeadlineBudget,
 	)
 	return middlewares
@@ -265,6 +268,18 @@ func Retry(defaults ...retry.Option) thrift.ClientMiddleware {
 	}
 }
 
+// BaseplateErrorWrapper is a client middleware that calls WrapBaseplateError to
+// wrap the error returned by the next client call.
+func BaseplateErrorWrapper(next thrift.TClient) thrift.TClient {
+	return thrift.WrappedTClient{
+		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+			meta, err := next.Call(ctx, method, args, result)
+			return meta, WrapBaseplateError(err)
+		},
+	}
+}
+
 var (
 	_ thrift.ClientMiddleware = SetDeadlineBudget
+	_ thrift.ClientMiddleware = BaseplateErrorWrapper
 )
