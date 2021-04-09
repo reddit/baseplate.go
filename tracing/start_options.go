@@ -38,6 +38,10 @@ func (nopOption) Apply(*opentracing.StartSpanOptions) {}
 type SpanTypeOption struct {
 	nopOption
 
+	// NOTE: If the Type is SpanTypeClient,
+	// the name of the span is expected (by metricsbp.CreateServerSpanHook)
+	// to be in the format of "service.endpoint",
+	// so that it can get the client and endpoint tags correctly.
 	Type SpanType
 }
 

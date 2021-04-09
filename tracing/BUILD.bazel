@@ -39,6 +39,7 @@ go_test(
         "example_error_reporter_hooks_test.go",
         "hooks_test.go",
         "span_test.go",
+        "start_options_example_test.go",
         "tags_test.go",
         "trace_test.go",
         "tracer_test.go",
