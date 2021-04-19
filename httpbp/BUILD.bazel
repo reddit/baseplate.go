@@ -3,6 +3,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "httpbp",
     srcs = [
+        "client_middlewares.go",
+        "config.go",
         "doc.go",
         "errors.go",
         "handler.go",
@@ -16,6 +18,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//:baseplate_go",
+        "//breakerbp",
         "//ecinterface",
         "//errorsbp",
         "//internal/gen-go/reddit/baseplate",
@@ -23,6 +26,8 @@ go_library(
         "//secrets",
         "//signing",
         "//tracing",
+        "@com_github_opentracing_opentracing_go//:opentracing-go",
+        "@com_github_sony_gobreaker//:gobreaker",
     ],
 )
 

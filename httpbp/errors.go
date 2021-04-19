@@ -1,6 +1,7 @@
 package httpbp
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -62,6 +63,11 @@ const (
 	// DefaultErrorTemplateName is the name for the shared, default HTML template
 	// for error responses.
 	DefaultErrorTemplateName = "httpbp/error"
+)
+
+// ClientMiddleware errors are returned if a known error is occuring during the middleware processing.
+var (
+	ErrConcurrencyLimit = errors.New("hit concurrency limit")
 )
 
 // HTTPError is an error that and can be returned by an  HTTPHandler to return a
