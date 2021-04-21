@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	addr = ":0"
+	addr = "localhost:0"
 )
 
 func TestSingleAddressGenerator(t *testing.T) {
