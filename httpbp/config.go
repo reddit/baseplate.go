@@ -1,11 +1,13 @@
 package httpbp
 
+import retry "github.com/avast/retry-go"
+
 // Config provides the configuration for a HTTP client including its
 // middlewares.`
 type Config struct {
 	Slug           string               `yaml:"slug"`
 	MaxConnections int                  `yaml:"maxConnections"`
-	Retries        int                  `yaml:"retries"`
+	Retries        retry.Config         `yaml:"retries"`
 	CircuitBreaker CircuitBreakerConfig `yaml:"circuitBreaker"`
 	LoadBalancer   LoadBalancerConfig   `yaml:"loadBalancer"`
 	MaxConcurrency int                  `yaml:"maxConcurrency"`
