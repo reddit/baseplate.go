@@ -55,19 +55,19 @@ type ClientPoolConfig struct {
 	//
 	//     AuthenticationService -> authentication
 	//     ImageUploadService -> image-upload
-	ServiceSlug string
+	ServiceSlug string `yaml:"serviceSlug"`
 
 	// Addr is the address of a thrift service.  Addr must be in the format
 	// "${host}:${port}"
-	Addr string
+	Addr string `yaml:"addr"`
 
 	// InitialConnections is the inital number of thrift connections created by
 	// the client pool.
-	InitialConnections int
+	InitialConnections int `yaml:"initialConnections"`
 
 	// MaxConnections is the maximum number of thrift connections the client
 	// pool can maintain.
-	MaxConnections int
+	MaxConnections int `yaml:"maxConnections"`
 
 	// MaxConnectionAge is the maximum duration that a pooled connection will be
 	// kept before closing in favor of a new one.
@@ -76,7 +76,7 @@ type ClientPoolConfig struct {
 	//
 	// To disable this and keep connections in the pool indefinetly, set this to
 	// a negative value.
-	MaxConnectionAge time.Duration
+	MaxConnectionAge time.Duration `yaml:"maxConnectionAge"`
 
 	// ConnectTimeout and SocketTimeout are timeouts used by the underlying
 	// thrift.TSocket.
@@ -104,12 +104,12 @@ type ClientPoolConfig struct {
 	//
 	// For both values, <=0 would mean no timeout.
 	// In most cases you would want to set timeouts for both.
-	ConnectTimeout time.Duration
-	SocketTimeout  time.Duration
+	ConnectTimeout time.Duration `yaml:"connectTimeout"`
+	SocketTimeout  time.Duration `yaml:"socketTimeout"`
 
 	// Any tags that should be applied to metrics logged by the ClientPool.
 	// This includes the optional pool stats.
-	MetricsTags metricsbp.Tags
+	MetricsTags metricsbp.Tags `yaml:"metricsTags"`
 
 	// DefaultRetryOptions is the list of retry.Options to apply as the defaults
 	// for the Retry middleware.
@@ -133,14 +133,14 @@ type ClientPoolConfig struct {
 	//
 	// The reporting goroutine is cancelled when the global metrics client
 	// context is Done.
-	ReportPoolStats bool
+	ReportPoolStats bool `yaml:"reportPoolStats"`
 
 	// PoolGaugeInterval indicates how often we should update the active
 	// connections gauge when collecting pool stats.
 	//
 	// When PoolGaugeInterval <= 0 and ReportPoolStats is true,
 	// DefaultPoolGaugeInterval will be used instead.
-	PoolGaugeInterval time.Duration
+	PoolGaugeInterval time.Duration `yaml:"poolGaugeInterval"`
 
 	// Suppress some of the errors returned by the server before sending them to
 	// the client span.
@@ -161,8 +161,8 @@ type ClientPoolConfig struct {
 	// This is useful when the server is unstable that some connection errors are
 	// expected, so that we still try to create InitialConnections when possible,
 	// but returns an usable client pool with 0 initial connections as fallback.
-	InitialConnectionsFallback       bool
-	InitialConnectionsFallbackLogger log.Wrapper
+	InitialConnectionsFallback       bool        `yaml:"initialConnectionsFallback"`
+	InitialConnectionsFallbackLogger log.Wrapper `yaml:"initialConnectionsFallbackLogger"`
 
 	// When BreakerConfig is non-nil,
 	// a breakerbp.FailureRatioBreaker will be created for the pool,
