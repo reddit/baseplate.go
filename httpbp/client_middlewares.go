@@ -34,10 +34,8 @@ func NewClient(config ClientConfig, middlewares ...ClientMiddleware) *http.Clien
 	}
 
 	defaults := []ClientMiddleware{
-		ClientErrorWrapper(),
 		MonitorClient(config),
 		Retries(),
-		MaxConcurrency(config),
 		CircuitBreaker(config),
 	}
 
@@ -51,6 +49,11 @@ func NewClient(config ClientConfig, middlewares ...ClientMiddleware) *http.Clien
 // ClientErrorWrapper applies ClientErrorFromResponse to the returned response
 // ensuring a HTTP status response outside the range [200, 400) is wrapped in
 // an error relieving users from the need to check the status response.
+//
+// Adding this middleware means that both, non-nil response and non-nil error,
+// can be returned. If configured the caller needs to call
+// httpbp.DrainAndClose(resp.Body) to ensure the underlying TCP connection can
+// be re-used.
 func ClientErrorWrapper() ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripper(func(req *http.Request) (resp *http.Response, err error) {
