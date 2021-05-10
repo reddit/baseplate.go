@@ -1,13 +1,28 @@
 package log
 
 import (
+	"os"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-var (
-	globalLogger = zap.NewNop().Sugar()
-)
+// globalLogger is used by all top-level log methods (e.g. Infof).
+//
+// Before the Init methods are called, this logger will use a very basic config
+// that includes a `pre_init` key to distinguish this condition.
+var globalLogger = zap.New(
+	zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
+		os.Stderr,
+		zapcore.DebugLevel,
+	),
+	zap.Fields(
+		zap.Bool("pre_init", true),
+	),
+).WithOptions(
+	zap.AddCallerSkip(1), // will always be called via a top-level function from this package
+).Sugar()
 
 // Version is the version tag value to be added to the global logger.
 //
