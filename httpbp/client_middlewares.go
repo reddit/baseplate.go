@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	retry "github.com/avast/retry-go"
 	"github.com/opentracing/opentracing-go"
 
+	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/sony/gobreaker"
@@ -19,9 +19,10 @@ import (
 // http.RoundTripper which http.Client accepts as Transport.
 type ClientMiddleware func(next http.RoundTripper) http.RoundTripper
 
-type roundTripper func(req *http.Request) (*http.Response, error)
+// roundTripperFunc adapts closures and functions to implement http.RoundTripper.
+type roundTripperFunc func(req *http.Request) (*http.Response, error)
 
-func (f roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
 }
 
@@ -34,16 +35,30 @@ func NewClient(config ClientConfig, middlewares ...ClientMiddleware) *http.Clien
 	}
 
 	defaults := []ClientMiddleware{
-		MonitorClient(config),
+		MonitorClient(config.Slug),
 		Retries(),
-		CircuitBreaker(config),
+		CircuitBreaker(config.CircuitBreaker),
 	}
 
 	middlewares = append(middlewares, defaults...)
 
 	return &http.Client{
-		Transport: applyMiddlewares(transport, middlewares...),
+		Transport: WrapTransport(transport, middlewares...),
 	}
+}
+
+// WrapTransport takes a list of client middlewares and wraps them around the
+// given transport. This is useful for using client middleware outside of this
+// package.
+func WrapTransport(transport http.RoundTripper, middleware ...ClientMiddleware) http.RoundTripper {
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+	// add middlewares in reverse so the first in the list is the outermost
+	for i := len(middleware) - 1; i >= 0; i-- {
+		transport = middleware[i](transport)
+	}
+	return transport
 }
 
 // ClientErrorWrapper applies ClientErrorFromResponse to the returned response
@@ -54,11 +69,43 @@ func NewClient(config ClientConfig, middlewares ...ClientMiddleware) *http.Clien
 // can be returned. If configured the caller needs to call
 // httpbp.DrainAndClose(resp.Body) to ensure the underlying TCP connection can
 // be re-used.
+//
+// Instead of doing this:
+//
+//     // bad example, DO NOT USE
+//     resp, err := client.Do(req)
+//     if err != nil {
+//       // TODO: handle error
+//       return err
+//     }
+//     defer httpbp.DrainAndClose(resp.Body)
+//     // TODO: handle resp
+//
+// Do this:
+//
+//     resp, err := client.Do(req)
+//     if resp != nil {
+//       defer httpbp.DrainAndClose(resp.Body)
+//     }
+//     if err != nil {
+//       // TODO: handle error
+//       return err
+//     }
+//     // TODO: handle resp
+//
 func ClientErrorWrapper() ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
-		return roundTripper(func(req *http.Request) (resp *http.Response, err error) {
+		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
 			resp, err = next.RoundTrip(req)
-			err = ClientErrorFromResponse(resp)
+			if err != nil {
+				return resp, err
+			}
+
+			defer DrainAndClose(resp.Body)
+
+			if err == nil {
+				err = ClientErrorFromResponse(resp)
+			}
 			return resp, err
 		})
 	}
@@ -67,22 +114,16 @@ func ClientErrorWrapper() ClientMiddleware {
 // CircuitBreaker is a middleware that prevents sending requests that are likely
 // to fail based on a configurable failure ratio based on total failures and
 // requests.
-func CircuitBreaker(config ClientConfig) ClientMiddleware {
+func CircuitBreaker(config breakerbp.Config) ClientMiddleware {
 	pool := &sync.Pool{
 		New: func() interface{} {
-			return &gobreaker.Settings{
-				Interval: 60 * time.Second,
-				ReadyToTrip: func(counts gobreaker.Counts) bool {
-					failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
-					return counts.Requests >= config.CircuitBreaker.MinRequests && failureRatio >= config.CircuitBreaker.MinFailureRatio
-				},
-			}
+			return breakerbp.NewFailureRatioBreaker(config)
 		},
 	}
 	breakers := &sync.Map{}
 
 	return func(next http.RoundTripper) http.RoundTripper {
-		return roundTripper(func(req *http.Request) (*http.Response, error) {
+		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			host := req.URL.Hostname()
 
 			// new circuit breakers should rarely get allocated: the pool reduces
@@ -90,7 +131,7 @@ func CircuitBreaker(config ClientConfig) ClientMiddleware {
 			newBreaker := pool.Get()
 			breaker, loaded := breakers.LoadOrStore(host, newBreaker)
 			if loaded {
-				pool.Put(newBreaker)
+				defer pool.Put(newBreaker)
 			}
 
 			resp, err := breaker.(*gobreaker.CircuitBreaker).Execute(func() (interface{}, error) {
@@ -104,11 +145,7 @@ func CircuitBreaker(config ClientConfig) ClientMiddleware {
 					// (http.Transport) is able to re-use the persistent TCP
 					// connection.
 					_, _ = io.ReadAll(resp.Body)
-					err = resp.Body.Close()
-					if err != nil {
-						return nil, err
-					}
-					return nil, err
+					return nil, resp.Body.Close()
 				}
 				return resp, nil
 			})
@@ -120,18 +157,10 @@ func CircuitBreaker(config ClientConfig) ClientMiddleware {
 	}
 }
 
-func applyMiddlewares(transport http.RoundTripper, middlewares ...ClientMiddleware) http.RoundTripper {
-	// add middlewares in reverse so the first in the list is the outermost
-	for i := len(middlewares) - 1; i >= 0; i-- {
-		transport = middlewares[i](transport)
-	}
-	return transport
-}
-
 // Retries provides a retry middleware.
 func Retries(retryOptions ...retry.Option) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
-		return roundTripper(func(req *http.Request) (resp *http.Response, err error) {
+		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
 
 			if len(retryOptions) == 0 {
 				retryOptions = []retry.Option{retry.Attempts(1)}
@@ -152,15 +181,14 @@ func Retries(retryOptions ...retry.Option) ClientMiddleware {
 	}
 }
 
-// MaxConcurrency is a middleware to ensure that there will be only a maximum
-// number of requests concurrently in-flight at any given time.
-func MaxConcurrency(config ClientConfig) ClientMiddleware {
+// MaxConcurrency is a middleware to limit the number of concurrent in-flight
+// requests at any given time by returning an error if the maximum is reached.
+func MaxConcurrency(maxConcurrency int64) ClientMiddleware {
 	var (
 		activeRequests int64
 	)
-	maxConcurrency := int64(config.MaxConcurrency)
 	return func(next http.RoundTripper) http.RoundTripper {
-		return roundTripper(func(req *http.Request) (resp *http.Response, err error) {
+		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
 			attemptedRequests := atomic.AddInt64(&activeRequests, 1)
 			defer atomic.AddInt64(&activeRequests, -1)
 
@@ -174,13 +202,12 @@ func MaxConcurrency(config ClientConfig) ClientMiddleware {
 
 // MonitorClient is a HTTP client middleware that wraps HTTP requests in a
 // client span.
-func MonitorClient(config ClientConfig) ClientMiddleware {
-	slug := config.Slug + ".request"
+func MonitorClient(slug string) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
-		return roundTripper(func(req *http.Request) (resp *http.Response, err error) {
+		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
 			span, ctx := opentracing.StartSpanFromContext(
 				req.Context(),
-				slug,
+				slug+".request",
 				tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 			)
 			span.SetTag("http.method", req.Method)
@@ -192,8 +219,7 @@ func MonitorClient(config ClientConfig) ClientMiddleware {
 					Err: err,
 				}.Convert())
 			}()
-			req = req.WithContext(ctx)
-			return next.RoundTrip(req)
+			return next.RoundTrip(req.WithContext(ctx))
 		})
 	}
 }
