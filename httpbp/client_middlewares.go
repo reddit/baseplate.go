@@ -150,7 +150,8 @@ func Retries(retryOptions ...retry.Option) ClientMiddleware {
 			}
 
 			err = retrybp.Do(req.Context(), func() error {
-				resp, err = next.RoundTrip(req)
+				mw := ClientErrorWrapper()
+				resp, err = mw(next).RoundTrip(req)
 				if err != nil {
 					return err
 				}

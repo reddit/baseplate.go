@@ -129,30 +129,58 @@ func TestClientErrorWrapper(t *testing.T) {
 }
 
 func TestRetry(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(2 * time.Millisecond)
-	}))
-	defer server.Close()
+	t.Run("retry for timeout", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(2 * time.Millisecond)
+		}))
+		defer server.Close()
 
-	var attempts uint
-	client := &http.Client{
-		Transport: Retries(
-			retry.Attempts(2),
-			retry.OnRetry(func(n uint, err error) {
-				// set number of attempts to check if retries were attempted
-				attempts = n + 1
-			}),
-		)(ClientErrorWrapper()(http.DefaultTransport)),
-		Timeout: time.Millisecond,
-	}
-	_, err := client.Get(server.URL)
-	if err == nil {
-		t.Fatalf("expected error to be non-nil")
-	}
-	expected := uint(2)
-	if attempts != expected {
-		t.Errorf("expected %d, actual: %d", expected, attempts)
-	}
+		var attempts uint
+		client := &http.Client{
+			Transport: Retries(
+				retry.Attempts(2),
+				retry.OnRetry(func(n uint, err error) {
+					// set number of attempts to check if retries were attempted
+					attempts = n + 1
+				}),
+			)(ClientErrorWrapper()(http.DefaultTransport)),
+			Timeout: time.Millisecond,
+		}
+		_, err := client.Get(server.URL)
+		if err == nil {
+			t.Fatalf("expected error to be non-nil")
+		}
+		expected := uint(2)
+		if attempts != expected {
+			t.Errorf("expected %d, actual: %d", expected, attempts)
+		}
+	})
+
+	t.Run("retry for HTTP 500", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		var attempts uint
+		client := &http.Client{
+			Transport: Retries(
+				retry.Attempts(2),
+				retry.OnRetry(func(n uint, err error) {
+					// set number of attempts to check if retries were attempted
+					attempts = n + 1
+				}),
+			)(ClientErrorWrapper()(http.DefaultTransport)),
+		}
+		_, err := client.Get(server.URL)
+		if err == nil {
+			t.Fatalf("expected error to be non-nil")
+		}
+		expected := uint(2)
+		if attempts != expected {
+			t.Errorf("expected %d, actual: %d", expected, attempts)
+		}
+	})
 }
 
 func TestMaxConcurrency(t *testing.T) {
