@@ -18,6 +18,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//:baseplate_go",
+        "//breakerbp",
         "//ecinterface",
         "//errorsbp",
         "//internal/gen-go/reddit/baseplate",
@@ -28,7 +29,6 @@ go_library(
         "//tracing",
         "@com_github_avast_retry_go//:retry-go",
         "@com_github_opentracing_opentracing_go//:opentracing-go",
-        "@com_github_sony_gobreaker//:gobreaker",
     ],
 )
 
@@ -36,6 +36,7 @@ go_test(
     name = "httpbp_test",
     size = "small",
     srcs = [
+        "client_middlewares_test.go",
         "errors_example_test.go",
         "errors_test.go",
         "example_server_test.go",
@@ -47,8 +48,8 @@ go_test(
         "response_test.go",
         "server_test.go",
     ],
+    embed = [":httpbp"],
     deps = [
-        ":httpbp",
         "//:baseplate_go",
         "//ecinterface",
         "//internal/gen-go/reddit/baseplate",
@@ -58,5 +59,6 @@ go_test(
         "//retrybp",
         "//secrets",
         "//tracing",
+        "@com_github_avast_retry_go//:retry-go",
     ],
 )

@@ -12,10 +12,9 @@ import (
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
-	"github.com/sony/gobreaker"
 )
 
-// ClientMiddleware is used to build HTTP client middlewares by implementing
+// ClientMiddleware is used to build HTTP client middleware by implementing
 // http.RoundTripper which http.Client accepts as Transport.
 type ClientMiddleware func(next http.RoundTripper) http.RoundTripper
 
@@ -27,34 +26,43 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 // NewClient returns a standard HTTP client wrapped with the default
-// middlewares plus any additional client middlewares passed into this
+// middleware plus any additional client middleware passed into this
 // function.
-func NewClient(config ClientConfig, middlewares ...ClientMiddleware) *http.Client {
+func NewClient(config ClientConfig, middleware ...ClientMiddleware) *http.Client {
 	transport := &http.Transport{
 		MaxConnsPerHost: config.MaxConnections,
 	}
 
 	defaults := []ClientMiddleware{
+		ClientErrorWrapper(),
 		MonitorClient(config.Slug),
-		Retries(),
-		CircuitBreaker(config.CircuitBreaker),
+		Retries(
+			retry.Attempts(1),
+			retrybp.Filters(
+				retrybp.NetworkErrorFilter,
+				retrybp.RetryableErrorFilter,
+			),
+		),
+	}
+	if config.CircuitBreaker != nil {
+		defaults = append(defaults, CircuitBreaker(*config.CircuitBreaker))
 	}
 
-	middlewares = append(middlewares, defaults...)
+	middleware = append(middleware, defaults...)
 
 	return &http.Client{
-		Transport: WrapTransport(transport, middlewares...),
+		Transport: WrapTransport(transport, middleware...),
 	}
 }
 
-// WrapTransport takes a list of client middlewares and wraps them around the
+// WrapTransport takes a list of client middleware and wraps them around the
 // given transport. This is useful for using client middleware outside of this
 // package.
 func WrapTransport(transport http.RoundTripper, middleware ...ClientMiddleware) http.RoundTripper {
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
-	// add middlewares in reverse so the first in the list is the outermost
+	// add middleware in reverse so the first in the list is the outermost
 	for i := len(middleware) - 1; i >= 0; i-- {
 		transport = middleware[i](transport)
 	}
@@ -69,30 +77,6 @@ func WrapTransport(transport http.RoundTripper, middleware ...ClientMiddleware) 
 // can be returned. If configured the caller needs to call
 // httpbp.DrainAndClose(resp.Body) to ensure the underlying TCP connection can
 // be re-used.
-//
-// Instead of doing this:
-//
-//     // bad example, DO NOT USE
-//     resp, err := client.Do(req)
-//     if err != nil {
-//       // TODO: handle error
-//       return err
-//     }
-//     defer httpbp.DrainAndClose(resp.Body)
-//     // TODO: handle resp
-//
-// Do this:
-//
-//     resp, err := client.Do(req)
-//     if resp != nil {
-//       defer httpbp.DrainAndClose(resp.Body)
-//     }
-//     if err != nil {
-//       // TODO: handle error
-//       return err
-//     }
-//     // TODO: handle resp
-//
 func ClientErrorWrapper() ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
@@ -100,11 +84,11 @@ func ClientErrorWrapper() ClientMiddleware {
 			if err != nil {
 				return resp, err
 			}
-
-			defer DrainAndClose(resp.Body)
-
 			if err == nil {
 				err = ClientErrorFromResponse(resp)
+				if err != nil {
+					DrainAndClose(resp.Body)
+				}
 			}
 			return resp, err
 		})
@@ -134,7 +118,7 @@ func CircuitBreaker(config breakerbp.Config) ClientMiddleware {
 				defer pool.Put(newBreaker)
 			}
 
-			resp, err := breaker.(*gobreaker.CircuitBreaker).Execute(func() (interface{}, error) {
+			resp, err := breaker.(breakerbp.FailureRatioBreaker).Execute(func() (interface{}, error) {
 				resp, err := next.RoundTrip(req)
 				if err != nil {
 					return nil, err
@@ -161,12 +145,11 @@ func CircuitBreaker(config breakerbp.Config) ClientMiddleware {
 func Retries(retryOptions ...retry.Option) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
-
 			if len(retryOptions) == 0 {
 				retryOptions = []retry.Option{retry.Attempts(1)}
 			}
 
-			retrybp.Do(req.Context(), func() error {
+			err = retrybp.Do(req.Context(), func() error {
 				resp, err = next.RoundTrip(req)
 				if err != nil {
 					return err

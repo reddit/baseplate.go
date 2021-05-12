@@ -65,8 +65,10 @@ const (
 	DefaultErrorTemplateName = "httpbp/error"
 )
 
-// ClientMiddleware errors returned if a known error is occuring during the middleware processing.
+// Well-known errors for middleware layer.
 var (
+	// ErrConcurrencyLimit is returned by the max concurrency middleware if
+	// there are too many requests in-flight.
 	ErrConcurrencyLimit = errors.New("hit concurrency limit")
 )
 
