@@ -1,6 +1,7 @@
 package httpbp
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"sync"
@@ -78,6 +79,7 @@ func WrapTransport(transport http.RoundTripper, middleware ...ClientMiddleware) 
 // httpbp.DrainAndClose(resp.Body) to ensure the underlying TCP connection can
 // be re-used.
 func ClientErrorWrapper() ClientMiddleware {
+	const limit = 1024
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
 			resp, err = next.RoundTrip(req)
@@ -87,7 +89,17 @@ func ClientErrorWrapper() ClientMiddleware {
 			if err == nil {
 				err = ClientErrorFromResponse(resp)
 				if err != nil {
-					DrainAndClose(resp.Body)
+					defer DrainAndClose(resp.Body)
+					var ce *ClientError
+					if !errors.As(err, &ce) {
+						return resp, err
+					}
+					body, e := io.ReadAll(io.LimitReader(resp.Body, limit))
+					if e != nil {
+						return resp, e
+					}
+					ce.AdditionalInfo = string(body)
+					return resp, ce
 				}
 			}
 			return resp, err
@@ -150,8 +162,9 @@ func Retries(retryOptions ...retry.Option) ClientMiddleware {
 			}
 
 			err = retrybp.Do(req.Context(), func() error {
-				mw := ClientErrorWrapper()
-				resp, err = mw(next).RoundTrip(req)
+				// include ClientErrorWrapper to ensure retry is applied for
+				// some HTTP 5xx responses
+				resp, err = ClientErrorWrapper()(next).RoundTrip(req)
 				if err != nil {
 					return err
 				}
