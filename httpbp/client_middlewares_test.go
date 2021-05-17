@@ -1,6 +1,7 @@
 package httpbp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -91,7 +92,7 @@ func TestClientErrorWrapper(t *testing.T) {
 		defer server.Close()
 
 		client := &http.Client{
-			Transport: ClientErrorWrapper()(http.DefaultTransport),
+			Transport: ClientErrorWrapper(defaultMaxErrorReadAhead)(http.DefaultTransport),
 		}
 		resp, err := client.Get(server.URL)
 		if err != nil {
@@ -115,7 +116,7 @@ func TestClientErrorWrapper(t *testing.T) {
 		defer server.Close()
 
 		client := &http.Client{
-			Transport: ClientErrorWrapper()(http.DefaultTransport),
+			Transport: ClientErrorWrapper(defaultMaxErrorReadAhead)(http.DefaultTransport),
 		}
 		_, err := client.Get(server.URL)
 		if err == nil {
@@ -138,12 +139,13 @@ func TestRetry(t *testing.T) {
 		var attempts uint
 		client := &http.Client{
 			Transport: Retries(
+				defaultMaxErrorReadAhead,
 				retry.Attempts(2),
 				retry.OnRetry(func(n uint, err error) {
 					// set number of attempts to check if retries were attempted
 					attempts = n + 1
 				}),
-			)(ClientErrorWrapper()(http.DefaultTransport)),
+			)(http.DefaultTransport),
 			Timeout: time.Millisecond,
 		}
 		_, err := client.Get(server.URL)
@@ -165,14 +167,51 @@ func TestRetry(t *testing.T) {
 		var attempts uint
 		client := &http.Client{
 			Transport: Retries(
+				defaultMaxErrorReadAhead,
 				retry.Attempts(2),
 				retry.OnRetry(func(n uint, err error) {
 					// set number of attempts to check if retries were attempted
 					attempts = n + 1
 				}),
-			)(ClientErrorWrapper()(http.DefaultTransport)),
+			)(http.DefaultTransport),
 		}
 		_, err := client.Get(server.URL)
+		if err == nil {
+			t.Fatalf("expected error to be non-nil")
+		}
+		expected := uint(2)
+		if attempts != expected {
+			t.Errorf("expected %d, actual: %d", expected, attempts)
+		}
+	})
+
+	t.Run("retry POST request", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			b, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected := "{}"
+			got := string(b)
+			if got != expected {
+				t.Errorf("expected %q, got: %q", expected, got)
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		var attempts uint
+		client := &http.Client{
+			Transport: Retries(
+				defaultMaxErrorReadAhead,
+				retry.Attempts(2),
+				retry.OnRetry(func(n uint, err error) {
+					// set number of attempts to check if retries were attempted
+					attempts = n + 1
+				}),
+			)(http.DefaultTransport),
+		}
+		_, err := client.Post(server.URL, "application/json", bytes.NewBufferString("{}"))
 		if err == nil {
 			t.Fatalf("expected error to be non-nil")
 		}

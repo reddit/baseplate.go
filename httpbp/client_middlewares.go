@@ -15,6 +15,10 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
+const (
+	defaultMaxErrorReadAhead = 1024
+)
+
 // ClientMiddleware is used to build HTTP client middleware by implementing
 // http.RoundTripper which http.Client accepts as Transport.
 type ClientMiddleware func(next http.RoundTripper) http.RoundTripper
@@ -26,18 +30,19 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
 }
 
-// NewClient returns a standard HTTP client wrapped with the default
-// middleware plus any additional client middleware passed into this
-// function.
+// NewClient returns a standard HTTP client wrapped with the default middleware
+// plus any additional client middleware passed into this function. Default
+// middlewares are: MonitorClient and Retries. ClientErrorWrapper is included
+// as transitive middleware through Retries.
 func NewClient(config ClientConfig, middleware ...ClientMiddleware) *http.Client {
 	transport := &http.Transport{
 		MaxConnsPerHost: config.MaxConnections,
 	}
 
 	defaults := []ClientMiddleware{
-		ClientErrorWrapper(),
 		MonitorClient(config.Slug),
 		Retries(
+			config.MaxErrorReadAhead,
 			retry.Attempts(1),
 			retrybp.Filters(
 				retrybp.NetworkErrorFilter,
@@ -71,15 +76,13 @@ func WrapTransport(transport http.RoundTripper, middleware ...ClientMiddleware) 
 }
 
 // ClientErrorWrapper applies ClientErrorFromResponse to the returned response
-// ensuring a HTTP status response outside the range [200, 400) is wrapped in
+// ensuring an HTTP status response outside the range [200, 400) is wrapped in
 // an error relieving users from the need to check the status response.
 //
-// Adding this middleware means that both, non-nil response and non-nil error,
-// can be returned. If configured the caller needs to call
-// httpbp.DrainAndClose(resp.Body) to ensure the underlying TCP connection can
-// be re-used.
-func ClientErrorWrapper() ClientMiddleware {
-	const limit = 1024
+// If a response is wrapped in an error this middleware will perform
+// DrainAndClose on the response body and will read up to limit to store
+// additional info about the HTTP response.
+func ClientErrorWrapper(limit int) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
 			resp, err = next.RoundTrip(req)
@@ -94,7 +97,7 @@ func ClientErrorWrapper() ClientMiddleware {
 					if !errors.As(err, &ce) {
 						return resp, err
 					}
-					body, e := io.ReadAll(io.LimitReader(resp.Body, limit))
+					body, e := io.ReadAll(io.LimitReader(resp.Body, int64(limit)))
 					if e != nil {
 						return resp, e
 					}
@@ -111,12 +114,12 @@ func ClientErrorWrapper() ClientMiddleware {
 // to fail based on a configurable failure ratio based on total failures and
 // requests.
 func CircuitBreaker(config breakerbp.Config) ClientMiddleware {
-	pool := &sync.Pool{
+	var breakers sync.Map
+	pool := sync.Pool{
 		New: func() interface{} {
 			return breakerbp.NewFailureRatioBreaker(config)
 		},
 	}
-	breakers := &sync.Map{}
 
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
@@ -153,18 +156,18 @@ func CircuitBreaker(config breakerbp.Config) ClientMiddleware {
 	}
 }
 
-// Retries provides a retry middleware.
-func Retries(retryOptions ...retry.Option) ClientMiddleware {
+// Retries provides a retry middleware by ensuring certain HTTP responses are
+// wrapped in errors.
+func Retries(limit int, retryOptions ...retry.Option) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
 			if len(retryOptions) == 0 {
 				retryOptions = []retry.Option{retry.Attempts(1)}
 			}
-
 			err = retrybp.Do(req.Context(), func() error {
 				// include ClientErrorWrapper to ensure retry is applied for
 				// some HTTP 5xx responses
-				resp, err = ClientErrorWrapper()(next).RoundTrip(req)
+				resp, err = ClientErrorWrapper(limit)(next).RoundTrip(req)
 				if err != nil {
 					return err
 				}
@@ -197,7 +200,7 @@ func MaxConcurrency(maxConcurrency int64) ClientMiddleware {
 	}
 }
 
-// MonitorClient is a HTTP client middleware that wraps HTTP requests in a
+// MonitorClient is an HTTP client middleware that wraps HTTP requests in a
 // client span.
 func MonitorClient(slug string) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
