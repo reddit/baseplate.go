@@ -72,6 +72,13 @@ var (
 	ErrConcurrencyLimit = errors.New("hit concurrency limit")
 )
 
+// ClientConfig errors are returned if the configuration validation fails.
+var (
+	errConfigMissingSlug              = errors.New("slug cannot be empty")
+	errConfigInvalidMaxErrorReadAhead = errors.New("maxErrorReadAhead value needs to be positive")
+	errConfigInvalidMaxConnections    = errors.New("maxConnections value needs to be positive")
+)
+
 // HTTPError is an error that and can be returned by an  HTTPHandler to return a
 // customized error response.
 type HTTPError interface {

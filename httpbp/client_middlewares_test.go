@@ -24,9 +24,12 @@ func TestNewClient(t *testing.T) {
 		io.WriteString(w, "foo")
 	}))
 	defer server.Close()
-	client := NewClient(ClientConfig{
+	client, err := NewClient(ClientConfig{
 		Slug: "test",
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	resp, err := client.Get(server.URL)
 	if err != nil {
@@ -92,7 +95,7 @@ func TestClientErrorWrapper(t *testing.T) {
 		defer server.Close()
 
 		client := &http.Client{
-			Transport: ClientErrorWrapper(defaultMaxErrorReadAhead)(http.DefaultTransport),
+			Transport: ClientErrorWrapper(DefaultMaxErrorReadAhead)(http.DefaultTransport),
 		}
 		resp, err := client.Get(server.URL)
 		if err != nil {
@@ -116,7 +119,7 @@ func TestClientErrorWrapper(t *testing.T) {
 		defer server.Close()
 
 		client := &http.Client{
-			Transport: ClientErrorWrapper(defaultMaxErrorReadAhead)(http.DefaultTransport),
+			Transport: ClientErrorWrapper(DefaultMaxErrorReadAhead)(http.DefaultTransport),
 		}
 		_, err := client.Get(server.URL)
 		if err == nil {
@@ -139,7 +142,7 @@ func TestRetry(t *testing.T) {
 		var attempts uint
 		client := &http.Client{
 			Transport: Retries(
-				defaultMaxErrorReadAhead,
+				DefaultMaxErrorReadAhead,
 				retry.Attempts(2),
 				retry.OnRetry(func(n uint, err error) {
 					// set number of attempts to check if retries were attempted
@@ -167,7 +170,7 @@ func TestRetry(t *testing.T) {
 		var attempts uint
 		client := &http.Client{
 			Transport: Retries(
-				defaultMaxErrorReadAhead,
+				DefaultMaxErrorReadAhead,
 				retry.Attempts(2),
 				retry.OnRetry(func(n uint, err error) {
 					// set number of attempts to check if retries were attempted
@@ -203,7 +206,7 @@ func TestRetry(t *testing.T) {
 		var attempts uint
 		client := &http.Client{
 			Transport: Retries(
-				defaultMaxErrorReadAhead,
+				DefaultMaxErrorReadAhead,
 				retry.Attempts(2),
 				retry.OnRetry(func(n uint, err error) {
 					// set number of attempts to check if retries were attempted

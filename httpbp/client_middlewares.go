@@ -16,7 +16,10 @@ import (
 )
 
 const (
-	defaultMaxErrorReadAhead = 1024
+	// DefaultMaxErrorReadAhead defines the maximum bytes to be read from a
+	// failed HTTP response to be attached as additional information in a
+	// ClientError response.
+	DefaultMaxErrorReadAhead = 1024
 )
 
 // ClientMiddleware is used to build HTTP client middleware by implementing
@@ -34,31 +37,43 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 // plus any additional client middleware passed into this function. Default
 // middlewares are: MonitorClient and Retries. ClientErrorWrapper is included
 // as transitive middleware through Retries.
-func NewClient(config ClientConfig, middleware ...ClientMiddleware) *http.Client {
-	transport := &http.Transport{
-		MaxConnsPerHost: config.MaxConnections,
+func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Client, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+
+	// set max connections per host if set
+	var transport http.Transport
+	if config.MaxConnections > 0 {
+		transport.MaxConnsPerHost = config.MaxConnections
+	}
+
+	// apply default if not set
+	if config.MaxErrorReadAhead == 0 {
+		config.MaxErrorReadAhead = DefaultMaxErrorReadAhead
 	}
 
 	defaults := []ClientMiddleware{
 		MonitorClient(config.Slug),
-		Retries(
-			config.MaxErrorReadAhead,
-			retry.Attempts(1),
-			retrybp.Filters(
-				retrybp.NetworkErrorFilter,
-				retrybp.RetryableErrorFilter,
-			),
-		),
+		ClientErrorWrapper(config.MaxErrorReadAhead),
 	}
+	// apply retries only if retry options are set but replace
+	// ClientErrorWrapper since Retries already wraps ClientErrorWrapper
+	if len(config.RetryOptions) > 0 {
+		defaults[1] = Retries(
+			config.MaxErrorReadAhead,
+			config.RetryOptions...,
+		)
+	}
+
 	if config.CircuitBreaker != nil {
 		defaults = append(defaults, CircuitBreaker(*config.CircuitBreaker))
 	}
-
 	middleware = append(middleware, defaults...)
 
 	return &http.Client{
-		Transport: WrapTransport(transport, middleware...),
-	}
+		Transport: WrapTransport(&transport, middleware...),
+	}, nil
 }
 
 // WrapTransport takes a list of client middleware and wraps them around the
@@ -148,10 +163,10 @@ func CircuitBreaker(config breakerbp.Config) ClientMiddleware {
 				}
 				return resp, nil
 			})
-			if err != nil {
-				return nil, err
+			if resp != nil {
+				return resp.(*http.Response), err
 			}
-			return resp.(*http.Response), nil
+			return nil, err
 		})
 	}
 }
