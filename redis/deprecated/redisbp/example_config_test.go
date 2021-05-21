@@ -10,6 +10,8 @@ import (
 )
 
 type Config struct {
+	baseplate.Config `yaml:",inline"`
+
 	Redis redisbp.ClientConfig `yaml:"redis"`
 }
 

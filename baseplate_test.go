@@ -113,7 +113,7 @@ func TestServe(t *testing.T) {
 		},
 		{
 			name:        "timeout",
-			server:      newWaitServer(t, bp, bp.Config().StopTimeout*2),
+			server:      newWaitServer(t, bp, bp.GetConfig().StopTimeout*2),
 			errExpected: context.DeadlineExceeded,
 		},
 		{
@@ -222,9 +222,11 @@ func float64Ptr(v float64) *float64 {
 }
 
 type serviceConfig struct {
+	baseplate.Config `yaml:",inline"`
+
 	Redis struct {
 		Addrs []string
-	}
+	} `yaml:"redis"`
 }
 
 func TestDecodeConfigYAML(t *testing.T) {
@@ -299,26 +301,114 @@ redis:
 	}
 
 	expectedServiceCfg := serviceConfig{
-		struct{ Addrs []string }{
+		Redis: struct{ Addrs []string }{
 			Addrs: []string{
 				"redis:8000",
 				"redis:8001",
 			},
 		},
 	}
-	var serviceCfg serviceConfig
-	cfg, err := baseplate.DecodeConfigYAML(strings.NewReader(raw), &serviceCfg)
+	var cfg serviceConfig
+	err := baseplate.DecodeConfigYAML(strings.NewReader(raw), &cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(cfg, expected) {
-		t.Fatalf("config mismatch, expected %#v, got %#v", expected, cfg)
+	if !reflect.DeepEqual(cfg.GetConfig(), expected) {
+		t.Fatalf("config mismatch, expected %#v, got %#v", expected, cfg.GetConfig())
 	}
-	if !reflect.DeepEqual(serviceCfg, expectedServiceCfg) {
+	if !reflect.DeepEqual(cfg.Redis, expectedServiceCfg.Redis) {
 		t.Fatalf(
 			"service config mismatch, expected %#v, got %#v",
-			expectedServiceCfg,
-			serviceCfg,
+			expectedServiceCfg.Redis,
+			cfg.Redis,
 		)
+	}
+}
+
+func TestDecodeConfigYAMLStrict(t *testing.T) {
+	const raw = `
+addr: :8080
+timeout: 30s
+stopTimeout: 30s
+
+log:
+ level: info
+
+metrics:
+ namespace: baseplate-test
+ endpoint: metrics:8125
+ histogramSampleRate: 0.01
+
+runtime:
+ numProcesses:
+  max: 100
+
+secrets:
+ path: /tmp/secrets.json
+
+tracing:
+ namespace: baseplate-test
+ queueName: test
+ recordTimeout: 1ms
+ sampleRate: 0.01
+`
+	const extra = raw + `
+
+redis:
+ addrs:
+  - redis:8000
+  - redis:8001
+`
+
+	expected := baseplate.Config{
+		Addr:        ":8080",
+		Timeout:     time.Second * 30,
+		StopTimeout: time.Second * 30,
+
+		Log: log.Config{
+			Level: "info",
+		},
+
+		Metrics: metricsbp.Config{
+			Namespace:           "baseplate-test",
+			Endpoint:            "metrics:8125",
+			CounterSampleRate:   nil,
+			HistogramSampleRate: float64Ptr(0.01),
+		},
+
+		Runtime: runtimebp.Config{
+			NumProcesses: struct {
+				Max int `yaml:"max"`
+				Min int `yaml:"min"`
+			}{
+				Max: 100,
+				Min: 0,
+			},
+		},
+
+		Secrets: secrets.Config{
+			Path: "/tmp/secrets.json",
+		},
+
+		Tracing: tracing.Config{
+			Namespace:     "baseplate-test",
+			QueueName:     "test",
+			RecordTimeout: time.Millisecond,
+			SampleRate:    0.01,
+		},
+	}
+
+	var cfg baseplate.Config
+	err := baseplate.DecodeConfigYAML(strings.NewReader(raw), &cfg)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(cfg, expected) {
+		t.Errorf("config mismatch, expected %#v, got %#v", expected, cfg)
+	}
+
+	err = baseplate.DecodeConfigYAML(strings.NewReader(extra), &cfg)
+	if err == nil {
+		t.Error("Expected error when yaml has extra content, did not happen.")
 	}
 }
