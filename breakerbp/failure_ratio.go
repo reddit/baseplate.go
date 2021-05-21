@@ -26,7 +26,7 @@ type FailureRatioBreaker struct {
 // Config represents the configuration for a FailureRatioBreaker.
 type Config struct {
 	// Minimum requests that need to be sent during a time period before the breaker is eligible to transition from closed to open.
-	MinRequestsToTrip int `yaml:"primary"`
+	MinRequestsToTrip int `yaml:"minRequestsToTrip"`
 
 	// Percentage of requests that need to fail during a time period for the breaker to transition from closed to open.
 	// Represented as a float in [0,1], where .05 means >=5% failures will trip the breaker.
