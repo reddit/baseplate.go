@@ -672,8 +672,8 @@ func (ce ClientError) RetryAfterDuration() time.Duration {
 
 // Retryable implements retrybp.RetryableError.
 //
-// It returns no decision (0) if the status code is unknown (0),
-// true (1) on any of the following conditions and false (-1) otherwise:
+// It returns true (1) on any of the following conditions and no decision (0)
+// otherwise:
 //
 // - There was a valid Retry-After header in the response
 //
@@ -681,11 +681,7 @@ func (ce ClientError) RetryAfterDuration() time.Duration {
 //
 //   * 425 (too early)
 //   * 429 (too many requests)
-//   * 500 (internal server error)
-//   * 502 (bad gateway)
 //   * 503 (service unavailable)
-//   * 504 (gateway timeout)
-//   * 507 (insufficient storage)
 func (ce ClientError) Retryable() int {
 	if ce.StatusCode == 0 {
 		// We didn't even get a response, not enough information to make a decision.
@@ -700,16 +696,12 @@ func (ce ClientError) Retryable() int {
 
 	switch ce.StatusCode {
 	default:
-		return -1
+		return 0
 
 	case
 		http.StatusTooEarly,
 		http.StatusTooManyRequests,
-		http.StatusInternalServerError,
-		http.StatusBadGateway,
-		http.StatusServiceUnavailable,
-		http.StatusGatewayTimeout,
-		http.StatusInsufficientStorage:
+		http.StatusServiceUnavailable:
 
 		return 1
 	}
