@@ -207,7 +207,7 @@ func NewBaseplateServer(cfg ServerConfig) (*Server, error) {
 	}
 	server := &Server{Server: thriftbp.ApplyBaseplate(bp, srv)}
 
-	cfg.ClientConfig.Addr = server.Baseplate().Config().Addr
+	cfg.ClientConfig.Addr = server.Baseplate().GetConfig().Addr
 	cfg.ClientConfig.ReportPoolStats = ReportClientPoolStats
 	cfg.ClientConfig.InitialConnections = InitialClientConnections
 

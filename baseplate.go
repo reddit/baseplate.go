@@ -20,7 +20,19 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-// Config is a general purpose config for assembling a Baseplate server
+// Configer defines the interface that allows you to extend Config with your own
+// configurations.
+type Configer interface {
+	GetConfig() Config
+}
+
+var (
+	_ Configer = Config{}
+)
+
+// Config is a general purpose config for assembling a Baseplate server.
+//
+// It implements Configer.
 type Config struct {
 	// Addr is the local address to run your server on.
 	//
@@ -46,11 +58,17 @@ type Config struct {
 	Tracing tracing.Config   `yaml:"tracing"`
 }
 
+// GetConfig implements Configer.
+func (c Config) GetConfig() Config {
+	return c
+}
+
 // Baseplate is the general purpose object that you build a Server on.
 type Baseplate interface {
 	io.Closer
 
-	Config() Config
+	Configer
+
 	EdgeContextImpl() ecinterface.Interface
 	Secrets() *secrets.Store
 }
@@ -130,7 +148,7 @@ func Serve(ctx context.Context, args ServeArgs) error {
 			//
 			// If one is set, we will only wait for that duration for the server to
 			// stop gracefully and will exit after the deadline is exceeded.
-			timeout := server.Baseplate().Config().StopTimeout
+			timeout := server.Baseplate().GetConfig().StopTimeout
 
 			// Default to 30 seconds if not set.
 			if timeout == 0 {
@@ -200,39 +218,50 @@ func Serve(ctx context.Context, args ServeArgs) error {
 	return <-shutdownChannel
 }
 
-// ParseConfig returns a new Config parsed from the YAML file at the given path.
-func ParseConfig(path string, serviceCfg interface{}) (Config, error) {
-	cfg := Config{}
+// parseConfig parses from the YAML file at the given path into cfg.
+func parseConfig(path string, cfg Configer) error {
 	if path == "" {
-		return cfg, errors.New("baseplate.ParseConfig: no config path given")
+		return errors.New("baseplate.ParseConfig: no config path given")
 	}
 
 	f, err := os.Open(path)
 	if err != nil {
-		return cfg, err
+		return err
 	}
 	defer f.Close()
 
-	return DecodeConfigYAML(f, serviceCfg)
+	return DecodeConfigYAML(f, cfg)
 }
 
-// DecodeConfigYAML returns a new Config built from decoding the YAML read from
-// the given Reader.
-func DecodeConfigYAML(reader io.ReadSeeker, serviceCfg interface{}) (Config, error) {
-	cfg := Config{}
-	if err := yaml.NewDecoder(reader).Decode(&cfg); err != nil {
-		return cfg, err
-	}
-
-	log.Debugf("%#v", cfg)
-
-	if serviceCfg != nil {
-		reader.Seek(0, io.SeekStart)
-		if err := yaml.NewDecoder(reader).Decode(serviceCfg); err != nil {
-			return cfg, err
-		}
-	}
-	return cfg, nil
+// DecodeConfigYAML decods the YAML read from the given Reader into cfg.
+//
+// It enables strict parsing,
+// if there are yaml tags not defined in cfg passed in,
+// that will cause an error.
+//
+// If you don't have any customized configurations to decode from YAML,
+// you can just pass in a *pointer* to baseplate.Config:
+//
+//     var cfg baseplate.Config
+//     baseplate.DecodeConfigYAML(reader, &cfg)
+//
+// If you do have customized configurations to decode from YAML,
+// the recommended way of passing the strict yaml parsing is to embed
+// baseplate.Config with `yaml:",inline"` yaml tags, for example:
+//
+//     type myServiceConfig struct {
+//       // The yaml tag is required to pass strict parsing.
+//       baseplate.Config `yaml:",inline"`
+//
+//       // Actual configs
+//       FancyName string `yaml:"fancy_name"`
+//     }
+//     var cfg myServiceCfg
+//     baseplate.DecodeConfigYAML(reader, &cfg)
+func DecodeConfigYAML(reader io.Reader, cfg Configer) error {
+	decoder := yaml.NewDecoder(reader)
+	decoder.SetStrict(true)
+	return decoder.Decode(cfg)
 }
 
 // NewArgs defines the args used in New functino.
@@ -247,11 +276,25 @@ type NewArgs struct {
 
 	// Optional.
 	//
-	// If it is non-nil, it should be a pointer and New will also decode the
-	// config file at the path to set it up.
-	// This can be used to parse additional, service specific config values from
-	// the same config file.
-	ServiceCfg interface{}
+	// If ServiceCfg is non-nil,
+	// it should usually be a pointer to a struct with baseplate.Config embedded,
+	// with `yaml:",inline"` yaml tags. For example:
+	//
+	//     type myServiceConfig struct {
+	//       // The yaml tag is required to pass strict parsing.
+	//       baseplate.Config `yaml:",inline"`
+	//
+	//       // Actual configs
+	//       FancyName string `yaml:"fancy_name"`
+	//     }
+	//     var cfg myServiceCfg
+	//     baseplate.New(ctx, baseplate.NewArgs{
+	//       ServiceCfg: &cfg,
+	//       // other args
+	//     })
+	//
+	// Please refer to DecodeConfigYAML's doc for more details.
+	ServiceCfg Configer
 }
 
 // New parses the config file at the given path, initializes the monitoring and
@@ -259,10 +302,17 @@ type NewArgs struct {
 // run your service on.  The returned context will be cancelled when the
 // Baseplate is closed.
 func New(ctx context.Context, args NewArgs) (context.Context, Baseplate, error) {
-	cfg, err := ParseConfig(args.ConfigPath, args.ServiceCfg)
+	var cfger Configer
+	if args.ServiceCfg != nil {
+		cfger = args.ServiceCfg
+	} else {
+		cfger = new(Config)
+	}
+	err := parseConfig(args.ConfigPath, cfger)
 	if err != nil {
 		return nil, nil, err
 	}
+	cfg := cfger.GetConfig()
 	bp := impl{cfg: cfg, closers: batchcloser.New()}
 
 	runtimebp.InitFromConfig(cfg.Runtime)
@@ -311,7 +361,7 @@ type impl struct {
 	secrets *secrets.Store
 }
 
-func (bp impl) Config() Config {
+func (bp impl) GetConfig() Config {
 	return bp.cfg
 }
 

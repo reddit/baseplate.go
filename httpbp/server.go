@@ -213,10 +213,10 @@ func NewBaseplateServer(args ServerArgs) (baseplate.Server, error) {
 	}
 
 	srv := &http.Server{
-		Addr:         args.Baseplate.Config().Addr,
+		Addr:         args.Baseplate.GetConfig().Addr,
 		Handler:      args.EndpointRegistry,
-		ReadTimeout:  args.Baseplate.Config().Timeout,
-		WriteTimeout: args.Baseplate.Config().Timeout,
+		ReadTimeout:  args.Baseplate.GetConfig().Timeout,
+		WriteTimeout: args.Baseplate.GetConfig().Timeout,
 	}
 	for _, f := range args.OnShutdown {
 		srv.RegisterOnShutdown(f)

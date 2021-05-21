@@ -15,6 +15,8 @@ import (
 )
 
 type config struct {
+	baseplate.Config `yaml:",inline"`
+
 	Redis redisbp.ClusterConfig `yaml:"redis"`
 }
 
