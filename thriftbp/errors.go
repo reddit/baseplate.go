@@ -58,24 +58,12 @@ var (
 //
 // 2. TOO_MANY_REQUESTS
 //
-// 3. INTERNAL_SERVER_ERROR
-//
-// 4. BAD_GATEWAY
-//
-// 5. SERVICE_UNAVAILABLE
-//
-// 6. TIMEOUT
-//
-// 7. INSUFFICIENT_STORAGE
+// 3. SERVICE_UNAVAILABLE
 func WithDefaultRetryableCodes(codes ...int32) []int32 {
 	return append([]int32{
 		int32(baseplatethrift.ErrorCode_TOO_EARLY),
 		int32(baseplatethrift.ErrorCode_TOO_MANY_REQUESTS),
-		int32(baseplatethrift.ErrorCode_INTERNAL_SERVER_ERROR),
-		int32(baseplatethrift.ErrorCode_BAD_GATEWAY),
 		int32(baseplatethrift.ErrorCode_SERVICE_UNAVAILABLE),
-		int32(baseplatethrift.ErrorCode_TIMEOUT),
-		int32(baseplatethrift.ErrorCode_INSUFFICIENT_STORAGE),
 	}, codes...)
 }
 

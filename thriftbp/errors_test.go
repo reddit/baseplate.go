@@ -26,11 +26,7 @@ func TestWithDefaultRetryableCodes(t *testing.T) {
 			expected: []int32{
 				int32(baseplatethrift.ErrorCode_TOO_EARLY),
 				int32(baseplatethrift.ErrorCode_TOO_MANY_REQUESTS),
-				int32(baseplatethrift.ErrorCode_INTERNAL_SERVER_ERROR),
-				int32(baseplatethrift.ErrorCode_BAD_GATEWAY),
 				int32(baseplatethrift.ErrorCode_SERVICE_UNAVAILABLE),
-				int32(baseplatethrift.ErrorCode_TIMEOUT),
-				int32(baseplatethrift.ErrorCode_INSUFFICIENT_STORAGE),
 			},
 		},
 		{
@@ -39,11 +35,7 @@ func TestWithDefaultRetryableCodes(t *testing.T) {
 			expected: []int32{
 				int32(baseplatethrift.ErrorCode_TOO_EARLY),
 				int32(baseplatethrift.ErrorCode_TOO_MANY_REQUESTS),
-				int32(baseplatethrift.ErrorCode_INTERNAL_SERVER_ERROR),
-				int32(baseplatethrift.ErrorCode_BAD_GATEWAY),
 				int32(baseplatethrift.ErrorCode_SERVICE_UNAVAILABLE),
-				int32(baseplatethrift.ErrorCode_TIMEOUT),
-				int32(baseplatethrift.ErrorCode_INSUFFICIENT_STORAGE),
 				1,
 				2,
 				3,
