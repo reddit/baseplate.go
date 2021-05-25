@@ -1,6 +1,7 @@
 package httpbp
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -62,6 +63,20 @@ const (
 	// DefaultErrorTemplateName is the name for the shared, default HTML template
 	// for error responses.
 	DefaultErrorTemplateName = "httpbp/error"
+)
+
+// Well-known errors for middleware layer.
+var (
+	// ErrConcurrencyLimit is returned by the max concurrency middleware if
+	// there are too many requests in-flight.
+	ErrConcurrencyLimit = errors.New("hit concurrency limit")
+)
+
+// ClientConfig errors are returned if the configuration validation fails.
+var (
+	ErrConfigMissingSlug              = errors.New("slug cannot be empty")
+	ErrConfigInvalidMaxErrorReadAhead = errors.New("maxErrorReadAhead value needs to be positive")
+	ErrConfigInvalidMaxConnections    = errors.New("maxConnections value needs to be positive")
 )
 
 // HTTPError is an error that and can be returned by an  HTTPHandler to return a

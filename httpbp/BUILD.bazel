@@ -3,6 +3,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "httpbp",
     srcs = [
+        "client_middlewares.go",
+        "config.go",
         "doc.go",
         "errors.go",
         "handler.go",
@@ -16,13 +18,17 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//:baseplate_go",
+        "//breakerbp",
         "//ecinterface",
         "//errorsbp",
         "//internal/gen-go/reddit/baseplate",
         "//log",
+        "//retrybp",
         "//secrets",
         "//signing",
         "//tracing",
+        "@com_github_avast_retry_go//:retry-go",
+        "@com_github_opentracing_opentracing_go//:opentracing-go",
     ],
 )
 
@@ -30,6 +36,7 @@ go_test(
     name = "httpbp_test",
     size = "small",
     srcs = [
+        "client_middlewares_test.go",
         "errors_example_test.go",
         "errors_test.go",
         "example_server_test.go",
@@ -41,9 +48,10 @@ go_test(
         "response_test.go",
         "server_test.go",
     ],
+    embed = [":httpbp"],
     deps = [
-        ":httpbp",
         "//:baseplate_go",
+        "//breakerbp",
         "//ecinterface",
         "//internal/gen-go/reddit/baseplate",
         "//log",
@@ -52,5 +60,6 @@ go_test(
         "//retrybp",
         "//secrets",
         "//tracing",
+        "@com_github_avast_retry_go//:retry-go",
     ],
 )
