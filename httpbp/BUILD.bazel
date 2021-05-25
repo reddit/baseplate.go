@@ -51,6 +51,7 @@ go_test(
     embed = [":httpbp"],
     deps = [
         "//:baseplate_go",
+        "//breakerbp",
         "//ecinterface",
         "//internal/gen-go/reddit/baseplate",
         "//log",

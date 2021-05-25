@@ -20,13 +20,13 @@ type ClientConfig struct {
 func (c ClientConfig) Validate() error {
 	var batch errorsbp.Batch
 	if c.Slug == "" {
-		batch.Add(errConfigMissingSlug)
+		batch.Add(ErrConfigMissingSlug)
 	}
 	if c.MaxErrorReadAhead < 0 {
-		batch.Add(errConfigInvalidMaxErrorReadAhead)
+		batch.Add(ErrConfigInvalidMaxErrorReadAhead)
 	}
 	if c.MaxConnections < 0 {
-		batch.Add(errConfigInvalidMaxConnections)
+		batch.Add(ErrConfigInvalidMaxConnections)
 	}
 	return batch.Compile()
 }

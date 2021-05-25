@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 
 	retry "github.com/avast/retry-go"
-	"github.com/opentracing/opentracing-go"
+	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/retrybp"
@@ -95,8 +95,15 @@ func WrapTransport(transport http.RoundTripper, middleware ...ClientMiddleware) 
 //
 // If a response is wrapped in an error this middleware will perform
 // DrainAndClose on the response body and will read up to limit to store
-// additional info about the HTTP response.
-func ClientErrorWrapper(limit int) ClientMiddleware {
+// ClientError.AdditionalInfo about the HTTP response.
+//
+// In the event of an error the response payload is read up to number of
+// maxErrorReadAhead bytes. If the parameter is set to a value <= 0 it will be
+// set to DefaultMaxErrorReadAhead.
+func ClientErrorWrapper(maxErrorReadAhead int) ClientMiddleware {
+	if maxErrorReadAhead <= 0 {
+		maxErrorReadAhead = DefaultMaxErrorReadAhead
+	}
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
 			resp, err = next.RoundTrip(req)
@@ -110,7 +117,7 @@ func ClientErrorWrapper(limit int) ClientMiddleware {
 				if !errors.As(err, &ce) {
 					return nil, err
 				}
-				body, e := io.ReadAll(io.LimitReader(resp.Body, int64(limit)))
+				body, e := io.ReadAll(io.LimitReader(resp.Body, int64(maxErrorReadAhead)))
 				if e != nil {
 					return nil, e
 				}
@@ -122,9 +129,10 @@ func ClientErrorWrapper(limit int) ClientMiddleware {
 	}
 }
 
-// CircuitBreaker is a middleware that prevents sending requests that are likely
-// to fail based on a configurable failure ratio based on total failures and
-// requests.
+// CircuitBreaker is a middleware that prevents sending requests that are
+// likely to fail through a configurable failure ratio based on total failures
+// and requests. The circuit breaker is applied on a per-host basis, e.g.
+// failed requests are counting per host.
 func CircuitBreaker(config breakerbp.Config) ClientMiddleware {
 	var breakers sync.Map
 	pool := sync.Pool{
@@ -169,7 +177,8 @@ func CircuitBreaker(config breakerbp.Config) ClientMiddleware {
 }
 
 // Retries provides a retry middleware by ensuring certain HTTP responses are
-// wrapped in errors.
+// wrapped in errors. Retries wraps the ClientErrorWrapper middleware, e.g. if
+// you are using Retries there is no need to also use ClientErrorWrapper.
 func Retries(limit int, retryOptions ...retry.Option) ClientMiddleware {
 	if len(retryOptions) == 0 {
 		retryOptions = []retry.Option{retry.Attempts(1)}
