@@ -53,21 +53,20 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 		config.MaxErrorReadAhead = DefaultMaxErrorReadAhead
 	}
 
-	defaults := []ClientMiddleware{
-		MonitorClient(config.Slug),
-		ClientErrorWrapper(config.MaxErrorReadAhead),
-	}
-	// apply retries only if retry options are set but replace
-	// ClientErrorWrapper since Retries already wraps ClientErrorWrapper
-	if len(config.RetryOptions) > 0 {
-		defaults[1] = Retries(
-			config.MaxErrorReadAhead,
-			config.RetryOptions...,
-		)
+	// if no retry options are set default to retry.Attempts(1)
+	if len(config.RetryOptions) == 0 {
+		config.RetryOptions = []retry.Option{retry.Attempts(1)}
 	}
 
+	defaults := []ClientMiddleware{
+		MonitorClient(config.Slug),
+		Retries(config.MaxErrorReadAhead, config.RetryOptions...),
+	}
+
+	// prepend middleware to ensure Retires with ClientErrorWrapper is still
+	// applied first
 	if config.CircuitBreaker != nil {
-		defaults = append(defaults, CircuitBreaker(*config.CircuitBreaker))
+		defaults = append([]ClientMiddleware{CircuitBreaker(*config.CircuitBreaker)}, defaults...)
 	}
 	middleware = append(middleware, defaults...)
 
@@ -174,11 +173,11 @@ func CircuitBreaker(config breakerbp.Config) ClientMiddleware {
 // Retries provides a retry middleware by ensuring certain HTTP responses are
 // wrapped in errors.
 func Retries(limit int, retryOptions ...retry.Option) ClientMiddleware {
+	if len(retryOptions) == 0 {
+		retryOptions = []retry.Option{retry.Attempts(1)}
+	}
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
-			if len(retryOptions) == 0 {
-				retryOptions = []retry.Option{retry.Attempts(1)}
-			}
 			err = retrybp.Do(req.Context(), func() error {
 				// include ClientErrorWrapper to ensure retry is applied for
 				// some HTTP 5xx responses
