@@ -101,25 +101,23 @@ func ClientErrorWrapper(limit int) ClientMiddleware {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
 			resp, err = next.RoundTrip(req)
 			if err != nil {
-				return resp, err
+				return nil, err
 			}
-			if err == nil {
-				err = ClientErrorFromResponse(resp)
-				if err != nil {
-					defer DrainAndClose(resp.Body)
-					var ce *ClientError
-					if !errors.As(err, &ce) {
-						return resp, err
-					}
-					body, e := io.ReadAll(io.LimitReader(resp.Body, int64(limit)))
-					if e != nil {
-						return resp, e
-					}
-					ce.AdditionalInfo = string(body)
-					return resp, ce
+			err = ClientErrorFromResponse(resp)
+			if err != nil {
+				defer DrainAndClose(resp.Body)
+				var ce *ClientError
+				if !errors.As(err, &ce) {
+					return nil, err
 				}
+				body, e := io.ReadAll(io.LimitReader(resp.Body, int64(limit)))
+				if e != nil {
+					return nil, e
+				}
+				ce.AdditionalInfo = string(body)
+				return nil, ce
 			}
-			return resp, err
+			return resp, nil
 		})
 	}
 }
