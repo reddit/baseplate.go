@@ -26,32 +26,32 @@ type FailureRatioBreaker struct {
 // Config represents the configuration for a FailureRatioBreaker.
 type Config struct {
 	// Minimum requests that need to be sent during a time period before the breaker is eligible to transition from closed to open.
-	MinRequestsToTrip int
+	MinRequestsToTrip int `yaml:"minRequestsToTrip"`
 
 	// Percentage of requests that need to fail during a time period for the breaker to transition from closed to open.
 	// Represented as a float in [0,1], where .05 means >=5% failures will trip the breaker.
-	FailureThreshold float64
+	FailureThreshold float64 `yaml:"failureThreshold"`
 
 	// Name for this circuit breaker, mostly used as a prefix to disambiguate logs when multiple cb are used.
-	Name string
+	Name string `yaml:"name"`
 
 	// EmitStatusMetrics sets whether the failure breaker will regularly update a gauge on the breakers state (closed or open/halfopen).
 	// When enabled, it emits metrics using the interval defined by metricsbp.SysStatsTickerInterval.
-	EmitStatusMetrics bool
+	EmitStatusMetrics bool `yaml:"emitStatusMetrics"`
 
 	// Logger is the logger to be called when the breaker changes states.
-	Logger log.Wrapper
+	Logger log.Wrapper `yaml:"logger"`
 
 	// MaxRequestsHalfOpen represents he Maximum amount of requests that will be allowed through while the breaker
 	// is in half-open state. If left unset (or set to 0), exactly 1 request will be allowed through while half-open.
-	MaxRequestsHalfOpen uint32
+	MaxRequestsHalfOpen uint32 `yaml:"maxRequestsHalfOpen"`
 
 	// Interval represents the cyclical period of the 'Closed' state.
 	// If 0, internal counts do not get reset while the breaker remains in the Closed state.
-	Interval time.Duration
+	Interval time.Duration `yaml:"interval"`
 
 	// Timeout is the duration of the 'Open' state. After an 'Open' timeout duration has passed, the breaker enters 'half-open' state.
-	Timeout time.Duration
+	Timeout time.Duration `yaml:"timeout"`
 }
 
 // NewFailureRatioBreaker creates a new FailureRatioBreaker with the provided configuration. Creates a new goroutine to emit
