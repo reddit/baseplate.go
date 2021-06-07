@@ -43,13 +43,15 @@ type ConsumeMessageFunc func(ctx context.Context, msg *sarama.ConsumerMessage)
 type ConsumeErrorFunc func(err error)
 
 // Consumer defines the interface of a consumer struct.
+//
+// It's also a superset of (implements) baseplate.HealthChecker.
 type Consumer interface {
 	io.Closer
 
 	Consume(ConsumeMessageFunc, ConsumeErrorFunc) error
 
 	// IsHealthy returns false after Consume returns.
-	IsHealthy() bool
+	IsHealthy(ctx context.Context) bool
 }
 
 // consumer implements a Kafka consumer.
@@ -260,6 +262,6 @@ func (kc *consumer) Consume(
 }
 
 // IsHealthy returns true until Consume returns, then false thereafter.
-func (kc *consumer) IsHealthy() bool {
+func (kc *consumer) IsHealthy(_ context.Context) bool {
 	return atomic.LoadInt64(&kc.consumeReturned) == 0
 }

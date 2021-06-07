@@ -29,6 +29,7 @@ go_test(
     ],
     embed = [":kafkabp"],
     deps = [
+        "//:baseplate_go",
         "@com_github_shopify_sarama//:sarama",
         "@com_github_shopify_sarama//mocks",
     ],

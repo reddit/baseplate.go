@@ -9,6 +9,13 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/Shopify/sarama/mocks"
+
+	baseplate "github.com/reddit/baseplate.go"
+)
+
+// Make sure that Consumer also implements baseplate.HealthChecker.
+var (
+	_ baseplate.HealthChecker = Consumer(nil)
 )
 
 func TestKafkaConsumer_Consume(t *testing.T) {
