@@ -80,7 +80,7 @@ func (gc *groupConsumer) Close() error {
 	return gc.consumer.Close()
 }
 
-func (gc *groupConsumer) IsHealthy() bool {
+func (gc *groupConsumer) IsHealthy(_ context.Context) bool {
 	return atomic.LoadInt64(&gc.consumeReturned) == 0
 }
 

@@ -10,6 +10,7 @@ go_library(
     srcs = [
         "baseplate.go",
         "doc.go",
+        "drainer.go",
     ],
     importpath = "github.com/reddit/baseplate.go",
     visibility = ["//visibility:public"],
@@ -29,14 +30,20 @@ go_library(
 go_test(
     name = "baseplate_go_test",
     size = "small",
-    srcs = ["baseplate_test.go"],
+    srcs = [
+        "baseplate_test.go",
+        "drainer_example_test.go",
+        "drainer_test.go",
+    ],
     deps = [
         ":baseplate_go",
         "//ecinterface",
+        "//internal/gen-go/reddit/baseplate",
         "//log",
         "//metricsbp",
         "//runtimebp",
         "//secrets",
+        "//thriftbp",
         "//tracing",
     ],
 )
