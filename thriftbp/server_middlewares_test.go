@@ -14,6 +14,7 @@ import (
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
 	"github.com/reddit/baseplate.go/tracing"
+	"github.com/reddit/baseplate.go/transport"
 )
 
 const (
@@ -64,7 +65,7 @@ func TestInjectServerSpan(t *testing.T) {
 		},
 	)
 	ctx := context.Background()
-	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
+	ctx = thrift.SetHeader(ctx, transport.HeaderTracingSampled, transport.HeaderTracingSampledTrue)
 	ctx = thrifttest.SetMockTProcessorName(ctx, name)
 
 	wrapped := thrift.WrapProcessor(processor, thriftbp.InjectServerSpan(nil))
@@ -111,8 +112,8 @@ func TestStartSpanFromThriftContext(t *testing.T) {
 	startFailing()
 
 	ctx := context.Background()
-	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingTrace, trace)
-	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSpan, spanID)
+	ctx = thrift.SetHeader(ctx, transport.HeaderTracingTrace, trace)
+	ctx = thrift.SetHeader(ctx, transport.HeaderTracingSpan, spanID)
 
 	ctx, span := thriftbp.StartSpanFromThriftContext(ctx, name)
 
@@ -140,7 +141,7 @@ func TestInitializeEdgeContext(t *testing.T) {
 
 	ctx := thrift.SetHeader(
 		context.Background(),
-		thriftbp.HeaderEdgeRequest,
+		transport.HeaderEdgeRequest,
 		expectedHeader,
 	)
 
@@ -173,7 +174,7 @@ func TestInjectEdgeContext(t *testing.T) {
 
 	ctx := thrift.SetHeader(
 		context.Background(),
-		thriftbp.HeaderEdgeRequest,
+		transport.HeaderEdgeRequest,
 		expectedHeader,
 	)
 	ctx = thrifttest.SetMockTProcessorName(ctx, name)

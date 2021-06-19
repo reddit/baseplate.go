@@ -15,6 +15,7 @@ import (
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/randbp"
 	"github.com/reddit/baseplate.go/tracing"
+	"github.com/reddit/baseplate.go/transport"
 )
 
 var (
@@ -96,17 +97,17 @@ func StartSpanFromThriftContext(ctx context.Context, name string) (context.Conte
 	var headers tracing.Headers
 	var sampled bool
 
-	if str, ok := thrift.GetHeader(ctx, HeaderTracingTrace); ok {
+	if str, ok := thrift.GetHeader(ctx, transport.HeaderTracingTrace); ok {
 		headers.TraceID = str
 	}
-	if str, ok := thrift.GetHeader(ctx, HeaderTracingSpan); ok {
+	if str, ok := thrift.GetHeader(ctx, transport.HeaderTracingSpan); ok {
 		headers.SpanID = str
 	}
-	if str, ok := thrift.GetHeader(ctx, HeaderTracingFlags); ok {
+	if str, ok := thrift.GetHeader(ctx, transport.HeaderTracingFlags); ok {
 		headers.Flags = str
 	}
-	if str, ok := thrift.GetHeader(ctx, HeaderTracingSampled); ok {
-		sampled = str == HeaderTracingSampledTrue
+	if str, ok := thrift.GetHeader(ctx, transport.HeaderTracingSampled); ok {
+		sampled = str == transport.HeaderTracingSampledTrue
 		headers.Sampled = &sampled
 	}
 
@@ -153,7 +154,7 @@ func InjectServerSpan(suppressor errorsbp.Suppressor) thrift.ProcessorMiddleware
 // headers set on the context onto the context and configures Thrift to forward
 // the edge requent context header on any Thrift calls made by the server.
 func InitializeEdgeContext(ctx context.Context, impl ecinterface.Interface) context.Context {
-	header, ok := thrift.GetHeader(ctx, HeaderEdgeRequest)
+	header, ok := thrift.GetHeader(ctx, transport.HeaderEdgeRequest)
 	if !ok {
 		return ctx
 	}
