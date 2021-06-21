@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis/v7"
-	"github.com/reddit/baseplate.go/redis/deprecated/redisbp"
+	"github.com/go-redis/redis/v8"
 	"gopkg.in/yaml.v2"
+
+	"github.com/reddit/baseplate.go/redis/deprecated/redisbp"
 )
 
 func TestClientConfig(t *testing.T) {

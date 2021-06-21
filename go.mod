@@ -13,7 +13,7 @@ require (
 	github.com/getsentry/sentry-go v0.6.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
-	github.com/go-redis/redis/v7 v7.2.0
+	github.com/go-redis/redis/v8 v8.10.0
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/joomcode/errorx v1.0.3
@@ -23,8 +23,7 @@ require (
 	github.com/sony/gobreaker v0.4.1
 	go.uber.org/zap v1.15.0
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
-	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
-	golang.org/x/tools v0.0.0-20200410194907-79a7a3126eef // indirect
+	golang.org/x/sys v0.0.0-20210112080510-489259a85091
 	gopkg.in/fsnotify.v1 v1.4.7
-	gopkg.in/yaml.v2 v2.2.4
+	gopkg.in/yaml.v2 v2.3.0
 )

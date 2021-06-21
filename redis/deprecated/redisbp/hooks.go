@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/errorsbp"
@@ -34,7 +34,7 @@ func (h SpanHook) AfterProcess(ctx context.Context, cmd redis.Cmder) error {
 	// NOTE: returning non-nil error from the hook changes the error the caller gets.
 	// for this particular case if we return cmd.Err(), it will not change the client error,
 	// but anyway it's not necessary
-	// see: https://github.com/go-redis/redis/blob/v7.2.0/redis.go#L60
+	// see: https://github.com/go-redis/redis/blob/v8.10.0/redis.go#L60
 	return nil
 }
 
@@ -56,7 +56,7 @@ func (h SpanHook) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmder) 
 	}
 	h.endChildSpan(ctx, errs.Compile())
 	// NOTE: returning non-nil error from the hook changes the error the caller gets, and that's something we want to avoid.
-	// see: https://github.com/go-redis/redis/blob/v7.2.0/redis.go#L101
+	// see: https://github.com/go-redis/redis/blob/v8.10.0/redis.go#L101
 	return nil
 }
 
