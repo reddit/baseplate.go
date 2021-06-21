@@ -3,7 +3,7 @@ package redisbp_test
 import (
 	"context"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/reddit/baseplate.go/redis/deprecated/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
@@ -32,5 +32,5 @@ func ExampleSpanHook() {
 	// Create a new client using the context for the server span
 	client := baseClient.WithContext(ctx)
 	// Commands should now be wrapped using Client Spans
-	client.Ping()
+	client.Ping(ctx)
 }

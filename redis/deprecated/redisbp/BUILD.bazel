@@ -14,7 +14,7 @@ go_library(
         "//errorsbp",
         "//metricsbp",
         "//tracing",
-        "@com_github_go_redis_redis_v7//:redis",
+        "@com_github_go_redis_redis_v8//:redis",
         "@com_github_opentracing_opentracing_go//:opentracing-go",
     ],
 )
@@ -33,13 +33,12 @@ go_test(
     deps = [
         ":redisbp",
         "//:baseplate_go",
-        "//ecinterface",
         "//metricsbp",
         "//mqsend",
         "//thriftbp",
         "//tracing",
         "@com_github_alicebob_miniredis_v2//:miniredis",
-        "@com_github_go_redis_redis_v7//:redis",
+        "@com_github_go_redis_redis_v8//:redis",
         "@com_github_opentracing_opentracing_go//:opentracing-go",
         "@in_gopkg_yaml_v2//:yaml_v2",
     ],
