@@ -14,8 +14,10 @@ type MessageQueue interface {
 
 	// Send sends a message to the queue.
 	//
-	// Caller should always call Send with a context object with deadline set,
-	// or Send might block forever when the queue is full.
+	// If the context object does not have a deadline set,
+	// or if the deadline had already passed when Send is called,
+	// Send will be running in non-blocking mode and fail immediately when the
+	// queue is full.
 	Send(ctx context.Context, data []byte) error
 }
 

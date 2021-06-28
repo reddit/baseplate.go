@@ -1,12 +1,9 @@
 package mqsend_test
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"runtime"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -33,7 +30,7 @@ func TestLinuxMessageQueue(t *testing.T) {
 	mq, err := mqsend.OpenMessageQueue(mqsend.MessageQueueConfig{
 		Name:           name,
 		MaxMessageSize: int64(max),
-		MaxQueueSize:   1,
+		MaxQueueSize:   4,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -47,47 +44,5 @@ func TestLinuxMessageQueue(t *testing.T) {
 		}
 	}()
 
-	t.Run(
-		"message-too-large",
-		func(t *testing.T) {
-			data := make([]byte, max+1)
-			err := mq.Send(context.Background(), data)
-			if !errors.As(err, new(mqsend.MessageTooLargeError)) {
-				t.Errorf(
-					"Expected MessageTooLargeError when message is larger than the max size, got %v",
-					err,
-				)
-			}
-		},
-	)
-
-	t.Run(
-		"send",
-		func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
-			err := mq.Send(ctx, []byte(msg))
-			if err != nil {
-				t.Errorf("Send returned error: %v", err)
-			}
-		},
-	)
-
-	t.Run(
-		"send-timeout",
-		func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
-			err := mq.Send(ctx, []byte(msg))
-			if !errors.As(err, new(mqsend.TimedOutError)) {
-				t.Errorf("Expected TimedOutError when the queue is full, got %v", err)
-			}
-			if !errors.Is(err, syscall.ETIMEDOUT) && !errors.Is(err, context.DeadlineExceeded) {
-				t.Errorf(
-					"Expected either ETIMEDOUT or context.DeadlineExceeded when the queue is full, got %v",
-					err,
-				)
-			}
-		},
-	)
+	sharedTest(t, mq, msg, max, timeout)
 }
