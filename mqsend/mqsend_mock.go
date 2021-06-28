@@ -2,6 +2,7 @@ package mqsend
 
 import (
 	"context"
+	"time"
 )
 
 // MockMessageQueue is a mocked implementation of MessageQueue.
@@ -35,6 +36,18 @@ func (mmq *MockMessageQueue) Send(ctx context.Context, data []byte) error {
 		return MessageTooLargeError{
 			MessageSize: len(data),
 			MaxSize:     mmq.maxSize,
+		}
+	}
+
+	if deadline, ok := ctx.Deadline(); !ok || deadline.Before(time.Now()) {
+		// Use non-block mode
+		select {
+		case mmq.msgs <- data:
+			return nil
+		default:
+			return TimedOutError{
+				Cause: context.DeadlineExceeded,
+			}
 		}
 	}
 

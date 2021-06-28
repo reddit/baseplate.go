@@ -18,6 +18,9 @@ import (
 const testTimeout = time.Millisecond * 100
 
 func TestTracer(t *testing.T) {
+	const timeout = time.Millisecond * 10
+	const doubleTimeout = timeout * 2
+
 	loggerFunc := func(t *testing.T) (logger log.Wrapper, called *bool) {
 		called = new(bool)
 		logger = func(_ context.Context, msg string) {
@@ -72,6 +75,7 @@ func TestTracer(t *testing.T) {
 	InitGlobalTracer(TracerConfig{
 		SampleRate:               1,
 		Logger:                   logger,
+		MaxRecordTimeout:         timeout,
 		TestOnlyMockMessageQueue: recorder,
 	})
 	// The above InitGlobalTracer might call the logger once for unable to get ip,
@@ -104,10 +108,10 @@ func TestTracer(t *testing.T) {
 			start := span.trace.start
 			err := span.Stop(ctx, nil)
 			duration := time.Since(start)
-			if duration > DefaultMaxRecordTimeout*2 {
+			if duration > doubleTimeout {
 				t.Errorf(
 					"Expected duration of around %v, got %v",
-					DefaultMaxRecordTimeout,
+					timeout,
 					duration,
 				)
 			}

@@ -32,8 +32,6 @@ const (
 	MaxQueueSize = 10000
 	// Prefix added to the queue name.
 	QueueNamePrefix = "traces-"
-	// The default MaxRecordTimeout used in Tracers.
-	DefaultMaxRecordTimeout = time.Millisecond * 50
 )
 
 func init() {
@@ -79,10 +77,10 @@ type TracerConfig struct {
 	//
 	// If the passed in context object has an earlier deadline set,
 	// that deadline will be respected instead.
-	// But if the passed in context is already canceled,
-	// then we ignore it and create a new background context with this timeout.
 	//
-	// If MaxRecordTimeout <= 0, DefaultMaxRecordTimeout will be used.
+	// If MaxRecordTimeout <= 0,
+	// Record function would run in non-blocking mode,
+	// that it fails immediately if the queue is full.
 	MaxRecordTimeout time.Duration
 
 	// The name of the message queue to be used to actually send sampled spans to
@@ -165,11 +163,7 @@ func InitGlobalTracer(cfg TracerConfig) error {
 	}
 	tracer.logger = logger
 
-	timeout := cfg.MaxRecordTimeout
-	if timeout <= 0 {
-		timeout = DefaultMaxRecordTimeout
-	}
-	tracer.maxRecordTimeout = timeout
+	tracer.maxRecordTimeout = cfg.MaxRecordTimeout
 
 	ip, err := runtimebp.GetFirstIPv4()
 	if err != nil {

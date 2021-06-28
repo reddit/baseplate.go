@@ -27,8 +27,9 @@ func (mockTStruct) Write(ctx context.Context, p thrift.TProtocol) error {
 
 func TestV2Put(t *testing.T) {
 	const queueSize = 100
-	const doubleTime = DefaultMaxPutTimeout * 2
-	const tripleTime = DefaultMaxPutTimeout * 3
+	const timeout = time.Millisecond * 10
+	const doubleTime = timeout * 2
+	const tripleTime = timeout * 3
 
 	// init
 	queue := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
@@ -36,7 +37,9 @@ func TestV2Put(t *testing.T) {
 		MaxQueueSize:   queueSize,
 	})
 	v2 := v2WithConfig(
-		Config{},
+		Config{
+			MaxPutTimeout: timeout,
+		},
 		queue,
 	)
 
@@ -61,7 +64,7 @@ func TestV2Put(t *testing.T) {
 			if elapsed > tripleTime {
 				t.Errorf(
 					"Expected timeout at %v, actual elapsed time is %v",
-					DefaultMaxPutTimeout,
+					timeout,
 					elapsed,
 				)
 			}

@@ -20,9 +20,6 @@ const (
 	// Prefix added to the message queue name.
 	QueueNamePrefix = "events-"
 
-	// The default MaxPutTimeout to be used.
-	DefaultMaxPutTimeout = time.Millisecond * 50
-
 	// The default message queue name for v2 events.
 	DefaultV2Name = "v2"
 )
@@ -46,10 +43,10 @@ type Config struct {
 	//
 	// If the passed in context object already has an earlier deadline set,
 	// that deadline will be respected instead.
-	// But if the passed in context is already canceled,
-	// then we ignore it and create a new background context with this timeout.
 	//
-	// If MaxPutTimeout <= 0, DefaultMaxPutTimeout will be used instead.
+	// If MaxPutTimeout <= 0,
+	// Put function would run in non-blocking mode,
+	// that it fails immediately if the queue is full.
 	MaxPutTimeout time.Duration
 
 	// The max size of the message queue (number of messages).
@@ -85,14 +82,9 @@ func V2WithConfig(cfg Config) (*Queue, error) {
 }
 
 func v2WithConfig(cfg Config, queue mqsend.MessageQueue) *Queue {
-	maxTimeout := cfg.MaxPutTimeout
-	if maxTimeout <= 0 {
-		maxTimeout = DefaultMaxPutTimeout
-	}
-
 	return &Queue{
 		queue:      queue,
-		maxTimeout: maxTimeout,
+		maxTimeout: cfg.MaxPutTimeout,
 	}
 }
 
@@ -105,11 +97,6 @@ func (q *Queue) Close() error {
 
 // Put serializes and puts an event into the event queue.
 func (q *Queue) Put(ctx context.Context, event thrift.TStruct) error {
-	if ctx.Err() != nil {
-		// The request context is already canceled,
-		// use background to make sure we are still able to send out events.
-		ctx = context.Background()
-	}
 	ctx, cancel := context.WithTimeout(ctx, q.maxTimeout)
 	defer cancel()
 
