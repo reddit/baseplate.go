@@ -13,10 +13,6 @@ import (
 	"github.com/reddit/baseplate.go/retrybp"
 )
 
-type config struct {
-	retryIf retry.RetryIfFunc
-}
-
 func TestFilter(t *testing.T) {
 	t.Parallel()
 

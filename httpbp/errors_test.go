@@ -25,10 +25,6 @@ func TestErrorResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	type expectation struct {
-		code int
-	}
-
 	cases := []struct {
 		resp *httpbp.ErrorResponse
 		code int
@@ -350,6 +346,9 @@ func TestWithTemplateName(t *testing.T) {
 	}
 
 	tmpl, err := template.New(name).Parse(text)
+	if err != nil {
+		t.Fatalf("Template parsing failed: %v", err)
+	}
 	tmpl, err = httpbp.RegisterDefaultErrorTemplate(tmpl)
 	if err != nil {
 		t.Fatal(err)

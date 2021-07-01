@@ -51,13 +51,6 @@ func (st SpanType) String() string {
 	}
 }
 
-type contextKey int
-
-const (
-	serverSpanKey contextKey = iota
-	activeSpanKey
-)
-
 // AsSpan converts an opentracing.Span back to *Span.
 //
 // This function never returns nil.

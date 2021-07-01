@@ -14,8 +14,6 @@ import (
 // Default is 10 seconds.
 var SysStatsTickerInterval = time.Second * 10
 
-var activeRequestCounter int64
-
 type cpuStats struct {
 	NumGoroutine int
 	NumCgoCall   int64

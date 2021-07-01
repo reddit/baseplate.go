@@ -70,6 +70,9 @@ func TestNewClient(t *testing.T) {
 		client, err := NewClient(ClientConfig{
 			Slug: "test",
 		})
+		if err != nil {
+			t.Fatalf("NewClient returned error: %v", err)
+		}
 
 		// ClientErrorWrapper is applied
 		_, err = client.Get(server.URL)

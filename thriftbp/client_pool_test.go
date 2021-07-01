@@ -61,18 +61,19 @@ func TestCustomClientPool(t *testing.T) {
 	}
 	defer ln.Close()
 
+	cfg := thriftbp.ClientPoolConfig{
+		Addr:               ":9090",
+		EdgeContextImpl:    ecinterface.Mock(),
+		ServiceSlug:        "test",
+		InitialConnections: 1,
+		MaxConnections:     5,
+		ConnectTimeout:     time.Millisecond * 5,
+		SocketTimeout:      time.Millisecond * 15,
+	}
 	if _, err := thriftbp.NewCustomClientPool(
-		thriftbp.ClientPoolConfig{
-			Addr:               ":9090",
-			EdgeContextImpl:    ecinterface.Mock(),
-			ServiceSlug:        "test",
-			InitialConnections: 1,
-			MaxConnections:     5,
-			ConnectTimeout:     time.Millisecond * 5,
-			SocketTimeout:      time.Millisecond * 15,
-		},
+		cfg,
 		thriftbp.SingleAddressGenerator(ln.Addr().String()),
-		thrift.NewTBinaryProtocolFactoryDefault(),
+		thrift.NewTBinaryProtocolFactoryConf(cfg.ToTConfiguration()),
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +112,7 @@ func TestInitialConnectionsFallback(t *testing.T) {
 		SocketTimeout:                    time.Millisecond * 15,
 		InitialConnectionsFallbackLogger: logger,
 	}
-	factory := thrift.NewTBinaryProtocolFactoryDefault()
+	factory := thrift.NewTBinaryProtocolFactoryConf(cfg.ToTConfiguration())
 
 	if _, err := thriftbp.NewCustomClientPool(cfg, addrGen, factory); err == nil {
 		t.Error("Expected error without fallback, got nil")

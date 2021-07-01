@@ -228,11 +228,11 @@ func SetDeadlineBudget(next thrift.TClient) thrift.TClient {
 
 			if deadline, ok := ctx.Deadline(); ok {
 				// Round up to the next millisecond.
-				// In the scenario that the caller set an 10ms timeout and send the
+				// In the scenario that the caller set a 10ms timeout and send the
 				// request, by the time we get into this middleware function it's
 				// definitely gonna be less than 10ms.
 				// If we use round down then we are only gonna send 9 over the wire.
-				timeout := deadline.Sub(time.Now()) + time.Millisecond - 1
+				timeout := time.Until(deadline) + time.Millisecond - 1
 				ms := timeout.Milliseconds()
 				if ms < 1 {
 					// Make sure we give it at least 1ms.
