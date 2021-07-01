@@ -64,11 +64,7 @@ func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	}
 	return []Middleware{
 		InjectServerSpan(args.TrustHandler),
-		InjectEdgeRequestContext(InjectEdgeRequestContextArgs{
-			EdgeContextImpl: args.EdgeContextImpl,
-			TrustHandler:    args.TrustHandler,
-			Logger:          args.Logger,
-		}),
+		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
 	}
 }
 

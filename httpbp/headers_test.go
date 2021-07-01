@@ -304,6 +304,9 @@ func TestInvalidEdgeContextHeader(t *testing.T) {
 		httpbp.EdgeContextHeaders{EdgeRequest: "=="},
 		time.Minute,
 	)
+	if err != nil {
+		t.Fatalf("SignEdgeContextHeader returned error: %v", err)
+	}
 	invalidEdgeContextHeader.Header.Set(httpbp.EdgeContextSignatureHeader, ecSignature)
 
 	if truster.TrustEdgeContext(invalidEdgeContextHeader) {

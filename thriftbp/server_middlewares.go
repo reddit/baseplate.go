@@ -262,14 +262,14 @@ func ReportPayloadSizeMetrics(rate float64) thrift.ProcessorMiddleware {
 						}
 						var itrans, otrans countingTransport
 						trans := thrift.NewTHeaderTransportConf(&itrans, cfg)
-						iproto := thrift.NewTHeaderProtocol(trans)
+						iproto := thrift.NewTHeaderProtocolConf(trans, cfg)
 						in = &thrift.TDebugProtocol{
 							Logger:      thrift.NopLogger,
 							Delegate:    in,
 							DuplicateTo: iproto,
 						}
 						trans = thrift.NewTHeaderTransportConf(&otrans, cfg)
-						oproto := thrift.NewTHeaderProtocol(trans)
+						oproto := thrift.NewTHeaderProtocolConf(trans, cfg)
 						out = &thrift.TDebugProtocol{
 							Logger:      thrift.NopLogger,
 							Delegate:    out,

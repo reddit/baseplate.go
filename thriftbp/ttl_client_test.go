@@ -9,7 +9,7 @@ import (
 
 func TestTTLClient(t *testing.T) {
 	trans := thrift.NewTMemoryBuffer()
-	factory := thrift.NewTBinaryProtocolFactoryDefault()
+	factory := thrift.NewTBinaryProtocolFactoryConf(nil)
 	tc := thrift.NewTStandardClient(
 		factory.GetProtocol(trans),
 		factory.GetProtocol(trans),

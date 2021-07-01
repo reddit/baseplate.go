@@ -34,7 +34,7 @@ type TestCreateServerSpanHook struct {
 }
 
 func (h TestCreateServerSpanHook) OnCreateServerSpan(span *tracing.Span) error {
-	span.AddHooks(TestSpanHook{Calls: h.Calls, Fail: h.Fail})
+	span.AddHooks(TestSpanHook(h))
 	return h.Calls.AddCall("on-server-span-create", h.Fail)
 }
 

@@ -283,7 +283,7 @@ func (e *SimpleExperiment) Variant(args map[string]interface{}) (string, error) 
 		return "", nil
 	}
 	args = lowerArguments(args)
-	if value, _ := args[e.bucketVal]; value == nil || value == "" {
+	if value := args[e.bucketVal]; value == nil || value == "" {
 		return "", MissingBucketKeyError{
 			ExperimentName: e.name,
 			ArgsKey:        e.bucketVal,

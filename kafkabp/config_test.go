@@ -69,11 +69,11 @@ func TestConsumerConfig(t *testing.T) {
 
 	t.Run("valid-config", func(t *testing.T) {
 		sc, err := cfg.NewSaramaConfig()
-		if sc == nil {
-			t.Error("expected config to be non-nil, got nil")
-		}
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
+		}
+		if sc == nil {
+			t.Fatal("expected config to be non-nil, got nil")
 		}
 		if sc.ClientID != cfg.ClientID {
 			t.Errorf("expected sarama client id to be %q, got %q", cfg.ClientID, sc.ClientID)
@@ -84,11 +84,11 @@ func TestConsumerConfig(t *testing.T) {
 	cfg.RackID = kafkabp.FixedRackID(rackID)
 	t.Run("rack-id", func(t *testing.T) {
 		sc, err := cfg.NewSaramaConfig()
-		if sc == nil {
-			t.Error("expected config to be non-nil, got nil")
-		}
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
+		}
+		if sc == nil {
+			t.Fatal("expected config to be non-nil, got nil")
 		}
 		if sc.RackID != rackID {
 			t.Errorf("expected sarama rack id to be %q, got %q", rackID, sc.ClientID)
@@ -98,11 +98,11 @@ func TestConsumerConfig(t *testing.T) {
 	cfg.RackID = nil
 	t.Run("no-rack-id", func(t *testing.T) {
 		sc, err := cfg.NewSaramaConfig()
-		if sc == nil {
-			t.Error("expected config to be non-nil, got nil")
-		}
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
+		}
+		if sc == nil {
+			t.Fatal("expected config to be non-nil, got nil")
 		}
 		if sc.RackID != "" {
 			t.Errorf("expected sarama rack id to be empty, got %q", sc.ClientID)

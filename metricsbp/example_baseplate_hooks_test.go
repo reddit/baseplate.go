@@ -7,8 +7,6 @@ import (
 
 // This example demonstrates how to use CreateServerSpanHook.
 func ExampleCreateServerSpanHook() {
-	const prefix = "service.server"
-
 	// initialize the CreateServerSpanHook
 	hook := metricsbp.CreateServerSpanHook{}
 

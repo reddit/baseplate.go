@@ -144,7 +144,7 @@ func TestSingleAttempt(t *testing.T) {
 		retry.Attempts(1),
 		retry.Delay(delay),
 	)
-	duration := time.Now().Sub(start)
+	duration := time.Since(start)
 
 	// We expect that if we only make a single attempt, then the delay logic will
 	// not trigger.

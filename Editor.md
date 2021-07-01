@@ -3,14 +3,25 @@
 In your favorite IDE/Editor,
 you should set it up so that it auto runs the following tools for you:
 
-- `gofmt -s`
-- `golint`
 - `go vet`
+- `gofmt -s`
+- `golint` (via `go install golang.org/x/lint/golint@latest`)
+- `staticcheck` (via `go install honnef.co/go/tools/cmd/staticcheck@latest`)
 
 ## Vim/NeoVim
 
 The easiest way to do that is to install the
 [`vim-go`](https://github.com/fatih/vim-go) plugin.
+
+In addition to `vim-go`,
+It's recommended to use [`ale`](https://github.com/dense-analysis/ale) for
+`golint` and `staticcheck` linting:
+
+```vim
+let g:ale_linters = {
+\ 'go': ['golint', 'staticcheck'],
+\}
+```
 
 ## GoLand
 
@@ -54,6 +65,13 @@ You can choose among three formatting tools: gofmt, goreturns, and goimports by 
 ```
 "go.formatTool": "goimports",
 ```
+
+### `staticcheck`
+
+VSCode supports `staticcheck` through `gopls`,
+Please follow
+[official `gopls` doc](https://github.com/golang/tools/blob/master/gopls/doc/settings.md#staticcheck-bool)
+on how to enable it in `gopls` json config inside VSCode.
 
 ### Go Language Server
 

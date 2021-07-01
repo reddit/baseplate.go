@@ -92,8 +92,8 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 	server := thrift.NewTSimpleServer4(
 		thrift.WrapProcessor(cfg.Processor, cfg.Middlewares...),
 		transport,
-		thrift.NewTHeaderTransportFactory(nil),
-		thrift.NewTHeaderProtocolFactory(),
+		thrift.NewTHeaderTransportFactoryConf(nil, nil),
+		thrift.NewTHeaderProtocolFactoryConf(nil),
 	)
 	server.SetForwardHeaders(HeadersToForward)
 	server.SetLogger(cfg.Logger)

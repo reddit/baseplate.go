@@ -435,8 +435,7 @@ func newClient(
 		return nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client: %w", err)
 	}
 
-	var client thrift.TClient
-	client = thrift.NewTStandardClient(
+	client := thrift.NewTStandardClient(
 		protoFactory.GetProtocol(trans),
 		protoFactory.GetProtocol(trans),
 	)

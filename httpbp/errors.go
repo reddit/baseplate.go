@@ -752,7 +752,7 @@ func ClientErrorFromResponse(resp *http.Response) error {
 		// Retry-After header could be either an absolute time or a relative time.
 		t, err := http.ParseTime(retryAfter)
 		if err == nil {
-			ce.RetryAfter = t.Sub(time.Now())
+			ce.RetryAfter = time.Until(t)
 		} else {
 			// RFC says the relative time format of RetryAfter should be an integer,
 			// but in reality floats could be used for better precision.

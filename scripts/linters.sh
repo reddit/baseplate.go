@@ -20,4 +20,10 @@ for FILE in $FILES; do
   fi
 done
 
+STATICCHECK=`staticcheck ./...`
+if [ -n "$STATICCHECK" ]; then
+  echo "staticcheck:\n$STATICCHECK"
+  FAILED=1
+fi
+
 exit $FAILED

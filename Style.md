@@ -4,9 +4,10 @@
 
 Make sure your code passes the following tools:
 
-- `gofmt -s`
-- `golint`
 - `go vet`
+- `gofmt -s`
+- `golint` (via `go install golang.org/x/lint/golint@latest`)
+- `staticcheck` (via `go install honnef.co/go/tools/cmd/staticcheck@latest`)
 
 See our [IDE/Editor setup doc](Editor.md) for ways to doing that automatically.
 
