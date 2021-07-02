@@ -16,7 +16,7 @@ import (
 
 // Wrapper defines a simple interface to wrap logging functions.
 //
-// As principles, library code should
+// As principles, library code should:
 //
 // 1. Not do any logging.
 // The library code should communicate errors back to the caller,
@@ -108,14 +108,16 @@ func (w Wrapper) ToThriftLogger() thrift.Logger {
 //
 // See the example on how to extend it to support other implementations.
 func (w *Wrapper) UnmarshalText(text []byte) error {
+	s := string(text)
+
 	// Special handling for "zap:level" case
 	const zapLevelPrefix = "zap:"
-	if strings.HasPrefix(string(text), zapLevelPrefix) {
-		*w = ZapWrapper(Level(strings.ToLower(string(text[len(zapLevelPrefix):]))))
+	if strings.HasPrefix(s, zapLevelPrefix) {
+		*w = ZapWrapper(Level(strings.ToLower(s[len(zapLevelPrefix):])))
 		return nil
 	}
 
-	switch string(text) {
+	switch s {
 	default:
 		return fmt.Errorf("unsupported log.Wrapper config: %q", text)
 	case "", "nop":
