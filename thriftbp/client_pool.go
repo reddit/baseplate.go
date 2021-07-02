@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	retry "github.com/avast/retry-go"
+	"github.com/avast/retry-go"
 	"github.com/go-kit/kit/metrics"
 
 	"github.com/reddit/baseplate.go/breakerbp"

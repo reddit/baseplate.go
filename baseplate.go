@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/reddit/baseplate.go/batchcloser"
 	"github.com/reddit/baseplate.go/ecinterface"

@@ -10,7 +10,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/Shopify/sarama/mocks"
 
-	baseplate "github.com/reddit/baseplate.go"
+	"github.com/reddit/baseplate.go"
 )
 
 // Make sure that Consumer also implements baseplate.HealthChecker.

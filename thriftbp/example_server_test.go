@@ -3,7 +3,7 @@ package thriftbp_test
 import (
 	"context"
 
-	baseplate "github.com/reddit/baseplate.go"
+	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
 	bpgen "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"

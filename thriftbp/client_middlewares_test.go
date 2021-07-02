@@ -9,9 +9,9 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go"
 
-	baseplate "github.com/reddit/baseplate.go"
+	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/mqsend"

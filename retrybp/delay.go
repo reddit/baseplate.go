@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	retry "github.com/avast/retry-go"
+	"github.com/avast/retry-go"
 
 	"github.com/reddit/baseplate.go/randbp"
 )

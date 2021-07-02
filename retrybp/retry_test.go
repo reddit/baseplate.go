@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	retry "github.com/avast/retry-go"
+	"github.com/avast/retry-go"
 
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/retrybp"

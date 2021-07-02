@@ -4,7 +4,8 @@ import (
 	"context"
 
 	"github.com/go-redis/redis/v8"
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/redis/deprecated/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
