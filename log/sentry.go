@@ -50,6 +50,9 @@ type SentryConfig struct {
 	// the Closer returned by InitSentry.
 	// If <=0, DefaultSentryFlushTimeout will be used.
 	FlushTimeout time.Duration
+
+	// BeforeSend is a callback modifier before emitting an event to Sentry.
+	BeforeSend func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event
 }
 
 // InitSentry initializes sentry reporting.
@@ -67,16 +70,24 @@ type SentryConfig struct {
 // this function also sets hostname tag to the value reported by the kernel
 // (when cfg.ServerName is empty server_name tag will be the hostname).
 func InitSentry(cfg SentryConfig) (io.Closer, error) {
-	var sampleRate float64 = 1
+	var (
+		sampleRate float64        = 1
+		beforeSend beforeSendFunc = dropStackTraceFrame
+	)
 	if cfg.SampleRate != nil && *cfg.SampleRate >= 0 && *cfg.SampleRate <= 1 {
 		sampleRate = *cfg.SampleRate
 	}
+	if cfg.BeforeSend != nil {
+		beforeSend = cfg.BeforeSend
+	}
+
 	if err := sentry.Init(sentry.ClientOptions{
 		Dsn:          cfg.DSN,
 		SampleRate:   sampleRate,
 		ServerName:   cfg.ServerName,
 		Environment:  cfg.Environment,
 		IgnoreErrors: cfg.IgnoreErrors,
+		BeforeSend:   beforeSend,
 	}); err != nil {
 		return nil, err
 	}
@@ -143,6 +154,7 @@ func ErrorWithSentry(ctx context.Context, msg string, err error, keysAndValues .
 
 	keysAndValues = append(keysAndValues, "err", err)
 	C(ctx).Errorw(msg, keysAndValues...)
+
 	hub.CaptureException(err)
 }
 
@@ -168,4 +180,22 @@ func extractKeyValuePairs(keysAndValues []interface{}, f func(key, value string)
 		f(key, value)
 	}
 	return false
+}
+
+type beforeSendFunc func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event
+
+func dropStackTraceFrame(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+	if len(event.Exception) == 0 {
+		return event
+	}
+	if event.Exception[0].Stacktrace == nil {
+		return event
+	}
+	if len(event.Exception[0].Stacktrace.Frames) == 0 {
+		return event
+	}
+	// only drop the top frame to remove the context to log.ErrorWithSentry
+	frames := event.Exception[0].Stacktrace.Frames
+	event.Exception[0].Stacktrace.Frames = frames[:len(frames)-1]
+	return event
 }
