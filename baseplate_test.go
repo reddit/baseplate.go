@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/reddit/baseplate.go"
+	"github.com/reddit/baseplate.go/configbp"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
@@ -230,7 +231,16 @@ type serviceConfig struct {
 }
 
 func TestParseConfigYAML(t *testing.T) {
-	const raw = `
+	t.Cleanup(func() { configbp.BaseplateConfigPath = os.Getenv("BASEPLATE_CONFIG_PATH") })
+	useConfig := func(configYAML string) {
+		path := filepath.Join(t.TempDir(), "config.yaml")
+		if err := os.WriteFile(path, []byte(configYAML), 0666); err != nil {
+			t.Fatalf("Failed to write to tmp config file %q: %v", path, err)
+		}
+		configbp.BaseplateConfigPath = path
+	}
+
+	const validConfigYAML = `
 addr: :8080
 timeout: 30s
 stopTimeout: 30s
@@ -261,13 +271,7 @@ redis:
   - redis:8000
   - redis:8001
 `
-
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte(raw), 0666); err != nil {
-		t.Fatalf("Failed to write to tmp config file %q: %v", path, err)
-	}
-
-	expected := baseplate.Config{
+	validConfigBaseplate := baseplate.Config{
 		Addr:        ":8080",
 		Timeout:     time.Second * 30,
 		StopTimeout: time.Second * 30,
@@ -304,122 +308,40 @@ redis:
 		},
 	}
 
-	expectedServiceCfg := serviceConfig{
-		Redis: struct{ Addrs []string }{
-			Addrs: []string{
-				"redis:8000",
-				"redis:8001",
-			},
+	validConfigService := struct{ Addrs []string }{
+		Addrs: []string{
+			"redis:8000",
+			"redis:8001",
 		},
 	}
-	var cfg serviceConfig
-	err := baseplate.ParseConfigYAML(path, &cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(cfg.GetConfig(), expected) {
-		t.Fatalf("config mismatch, expected %#v, got %#v", expected, cfg.GetConfig())
-	}
-	if !reflect.DeepEqual(cfg.Redis, expectedServiceCfg.Redis) {
-		t.Fatalf(
-			"service config mismatch, expected %#v, got %#v",
-			expectedServiceCfg.Redis,
-			cfg.Redis,
-		)
-	}
-}
 
-func TestParseConfigYAMLStrict(t *testing.T) {
-	const raw = `
-addr: :8080
-timeout: 30s
-stopTimeout: 30s
+	t.Run("valid_config", func(t *testing.T) {
+		useConfig(validConfigYAML)
+		var cfg serviceConfig
+		if err := baseplate.ParseConfigYAML(&cfg); err != nil {
+			t.Fatalf("valid config failed to parse: %s", err)
+		}
+		if !reflect.DeepEqual(cfg.GetConfig(), validConfigBaseplate) {
+			t.Errorf("config mismatch, expected %#v, got %#v", validConfigBaseplate, cfg.GetConfig())
+		}
+		if !reflect.DeepEqual(cfg.Redis, validConfigService) {
+			t.Errorf(
+				"service config mismatch, expected %#v, got %#v",
+				validConfigService,
+				cfg.Redis,
+			)
+		}
+	})
 
-log:
- level: info
-
-metrics:
- namespace: baseplate-test
- endpoint: metrics:8125
- histogramSampleRate: 0.01
-
-runtime:
- numProcesses:
-  max: 100
-
-secrets:
- path: /tmp/secrets.json
-
-tracing:
- namespace: baseplate-test
- queueName: test
- recordTimeout: 1ms
- sampleRate: 0.01
+	t.Run("extra_params", func(t *testing.T) {
+		const configWithExtraParams = validConfigYAML + `
+anotherbackend:
+  addr: someservice:9090
 `
-	const extra = raw + `
-
-redis:
- addrs:
-  - redis:8000
-  - redis:8001
-`
-
-	dir := t.TempDir()
-	pathRaw := filepath.Join(dir, "raw.yaml")
-	if err := os.WriteFile(pathRaw, []byte(raw), 0666); err != nil {
-		t.Fatalf("Failed to write to tmp config file %q: %v", pathRaw, err)
-	}
-
-	expected := baseplate.Config{
-		Addr:        ":8080",
-		Timeout:     time.Second * 30,
-		StopTimeout: time.Second * 30,
-
-		Log: log.Config{
-			Level: "info",
-		},
-
-		Metrics: metricsbp.Config{
-			Namespace:           "baseplate-test",
-			Endpoint:            "metrics:8125",
-			HistogramSampleRate: float64Ptr(0.01),
-		},
-
-		Runtime: runtimebp.Config{
-			NumProcesses: struct {
-				Max int `yaml:"max"`
-				Min int `yaml:"min"`
-			}{
-				Max: 100,
-				Min: 0,
-			},
-		},
-
-		Secrets: secrets.Config{
-			Path: "/tmp/secrets.json",
-		},
-
-		Tracing: tracing.Config{
-			Namespace:        "baseplate-test",
-			QueueName:        "test",
-			MaxRecordTimeout: time.Millisecond,
-			SampleRate:       0.01,
-		},
-	}
-
-	var cfg baseplate.Config
-	if err := baseplate.ParseConfigYAML(pathRaw, &cfg); err != nil {
-		t.Error(err)
-	}
-	if !reflect.DeepEqual(cfg, expected) {
-		t.Errorf("config mismatch, expected %#v, got %#v", expected, cfg)
-	}
-
-	pathExtra := filepath.Join(dir, "extra.yaml")
-	if err := os.WriteFile(pathExtra, []byte(extra), 0666); err != nil {
-		t.Fatalf("Failed to write to tmp config file %q: %v", pathExtra, err)
-	}
-	if err := baseplate.ParseConfigYAML(pathExtra, &cfg); err == nil {
-		t.Error("Expected error when yaml has extra content, did not happen.")
-	}
+		useConfig(configWithExtraParams)
+		var cfg serviceConfig
+		if err := baseplate.ParseConfigYAML(&cfg); err == nil {
+			t.Error("Expected error when yaml has extra content, did not happen.")
+		}
+	})
 }

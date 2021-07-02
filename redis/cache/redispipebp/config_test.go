@@ -9,7 +9,8 @@ import (
 
 	"github.com/joomcode/redispipe/rediscluster"
 	"github.com/joomcode/redispipe/redisconn"
-	"gopkg.in/yaml.v2"
+
+	"github.com/reddit/baseplate.go/configbp"
 
 	"github.com/reddit/baseplate.go/redis/cache/redispipebp"
 )
@@ -59,7 +60,7 @@ options:
 		c := _c
 		t.Run(c.name, func(t *testing.T) {
 			var cfg redispipebp.ClientConfig
-			if err := yaml.NewDecoder(strings.NewReader(c.raw)).Decode(&cfg); err != nil {
+			if err := configbp.ParseStrictYAML(strings.NewReader(c.raw), &cfg); err != nil {
 				t.Fatal(err)
 			}
 			if cfg.Addr != c.addr {
@@ -129,7 +130,7 @@ options:
 		c := _c
 		t.Run(c.name, func(t *testing.T) {
 			var cfg redispipebp.ClusterConfig
-			if err := yaml.NewDecoder(strings.NewReader(c.raw)).Decode(&cfg); err != nil {
+			if err := configbp.ParseStrictYAML(strings.NewReader(c.raw), &cfg); err != nil {
 				t.Fatal(err)
 			}
 			sort.Strings(cfg.Addrs)

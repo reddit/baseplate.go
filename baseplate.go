@@ -2,15 +2,13 @@ package baseplate
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/reddit/baseplate.go/batchcloser"
+	"github.com/reddit/baseplate.go/configbp"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
@@ -217,26 +215,28 @@ func Serve(ctx context.Context, args ServeArgs) error {
 	return <-shutdownChannel
 }
 
-// ParseConfigYAML parses path as YAML into cfg.
+// ParseConfigYAML loads the baseplate config into the structed pointed to by cfgPointer.
 //
-// It enables strict parsing,
-// if there are yaml tags not defined in cfg passed in,
-// that will cause an error.
+// The configuration file is located based on the $BASEPLATE_CONFIG_PATH
+// environment variable.
+//
+// To avoid easy mistakes, "strict" mode is enabled while parsing the file,
+// which means that all values in the YAML config must have a matching
+// struct or value during decoding.
 //
 // If you don't have any customized configurations to decode from YAML,
 // you can just pass in a *pointer* to baseplate.Config:
 //
 //     var cfg baseplate.Config
-//     err := baseplate.ParseConfigYAML(reader, &cfg)
-//     // TODO: handle err
+//     if err := baseplate.ParseConfigYAML(&cfg); err != nil {
+//       log.Fatalf("Parsing config: %s", err)
+//     }
 //     ctx, bp, err := baseplate.New(baseplate.NewArgs{
-//       EdgeContextFactory: ...,
 //       ServiceCfg: cfg,
 //     })
 //
 // If you do have customized configurations to decode from YAML,
-// the recommended way of passing the strict yaml parsing is to embed
-// baseplate.Config with `yaml:",inline"` yaml tags, for example:
+// embed a baseplate.Config with `yaml:",inline"` yaml tags, for example:
 //
 //     type myServiceConfig struct {
 //       // The yaml tag is required to pass strict parsing.
@@ -246,30 +246,20 @@ func Serve(ctx context.Context, args ServeArgs) error {
 //       FancyName string `yaml:"fancy_name"`
 //     }
 //     var cfg myServiceCfg
-//     err := baseplate.ParseConfigYAML(reader, &cfg)
-//     // TODO: handle err
+//     if err := baseplate.ParseConfigYAML(&cfg); err != nil {
+//       log.Fatalf("Parsing config: %s", err)
+//     }
 //     ctx, bp, err := baseplate.New(baseplate.NewArgs{
-//       EdgeContextFactory: ...,
 //       ServiceCfg: cfg,
 //     })
 //
-func ParseConfigYAML(path string, cfg Configer) error {
-	if path == "" {
-		return errors.New("baseplate.ParseConfigYAML: no config path given")
+// Environment variable references (e.g. $FOO and ${FOO}) are substituted into the
+// YAML from the process-level environment before parsing the configuration.
+func ParseConfigYAML(cfgPointer Configer) error {
+	if configbp.BaseplateConfigPath == "" {
+		return fmt.Errorf("no $BASEPLATE_CONFIG_PATH specified, cannot load config")
 	}
-
-	f, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("baseplate.ParseConfigYAML: %w", err)
-	}
-	defer f.Close()
-
-	decoder := yaml.NewDecoder(f)
-	decoder.SetStrict(true)
-	if err := decoder.Decode(cfg); err != nil {
-		return fmt.Errorf("baseplate.ParseConfigYAML: %w", err)
-	}
-	return nil
+	return configbp.ParseStrictFile(configbp.BaseplateConfigPath, cfgPointer)
 }
 
 // NewArgs defines the args used in New functino.

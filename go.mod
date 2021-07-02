@@ -11,6 +11,7 @@ require (
 	github.com/go-kit/kit v0.9.0
 	github.com/go-redis/redis/v8 v8.10.0
 	github.com/gofrs/uuid v3.2.0+incompatible
+	github.com/google/go-cmp v0.5.6
 	github.com/joomcode/errorx v1.0.3
 	github.com/joomcode/redispipe v0.9.4
 	github.com/opentracing/opentracing-go v1.1.0

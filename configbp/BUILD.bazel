@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "configbp",
+    srcs = ["config.go"],
+    importpath = "github.com/reddit/baseplate.go/configbp",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//log",
+        "@in_gopkg_yaml_v2//:yaml_v2",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "configbp_test",
+    srcs = ["config_test.go"],
+    deps = [
+        ":configbp",
+        "//:baseplate_go",
+        "//log",
+        "@com_github_google_go_cmp//cmp",
+    ],
+)
