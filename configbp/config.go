@@ -41,8 +41,8 @@ func ParseFile(path string, ptr interface{}) error {
 	}
 	defer f.Close() // safe to blindly close read-only files
 
-	switch ext := filepath.Ext(path); ext {
-	case ".yaml":
+	switch ext := filepath.Ext(path); strings.ToLower(ext) {
+	case ".yaml", ".yml":
 		return ParseYAML(f, ptr)
 	default:
 		return fmt.Errorf("unsupported config extension %q", ext)
