@@ -16,6 +16,7 @@ require (
 	github.com/go-redis/redis/v8 v8.10.0
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible
+	github.com/google/go-cmp v0.5.6
 	github.com/joomcode/errorx v1.0.3
 	github.com/joomcode/redispipe v0.9.4
 	github.com/mediocregopher/radix.v2 v0.0.0-20181115013041-b67df6e626f9 // indirect
