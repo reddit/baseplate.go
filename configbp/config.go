@@ -13,10 +13,13 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
-// ExpandConfig performs baseplate-conformant configuration expansion.
+// expandConfig performs baseplate-conformant configuration expansion.
 //
 // Currently, this includes expanding $FOO and ${FOO} with their respective environment variables.
-func ExpandConfig(rawConfig string) string {
+func expandConfig(rawConfig string) string {
+	// TODO: In the future, this should probably replaced by a line-buffered reader that replaces environment
+	//       variables as they are read, instead of requiring buffering the entire file into memory.
+
 	expanded := os.ExpandEnv(rawConfig)
 	if expanded != rawConfig {
 		log.Debugf("Expanded configuration:\n%s", expanded)
@@ -56,7 +59,8 @@ func ParseYAML(reader io.Reader, ptr interface{}) error {
 		return fmt.Errorf("reading config: %w", err)
 	}
 
-	data := ExpandConfig(rawData.String())
+	// TODO: don't buffer the entire file into memory
+	data := expandConfig(rawData.String())
 
 	dec := yaml.NewDecoder(strings.NewReader(data))
 	dec.SetStrict(true)
