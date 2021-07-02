@@ -6,3 +6,7 @@
 
 # Binaries
 /cmd/healthcheck/healthcheck
+
+# Config files
+.idea
+.editorconfig
