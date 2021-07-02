@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/configbp"
 	"github.com/reddit/baseplate.go/log"
