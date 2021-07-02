@@ -16,6 +16,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//batchcloser",
+        "//configbp",
         "//ecinterface",
         "//errorsbp",
         "//log",
@@ -23,7 +24,6 @@ go_library(
         "//runtimebp",
         "//secrets",
         "//tracing",
-        "@in_gopkg_yaml_v2//:yaml_v2",
     ],
 )
 
