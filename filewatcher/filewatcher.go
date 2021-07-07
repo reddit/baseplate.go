@@ -11,6 +11,7 @@ import (
 
 	"gopkg.in/fsnotify.v1"
 
+	"github.com/reddit/baseplate.go/internal/limitreader"
 	"github.com/reddit/baseplate.go/log"
 )
 
@@ -142,25 +143,16 @@ type Config struct {
 	// Optional. When <=0 DefaultMaxFileSize will be used instead.
 	// This limits the size of the file that will be read into memory and sent to
 	// the parser, to limit memory usage.
-	// If the file content is larger than MaxFileSize,
-	// we don't treat that as an error,
-	// but the parser will only receive the first MaxFileSize bytes of content.
 	//
-	// The reasons behind the decision of not treating them as an error are:
-	// 1. Some parsers only read up to what they need (example: json),
-	//    so extra garbage after that won't cause any problems.
-	// 2. For parsers that won't work when they only receive partial data,
-	//    this will cause them to return an error,
-	//    which will be logged and we won't update the parsed data,
-	//    so it's essentially the same as treating those as errors.
-	// 3. Getting the real size of the content without actually reading them could
-	//    be tricky. Only send partial data to parsers is a more robust solution.
+	// If the file content is larger than MaxFileSize,
+	// we only treat that as an error when the parser implementation tries to read
+	// beyond the limit.
 	MaxFileSize int64
 }
 
 func limitParser(parser Parser, limit int64) Parser {
 	return func(f io.Reader) (interface{}, error) {
-		return parser(io.LimitReader(f, limit))
+		return parser(limitreader.New(f, limit))
 	}
 }
 

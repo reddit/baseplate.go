@@ -15,14 +15,13 @@ func TestLimitParser(t *testing.T) {
 
 	parser := func(data io.Reader) (interface{}, error) {
 		buf, err := io.ReadAll(data)
-		if err != nil {
-			t.Error(err)
-			return nil, err
-		}
 		if string(buf) != expected {
 			t.Errorf("Data expected %q, got %q", expected, buf)
 		}
-		return nil, nil
+		if err == nil {
+			t.Error("Expected error, got nothing")
+		}
+		return nil, err
 	}
 	limitParser(parser, limit)(strings.NewReader(origin))
 }

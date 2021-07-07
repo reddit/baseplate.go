@@ -298,7 +298,6 @@ func limitedParser(t *testing.T, expectedSize int) filewatcher.Parser {
 	return func(f io.Reader) (interface{}, error) {
 		buf, err := io.ReadAll(f)
 		if err != nil {
-			t.Error(err)
 			return nil, err
 		}
 		if len(buf) != expectedSize {
@@ -313,17 +312,32 @@ func limitedParser(t *testing.T, expectedSize int) filewatcher.Parser {
 	}
 }
 
+type logWrapper struct {
+	called int64
+}
+
+func (w *logWrapper) wrapper(tb testing.TB) log.Wrapper {
+	return func(_ context.Context, msg string) {
+		tb.Helper()
+		tb.Logf("logger called with msg: %q", msg)
+		atomic.AddInt64(&w.called, 1)
+	}
+}
+
+func (w *logWrapper) getCalled() int64 {
+	return atomic.LoadInt64(&w.called)
+}
+
 func TestParserSizeLimit(t *testing.T) {
 	interval := time.Millisecond
 	filewatcher.InitialReadInterval = interval
 	writeDelay := interval * 10
 	timeout := writeDelay * 20
 
-	const size = 3
 	payload1 := []byte("Hello, world!")
-	expectedPayload1 := payload1[:size]
-	payload2 := []byte("Bye, world!")
-	expectedPayload2 := payload2[:size]
+	size := len(payload1)
+	expectedPayload := payload1[:size]
+	payload2 := []byte("Bye bye, world!")
 
 	dir, err := os.MkdirTemp("", "filewatcher_test_")
 	if err != nil {
@@ -346,6 +360,7 @@ func TestParserSizeLimit(t *testing.T) {
 		}
 	}()
 
+	var wrapper logWrapper
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	data, err := filewatcher.New(
@@ -353,15 +368,15 @@ func TestParserSizeLimit(t *testing.T) {
 		filewatcher.Config{
 			Path:        path,
 			Parser:      limitedParser(t, size),
-			Logger:      log.TestWrapper(t),
-			MaxFileSize: size,
+			Logger:      wrapper.wrapper(t),
+			MaxFileSize: int64(size),
 		},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer data.Stop()
-	compareBytesData(t, data.Get(), expectedPayload1)
+	compareBytesData(t, data.Get(), expectedPayload)
 
 	func() {
 		f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
@@ -375,7 +390,15 @@ func TestParserSizeLimit(t *testing.T) {
 	}()
 	// Give it some time to handle the file content change
 	time.Sleep(time.Millisecond * 500)
-	compareBytesData(t, data.Get(), expectedPayload2)
+	// We expect the second parse would fail because of the data is beyond the
+	// limit, so the data should still be expectedPayload
+	compareBytesData(t, data.Get(), expectedPayload)
+	// Since we expect the second parse would fail, we also expect the logger to
+	// be called once.
+	const expectedCalled = 1
+	if called := wrapper.getCalled(); called != expectedCalled {
+		t.Errorf("Expected log.Wrapper to be called %d times, actual %d", expectedCalled, called)
+	}
 }
 
 func TestMockFileWatcher(t *testing.T) {

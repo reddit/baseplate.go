@@ -9,6 +9,7 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/filewatcher",
     visibility = ["//visibility:public"],
     deps = [
+        "//internal/limitreader",
         "//log",
         "@in_gopkg_fsnotify_v1//:fsnotify_v1",
     ],
