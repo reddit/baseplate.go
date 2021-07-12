@@ -68,6 +68,7 @@ func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) 
 	return []thrift.ProcessorMiddleware{
 		ExtractDeadlineBudget,
 		InjectServerSpan(args.ErrorSpanSuppressor),
+		RecoverPanic,
 		InjectEdgeContext(args.EdgeContextImpl),
 		AbandonCanceledRequests,
 		ReportPayloadSizeMetrics(args.ReportPayloadSizeMetricsSampleRate),
@@ -335,5 +336,38 @@ func tHeaderProtocol2String(proto thrift.THeaderProtocolID) string {
 		return "compact"
 	case thrift.THeaderProtocolBinary:
 		return "binary"
+	}
+}
+
+func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+	return thrift.WrappedTProcessorFunction{
+		Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (ok bool, err thrift.TException) {
+			defer func() {
+				if r := recover(); r != nil {
+					var rErr error
+					if asErr, ok := r.(error); ok {
+						rErr = asErr
+					} else {
+						rErr = fmt.Errorf("panic in %q: %+v", name, r)
+					}
+					log.ErrorWithSentry(
+						ctx,
+						"recovered from panic:",
+						rErr,
+						"endpoint", name,
+					)
+					metricsbp.M.Counter("panic.recover").With(
+						"name", name,
+					).Add(1)
+
+					// changed named return values to show that the request failed and
+					// return the panic value error.
+					ok = false
+					err = thrift.WrapTException(rErr)
+				}
+			}()
+
+			return next.Process(ctx, seqId, in, out)
+		},
 	}
 }

@@ -276,3 +276,38 @@ func TestExtractDeadlineBudget(t *testing.T) {
 		},
 	)
 }
+
+func TestPanicMiddleware(t *testing.T) {
+	t.Run("error", func(t *testing.T) {
+		panicErr := errors.New("oops")
+		next := thrift.WrappedTProcessorFunction{
+			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+				panic(panicErr)
+			},
+		}
+		wrapped := thriftbp.RecoverPanic("test", next)
+		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
+		if ok {
+			t.Errorf("expected ok to be false, got true")
+		}
+		if !errors.Is(err, panicErr) {
+			t.Errorf("error mismatch, expectd %v, got %v", panicErr, err)
+		}
+	})
+
+	t.Run("non-error", func(t *testing.T) {
+		next := thrift.WrappedTProcessorFunction{
+			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+				panic("oops")
+			},
+		}
+		wrapped := thriftbp.RecoverPanic("test", next)
+		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
+		if ok {
+			t.Errorf("expected ok to be false, got true")
+		}
+		if err == nil {
+			t.Error("expected an error, got nil")
+		}
+	})
+}
