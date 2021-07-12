@@ -64,14 +64,16 @@ type DefaultProcessorMiddlewaresArgs struct {
 // 4. AbandonCanceledRequests
 //
 // 5. ReportPayloadSizeMetrics
+//
+// 6. RecoverPanic
 func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) []thrift.ProcessorMiddleware {
 	return []thrift.ProcessorMiddleware{
 		ExtractDeadlineBudget,
 		InjectServerSpan(args.ErrorSpanSuppressor),
-		RecoverPanic,
 		InjectEdgeContext(args.EdgeContextImpl),
 		AbandonCanceledRequests,
 		ReportPayloadSizeMetrics(args.ReportPayloadSizeMetricsSampleRate),
+		RecoverPanic,
 	}
 }
 
@@ -339,6 +341,8 @@ func tHeaderProtocol2String(proto thrift.THeaderProtocolID) string {
 	}
 }
 
+// RecoverPanic recovers from panics raised in the TProccessorFunction chain, reports them
+// to sentry, and records a metric indicating that the endpoint recovered from a panic.
 func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 	return thrift.WrappedTProcessorFunction{
 		Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (ok bool, err thrift.TException) {
