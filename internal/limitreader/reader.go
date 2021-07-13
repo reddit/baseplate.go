@@ -16,6 +16,9 @@ var ErrReadLimitExceeded = errors.New("limitreader: read limit exceeded")
 // but instead of always returning io.EOF when read beyond the limit,
 // it would return a different error (which would cause the read operation to
 // fail) when there's more data on the underlying reader.
+//
+// r passed in shall not be read again directly,
+// unless it's of type *bufio.Reader.
 func New(r io.Reader, limit int64) io.Reader {
 	return &reader{
 		reader:    bufio.NewReaderSize(r, 16),
