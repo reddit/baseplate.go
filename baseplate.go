@@ -8,9 +8,8 @@ import (
 	"os"
 	"time"
 
-	yaml "gopkg.in/yaml.v2"
-
 	"github.com/reddit/baseplate.go/batchcloser"
+	"github.com/reddit/baseplate.go/configbp"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
@@ -219,18 +218,13 @@ func Serve(ctx context.Context, args ServeArgs) error {
 }
 
 // parseConfig parses from the YAML file at the given path into cfg.
+//
+// Environment variables (e.g. $FOO and ${FOO}) are substituted from the environment before parsing.
 func parseConfig(path string, cfg Configer) error {
 	if path == "" {
 		return errors.New("baseplate.ParseConfig: no config path given")
 	}
-
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	return DecodeConfigYAML(f, cfg)
+	return configbp.ParseFile(path, cfg)
 }
 
 // DecodeConfigYAML decods the YAML read from the given Reader into cfg.
@@ -258,10 +252,10 @@ func parseConfig(path string, cfg Configer) error {
 //     }
 //     var cfg myServiceCfg
 //     baseplate.DecodeConfigYAML(reader, &cfg)
+//
+// Environment variables (e.g. $FOO and ${FOO}) are substituted from the environment before parsing.
 func DecodeConfigYAML(reader io.Reader, cfg Configer) error {
-	decoder := yaml.NewDecoder(reader)
-	decoder.SetStrict(true)
-	return decoder.Decode(cfg)
+	return configbp.ParseYAML(reader, cfg)
 }
 
 // NewArgs defines the args used in New functino.
