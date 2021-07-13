@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	sentry "github.com/getsentry/sentry-go"
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/getsentry/sentry-go"
+	"github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
 
 	"github.com/reddit/baseplate.go/log"

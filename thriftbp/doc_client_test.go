@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/thriftbp"
 )

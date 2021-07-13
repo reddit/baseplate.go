@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"

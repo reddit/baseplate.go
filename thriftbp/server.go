@@ -5,7 +5,7 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 
-	baseplate "github.com/reddit/baseplate.go"
+	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 )

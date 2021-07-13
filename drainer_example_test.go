@@ -5,7 +5,7 @@ import (
 	"flag"
 	"io"
 
-	baseplate "github.com/reddit/baseplate.go"
+	"github.com/reddit/baseplate.go"
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/thriftbp"

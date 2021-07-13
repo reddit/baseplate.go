@@ -3,7 +3,8 @@ package tracing_test
 import (
 	"context"
 
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/tracing"
 )
 

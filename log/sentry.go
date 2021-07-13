@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	sentry "github.com/getsentry/sentry-go"
+	"github.com/getsentry/sentry-go"
 	"go.uber.org/zap/zapcore"
 )
 

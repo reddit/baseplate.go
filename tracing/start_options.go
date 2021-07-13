@@ -1,7 +1,7 @@
 package tracing
 
 import (
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go"
 )
 
 // StartSpanOptions is the additional options for baseplate spans.

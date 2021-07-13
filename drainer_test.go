@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	baseplate "github.com/reddit/baseplate.go"
+	"github.com/reddit/baseplate.go"
 )
 
 func TestDrainer(t *testing.T) {
