@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
@@ -70,15 +71,33 @@ type SentryConfig struct {
 // this function also sets hostname tag to the value reported by the kernel
 // (when cfg.ServerName is empty server_name tag will be the hostname).
 func InitSentry(cfg SentryConfig) (io.Closer, error) {
-	var (
-		sampleRate float64        = 1
-		beforeSend beforeSendFunc = dropStackTraceFrame
-	)
+	var sampleRate float64 = 1
 	if cfg.SampleRate != nil && *cfg.SampleRate >= 0 && *cfg.SampleRate <= 1 {
 		sampleRate = *cfg.SampleRate
 	}
-	if cfg.BeforeSend != nil {
-		beforeSend = cfg.BeforeSend
+
+	// Improve legibility of Sentry errors by using the error message as header
+	// instead of the error type and marking stack trace frame from
+	// baseplate.go as not in-app.
+	const (
+		base   = "github.com/reddit/baseplate.go"
+		prefix = base + "/"
+	)
+	beforeSend := func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+		for i, exception := range event.Exception {
+			// swap source location and of error type as title in issue list
+			// https://github.com/getsentry/sentry-go/issues/307#issuecomment-737871530
+			event.Exception[i].Type, event.Exception[i].Value = event.Exception[i].Value, event.Exception[i].Type
+			for j, frame := range exception.Stacktrace.Frames {
+				if frame.Module == base || strings.HasPrefix(frame.Module, prefix) {
+					event.Exception[i].Stacktrace.Frames[j].InApp = false
+				}
+			}
+		}
+		if cfg.BeforeSend != nil {
+			return cfg.BeforeSend(event, hint)
+		}
+		return event
 	}
 
 	if err := sentry.Init(sentry.ClientOptions{
@@ -154,7 +173,6 @@ func ErrorWithSentry(ctx context.Context, msg string, err error, keysAndValues .
 
 	keysAndValues = append(keysAndValues, "err", err)
 	C(ctx).Errorw(msg, keysAndValues...)
-
 	hub.CaptureException(err)
 }
 
@@ -180,22 +198,4 @@ func extractKeyValuePairs(keysAndValues []interface{}, f func(key, value string)
 		f(key, value)
 	}
 	return false
-}
-
-type beforeSendFunc func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event
-
-func dropStackTraceFrame(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
-	if len(event.Exception) == 0 {
-		return event
-	}
-	if event.Exception[0].Stacktrace == nil {
-		return event
-	}
-	if len(event.Exception[0].Stacktrace.Frames) == 0 {
-		return event
-	}
-	// only drop the top frame to remove the context to log.ErrorWithSentry
-	frames := event.Exception[0].Stacktrace.Frames
-	event.Exception[0].Stacktrace.Frames = frames[:len(frames)-1]
-	return event
 }

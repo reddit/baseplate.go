@@ -3,7 +3,6 @@ package log
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	sentry "github.com/getsentry/sentry-go"
@@ -130,18 +129,12 @@ func TestExtractKeyValuePairs(t *testing.T) {
 	}
 }
 
-func TestDropStackTraceFrame(t *testing.T) {
-	t.Run("explicit error log", func(t *testing.T) {
-		var (
-			stackTraceBefore sentry.Stacktrace
-			stackTraceAfter  sentry.Stacktrace
-		)
-
+func TestSentryBeforeSend(t *testing.T) {
+	t.Run("mark-frames", func(t *testing.T) {
+		var frames []sentry.Frame
 		closer, err := InitSentry(SentryConfig{
 			BeforeSend: func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
-				stackTraceBefore = *event.Exception[0].Stacktrace
-				event = dropStackTraceFrame(event, hint)
-				stackTraceAfter = *event.Exception[0].Stacktrace
+				frames = event.Exception[0].Stacktrace.Frames
 				return event
 			},
 		})
@@ -157,27 +150,19 @@ func TestDropStackTraceFrame(t *testing.T) {
 
 		ErrorWithSentry(context.Background(), "test", errors.New("test"))
 
-		if stackTraceBefore.Frames == nil {
-			t.Error("expected stack trace but is nil")
-		}
-		if stackTraceAfter.Frames == nil {
-			t.Error("expected stack trace but is nil")
-		}
-		if len(stackTraceAfter.Frames) == 0 {
-			t.Error("expected stack trace to exists")
-		}
-		if len(stackTraceBefore.Frames)-1 != len(stackTraceAfter.Frames) {
-			t.Error("expected top stack trace frame to be removed")
-		}
-		if !strings.HasSuffix(stackTraceBefore.Frames[0].AbsPath, "_test.go") {
-			t.Errorf("expected top stack trace frame to point to test file, actual: %s", stackTraceBefore.Frames[0].AbsPath)
+		got := frames[len(frames)-1].InApp
+		want := false
+		if got != want {
+			t.Errorf("got %t, want: %t", got, want)
 		}
 	})
 
-	t.Run("implicit through panic recover", func(t *testing.T) {
+	t.Run("mark-frames-with-sentry-wrapper", func(t *testing.T) {
+		var frames []sentry.Frame
 		closer, err := InitSentry(SentryConfig{
 			BeforeSend: func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
-				return dropStackTraceFrame(event, hint)
+				frames = event.Exception[0].Stacktrace.Frames
+				return event
 			},
 		})
 		if err != nil {
@@ -190,9 +175,72 @@ func TestDropStackTraceFrame(t *testing.T) {
 			}
 		})
 
-		// does not generate stack trace frames, ensure the dropStackTraceFrame
-		// method does not crash the recover process
+		ErrorWithSentryWrapper().Log(context.Background(), "test")
+
+		got := frames[len(frames)-1].InApp
+		want := false
+		if got != want {
+			t.Errorf("got %t, want: %t", got, want)
+		}
+	})
+
+	t.Run("panic-recover", func(t *testing.T) {
+		var e *sentry.Event
+		closer, err := InitSentry(SentryConfig{
+			BeforeSend: func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+				e = event
+				return event
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if e == nil {
+				t.Fatal("excepted event but is nil")
+			}
+			err = closer.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+
+		// does not generate stack trace frames, ensure beforeSend executes
 		defer sentry.Recover()
 		panic("exception")
+	})
+
+	t.Run("swap-exception-type-and-value", func(t *testing.T) {
+		var exception sentry.Exception
+		closer, err := InitSentry(SentryConfig{
+			BeforeSend: func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+				exception = event.Exception[0]
+				return event
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			err = closer.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+
+		ErrorWithSentry(context.Background(), "test", errors.New("test"))
+
+		got := exception.Type
+		want := "test"
+		if got != want {
+			t.Errorf("expected type and value to be swapped, got %s, want: %s", got, want)
+		}
+
+		got = exception.Value
+		want = "*errors.errorString"
+		if got != want {
+			t.Errorf("expected type and value to be swapped, got %s, want: %s", got, want)
+		}
+
 	})
 }

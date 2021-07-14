@@ -37,6 +37,7 @@ go_test(
     embed = [":log"],
     deps = [
         "//metricsbp",
+        "@com_github_getsentry_sentry_go//:sentry-go",
         "@com_github_go_kit_kit//log",
         "@in_gopkg_yaml_v2//:yaml_v2",
         "@org_uber_go_zap//:zap",

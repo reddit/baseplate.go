@@ -21,8 +21,7 @@ func TestInitSentry(t *testing.T) {
 		t.Fatal(err)
 	}
 	ErrorWithSentry(context.Background(), "", errors.New("what"))
-	err = c.Close()
-	if err != nil {
+	if err := c.Close(); err != nil {
 		t.Fatal(err)
 	}
 }
