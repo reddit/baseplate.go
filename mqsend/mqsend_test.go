@@ -13,12 +13,11 @@ import (
 
 func TestLinuxMessageQueue(t *testing.T) {
 	if runtime.GOOS != `linux` || !strings.HasSuffix(runtime.GOARCH, "64") {
-		t.Logf(
+		t.Skipf(
 			"This test can only be run on 64-bit Linux, skipping on %s/%s",
 			runtime.GOOS,
 			runtime.GOARCH,
 		)
-		return
 	}
 
 	const msg = "hello, world!"
