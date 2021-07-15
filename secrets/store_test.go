@@ -37,12 +37,7 @@ const specificationExample = `
 }`
 
 func TestGetSimpleSecret(t *testing.T) {
-	dir, err := os.MkdirTemp("", "secret_test_")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
+	dir := t.TempDir()
 	tmpFile, err := os.CreateTemp(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
@@ -97,12 +92,7 @@ func TestGetSimpleSecret(t *testing.T) {
 }
 
 func TestGetVersionedSecret(t *testing.T) {
-	dir, err := os.MkdirTemp("", "secret_test_")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
+	dir := t.TempDir()
 	tmpFile, err := os.CreateTemp(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
@@ -160,12 +150,7 @@ func TestGetVersionedSecret(t *testing.T) {
 }
 
 func TestGetCredentialSecret(t *testing.T) {
-	dir, err := os.MkdirTemp("", "secret_test_")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
+	dir := t.TempDir()
 	tmpFile, err := os.CreateTemp(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
@@ -223,12 +208,7 @@ func TestGetCredentialSecret(t *testing.T) {
 }
 
 func TestSecretFileIsUpdated(t *testing.T) {
-	dir, err := os.MkdirTemp("", "secret_test_")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
+	dir := t.TempDir()
 	tmpFile, err := os.CreateTemp(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
@@ -353,12 +333,7 @@ func (m *mockMiddleware) middleware(next secrets.SecretHandlerFunc) secrets.Secr
 }
 
 func TestNewStoreMiddleware(t *testing.T) {
-	dir, err := os.MkdirTemp("", "secret_test_")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
+	dir := t.TempDir()
 	tmpFile, err := os.CreateTemp(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)
@@ -400,12 +375,7 @@ func TestNewStoreMiddleware(t *testing.T) {
 }
 
 func TestAddMiddleware(t *testing.T) {
-	dir, err := os.MkdirTemp("", "secret_test_")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
+	dir := t.TempDir()
 	tmpFile, err := os.CreateTemp(dir, "secrets.json")
 	if err != nil {
 		t.Fatal(err)

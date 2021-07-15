@@ -2,6 +2,7 @@ package filewatcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"gopkg.in/fsnotify.v1"
 
+	"github.com/reddit/baseplate.go/internal/limitopen"
 	"github.com/reddit/baseplate.go/log"
 )
 
@@ -40,7 +42,10 @@ var InitialReadInterval = time.Second / 2
 // DefaultMaxFileSize is the default MaxFileSize used when it's <= 0.
 //
 // It's 1MiB, which is following the size limit of Apache ZooKeeper nodes.
-const DefaultMaxFileSize = 1024 * 1024
+const (
+	DefaultMaxFileSize  = 1024 * 1024
+	HardLimitMultiplier = 10
+)
 
 // A Parser is a callback function to be called when a watched file has its
 // content changed, or is read for the first time.
@@ -80,6 +85,7 @@ func (r *Result) watcherLoop(
 	watcher *fsnotify.Watcher,
 	path string,
 	parser Parser,
+	softLimit, hardLimit int64,
 	logger log.Wrapper,
 ) {
 	file := filepath.Base(path)
@@ -103,7 +109,7 @@ func (r *Result) watcherLoop(
 			case fsnotify.Create, fsnotify.Write:
 				// Wrap with an anonymous function to make sure that defer works.
 				func() {
-					f, err := os.Open(path)
+					f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
 					if err != nil {
 						logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
 						return
@@ -140,28 +146,18 @@ type Config struct {
 	Logger log.Wrapper
 
 	// Optional. When <=0 DefaultMaxFileSize will be used instead.
-	// This limits the size of the file that will be read into memory and sent to
-	// the parser, to limit memory usage.
-	// If the file content is larger than MaxFileSize,
-	// we don't treat that as an error,
-	// but the parser will only receive the first MaxFileSize bytes of content.
 	//
-	// The reasons behind the decision of not treating them as an error are:
-	// 1. Some parsers only read up to what they need (example: json),
-	//    so extra garbage after that won't cause any problems.
-	// 2. For parsers that won't work when they only receive partial data,
-	//    this will cause them to return an error,
-	//    which will be logged and we won't update the parsed data,
-	//    so it's essentially the same as treating those as errors.
-	// 3. Getting the real size of the content without actually reading them could
-	//    be tricky. Only send partial data to parsers is a more robust solution.
+	// This is the soft limit,
+	// we will also auto add a hard limit which is 10x (see HardLimitMultiplier)
+	// of soft limit.
+	//
+	// If the soft limit is violated,
+	// the violation will be reported via log.ErrorWithSentry,
+	// but it does not stop the normal parsing process.
+	//
+	// If the hard limit is violated,
+	// The loading of the file will fail immediately.
 	MaxFileSize int64
-}
-
-func limitParser(parser Parser, limit int64) Parser {
-	return func(f io.Reader) (interface{}, error) {
-		return parser(io.LimitReader(f, limit))
-	}
 }
 
 // New creates a new file watcher.
@@ -179,9 +175,9 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	if limit <= 0 {
 		limit = DefaultMaxFileSize
 	}
-	parser := limitParser(cfg.Parser, limit)
+	hardLimit := limit * HardLimitMultiplier
 
-	var f *os.File
+	var f io.ReadCloser
 
 	for {
 		select {
@@ -191,8 +187,8 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		}
 
 		var err error
-		f, err = os.Open(cfg.Path)
-		if os.IsNotExist(err) {
+		f, err = limitopen.OpenWithLimit(cfg.Path, limit, hardLimit)
+		if errors.Is(err, os.ErrNotExist) {
 			time.Sleep(InitialReadInterval)
 			continue
 		}
@@ -218,7 +214,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	}
 
 	var d interface{}
-	d, err = parser(f)
+	d, err = cfg.Parser(f)
 	if err != nil {
 		watcher.Close()
 		return nil, err
@@ -227,7 +223,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	res.data.Store(d)
 	res.ctx, res.cancel = context.WithCancel(context.Background())
 
-	go res.watcherLoop(watcher, cfg.Path, parser, cfg.Logger)
+	go res.watcherLoop(watcher, cfg.Path, cfg.Parser, limit, hardLimit, cfg.Logger)
 
 	return res, nil
 }

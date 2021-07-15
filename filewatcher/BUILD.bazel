@@ -9,6 +9,7 @@ go_library(
     importpath = "github.com/reddit/baseplate.go/filewatcher",
     visibility = ["//visibility:public"],
     deps = [
+        "//internal/limitopen",
         "//log",
         "@in_gopkg_fsnotify_v1//:fsnotify_v1",
     ],
@@ -20,14 +21,15 @@ go_test(
     srcs = [
         "doc_test.go",
         "filewatcher_test.go",
-        "limit_parser_test.go",
     ],
-    embed = [":filewatcher"],
     # This test is marked as flaky as sometimes the running environment in drone
     # is just too slow that TestFileWatcherRename would exceed the timeout.
     # Since this only happens rarely, mark it flaky so it gets auto retried is
     # likely better than just enlarge the timeout.
     # See https://cloud.drone.io/reddit/baseplate.go/503/1/2 for an example.
     flaky = True,
-    deps = ["//log"],
+    deps = [
+        ":filewatcher",
+        "//log",
+    ],
 )
