@@ -1,7 +1,6 @@
 # Team members in this file:
 # @fishy        Yuxuan Wang
 # @konradreiche Konrad Reiche
-# @pacejackson  Andrew Boyle
 
 # Global, default codeowners
-* @fishy @konradreiche @pacejackson
+* @fishy @konradreiche
