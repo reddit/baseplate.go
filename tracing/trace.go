@@ -56,8 +56,8 @@ func newTrace(tracer *Tracer, name string) *trace {
 		tracer: tracer,
 
 		name:    name,
-		traceID: tracer.newID(),
-		spanID:  tracer.newID(),
+		traceID: tracer.newTraceID(),
+		spanID:  tracer.newSpanID(),
 		start:   time.Now(),
 
 		counters: make(map[string]float64),

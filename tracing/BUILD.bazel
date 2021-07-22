@@ -26,7 +26,6 @@ go_library(
         "//runtimebp",
         "//timebp",
         "@com_github_getsentry_sentry_go//:sentry-go",
-        "@com_github_gofrs_uuid//:uuid",
         "@com_github_opentracing_opentracing_go//:opentracing-go",
         "@com_github_opentracing_opentracing_go//log",
     ],
@@ -52,7 +51,6 @@ go_test(
         "//randbp",
         "//thriftbp",
         "//timebp",
-        "@com_github_gofrs_uuid//:uuid",
         "@com_github_opentracing_opentracing_go//:opentracing-go",
     ],
 )

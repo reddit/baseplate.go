@@ -27,10 +27,10 @@ type Config struct {
 	// SampleRate is the % of new trace's to sample.
 	SampleRate float64 `yaml:"sampleRate"`
 
-	// Generate UUID instead of uint64 for new trace/span IDs.
+	// Generate hex instead of dec uint64 for new trace/span IDs.
 	// NOTE: Only enable this if you know all your upstream services can handle
-	// UUID trace/span IDs (Baseplate.go v0.8.0+ or Baseplate.py v2.0.0+).
-	UseUUID bool `yaml:"useUUID"`
+	// hex trace/span IDs (Baseplate.go v0.8.0+ or Baseplate.py v2.0.0+).
+	UseHex bool `yaml:"useHex"`
 }
 
 // InitFromConfig initializes the global tracer using the given Config and
@@ -46,7 +46,7 @@ func InitFromConfig(cfg Config) (io.Closer, error) {
 		MaxRecordTimeout: cfg.RecordTimeout,
 		QueueName:        cfg.QueueName,
 		MaxQueueSize:     cfg.MaxQueueSize,
-		UseUUID:          cfg.UseUUID,
+		UseHex:           cfg.UseHex,
 		Logger:           log.ErrorWithSentryWrapper(),
 	})
 	if err != nil {
