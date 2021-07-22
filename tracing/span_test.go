@@ -484,6 +484,14 @@ func TestHeadersParseTraceID(t *testing.T) {
 			},
 		},
 		{
+			name:    "hex",
+			headers: Headers{TraceID: "6ba7b8109dad11d180b400c04fd430c8"},
+			expected: expectation{
+				id: "6ba7b8109dad11d180b400c04fd430c8",
+				ok: true,
+			},
+		},
+		{
 			name:    "invalid",
 			headers: Headers{TraceID: strings.Repeat("1", maxIDLength+1)},
 			expected: expectation{
@@ -546,6 +554,14 @@ func TestHeadersParseSpanID(t *testing.T) {
 			headers: Headers{SpanID: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"},
 			expected: expectation{
 				id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+				ok: true,
+			},
+		},
+		{
+			name:    "hex",
+			headers: Headers{SpanID: "80b400c04fd430c8"},
+			expected: expectation{
+				id: "80b400c04fd430c8",
 				ok: true,
 			},
 		},

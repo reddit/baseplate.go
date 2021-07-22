@@ -3,12 +3,10 @@ package tracing
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"testing/quick"
 	"time"
 
-	"github.com/gofrs/uuid"
 	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/log"
@@ -141,52 +139,31 @@ func TestTracer(t *testing.T) {
 	)
 }
 
-func TestFakeUUIDQuick(t *testing.T) {
-	f := func(removeHyphen bool) bool {
-		tracer := Tracer{
-			uuidRemoveHyphen: removeHyphen,
+func TestHexID64Quick(t *testing.T) {
+	const expectedLength = 16
+	f := func() bool {
+		s := hexID64()
+		if len(s) != expectedLength {
+			t.Errorf("Expected id length to be %d, got %q", expectedLength, s)
 		}
-		s := tracer.fakeUUID()
-		id, err := uuid.FromString(s)
-		if err != nil {
-			t.Errorf("Failed to parse %q as uuid: %v", s, err)
-		}
-		if s != tracer.uuidToString(id) {
-			t.Errorf("fake uuid %q parsed differently as %q", s, id.String())
+		for i, char := range s {
+			if !(char >= '0' && char <= '9' || char >= 'a' && char <= 'f') {
+				t.Errorf("The %d-th char of %q is not hex", i, s)
+			}
 		}
 		return !t.Failed()
 	}
 	if err := quick.Check(f, nil); err != nil {
 		t.Error(err)
 	}
-	t.Log(new(Tracer).fakeUUID())
+	t.Log(hexID64())
 }
 
-func TestUUIDRemoveHyphenQuick(t *testing.T) {
-	tracer := Tracer{
-		useUUID:          true,
-		uuidRemoveHyphen: true,
-	}
-	f := func(useFake bool) bool {
-		var s string
-		if useFake {
-			s = tracer.newID()
-		} else {
-			s = tracer.fakeUUID()
+func BenchmarkHexID64(b *testing.B) {
+	b.ReportAllocs()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			hexID64()
 		}
-		if strings.Contains(s, "-") {
-			t.Errorf("uuid %q contains hyphen", s)
-		}
-		id, err := uuid.FromString(s)
-		if err != nil {
-			t.Errorf("Failed to parse %q as uuid: %v", s, err)
-		}
-		if s != tracer.uuidToString(id) {
-			t.Errorf("uuid %q parsed differently as %q", s, id.String())
-		}
-		return !t.Failed()
-	}
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
+	})
 }
