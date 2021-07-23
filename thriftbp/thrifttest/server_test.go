@@ -92,7 +92,7 @@ func TestNewBaseplateServer(t *testing.T) {
 				// cancelling the context will close the server.
 				server.Start(ctx)
 
-				client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool)
+				client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool.TClient())
 				result, err := client.IsHealthy(
 					ctx,
 					&baseplatethrift.IsHealthyRequest{

@@ -43,6 +43,16 @@ func NewMyServiceClient(_ thrift.TClient) MyService {
 
 // END THRIFT GENERATED CODE SECTION
 
+// MyServiceClientFactory is a thin wrapper around the ClientPool to help
+// avoiding the reuse of the concrete client.
+type MyServiceClientFactory struct {
+	pool thriftbp.ClientPool
+}
+
+func (f MyServiceClientFactory) Client() MyService {
+	return NewMyServiceClient(f.pool.TClient())
+}
+
 func LoggingMiddleware(next thrift.TClient) thrift.TClient {
 	return thrift.WrappedTClient{
 		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
@@ -78,8 +88,13 @@ func Example_clientPool() {
 		panic(err)
 	}
 	defer pool.Close()
+	clientFactory := MyServiceClientFactory{
+		pool: pool,
+	}
 
-	client := NewMyServiceClient(pool)
+	// NOTE: client returned here should be treated as disposable and never shared
+	// between goroutines.
+	client := clientFactory.Client()
 	if _, err = client.MyEndpoint(context.Background(), &MyEndpointRequest{}); err != nil {
 		panic(err)
 	}

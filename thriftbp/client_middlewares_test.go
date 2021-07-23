@@ -359,7 +359,7 @@ func TestRetry(t *testing.T) {
 	handler.server = server
 	server.Start(ctx)
 
-	client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool)
+	client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool.TClient())
 	ctx, cancel = context.WithTimeout(ctx, retryTestTimeout)
 	defer cancel()
 	_, err = client.IsHealthy(
