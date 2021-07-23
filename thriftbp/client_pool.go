@@ -24,8 +24,8 @@ import (
 // ClientPoolConfig.PoolGaugeInterval <= 0.
 const DefaultPoolGaugeInterval = time.Second * 10
 
-// PoolError is returned by ClientPool.Call when it fails to get a client from
-// its pool.
+// PoolError is returned by ClientPool.TClient.Call when it fails to get a
+// client from its pool.
 type PoolError struct {
 	// Cause is the inner error wrapped by PoolError.
 	Cause error
@@ -244,11 +244,34 @@ type Client interface {
 // You need to create a concrete thrift client for each of your goroutines,
 // but they can share the same ClientPool underneath.
 type ClientPool interface {
-	// ClientPool implements TClient by grabbing a Client from it's pool and
-	// releasing that Client after it's Call method completes.
+	// The returned TClient implements TClient by grabbing a Client from its pool
+	// and releasing that Client after its Call method completes.
 	//
-	// If Call fails to get a client from the pool, it will return PoolError.
-	// You can check the error returned by Call using:
+	// A typical example of how to use the pool is like this:
+	//
+	//     // service.NewServiceClient comes from thrift compiled go code.
+	//     // client you got here should be treated as disposable and never be
+	//     // shared between goroutines.
+	//     client := service.NewServiceClient(pool.TClient())
+	//     resp, err := client.MyEndpoint(ctx, req)
+	//
+	// Or you can create a "client factory" for the service you want to call:
+	//
+	//    type ServiceClientFactory struct {
+	//        pool thriftbp.ClientPool
+	//    }
+	//
+	//    // service.Service and service.NewServiceClient are from thrift compiled
+	//    // go code.
+	//    func (f ServiceClientFactory) Client service.Service {
+	//        return service.NewServiceClient(f.pool.TClient())
+	//    }
+	//
+	//    client := factory.Client()
+	//    resp, err := client.MyEndpoint(ctx, req)
+	//
+	// If the call fails to get a client from the pool, it will return PoolError.
+	// You can check the error returned using:
 	//
 	//     var poolErr thriftbp.PoolError
 	//     if errors.As(err, &poolErr) {
@@ -257,13 +280,13 @@ type ClientPool interface {
 	//       // It's error from the actual thrift call
 	//     }
 	//
-	// If the error is not of type PoolError that means it's returned by the
-	// Call from the actual client.
+	// If the error is not of type PoolError that means it's returned by the call
+	// from the actual client.
 	//
-	// If Call fails to release the client back to the pool,
+	// If the call fails to release the client back to the pool,
 	// it will log the error on error level but not return it to the caller.
 	// It also increases ServiceSlug+".pool-release-error" counter.
-	thrift.TClient
+	TClient() thrift.TClient
 
 	// Passthrough APIs from clientpool.Pool:
 	io.Closer
@@ -472,12 +495,12 @@ type clientPool struct {
 	wrappedClient thrift.TClient
 }
 
-func (p *clientPool) Call(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+func (p *clientPool) TClient() thrift.TClient {
 	// A clientPool needs to be set up properly before it can be used,
 	// specifically use p.wrapCalls to set up p.wrappedClient before using it.
 	//
 	// newClientPool already takes care of this for you.
-	return p.wrappedClient.Call(ctx, method, args, result)
+	return p.wrappedClient
 }
 
 // wrapCalls wraps p.pooledCall in the given middleware and sets p.wrappedClient

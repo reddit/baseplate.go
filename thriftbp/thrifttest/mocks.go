@@ -233,6 +233,11 @@ func (m MockClientPool) IsExhausted() bool {
 	return m.Exhausted
 }
 
+// TClient implements thriftbp.ClientPool.
+func (m MockClientPool) TClient() thrift.TClient {
+	return m
+}
+
 // Call implements TClient.
 //
 // If Exhausted is set to true,

@@ -149,7 +149,7 @@ func checkThrift(addr string, probe baseplate.IsHealthyProbe, timeout time.Durat
 		return fmt.Errorf("failed to create thrift client pool: %w", err)
 	}
 	defer pool.Close()
-	client := baseplate.NewBaseplateServiceV2Client(pool)
+	client := baseplate.NewBaseplateServiceV2Client(pool.TClient())
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	ret, err := client.IsHealthy(ctx, &baseplate.IsHealthyRequest{
