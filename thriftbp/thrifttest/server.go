@@ -82,6 +82,11 @@ type ServerConfig struct {
 	// Optional, the ErrorSpanSuppressor used to create InjectServerSpan
 	// middleware.
 	ErrorSpanSuppressor errorsbp.Suppressor
+
+	// The edge context implementation. Optional.
+	//
+	// If it's not set, ecinterface.Mock() will be used instead.
+	EdgeContextImpl ecinterface.Interface
 }
 
 // Server is a test server returned by NewBaseplateServer.  It contains both
@@ -181,11 +186,15 @@ func NewBaseplateServer(cfg ServerConfig) (*Server, error) {
 		return nil, err
 	}
 
+	if cfg.EdgeContextImpl == nil {
+		cfg.EdgeContextImpl = ecinterface.Mock()
+	}
+
 	cfg.ServerConfig.Addr = socket.Addr().String()
 	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
 		Config:          cfg.ServerConfig,
 		Store:           cfg.SecretStore,
-		EdgeContextImpl: ecinterface.Mock(),
+		EdgeContextImpl: cfg.EdgeContextImpl,
 	})
 	middlewares := thriftbp.BaseplateDefaultProcessorMiddlewares(
 		thriftbp.DefaultProcessorMiddlewaresArgs{
@@ -221,7 +230,7 @@ func NewBaseplateServer(cfg ServerConfig) (*Server, error) {
 		cfg.ClientConfig.ServiceSlug = DefaultServiceSlug
 	}
 	if cfg.ClientConfig.EdgeContextImpl == nil {
-		cfg.ClientConfig.EdgeContextImpl = ecinterface.Mock()
+		cfg.ClientConfig.EdgeContextImpl = cfg.EdgeContextImpl
 	}
 	if cfg.ClientConfig.MaxConnections == 0 {
 		cfg.ClientConfig.MaxConnections = DefaultClientMaxConnections
