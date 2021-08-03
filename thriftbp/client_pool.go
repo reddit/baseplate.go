@@ -389,10 +389,11 @@ func newClientPool(
 				opener,
 			)
 			if fallbackErr == nil {
-				cfg.InitialConnectionsFallbackLogger.Log(
-					context.Background(),
-					"thriftbp: error initializing thrift clientpool but fallback to 0 initial connections worked. Original error: "+err.Error(),
-				)
+				cfg.InitialConnectionsFallbackLogger.Log(context.Background(), fmt.Sprintf(
+					"thriftbp: error initializing thrift clientpool for %q but fallback to 0 initial connections worked. Original error: %v",
+					cfg.ServiceSlug,
+					err,
+				))
 				err = nil
 			} else {
 				var batch errorsbp.Batch
@@ -402,7 +403,11 @@ func newClientPool(
 			}
 		}
 		if err != nil {
-			return nil, fmt.Errorf("thriftbp: error initializing thrift clientpool: %w", err)
+			return nil, fmt.Errorf(
+				"thriftbp: error initializing thrift clientpool for %q: %w",
+				cfg.ServiceSlug,
+				err,
+			)
 		}
 	}
 	if cfg.ReportPoolStats {
