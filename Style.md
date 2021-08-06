@@ -135,6 +135,25 @@ log.Errorw(
 )
 ```
 
+## Blank line to highlight change of logical level
+
+Sometimes two consecutive lines could be on the same indentation level but not
+the same logical level.
+This usually happens when a long `if` condition is broke into multiple lines.
+In such cases,
+please add a blank line between them to highlight the change of logical level.
+
+Example:
+
+```go
+if condition1 && condition2 &&
+	condition3 && condition4 {
+
+	// do something, note the blank line before this line.
+	foo()
+}
+```
+
 ## Other resources
 
 For things not covered above,
