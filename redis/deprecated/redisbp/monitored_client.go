@@ -2,11 +2,18 @@ package redisbp
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+
 	"github.com/reddit/baseplate.go/metricsbp"
 )
+
+// ErrReplicationFactorFailed returns when the cluster client wait function returns replica reached count
+// that is less than desired replication factor
+var ErrReplicationFactorFailed = errors.New("redis: failed to meet the requested replication factor")
 
 // PoolStatser is an interface with PoolStats that reports pool related metrics
 type PoolStatser interface {
@@ -30,12 +37,40 @@ func NewMonitoredFailoverClient(name string, opt *redis.FailoverOptions) *redis.
 	return client
 }
 
+// ClusterClient extends redis cluster client with a functional Wait function
+type ClusterClient struct {
+	*redis.ClusterClient
+}
+
+// Wait blocks the current client until all the previous write commands are
+// successfully transferred and acknowledged by at least the specified number of replicas.
+func (cc *ClusterClient) Wait(ctx context.Context, key string, numSlaves int, timeout time.Duration) (replicas int64, err error) {
+	if numSlaves <= 0 {
+		return 0, nil
+	}
+
+	client, err := cc.ClusterClient.MasterForKey(ctx, key)
+	if err != nil {
+		return 0, err
+	}
+
+	replicas, err = client.Wait(ctx, numSlaves, timeout).Result()
+	if err != nil {
+		return 0, fmt.Errorf("redisbp: error while trying to apply replication factor, %w", err)
+	} else if int(replicas) < numSlaves {
+		return replicas, ErrReplicationFactorFailed
+	}
+
+	return
+}
+
 // NewMonitoredClusterClient creates a new *redis.ClusterClient object with a
 // redisbp.SpanHook attached.
-func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *redis.ClusterClient {
+func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *ClusterClient {
 	client := redis.NewClusterClient(opt)
 	client.AddHook(SpanHook{ClientName: name})
-	return client
+
+	return &ClusterClient{client}
 }
 
 // MonitorPoolStats publishes stats for the underlying Redis client pool at the
