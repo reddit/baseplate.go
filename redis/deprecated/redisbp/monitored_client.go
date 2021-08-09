@@ -13,7 +13,7 @@ import (
 
 // ErrReplicationFactorFailed returns when the cluster client wait function returns replica reached count
 // that is less than desired replication factor
-var ErrReplicationFactorFailed = errors.New("redis: failed to meet the requested replication factor")
+var ErrReplicationFactorFailed = errors.New("redisbp: failed to meet the requested replication factor")
 
 // PoolStatser is an interface with PoolStats that reports pool related metrics
 type PoolStatser interface {
@@ -42,22 +42,29 @@ type ClusterClient struct {
 	*redis.ClusterClient
 }
 
+// WaitArgs enclose inputs for Wait command into a struct
+type WaitArgs struct {
+	Key         string
+	NumReplicas int
+	Timeout     time.Duration
+}
+
 // Wait blocks the current client until all the previous write commands are
 // successfully transferred and acknowledged by at least the specified number of replicas.
-func (cc *ClusterClient) Wait(ctx context.Context, key string, numSlaves int, timeout time.Duration) (replicas int64, err error) {
-	if numSlaves <= 0 {
+func (cc *ClusterClient) Wait(ctx context.Context, args WaitArgs) (replicas int64, err error) {
+	if args.NumReplicas <= 0 {
 		return 0, nil
 	}
 
-	client, err := cc.ClusterClient.MasterForKey(ctx, key)
+	client, err := cc.ClusterClient.MasterForKey(ctx, args.Key)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("redisbp: error while trying to retrieve master from key, %w", err)
 	}
 
-	replicas, err = client.Wait(ctx, numSlaves, timeout).Result()
+	replicas, err = client.Wait(ctx, args.NumReplicas, args.Timeout).Result()
 	if err != nil {
 		return 0, fmt.Errorf("redisbp: error while trying to apply replication factor, %w", err)
-	} else if int(replicas) < numSlaves {
+	} else if int(replicas) < args.NumReplicas {
 		return replicas, ErrReplicationFactorFailed
 	}
 
