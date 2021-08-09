@@ -14,6 +14,15 @@ import (
 	sentry "github.com/getsentry/sentry-go"
 )
 
+// DefaultWrapper defines the default one to be used in log.Wrapper.
+//
+// It affects two places:
+//
+// 1. When using nil-safe calls on log.Wrapper on a nil log.Wrapper.
+//
+// 2. When unmarshaling from text (yaml) and the text is empty.
+var DefaultWrapper Wrapper = ErrorWithSentryWrapper()
+
 // Wrapper defines a simple interface to wrap logging functions.
 //
 // As principles, library code should:
@@ -71,21 +80,24 @@ import (
 type Wrapper func(ctx context.Context, msg string)
 
 // Log is the nil-safe way of calling a log.Wrapper.
+//
+// If w is nil, DefaultWrapper will be used instead.
 func (w Wrapper) Log(ctx context.Context, msg string) {
-	if w != nil {
-		w(ctx, msg)
+	if w == nil {
+		w = DefaultWrapper
 	}
+	w(ctx, msg)
 }
 
 // ToThriftLogger wraps Wrapper into thrift.Logger.
 func (w Wrapper) ToThriftLogger() thrift.Logger {
-	if w != nil {
-		ctx := context.Background()
-		return func(msg string) {
-			w(ctx, msg)
-		}
+	if w == nil {
+		w = DefaultWrapper
 	}
-	return func(_ string) {}
+	ctx := context.Background()
+	return func(msg string) {
+		w(ctx, msg)
+	}
 }
 
 // UnmarshalText implements encoding.TextUnmarshaler.
@@ -94,7 +106,9 @@ func (w Wrapper) ToThriftLogger() thrift.Logger {
 //
 // Please note that this currently only support limited implementations:
 //
-// - "nop" or empty: NopWrapper.
+// - empty: DefaultWrapper.
+//
+// - "nop": NopWrapper.
 //
 // - "std": StdWrapper with default stdlib logger
 // (log.New(os.Stderr, "", log.LstdFlags)).
@@ -120,7 +134,9 @@ func (w *Wrapper) UnmarshalText(text []byte) error {
 	switch s {
 	default:
 		return fmt.Errorf("unsupported log.Wrapper config: %q", text)
-	case "", "nop":
+	case "":
+		*w = DefaultWrapper
+	case "nop":
 		*w = NopWrapper
 	case "std":
 		*w = StdWrapper(stdlog.New(os.Stderr, "", stdlog.LstdFlags))

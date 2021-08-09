@@ -36,7 +36,7 @@ func TestLogWrapperUnmarshalText(t *testing.T) {
 		},
 		{
 			text:     "",
-			expected: "log.NopWrapper",
+			expected: "log.ErrorWithSentryWrapper",
 		},
 		{
 			text:     "nop",
