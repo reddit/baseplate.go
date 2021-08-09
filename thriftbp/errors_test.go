@@ -143,6 +143,27 @@ func TestIDLExceptionSuppressor(t *testing.T) {
 			expected: true,
 		},
 		{
+			label: "baseplate.Error-500",
+			err: &baseplatethrift.Error{
+				Code: thrift.Int32Ptr(500),
+			},
+			expected: false,
+		},
+		{
+			label: "baseplate.Error-400",
+			err: &baseplatethrift.Error{
+				Code: thrift.Int32Ptr(400),
+			},
+			expected: true,
+		},
+		{
+			label: "baseplate.Error-1000",
+			err: &baseplatethrift.Error{
+				Code: thrift.Int32Ptr(1000),
+			},
+			expected: true,
+		},
+		{
 			label:    "TTransportException",
 			err:      thrift.NewTTransportException(0, ""),
 			expected: false,

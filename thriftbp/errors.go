@@ -13,13 +13,6 @@ import (
 	"github.com/reddit/baseplate.go/retrybp"
 )
 
-// BaseplateErrorCode defines the minimum interface for a Baseplate Error that is
-// used by logic within baseplate.go.
-type BaseplateErrorCode interface {
-	// GetCode returns the error code describing the general nature of the error.
-	GetCode() int32
-}
-
 // baseplateError defines the interface of thrift compiled baseplate.Error
 // that will be satisfied as long as services are using the same version of
 // thrift compiler.
@@ -40,8 +33,7 @@ type baseplateError interface {
 }
 
 var (
-	_ BaseplateErrorCode = (*baseplatethrift.Error)(nil)
-	_ baseplateError     = (*baseplatethrift.Error)(nil)
+	_ baseplateError = (*baseplatethrift.Error)(nil)
 )
 
 // ClientPoolConfig errors are returned if the configuration validation fails.
@@ -67,8 +59,8 @@ func WithDefaultRetryableCodes(codes ...int32) []int32 {
 	}, codes...)
 }
 
-// BaseplateErrorFilter returns true if the given error is a BaseplateErrorCode
-// and returns one of the given codes and false if it is a BaseplateErrorCode
+// BaseplateErrorFilter returns true if the given error is a baseplate.Error
+// and returns one of the given codes and false if it is a baseplate.Error
 // but does not return one of the given codes otherwise it calls the next filter
 // in the chain.
 func BaseplateErrorFilter(codes ...int32) retrybp.Filter {
@@ -77,7 +69,7 @@ func BaseplateErrorFilter(codes ...int32) retrybp.Filter {
 		codeMap[code] = true
 	}
 	return func(err error, next retry.RetryIfFunc) bool {
-		var bpErr BaseplateErrorCode
+		var bpErr baseplateError
 		if errors.As(err, &bpErr) {
 			return codeMap[bpErr.GetCode()]
 		}
@@ -87,12 +79,22 @@ func BaseplateErrorFilter(codes ...int32) retrybp.Filter {
 
 // IDLExceptionSuppressor is an errorsbp.Suppressor implementation that returns
 // true on errors from exceptions defined in thrift IDL files.
+//
+// Note that if the exception is baseplate.Error,
+// this function will NOT suppress it if the code is in range [500, 600).
 func IDLExceptionSuppressor(err error) bool {
 	var te thrift.TException
-	if errors.As(err, &te) {
-		return te.TExceptionType() == thrift.TExceptionTypeCompiled
+	if !errors.As(err, &te) {
+		return false
 	}
-	return false
+	var bpErr baseplateError
+	if errors.As(err, &bpErr) {
+		// If this is also baseplate.Error,
+		// only suppress it if the error code is outside of [500, 600).
+		code := bpErr.GetCode()
+		return code < 500 || code >= 600
+	}
+	return te.TExceptionType() == thrift.TExceptionTypeCompiled
 }
 
 var _ errorsbp.Suppressor = IDLExceptionSuppressor
@@ -137,12 +139,12 @@ func (e wrappedBaseplateError) Unwrap() error {
 }
 
 // WrapBaseplateError wraps e to an error with more meaningful error message if
-// e is Error defined in baseplate.thrift. Otherwise it returns e as-is.
+// e is baseplate.Error. Otherwise it returns e as-is.
 //
 // NOTE: This in general should only be used in clients.
-// If you wrap *baseplate.Error returned in server code,
+// If you wrap baseplate.Error returned in server code,
 // it could cause the error no longer being recognized as an error defined in
-// thrift IDL by the thrift server, and the client could get a generic
+// thrift IDL by the thrift server, and the client would get a generic
 // TApplicationException instead.
 func WrapBaseplateError(e error) error {
 	var bpErr baseplateError
