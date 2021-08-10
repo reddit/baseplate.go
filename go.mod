@@ -23,7 +23,10 @@ require (
 	github.com/sony/gobreaker v0.4.1
 	go.uber.org/zap v1.15.0
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
-	golang.org/x/sys v0.0.0-20210112080510-489259a85091
+	golang.org/x/sys v0.0.0-20210510120138-977fb7262007
+	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/tools v0.1.3-0.20210608163600-9ed039809d4c // indirect
 	gopkg.in/fsnotify.v1 v1.4.7
 	gopkg.in/yaml.v2 v2.3.0
+	honnef.co/go/tools v0.2.0 // indirect
 )

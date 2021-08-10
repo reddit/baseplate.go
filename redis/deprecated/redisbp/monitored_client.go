@@ -2,11 +2,18 @@ package redisbp
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+
 	"github.com/reddit/baseplate.go/metricsbp"
 )
+
+// ErrReplicationFactorFailed returns when the cluster client wait function returns replica reached count
+// that is less than desired replication factor
+var ErrReplicationFactorFailed = errors.New("redisbp: failed to meet the requested replication factor")
 
 // PoolStatser is an interface with PoolStats that reports pool related metrics
 type PoolStatser interface {
@@ -30,12 +37,49 @@ func NewMonitoredFailoverClient(name string, opt *redis.FailoverOptions) *redis.
 	return client
 }
 
+// ClusterClient extends redis cluster client with a functional Wait function
+type ClusterClient struct {
+	*redis.ClusterClient
+}
+
+// WaitArgs enclose inputs for Wait command into a struct
+type WaitArgs struct {
+	Key         string
+	NumReplicas int
+	Timeout     time.Duration
+}
+
+// Wait blocks the current client until all the previous write commands are
+// successfully transferred and acknowledged by at least the specified number of replicas.
+func (cc *ClusterClient) Wait(ctx context.Context, args WaitArgs) (replicas int64, err error) {
+	if args.NumReplicas <= 0 {
+		return 0, nil
+	}
+
+	client, err := cc.ClusterClient.MasterForKey(ctx, args.Key)
+	if err != nil {
+		return 0, fmt.Errorf("redisbp: error while trying to retrieve master from key: %w", err)
+	}
+
+	replicas, err = client.Wait(ctx, args.NumReplicas, args.Timeout).Result()
+	if err != nil {
+		return 0, fmt.Errorf("redisbp: error while trying to apply replication factor: %w", err)
+	}
+
+	if int(replicas) < args.NumReplicas {
+		return replicas, fmt.Errorf("%w: %d/%d", ErrReplicationFactorFailed, replicas, args.NumReplicas)
+	}
+
+	return
+}
+
 // NewMonitoredClusterClient creates a new *redis.ClusterClient object with a
 // redisbp.SpanHook attached.
-func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *redis.ClusterClient {
+func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *ClusterClient {
 	client := redis.NewClusterClient(opt)
 	client.AddHook(SpanHook{ClientName: name})
-	return client
+
+	return &ClusterClient{client}
 }
 
 // MonitorPoolStats publishes stats for the underlying Redis client pool at the
