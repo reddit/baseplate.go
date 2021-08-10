@@ -10,7 +10,7 @@ require (
 	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/chasex/redis-go-cluster v1.0.0 // indirect
 	github.com/garyburd/redigo v1.6.2 // indirect
-	github.com/getsentry/sentry-go v0.6.0
+	github.com/getsentry/sentry-go v0.11.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-redis/redis/v8 v8.10.0

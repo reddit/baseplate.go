@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	sentry "github.com/getsentry/sentry-go"
@@ -50,6 +51,9 @@ type SentryConfig struct {
 	// the Closer returned by InitSentry.
 	// If <=0, DefaultSentryFlushTimeout will be used.
 	FlushTimeout time.Duration
+
+	// BeforeSend is a callback modifier before emitting an event to Sentry.
+	BeforeSend func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event
 }
 
 // InitSentry initializes sentry reporting.
@@ -71,12 +75,38 @@ func InitSentry(cfg SentryConfig) (io.Closer, error) {
 	if cfg.SampleRate != nil && *cfg.SampleRate >= 0 && *cfg.SampleRate <= 1 {
 		sampleRate = *cfg.SampleRate
 	}
+
+	// Improve legibility of Sentry errors by using the error message as header
+	// instead of the error type and marking stack trace frame from
+	// baseplate.go as not in-app.
+	const (
+		base   = "github.com/reddit/baseplate.go"
+		prefix = base + "/"
+	)
+	beforeSend := func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+		for i, exception := range event.Exception {
+			// swap source location and of error type as title in issue list
+			// https://github.com/getsentry/sentry-go/issues/307#issuecomment-737871530
+			event.Exception[i].Type, event.Exception[i].Value = event.Exception[i].Value, event.Exception[i].Type
+			for j, frame := range exception.Stacktrace.Frames {
+				if frame.Module == base || strings.HasPrefix(frame.Module, prefix) {
+					event.Exception[i].Stacktrace.Frames[j].InApp = false
+				}
+			}
+		}
+		if cfg.BeforeSend != nil {
+			return cfg.BeforeSend(event, hint)
+		}
+		return event
+	}
+
 	if err := sentry.Init(sentry.ClientOptions{
 		Dsn:          cfg.DSN,
 		SampleRate:   sampleRate,
 		ServerName:   cfg.ServerName,
 		Environment:  cfg.Environment,
 		IgnoreErrors: cfg.IgnoreErrors,
+		BeforeSend:   beforeSend,
 	}); err != nil {
 		return nil, err
 	}
