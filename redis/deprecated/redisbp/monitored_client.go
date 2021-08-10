@@ -58,14 +58,16 @@ func (cc *ClusterClient) Wait(ctx context.Context, args WaitArgs) (replicas int6
 
 	client, err := cc.ClusterClient.MasterForKey(ctx, args.Key)
 	if err != nil {
-		return 0, fmt.Errorf("redisbp: error while trying to retrieve master from key, %w", err)
+		return 0, fmt.Errorf("redisbp: error while trying to retrieve master from key: %w", err)
 	}
 
 	replicas, err = client.Wait(ctx, args.NumReplicas, args.Timeout).Result()
 	if err != nil {
-		return 0, fmt.Errorf("redisbp: error while trying to apply replication factor, %w", err)
-	} else if int(replicas) < args.NumReplicas {
-		return replicas, ErrReplicationFactorFailed
+		return 0, fmt.Errorf("redisbp: error while trying to apply replication factor: %w", err)
+	}
+
+	if int(replicas) < args.NumReplicas {
+		return replicas, fmt.Errorf("%w: %d/%d", ErrReplicationFactorFailed, replicas, args.NumReplicas)
 	}
 
 	return
