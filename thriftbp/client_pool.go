@@ -453,15 +453,11 @@ func newClient(
 		return nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client: %w", err)
 	}
 
-	trans, err := thrift.NewTSocketConf(addr, cfg)
+	conn, err := net.DialTimeout("tcp", addr, cfg.GetConnectTimeout())
 	if err != nil {
-		return nil, fmt.Errorf("thriftbp: error building TSocket for new Thrift client: %w", err)
+		return nil, fmt.Errorf("thriftbp: error opening connection for new Thrift client: %w", err)
 	}
-
-	err = trans.Open()
-	if err != nil {
-		return nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client: %w", err)
-	}
+	trans := thrift.NewTSocketFromConnConf(conn, cfg)
 
 	client := thrift.NewTStandardClient(
 		protoFactory.GetProtocol(trans),
