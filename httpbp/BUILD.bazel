@@ -56,7 +56,7 @@ go_test(
         "//internal/gen-go/reddit/baseplate",
         "//log",
         "//mqsend",
-        "//redis/deprecated/redisbp",
+        "//redis/db/redisbp",
         "//retrybp",
         "//secrets",
         "//tracing",

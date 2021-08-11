@@ -17,7 +17,6 @@ go_library(
     deps = [
         "//batchcloser",
         "//ecinterface",
-        "//errorsbp",
         "//log",
         "//metricsbp",
         "//runtimebp",

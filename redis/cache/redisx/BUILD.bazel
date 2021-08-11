@@ -9,7 +9,7 @@ go_library(
         "sync.go",
         "syncx.go",
     ],
-    importpath = "github.com/reddit/baseplate.go/redis/redisx",
+    importpath = "github.com/reddit/baseplate.go/redis/cache/redisx",
     visibility = ["//visibility:public"],
     deps = [
         "//errorsbp",

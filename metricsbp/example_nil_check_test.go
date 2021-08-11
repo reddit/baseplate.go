@@ -36,7 +36,6 @@ func ExampleCheckNilFields() {
 		metricsbp.StatsdConfig{
 			Prefix:              prefix,
 			Address:             statsdAddr,
-			CounterSampleRate:   metricsbp.Float64Ptr(sampleRate),
 			HistogramSampleRate: metricsbp.Float64Ptr(sampleRate),
 		},
 	)

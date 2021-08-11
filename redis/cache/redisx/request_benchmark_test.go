@@ -7,7 +7,7 @@ import (
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/reddit/baseplate.go/redis/redisx
+// pkg: github.com/reddit/baseplate.go/redis/cache/redisx
 // BenchmarkSetValue
 // BenchmarkSetValue/string
 // BenchmarkSetValue/string-12         	14946445	        67.1 ns/op
@@ -73,7 +73,7 @@ func BenchmarkSetValue(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/reddit/baseplate.go/redis/redisx
+// pkg: github.com/reddit/baseplate.go/redis/cache/redisx
 // BenchmarkCachedStructFields
 // BenchmarkCachedStructFields-12    	40746420	        29.8 ns/op
 func BenchmarkCachedStructFields(b *testing.B) {
@@ -93,7 +93,7 @@ func BenchmarkCachedStructFields(b *testing.B) {
 
 // goos: darwin
 // goarch: amd64
-// pkg: github.com/reddit/baseplate.go/redis/redisx
+// pkg: github.com/reddit/baseplate.go/redis/cache/redisx
 // BenchmarkGetStructFields
 // BenchmarkGetStructFields-12    	 2092642	       571 ns/op
 func BenchmarkGetStructFields(b *testing.B) {

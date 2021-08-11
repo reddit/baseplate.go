@@ -8,7 +8,7 @@ import (
 	"github.com/joomcode/redispipe/redis"
 	"github.com/opentracing/opentracing-go"
 
-	"github.com/reddit/baseplate.go/redis/redisx"
+	"github.com/reddit/baseplate.go/redis/cache/redisx"
 	"github.com/reddit/baseplate.go/tracing"
 )
 

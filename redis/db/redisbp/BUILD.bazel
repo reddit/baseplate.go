@@ -8,7 +8,7 @@ go_library(
         "hooks.go",
         "monitored_client.go",
     ],
-    importpath = "github.com/reddit/baseplate.go/redis/deprecated/redisbp",
+    importpath = "github.com/reddit/baseplate.go/redis/db/redisbp",
     visibility = ["//visibility:public"],
     deps = [
         "//errorsbp",

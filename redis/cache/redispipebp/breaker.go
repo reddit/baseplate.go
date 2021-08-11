@@ -7,7 +7,7 @@ import (
 	"github.com/joomcode/redispipe/redis"
 
 	"github.com/reddit/baseplate.go/breakerbp"
-	"github.com/reddit/baseplate.go/redis/redisx"
+	"github.com/reddit/baseplate.go/redis/cache/redisx"
 )
 
 // BreakerSync wraps redis calls is the given CircuitBreaker.

@@ -221,18 +221,6 @@ func (s *Span) AddCounter(key string, delta float64) {
 	}
 }
 
-// Component returns the string version of the span type,
-// except for client spans it returns "clients" instead of "client".
-//
-// DEPRECATED: To be removed in 0.9.0.
-func (s *Span) Component() string {
-	switch s.spanType {
-	case SpanTypeClient:
-		return "clients"
-	}
-	return s.spanType.String()
-}
-
 // MetricsTags returns a subset of span's tags filtered by the allow-list set
 // from SetMetricsTagsAllowList().
 func (s *Span) MetricsTags() map[string]string {

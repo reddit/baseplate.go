@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/reddit/baseplate.go"
-	"github.com/reddit/baseplate.go/redis/deprecated/redisbp"
+	"github.com/reddit/baseplate.go/redis/db/redisbp"
 )
 
 type Config struct {

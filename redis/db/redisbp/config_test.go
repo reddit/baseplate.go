@@ -9,7 +9,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"gopkg.in/yaml.v2"
 
-	"github.com/reddit/baseplate.go/redis/deprecated/redisbp"
+	"github.com/reddit/baseplate.go/redis/db/redisbp"
 )
 
 func TestClientConfig(t *testing.T) {

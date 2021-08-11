@@ -11,7 +11,7 @@ import (
 	"github.com/joomcode/redispipe/redisconn"
 	"gopkg.in/yaml.v2"
 
-	"github.com/reddit/baseplate.go/redis/redispipebp"
+	"github.com/reddit/baseplate.go/redis/cache/redispipebp"
 )
 
 func TestClientConfig(t *testing.T) {

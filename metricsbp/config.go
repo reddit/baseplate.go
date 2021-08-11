@@ -22,16 +22,6 @@ type Config struct {
 	// Tags are the base tags that will be applied to all metrics.
 	Tags Tags `yaml:"tags"`
 
-	// DEPRECATED: There's not really a reason to sample counters in Baseplate.go
-	// as they are always aggregated in memory. This config will be removed in a
-	// future release.
-	//
-	// CounterSampleRate is the fraction of counters that you want to send to your
-	// metrics backend.
-	//
-	// Optional, defaults to 1 (100%).
-	CounterSampleRate *float64 `yaml:"counterSampleRate"`
-
 	// HistogramSampleRate is the fraction of histograms (including timings) that
 	// you want to send to your metrics  backend.
 	//
@@ -52,7 +42,6 @@ type Config struct {
 // with the global tracing hook registry.
 func InitFromConfig(ctx context.Context, cfg Config) io.Closer {
 	M = NewStatsd(ctx, StatsdConfig{
-		CounterSampleRate:   cfg.CounterSampleRate,
 		HistogramSampleRate: cfg.HistogramSampleRate,
 		Prefix:              cfg.Namespace,
 		Address:             cfg.Endpoint,

@@ -179,7 +179,6 @@ func TestPoolExhaustedFilter(t *testing.T) {
 
 	for name, f := range map[string]retrybp.Filter{
 		"RetryableErrorFilter": retrybp.RetryableErrorFilter,
-		"PoolExhaustedFilter":  retrybp.PoolExhaustedFilter,
 	} {
 		t.Run(name, func(t *testing.T) {
 			for _, _c := range cases {
@@ -317,12 +316,25 @@ func TestUnrecoverableErrorFilter(t *testing.T) {
 			expected: 1,
 		},
 		{
-			name: "wrapped",
+			name: "wrapped-retry",
 			err: fmt.Errorf(
 				"test: error. %w",
 				retry.Unrecoverable(errors.New("test")),
 			),
 			expected: maxAttempts,
+		},
+		{
+			name:     "retrybp.Unrecoverable",
+			err:      retrybp.Unrecoverable(errors.New("test")),
+			expected: 1,
+		},
+		{
+			name: "wrapped-retrybp",
+			err: fmt.Errorf(
+				"test: error. %w",
+				retrybp.Unrecoverable(errors.New("test")),
+			),
+			expected: 1,
 		},
 	}
 
@@ -339,7 +351,7 @@ func TestUnrecoverableErrorFilter(t *testing.T) {
 					retry.Delay(0),
 					retry.DelayType(retry.FixedDelay),
 					retrybp.Filters(
-						retrybp.UnrecoverableErrorFilter,
+						retrybp.RetryableErrorFilter,
 						doFilter,
 					),
 				)
