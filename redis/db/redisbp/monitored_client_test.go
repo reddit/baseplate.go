@@ -9,7 +9,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/go-redis/redis/v8"
 	"github.com/reddit/baseplate.go/mqsend"
-	"github.com/reddit/baseplate.go/redis/deprecated/redisbp"
+	"github.com/reddit/baseplate.go/redis/db/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 

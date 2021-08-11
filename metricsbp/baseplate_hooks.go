@@ -8,13 +8,6 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
-// DEPRECATED: to be removed in 0.9.0.
-const (
-	success = "success"
-	failure = "failure"
-	total   = "total"
-)
-
 const (
 	baseplateTimer   = "baseplate.%s.latency"
 	baseplateCounter = "baseplate.%s.rate"
@@ -45,18 +38,11 @@ type spanHook struct {
 	metrics *Statsd
 
 	startTime time.Time
-
-	// DEPRECATED: to be removed in 0.9.0
-	legacyName  string
-	legacyTimer *Timer
 }
 
 func newSpanHook(metrics *Statsd, span *tracing.Span) *spanHook {
-	legacyName := span.Component() + "." + span.Name()
 	return &spanHook{
-		metrics:     metrics,
-		legacyName:  legacyName,
-		legacyTimer: NewTimer(metrics.Timing(legacyName)),
+		metrics: metrics,
 	}
 }
 
@@ -92,7 +78,6 @@ func (h *spanHook) OnPostStart(span *tracing.Span) error {
 	} else {
 		h.startTime = span.StartTime()
 	}
-	h.legacyTimer.OverrideStartTime(h.startTime)
 	return nil
 }
 
@@ -113,24 +98,14 @@ func (h *spanHook) OnPreStop(span *tracing.Span, err error) error {
 	).With(tags.AsStatsdTags()...))
 	timer.OverrideStartTime(h.startTime).ObserveWithEndTime(stop)
 
-	// DEPRECATED: to be removed in 0.9.0.
-	h.legacyTimer.ObserveWithEndTime(stop)
-
-	var statusMetricPath string
 	var successResult string
 	if err != nil {
-		statusMetricPath = fmt.Sprintf("%s.%s", h.legacyName, failure)
 		successResult = "False"
 	} else {
-		statusMetricPath = fmt.Sprintf("%s.%s", h.legacyName, success)
 		successResult = "True"
 	}
 	tags[tracing.TagKeySuccess] = successResult
 	h.metrics.Counter(fmt.Sprintf(baseplateCounter, typeStr)).With(tags.AsStatsdTags()...).Add(1)
-
-	// DEPRECATED: to be removed in 0.9.0.
-	h.metrics.Counter(statusMetricPath).Add(1)
-	h.metrics.Counter(fmt.Sprintf("%s.%s", h.legacyName, total)).Add(1)
 
 	return nil
 }

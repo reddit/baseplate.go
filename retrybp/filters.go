@@ -6,8 +6,6 @@ import (
 	"net"
 
 	retry "github.com/avast/retry-go"
-
-	"github.com/reddit/baseplate.go/clientpool"
 )
 
 const (
@@ -81,36 +79,6 @@ func NetworkErrorFilter(err error, next retry.RetryIfFunc) bool {
 		return true
 	}
 	return next(err)
-}
-
-// PoolExhaustedFilter returns true if the error is an
-// clientpool.ErrExhausted error otherwise it calls the next filter in the chain.
-//
-// This is safe to use even if a request is not idempotent as this error happens
-// before any network calls are made.  It is best paired with some backoff
-// though to give the pool some time to recover.
-//
-// DEPRECATED: clientpool.ErrExhausted implements RetryableError,
-// so RetryableErrorFilter covers the functionality of this filter and should be
-// used instead.
-func PoolExhaustedFilter(err error, next retry.RetryIfFunc) bool {
-	if errors.Is(err, clientpool.ErrExhausted) {
-		return true
-	}
-	return next(err)
-}
-
-// UnrecoverableErrorFilter returns false if the error is an
-// retry.Unrecoverable error otherwise it calls the next filter in the chain.
-//
-// This uses retry.IsRecoverable which relies on wrapping the error with
-// retry.Unrecoverable.  It also does not use the "errors" helpers so if the
-// the error returned by retry.Unrecoverable is further wrapped, this will not
-// be able to make a decision.
-//
-// DEPRECATED: Please use retrybp.Unrecoverable and RetryableErrorFilter instead.
-func UnrecoverableErrorFilter(err error, next retry.RetryIfFunc) bool {
-	return RetryableErrorFilter(err, next)
 }
 
 // RetryableError defines an optional error interface to return retryable info.
@@ -207,8 +175,6 @@ func Unrecoverable(err error) error {
 var (
 	_ Filter = ContextErrorFilter
 	_ Filter = NetworkErrorFilter
-	_ Filter = PoolExhaustedFilter
-	_ Filter = UnrecoverableErrorFilter
 	_ Filter = RetryableErrorFilter
 
 	_ RetryableError = retryableWrapper{}

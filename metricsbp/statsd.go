@@ -84,7 +84,6 @@ type Statsd struct {
 	cfg                 StatsdConfig
 	ctx                 context.Context
 	cancel              context.CancelFunc
-	counterSampleRate   float64
 	histogramSampleRate float64
 	writer              *bufferedWriter
 
@@ -99,8 +98,7 @@ type StatsdConfig struct {
 	// If it's not ending with a period ("."), a period will be added.
 	Prefix string
 
-	// The reporting sample rate used when creating counters and
-	// timings/histograms, respectively.
+	// The reporting sample rate used when creating timings/histograms.
 	//
 	// DefaultSampleRate will be used when they are nil (zero value).
 	//
@@ -109,12 +107,6 @@ type StatsdConfig struct {
 	//
 	// To override global sample rate set here for particular counters/histograms,
 	// use CounterWithRate/HistogramWithRate/TimingWithRate.
-	//
-	// DEPRECATED: CounterSampleRate is deprecated.
-	// There's not really a reason to sample counters in Baseplate.go as they are
-	// always aggregated in memory.
-	// CounterSampleRate will be removed in a future release.
-	CounterSampleRate   *float64
 	HistogramSampleRate *float64
 
 	// Address is the UDP address (in "host:port" format) of the statsd service.
@@ -185,7 +177,6 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 	st := &Statsd{
 		statsd:              influxstatsd.New(prefix, kitlogger, tags...),
 		cfg:                 cfg,
-		counterSampleRate:   convertSampleRate(cfg.CounterSampleRate),
 		histogramSampleRate: convertSampleRate(cfg.HistogramSampleRate),
 	}
 	st.ctx, st.cancel = context.WithCancel(ctx)
@@ -277,7 +268,7 @@ func (st *Statsd) Counter(name string) metrics.Counter {
 	st = st.fallback()
 	return st.CounterWithRate(RateArgs{
 		Name: name,
-		Rate: st.counterSampleRate,
+		Rate: 1,
 	})
 }
 

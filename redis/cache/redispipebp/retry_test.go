@@ -8,8 +8,8 @@ import (
 	"github.com/joomcode/redispipe/redis"
 	"github.com/reddit/baseplate.go/retrybp"
 
-	"github.com/reddit/baseplate.go/redis/redispipebp"
-	"github.com/reddit/baseplate.go/redis/redisx"
+	"github.com/reddit/baseplate.go/redis/cache/redispipebp"
+	"github.com/reddit/baseplate.go/redis/cache/redisx"
 )
 
 type counts struct {

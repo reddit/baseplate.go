@@ -7,7 +7,7 @@ import (
 	"github.com/joomcode/errorx"
 	"github.com/joomcode/redispipe/redis"
 
-	"github.com/reddit/baseplate.go/redis/redisx"
+	"github.com/reddit/baseplate.go/redis/cache/redisx"
 )
 
 // RedispipeError wraps an errorx.Err from redispipe and provides an interface that

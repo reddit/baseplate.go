@@ -8,7 +8,7 @@ import (
 	"github.com/joomcode/errorx"
 	"github.com/joomcode/redispipe/redis"
 
-	"github.com/reddit/baseplate.go/redis/redispipebp"
+	"github.com/reddit/baseplate.go/redis/cache/redispipebp"
 )
 
 func TestRedispipeError(t *testing.T) {

@@ -112,20 +112,14 @@ func TestOnCreateServerSpan(t *testing.T) {
 			expectedRates: [][]string{
 				{
 					"baseplate.server.rate,endpoint=foo,success=True:1.000000|c",
-					"server.foo.success:1.000000|c",
-					"server.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.server.rate,success=True,endpoint=foo:1.000000|c",
-					"server.foo.success:1.000000|c",
-					"server.foo.total:1.000000|c",
 				},
 			},
 			expectedHistoREs: []string{
 				// Example: "baseplate.server.latency,endpoint=foo:3600000.000000|ms"
 				`^baseplate\.server\.latency,endpoint=foo:\d+\.\d+\|ms$`,
-				// Example: "server.foo:3600000.000000|ms"
-				`^server\.foo:\d+\.\d+\|ms$`,
 			},
 		},
 		{
@@ -138,18 +132,13 @@ func TestOnCreateServerSpan(t *testing.T) {
 			expectedRates: [][]string{
 				{
 					"baseplate.server.rate,endpoint=foo,success=False:1.000000|c",
-					"server.foo.failure:1.000000|c",
-					"server.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.server.rate,success=False,endpoint=foo:1.000000|c",
-					"server.foo.failure:1.000000|c",
-					"server.foo.total:1.000000|c",
 				},
 			},
 			expectedHistoREs: []string{
 				`^baseplate\.server\.latency,endpoint=foo:\d+\.\d+\|ms$`,
-				`^server\.foo:\d+\.\d+\|ms$`,
 			},
 		},
 		{
@@ -163,38 +152,25 @@ func TestOnCreateServerSpan(t *testing.T) {
 			expectedRates: [][]string{
 				{
 					"baseplate.client.rate,endpoint=foo,success=True,client=service:1.000000|c",
-					"clients.service.foo.success:1.000000|c",
-					"clients.service.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.client.rate,success=True,endpoint=foo,client=service:1.000000|c",
-					"clients.service.foo.success:1.000000|c",
-					"clients.service.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.client.rate,endpoint=foo,client=service,success=True:1.000000|c",
-					"clients.service.foo.success:1.000000|c",
-					"clients.service.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.client.rate,success=True,client=service,endpoint=foo:1.000000|c",
-					"clients.service.foo.success:1.000000|c",
-					"clients.service.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.client.rate,client=service,endpoint=foo,success=True:1.000000|c",
-					"clients.service.foo.success:1.000000|c",
-					"clients.service.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.client.rate,client=service,success=True,endpoint=foo:1.000000|c",
-					"clients.service.foo.success:1.000000|c",
-					"clients.service.foo.total:1.000000|c",
 				},
 			},
 			expectedHistoREs: []string{
 				`^baseplate\.client\.latency,(endpoint=foo,client=service)|(client=service,endpoint=foo):\d+\.\d+\|ms$`,
-				`^clients\.service\.foo:\d+\.\d+\|ms$`,
 			},
 		},
 		{
@@ -208,38 +184,25 @@ func TestOnCreateServerSpan(t *testing.T) {
 			expectedRates: [][]string{
 				{
 					"baseplate.client.rate,endpoint=foo,success=False,client=service:1.000000|c",
-					"clients.service.foo.failure:1.000000|c",
-					"clients.service.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.client.rate,success=False,endpoint=foo,client=service:1.000000|c",
-					"clients.service.foo.failure:1.000000|c",
-					"clients.service.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.client.rate,endpoint=foo,client=service,success=False:1.000000|c",
-					"clients.service.foo.failure:1.000000|c",
-					"clients.service.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.client.rate,success=False,client=service,endpoint=foo:1.000000|c",
-					"clients.service.foo.failure:1.000000|c",
-					"clients.service.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.client.rate,client=service,endpoint=foo,success=False:1.000000|c",
-					"clients.service.foo.failure:1.000000|c",
-					"clients.service.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.client.rate,client=service,success=False,endpoint=foo:1.000000|c",
-					"clients.service.foo.failure:1.000000|c",
-					"clients.service.foo.total:1.000000|c",
 				},
 			},
 			expectedHistoREs: []string{
 				`^baseplate\.client\.latency,(endpoint=foo,client=service)|(client=service,endpoint=foo):\d+\.\d+\|ms$`,
-				`^clients\.service\.foo:\d+\.\d+\|ms$`,
 			},
 		},
 		{
@@ -252,18 +215,13 @@ func TestOnCreateServerSpan(t *testing.T) {
 			expectedRates: [][]string{
 				{
 					"baseplate.local.rate,endpoint=foo,success=True:1.000000|c",
-					"local.foo.success:1.000000|c",
-					"local.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.local.rate,success=True,endpoint=foo:1.000000|c",
-					"local.foo.success:1.000000|c",
-					"local.foo.total:1.000000|c",
 				},
 			},
 			expectedHistoREs: []string{
 				`^baseplate\.local\.latency,endpoint=foo:\d+\.\d+\|ms$`,
-				`^local\.foo:\d+\.\d+\|ms$`,
 			},
 		},
 		{
@@ -276,18 +234,13 @@ func TestOnCreateServerSpan(t *testing.T) {
 			expectedRates: [][]string{
 				{
 					"baseplate.local.rate,endpoint=foo,success=False:1.000000|c",
-					"local.foo.failure:1.000000|c",
-					"local.foo.total:1.000000|c",
 				},
 				{
 					"baseplate.local.rate,success=False,endpoint=foo:1.000000|c",
-					"local.foo.failure:1.000000|c",
-					"local.foo.total:1.000000|c",
 				},
 			},
 			expectedHistoREs: []string{
 				`^baseplate\.local\.latency,endpoint=foo:\d+\.\d+\|ms$`,
-				`^local\.foo:\d+\.\d+\|ms$`,
 			},
 		},
 	} {
@@ -372,10 +325,8 @@ func TestWithStartAndFinishTimes(t *testing.T) {
 	// The order of emitted histograms are indeterministic
 	expected1 := []string{
 		"baseplate.server.latency,endpoint=foo:3600000.000000|ms",
-		"server.foo:3600000.000000|ms",
 	}
 	expected2 := []string{
-		"server.foo:3600000.000000|ms",
 		"baseplate.server.latency,endpoint=foo:3600000.000000|ms",
 	}
 	if !reflect.DeepEqual(histograms, expected1) && !reflect.DeepEqual(histograms, expected2) {

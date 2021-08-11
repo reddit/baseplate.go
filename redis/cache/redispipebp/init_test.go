@@ -11,7 +11,7 @@ import (
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/tracing"
 
-	"github.com/reddit/baseplate.go/redis/redisx"
+	"github.com/reddit/baseplate.go/redis/cache/redisx"
 )
 
 var (

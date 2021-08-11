@@ -274,7 +274,6 @@ redis:
 		Metrics: metricsbp.Config{
 			Namespace:           "baseplate-test",
 			Endpoint:            "metrics:8125",
-			CounterSampleRate:   nil,
 			HistogramSampleRate: float64Ptr(0.01),
 		},
 
@@ -372,7 +371,6 @@ redis:
 		Metrics: metricsbp.Config{
 			Namespace:           "baseplate-test",
 			Endpoint:            "metrics:8125",
-			CounterSampleRate:   nil,
 			HistogramSampleRate: float64Ptr(0.01),
 		},
 

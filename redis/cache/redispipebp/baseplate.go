@@ -10,7 +10,7 @@ import (
 	"github.com/joomcode/redispipe/redisconn"
 
 	"github.com/reddit/baseplate.go/breakerbp"
-	"github.com/reddit/baseplate.go/redis/redisx"
+	"github.com/reddit/baseplate.go/redis/cache/redisx"
 )
 
 // ErrBaseplateNameRequired is returned when do not set a Name in the argument struct to a new

@@ -10,8 +10,8 @@ import (
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/sony/gobreaker"
 
-	"github.com/reddit/baseplate.go/redis/redispipebp"
-	"github.com/reddit/baseplate.go/redis/redisx"
+	"github.com/reddit/baseplate.go/redis/cache/redispipebp"
+	"github.com/reddit/baseplate.go/redis/cache/redisx"
 )
 
 var errExampleSync = errors.New("example sync error")

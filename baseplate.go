@@ -12,7 +12,6 @@ import (
 
 	"github.com/reddit/baseplate.go/batchcloser"
 	"github.com/reddit/baseplate.go/ecinterface"
-	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/runtimebp"
@@ -375,29 +374,11 @@ func (bp impl) EdgeContextImpl() ecinterface.Interface {
 
 func (bp impl) Close() error {
 	err := bp.closers.Close()
-
-	var errs []error
-	var batchErr errorsbp.Batch
-	if errors.As(err, &batchErr) {
-		errs = batchErr.GetErrors()
-	} else if err != nil {
-		errs = append(errs, err)
-	}
-
-	for _, batchedErr := range errs {
-		var closeErr batchcloser.CloseError
-		if errors.As(batchedErr, &closeErr) {
-			log.Errorw(
-				"Failed to close closer",
-				"err", closeErr.Unwrap(),
-				"closer", closeErr.Closer,
-			)
-		} else {
-			log.Errorw(
-				"Error while closing unknown closer",
-				"err", batchedErr,
-			)
-		}
+	if err != nil {
+		log.Errorw(
+			"Error while closing closers",
+			"err", err,
+		)
 	}
 	return err
 }
