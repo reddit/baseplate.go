@@ -1,6 +1,1 @@
-# Team members in this file:
-# @fishy        Yuxuan Wang
-# @konradreiche Konrad Reiche
-
-# Global, default codeowners
-* @fishy @konradreiche
+* @reddit/baseplate-go
