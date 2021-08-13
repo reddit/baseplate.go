@@ -118,9 +118,7 @@ func (be *Batch) Add(errs ...error) {
 //
 // Nil errors will be skipped.
 //
-// The actual error(s) added into the batch will produce the error message of:
-//
-//     "prefix: err.Error()"
+// It uses PrefixError under the hood.
 //
 // It's useful in Closer implementations that need to call multiple Closers.
 func (be *Batch) AddPrefix(prefix string, errs ...error) {
@@ -130,7 +128,7 @@ func (be *Batch) AddPrefix(prefix string, errs ...error) {
 	}
 
 	appendSingle := func(err error) {
-		be.errors = append(be.errors, prefixError(prefix, err))
+		be.errors = append(be.errors, PrefixError(prefix, err))
 	}
 
 	for _, err := range errs {
@@ -178,34 +176,4 @@ func (be Batch) GetErrors() []error {
 	errors := make([]error, len(be.errors))
 	copy(errors, be.errors)
 	return errors
-}
-
-// NOTE: The reason we use prefixError over fmt.Errorf(prefix + ": %w", err)
-// is that prefix could contain format verbs, e.g. prefix = "foo%sbar".
-func prefixError(prefix string, err error) error {
-	if err == nil {
-		return nil
-	}
-
-	if prefix == "" {
-		return err
-	}
-
-	return &prefixedError{
-		msg: prefix + ": " + err.Error(),
-		err: err,
-	}
-}
-
-type prefixedError struct {
-	msg string
-	err error
-}
-
-func (e *prefixedError) Error() string {
-	return e.msg
-}
-
-func (e *prefixedError) Unwrap() error {
-	return e.err
 }

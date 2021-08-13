@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "batch.go",
         "doc.go",
+        "prefix.go",
         "suppressor.go",
     ],
     importpath = "github.com/reddit/baseplate.go/errorsbp",
@@ -17,6 +18,7 @@ go_test(
     srcs = [
         "batch_example_test.go",
         "batch_test.go",
+        "prefix_example_test.go",
         "suppressor_example_test.go",
         "suppressor_test.go",
     ],
