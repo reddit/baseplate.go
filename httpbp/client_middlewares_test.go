@@ -59,7 +59,7 @@ func TestNewClient(t *testing.T) {
 			MaxQueueSize:   tracing.MaxQueueSize,
 			MaxMessageSize: tracing.MaxSpanSize,
 		})
-		err := tracing.InitGlobalTracer(tracing.TracerConfig{
+		err := tracing.InitGlobalTracer(tracing.Config{
 			SampleRate:               1,
 			TestOnlyMockMessageQueue: recorder,
 		})
@@ -152,7 +152,7 @@ func TestMonitorClient(t *testing.T) {
 		MaxQueueSize:   tracing.MaxQueueSize,
 		MaxMessageSize: tracing.MaxSpanSize,
 	})
-	err := tracing.InitGlobalTracer(tracing.TracerConfig{
+	err := tracing.InitGlobalTracer(tracing.Config{
 		SampleRate:               1,
 		TestOnlyMockMessageQueue: recorder,
 	})

@@ -40,14 +40,14 @@ func TestInjectServerSpan(t *testing.T) {
 
 	defer func() {
 		tracing.CloseTracer()
-		tracing.InitGlobalTracer(tracing.TracerConfig{})
+		tracing.InitGlobalTracer(tracing.Config{})
 	}()
 	mmq := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
 		MaxQueueSize:   100,
 		MaxMessageSize: 1024,
 	})
 	logger, startFailing := tracing.TestWrapper(t)
-	tracing.InitGlobalTracer(tracing.TracerConfig{
+	tracing.InitGlobalTracer(tracing.Config{
 		SampleRate:               1,
 		MaxRecordTimeout:         testTimeout,
 		Logger:                   logger,
@@ -122,10 +122,10 @@ func TestStartSpanFromThriftContext(t *testing.T) {
 
 	defer func() {
 		tracing.CloseTracer()
-		tracing.InitGlobalTracer(tracing.TracerConfig{})
+		tracing.InitGlobalTracer(tracing.Config{})
 	}()
 	logger, startFailing := tracing.TestWrapper(t)
-	tracing.InitGlobalTracer(tracing.TracerConfig{
+	tracing.InitGlobalTracer(tracing.Config{
 		Logger: logger,
 	})
 	startFailing()

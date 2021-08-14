@@ -27,33 +27,33 @@ type SentryConfig struct {
 	// The Sentry DSN to use.
 	// If empty, SENTRY_DSN environment variable will be used instead.
 	// If that's also empty, then all sentry operations will be nop.
-	DSN string
+	DSN string `yaml:"dsn"`
 
 	// SampleRate between 0 and 1, default is 1.
-	SampleRate *float64
+	SampleRate *float64 `yaml:"sampleRate"`
 
 	// The name of your service.
 	//
 	// By default sentry extracts hostname reported by the kernel for this field.
 	// Set it to non-empty to override that
 	// (and hostname tag will be used to report hostname automatically).
-	ServerName string
+	ServerName string `yaml:"serverName"`
 
 	// An environment string like "prod", "staging".
-	Environment string
+	Environment string `yaml:"environment"`
 
 	// List of regexp strings that will be used to match against event's message
 	// and if applicable, caught errors type and value.
 	// If the match is found, then a whole event will be dropped.
-	IgnoreErrors []string
+	IgnoreErrors []string `yaml:"ignoreErrors"`
 
 	// FlushTimeout is the timeout to be used to call sentry.Flush when closing
 	// the Closer returned by InitSentry.
 	// If <=0, DefaultSentryFlushTimeout will be used.
-	FlushTimeout time.Duration
+	FlushTimeout time.Duration `yaml:"flushTimeout"`
 
 	// BeforeSend is a callback modifier before emitting an event to Sentry.
-	BeforeSend func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event
+	BeforeSend func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event `yaml:"-"`
 }
 
 // InitSentry initializes sentry reporting.

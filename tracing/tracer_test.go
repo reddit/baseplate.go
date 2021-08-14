@@ -38,9 +38,9 @@ func TestTracer(t *testing.T) {
 			logger, called := loggerFunc(t)
 			defer func() {
 				CloseTracer()
-				InitGlobalTracer(TracerConfig{})
+				InitGlobalTracer(Config{})
 			}()
-			InitGlobalTracer(TracerConfig{
+			InitGlobalTracer(Config{
 				SampleRate:               1,
 				Logger:                   logger,
 				TestOnlyMockMessageQueue: recorder,
@@ -68,9 +68,9 @@ func TestTracer(t *testing.T) {
 	logger, called := loggerFunc(t)
 	defer func() {
 		CloseTracer()
-		InitGlobalTracer(TracerConfig{})
+		InitGlobalTracer(Config{})
 	}()
-	InitGlobalTracer(TracerConfig{
+	InitGlobalTracer(Config{
 		SampleRate:               1,
 		Logger:                   logger,
 		MaxRecordTimeout:         timeout,

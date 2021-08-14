@@ -31,7 +31,7 @@ func TestLogWrapper(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	statsd := metricsbp.NewStatsd(ctx, metricsbp.StatsdConfig{})
+	statsd := metricsbp.NewStatsd(ctx, metricsbp.Config{})
 	wrapped := metricsbp.LogWrapper(metricsbp.LogWrapperArgs{
 		Counter: path,
 		Statsd:  statsd,

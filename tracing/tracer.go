@@ -50,78 +50,13 @@ type Tracer struct {
 	useHex           bool
 }
 
-// TracerConfig are the configuration values to be used in InitGlobalTracer.
-type TracerConfig struct {
-	// The name of the service that will be attached to every span.
-	ServiceName string
-
-	// SampleRate should be in the range of [0, 1].
-	// When SampleRate >= 1, all traces will be recoreded;
-	// When SampleRate <= 0, none of the traces will be recorded,
-	// except the ones with debug flag set.
-	//
-	// Please note that SampleRate only affect top level spans created inside this
-	// service. For most services the sample status will be inherited from the
-	// headers from the client.
-	SampleRate float64
-
-	// Logger, if non-nil, will be used to log additional informations Record
-	// returned certain errors.
-	Logger log.Wrapper
-
-	// The max timeout applied to Record function.
-	//
-	// If the passed in context object has an earlier deadline set,
-	// that deadline will be respected instead.
-	//
-	// If MaxRecordTimeout <= 0,
-	// Record function would run in non-blocking mode,
-	// that it fails immediately if the queue is full.
-	MaxRecordTimeout time.Duration
-
-	// The name of the message queue to be used to actually send sampled spans to
-	// backend service (requires Baseplate.py tracing publishing sidecar with the
-	// same name configured).
-	//
-	// QueueName should not contain "traces-" prefix, it will be auto added.
-	//
-	// If QueueName is empty, no spans will be sampled,
-	// including the ones with debug flag set.
-	QueueName string
-
-	// The max size of the message queue (number of messages).
-	//
-	// If it <=0 or > MaxQueueSize (the constant, 10000),
-	// MaxQueueSize constant will be used instead.
-	//
-	// This is only used when QueueName is non-empty.
-	MaxQueueSize int64
-
-	// If UseHex is set to true, when generating new trace/span IDs we will use
-	// hex instead of dec uint64.
-	//
-	// You should only set this to true if you know all of your upstream servers
-	// can handle hex trace ids (Baseplate.go v0.8.0+ or Baseplate.py v2.0.0+).
-	UseHex bool
-
-	// In test code,
-	// this field can be used to set the message queue the tracer publishes to,
-	// usually an *mqsend.MockMessageQueue.
-	//
-	// This field will be ignored when QueueName is non-empty,
-	// to help avoiding footgun prod code.
-	//
-	// DO NOT USE IN PROD CODE.
-	TestOnlyMockMessageQueue mqsend.MessageQueue
-}
-
 // InitGlobalTracer initializes opentracing's global tracer.
 //
 // This function will try to get the first local IPv4 address of this machine
 // as part of the span information send to the backend service.
 // If it fails to do so, UndefinedIP will be used instead,
 // and the error will be logged if logger is non-nil.
-func InitGlobalTracer(cfg TracerConfig) error {
+func InitGlobalTracer(cfg Config) error {
 	var tracer Tracer
 	if cfg.QueueName != "" {
 		if cfg.MaxQueueSize <= 0 || cfg.MaxQueueSize > MaxQueueSize {
@@ -156,7 +91,7 @@ func InitGlobalTracer(cfg TracerConfig) error {
 		logger(context.Background(), `Unable to get local ip address: `+err.Error())
 	}
 	tracer.endpoint = ZipkinEndpointInfo{
-		ServiceName: cfg.ServiceName,
+		ServiceName: cfg.Namespace,
 		IPv4:        ip,
 	}
 
@@ -176,7 +111,7 @@ func (closer) Close() error {
 //
 // After successful initialization,
 // the returned Closer would delegate to CloseTracer upon called.
-func InitGlobalTracerWithCloser(cfg TracerConfig) (io.Closer, error) {
+func InitGlobalTracerWithCloser(cfg Config) (io.Closer, error) {
 	if err := InitGlobalTracer(cfg); err != nil {
 		return nil, err
 	}

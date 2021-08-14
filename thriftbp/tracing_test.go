@@ -21,10 +21,10 @@ func TestCreateThriftContextFromSpan(t *testing.T) {
 
 	defer func() {
 		tracing.CloseTracer()
-		tracing.InitGlobalTracer(tracing.TracerConfig{})
+		tracing.InitGlobalTracer(tracing.Config{})
 	}()
 	logger, startFailing := tracing.TestWrapper(t)
-	tracing.InitGlobalTracer(tracing.TracerConfig{
+	tracing.InitGlobalTracer(tracing.Config{
 		Logger: logger,
 	})
 	startFailing()

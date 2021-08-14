@@ -33,11 +33,13 @@ type Queue struct {
 }
 
 // The Config used to initialize an event queue.
+//
+// Can be deserialized from YAML.
 type Config struct {
 	// The name of the message queue, should not contain the "events-" prefix.
 	//
 	// For v2 events, the default name (when passed in Name is empty) is "v2".
-	Name string
+	Name string `yaml:"name"`
 
 	// The max timeout applied to Put function.
 	//
@@ -47,13 +49,13 @@ type Config struct {
 	// If MaxPutTimeout <= 0,
 	// Put function would run in non-blocking mode,
 	// that it fails immediately if the queue is full.
-	MaxPutTimeout time.Duration
+	MaxPutTimeout time.Duration `yaml:"maxPutTimeout"`
 
 	// The max size of the message queue (number of messages).
 	//
 	// If it <=0 or > MaxQueueSize (the constant, 10000),
 	// MaxQueueSize constant will be used instead.
-	MaxQueueSize int64
+	MaxQueueSize int64 `yaml:"maxQueueSize"`
 }
 
 // V2 initializes a new v2 event queue with default configurations.
