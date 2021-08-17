@@ -94,13 +94,16 @@ var (
 // This example demonstrates what a typical main function should look like for a
 // Baseplate HTTP service.
 func ExampleNewBaseplateServer() {
-	var cfg config
 	// In real code this MUST be replaced by the factory from the actual implementation.
 	var ecFactory ecinterface.Factory
+
+	var cfg config
+	if err := baseplate.ParseConfigYAML("example.yaml", &cfg); err != nil {
+		panic(err)
+	}
 	ctx, bp, err := baseplate.New(context.Background(), baseplate.NewArgs{
-		ConfigPath:         "example.yaml",
+		Config:             cfg,
 		EdgeContextFactory: ecFactory,
-		ServiceCfg:         &cfg,
 	})
 	if err != nil {
 		panic(err)

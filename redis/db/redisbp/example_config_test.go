@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/reddit/baseplate.go"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/redis/db/redisbp"
 )
 
@@ -16,10 +17,17 @@ type Config struct {
 // This example shows how you can embed a redis config in a struct and parse
 // that with `baseplate.New`.
 func ExampleClientConfig() {
+	// In real code this MUST be replaced by the factory from the actual implementation.
+	var ecFactory ecinterface.Factory
+
 	var cfg Config
+	if err := baseplate.ParseConfigYAML("example.yaml", &cfg); err != nil {
+		panic(err)
+	}
+
 	ctx, bp, err := baseplate.New(context.Background(), baseplate.NewArgs{
-		ConfigPath: "example.yaml",
-		ServiceCfg: &cfg,
+		Config:             cfg,
+		EdgeContextFactory: ecFactory,
 	})
 	if err != nil {
 		panic(err)
