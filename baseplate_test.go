@@ -5,8 +5,8 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -229,7 +229,7 @@ type serviceConfig struct {
 	} `yaml:"redis"`
 }
 
-func TestDecodeConfigYAML(t *testing.T) {
+func TestParseConfigYAML(t *testing.T) {
 	const raw = `
 addr: :8080
 timeout: 30s
@@ -261,6 +261,11 @@ redis:
   - redis:8000
   - redis:8001
 `
+
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte(raw), 0666); err != nil {
+		t.Fatalf("Failed to write to tmp config file %q: %v", path, err)
+	}
 
 	expected := baseplate.Config{
 		Addr:        ":8080",
@@ -308,7 +313,7 @@ redis:
 		},
 	}
 	var cfg serviceConfig
-	err := baseplate.DecodeConfigYAML(strings.NewReader(raw), &cfg)
+	err := baseplate.ParseConfigYAML(path, &cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +329,7 @@ redis:
 	}
 }
 
-func TestDecodeConfigYAMLStrict(t *testing.T) {
+func TestParseConfigYAMLStrict(t *testing.T) {
 	const raw = `
 addr: :8080
 timeout: 30s
@@ -358,6 +363,12 @@ redis:
   - redis:8000
   - redis:8001
 `
+
+	dir := t.TempDir()
+	pathRaw := filepath.Join(dir, "raw.yaml")
+	if err := os.WriteFile(pathRaw, []byte(raw), 0666); err != nil {
+		t.Fatalf("Failed to write to tmp config file %q: %v", pathRaw, err)
+	}
 
 	expected := baseplate.Config{
 		Addr:        ":8080",
@@ -397,16 +408,18 @@ redis:
 	}
 
 	var cfg baseplate.Config
-	err := baseplate.DecodeConfigYAML(strings.NewReader(raw), &cfg)
-	if err != nil {
+	if err := baseplate.ParseConfigYAML(pathRaw, &cfg); err != nil {
 		t.Error(err)
 	}
 	if !reflect.DeepEqual(cfg, expected) {
 		t.Errorf("config mismatch, expected %#v, got %#v", expected, cfg)
 	}
 
-	err = baseplate.DecodeConfigYAML(strings.NewReader(extra), &cfg)
-	if err == nil {
+	pathExtra := filepath.Join(dir, "extra.yaml")
+	if err := os.WriteFile(pathExtra, []byte(extra), 0666); err != nil {
+		t.Fatalf("Failed to write to tmp config file %q: %v", pathExtra, err)
+	}
+	if err := baseplate.ParseConfigYAML(pathExtra, &cfg); err == nil {
 		t.Error("Expected error when yaml has extra content, did not happen.")
 	}
 }

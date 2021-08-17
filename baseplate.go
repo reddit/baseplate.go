@@ -217,22 +217,7 @@ func Serve(ctx context.Context, args ServeArgs) error {
 	return <-shutdownChannel
 }
 
-// parseConfig parses from the YAML file at the given path into cfg.
-func parseConfig(path string, cfg Configer) error {
-	if path == "" {
-		return errors.New("baseplate.ParseConfig: no config path given")
-	}
-
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	return DecodeConfigYAML(f, cfg)
-}
-
-// DecodeConfigYAML decods the YAML read from the given Reader into cfg.
+// ParseConfigYAML parses path as YAML into cfg.
 //
 // It enables strict parsing,
 // if there are yaml tags not defined in cfg passed in,
@@ -242,7 +227,12 @@ func parseConfig(path string, cfg Configer) error {
 // you can just pass in a *pointer* to baseplate.Config:
 //
 //     var cfg baseplate.Config
-//     baseplate.DecodeConfigYAML(reader, &cfg)
+//     err := baseplate.ParseConfigYAML(reader, &cfg)
+//     // TODO: handle err
+//     ctx, bp, err := baseplate.New(baseplate.NewArgs{
+//       EdgeContextFactory: ...,
+//       ServiceCfg: cfg,
+//     })
 //
 // If you do have customized configurations to decode from YAML,
 // the recommended way of passing the strict yaml parsing is to embed
@@ -256,62 +246,50 @@ func parseConfig(path string, cfg Configer) error {
 //       FancyName string `yaml:"fancy_name"`
 //     }
 //     var cfg myServiceCfg
-//     baseplate.DecodeConfigYAML(reader, &cfg)
-func DecodeConfigYAML(reader io.Reader, cfg Configer) error {
-	decoder := yaml.NewDecoder(reader)
+//     err := baseplate.ParseConfigYAML(reader, &cfg)
+//     // TODO: handle err
+//     ctx, bp, err := baseplate.New(baseplate.NewArgs{
+//       EdgeContextFactory: ...,
+//       ServiceCfg: cfg,
+//     })
+//
+func ParseConfigYAML(path string, cfg Configer) error {
+	if path == "" {
+		return errors.New("baseplate.ParseConfigYAML: no config path given")
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("baseplate.ParseConfigYAML: %w", err)
+	}
+	defer f.Close()
+
+	decoder := yaml.NewDecoder(f)
 	decoder.SetStrict(true)
-	return decoder.Decode(cfg)
+	if err := decoder.Decode(cfg); err != nil {
+		return fmt.Errorf("baseplate.ParseConfigYAML: %w", err)
+	}
+	return nil
 }
 
 // NewArgs defines the args used in New functino.
 type NewArgs struct {
-	// Required.
-	ConfigPath string
+	// Required. New will panic if this is nil.
+	Config Configer
 
-	// Required. New will panic if this is not set.
+	// Required. New will panic if this is nil.
 	//
 	// The factory to be used to create edge context implementation.
 	EdgeContextFactory ecinterface.Factory
-
-	// Optional.
-	//
-	// If ServiceCfg is non-nil,
-	// it should usually be a pointer to a struct with baseplate.Config embedded,
-	// with `yaml:",inline"` yaml tags. For example:
-	//
-	//     type myServiceConfig struct {
-	//       // The yaml tag is required to pass strict parsing.
-	//       baseplate.Config `yaml:",inline"`
-	//
-	//       // Actual configs
-	//       FancyName string `yaml:"fancy_name"`
-	//     }
-	//     var cfg myServiceCfg
-	//     baseplate.New(ctx, baseplate.NewArgs{
-	//       ServiceCfg: &cfg,
-	//       // other args
-	//     })
-	//
-	// Please refer to DecodeConfigYAML's doc for more details.
-	ServiceCfg Configer
 }
 
-// New parses the config file at the given path, initializes the monitoring and
-// logging frameworks, and returns the "serve" context and a new Baseplate to
-// run your service on.  The returned context will be cancelled when the
-// Baseplate is closed.
+// New initializes Baseplate libraries with the given config,
+// (logging, secrets, tracing, edge context, etc.),
+// and returns the "serve" context and a new Baseplate to
+// run your service on.
+// The returned context will be cancelled when the Baseplate is closed.
 func New(ctx context.Context, args NewArgs) (context.Context, Baseplate, error) {
-	var cfger Configer
-	if args.ServiceCfg != nil {
-		cfger = args.ServiceCfg
-	} else {
-		cfger = new(Config)
-	}
-	err := parseConfig(args.ConfigPath, cfger)
-	if err != nil {
-		return nil, nil, err
-	}
-	cfg := cfger.GetConfig()
+	cfg := args.Config.GetConfig()
 	bp := impl{cfg: cfg, closers: batchcloser.New()}
 
 	runtimebp.InitFromConfig(cfg.Runtime)
@@ -325,21 +303,33 @@ func New(ctx context.Context, args NewArgs) (context.Context, Baseplate, error) 
 	closer, err := log.InitSentry(cfg.Sentry)
 	if err != nil {
 		bp.Close()
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"baseplate.New: failed to init sentry: %w (config: %#v)",
+			err,
+			cfg.Sentry,
+		)
 	}
 	bp.closers.Add(closer)
 
 	bp.secrets, err = secrets.InitFromConfig(ctx, cfg.Secrets)
 	if err != nil {
 		bp.Close()
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"baseplate.New: failed to init secrets: %w (config: %#v)",
+			err,
+			cfg.Secrets,
+		)
 	}
 	bp.closers.Add(bp.secrets)
 
 	closer, err = tracing.InitFromConfig(cfg.Tracing)
 	if err != nil {
 		bp.Close()
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"baseplate.New: failed to init tracing: %w (config: %#v)",
+			err,
+			cfg.Tracing,
+		)
 	}
 	bp.closers.Add(closer)
 
@@ -348,8 +338,12 @@ func New(ctx context.Context, args NewArgs) (context.Context, Baseplate, error) 
 	})
 	if err != nil {
 		bp.Close()
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"baseplate.New: failed to init edge context: %w",
+			err,
+		)
 	}
+
 	return ctx, bp, nil
 }
 
