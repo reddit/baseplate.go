@@ -90,7 +90,7 @@ func (cb FailureRatioBreaker) runStatsProducer() {
 		case <-metricsbp.M.Ctx().Done():
 			return
 		case <-tick.C:
-			if cb.goBreaker.State() == gobreaker.StateOpen {
+			if cb.State() == gobreaker.StateOpen {
 				circuitBreakerGauge.Set(0)
 			} else {
 				circuitBreakerGauge.Set(1)
@@ -103,6 +103,11 @@ func (cb FailureRatioBreaker) runStatsProducer() {
 // the result.
 func (cb FailureRatioBreaker) Execute(fn func() (interface{}, error)) (interface{}, error) {
 	return cb.goBreaker.Execute(fn)
+}
+
+// State returns the current state of the breaker.
+func (cb FailureRatioBreaker) State() gobreaker.State {
+	return cb.goBreaker.State()
 }
 
 // ThriftMiddleware is a thrift.ClientMiddleware that handles circuit breaking.
