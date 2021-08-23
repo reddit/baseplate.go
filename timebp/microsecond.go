@@ -19,8 +19,6 @@ var (
 	_ encoding.TextUnmarshaler = (*DurationMicrosecond)(nil)
 )
 
-const microsecondsPerSecond = int64(time.Second / time.Microsecond)
-
 // TimestampMicrosecond implements json/text encoding/decoding using
 // microseconds since EPOCH.
 type TimestampMicrosecond time.Time
@@ -85,10 +83,7 @@ func MicrosecondsToTime(us int64) time.Time {
 	if us == 0 {
 		return time.Time{}
 	}
-	return time.Unix(
-		us/microsecondsPerSecond,                         // sec
-		us%microsecondsPerSecond*int64(time.Microsecond), // nanosec
-	)
+	return time.UnixMicro(us)
 }
 
 // TimeToMicroseconds converts time.Time to microseconds since EPOCH.
@@ -96,9 +91,7 @@ func TimeToMicroseconds(t time.Time) int64 {
 	if t.IsZero() {
 		return 0
 	}
-	us := t.Unix() * microsecondsPerSecond
-	us += int64(t.Nanosecond()) / int64(time.Microsecond)
-	return us
+	return t.UnixMicro()
 }
 
 // DurationMicrosecond implements json/text encoding/decoding using microseconds

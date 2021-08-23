@@ -10,12 +10,9 @@ jobs:
   lint-and-test:
 
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        bazel-version: [3.5.0]
 
     container:
-      image: l.gcr.io/google/bazel:${{ matrix.bazel-version }}
+      image: ghcr.io/reddit/bazelisk:latest
 
     steps:
       - uses: actions/checkout@v2

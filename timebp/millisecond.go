@@ -14,8 +14,6 @@ var (
 	_ encoding.TextMarshaler   = TimestampMillisecond{}
 )
 
-const millisecondsPerSecond = int64(time.Second / time.Millisecond)
-
 // TimestampMillisecond implements json/text encoding/decoding using
 // milliseconds since EPOCH.
 type TimestampMillisecond time.Time
@@ -59,10 +57,7 @@ func MillisecondsToTime(ms int64) time.Time {
 	if ms == 0 {
 		return time.Time{}
 	}
-	return time.Unix(
-		ms/millisecondsPerSecond,                         // sec
-		ms%millisecondsPerSecond*int64(time.Millisecond), // nanosec
-	)
+	return time.UnixMilli(ms)
 }
 
 // MarshalText implements encoding.TextMarshaler.
@@ -90,7 +85,5 @@ func TimeToMilliseconds(t time.Time) int64 {
 	if t.IsZero() {
 		return 0
 	}
-	ms := t.Unix() * millisecondsPerSecond
-	ms += int64(t.Nanosecond()) / int64(time.Millisecond)
-	return ms
+	return t.UnixMilli()
 }
