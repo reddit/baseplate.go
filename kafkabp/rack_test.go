@@ -21,20 +21,8 @@ func TestRackIDFuncUnmarshalText(t *testing.T) {
 		expected string
 	}{
 		{
-			text:     "",
-			expected: "kafkabp.FixedRackID",
-		},
-		{
 			text:     "aws",
 			expected: "kafkabp.AWSAvailabilityZoneRackID",
-		},
-		{
-			text:     "aws:foo",
-			expected: "kafkabp.FixedRackID",
-		},
-		{
-			text:     "fancy",
-			expected: "kafkabp.FixedRackID",
 		},
 		{
 			text:     "http://www.google.com",
@@ -44,10 +32,33 @@ func TestRackIDFuncUnmarshalText(t *testing.T) {
 			text:     "https://www.google.com",
 			expected: "kafkabp.SimpleHTTPRackID",
 		},
-		{
-			text:     "http:rack-id",
-			expected: "kafkabp.FixedRackID",
-		},
+		/*
+			Starting from go 1.17, the FixedRackID function starts to be inlined
+			by the compiler, so these tests no longer pass.
+			The new full function name is either
+			"github.com/reddit/baseplate.go/kafkabp.(*RackIDFunc).UnmarshalText.func1"
+			or
+			"github.com/reddit/baseplate.go/kafkabp.(*RackIDFunc).UnmarshalText.func2"
+			But since inlining is something unpredictable, we no longer test those
+			cases.
+
+			{
+				text:     "",
+				expected: "kafkabp.FixedRackID",
+			},
+			{
+				text:     "aws:foo",
+				expected: "kafkabp.FixedRackID",
+			},
+			{
+				text:     "fancy",
+				expected: "kafkabp.FixedRackID",
+			},
+			{
+				text:     "http:rack-id",
+				expected: "kafkabp.FixedRackID",
+			},
+		*/
 	} {
 		t.Run(c.text, func(t *testing.T) {
 			var r kafkabp.RackIDFunc
