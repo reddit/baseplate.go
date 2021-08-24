@@ -278,7 +278,7 @@ func TestRetry(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected error to be non-nil")
 		}
-		expected := uint(2)
+		expected := uint(1)
 		if attempts != expected {
 			t.Errorf("expected %d, actual: %d", expected, attempts)
 		}

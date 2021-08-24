@@ -6,6 +6,7 @@ import (
 	"net"
 
 	retry "github.com/avast/retry-go"
+	"github.com/sony/gobreaker"
 )
 
 const (
@@ -139,6 +140,26 @@ func RetryableErrorFilter(err error, next retry.RetryIfFunc) bool {
 	return next(err)
 }
 
+// BreakerErrorFilter is a Filter implementations that retries circuit-breaker
+// errors from gobreaker/breakerbp.
+//
+// It should only be used when you are using circuit breaker,
+// and have proper backoff policy set
+// (e.g. using retrybp.CappedExponentialBackoff).
+func BreakerErrorFilter(err error, next retry.RetryIfFunc) bool {
+	// ErrOpenState is returned when the breaker is in open state,
+	// and ErrTooManyRequests is returned when the breaker is half-open and rate
+	// limited.
+	//
+	// They are both retryable as long as we have proper backoff policy set,
+	// as if the state is still open when we retry it will fail fast and also not
+	// adding extra load to the upstream service.
+	if errors.Is(err, gobreaker.ErrOpenState) || errors.Is(err, gobreaker.ErrTooManyRequests) {
+		return true
+	}
+	return next(err)
+}
+
 type retryableWrapper struct {
 	err       error
 	retryable int
@@ -176,6 +197,7 @@ var (
 	_ Filter = ContextErrorFilter
 	_ Filter = NetworkErrorFilter
 	_ Filter = RetryableErrorFilter
+	_ Filter = BreakerErrorFilter
 
 	_ RetryableError = retryableWrapper{}
 )
