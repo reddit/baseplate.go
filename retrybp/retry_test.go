@@ -118,7 +118,7 @@ func TestDoContextOverridesDefaults(t *testing.T) {
 	t.Parallel()
 
 	ctx := retrybp.WithOptions(context.Background(), retry.Attempts(maxAttempts))
-	counter := &counter{}
+	var counter counter
 	retrybp.Do(
 		ctx,
 		counter.call,
@@ -153,5 +153,39 @@ func TestSingleAttempt(t *testing.T) {
 	}
 	if duration >= delay {
 		t.Errorf("did not expect to trigger delay")
+	}
+}
+
+func TestContextDeadline(t *testing.T) {
+	t.Parallel()
+
+	const (
+		delay            = time.Millisecond * 100
+		expectedAttempts = 1
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	before := time.Now()
+	var counter counter
+	retrybp.Do(
+		ctx,
+		counter.call,
+		retry.Attempts(expectedAttempts+1),
+		retrybp.FixedDelay(delay),
+		retrybp.Filters(doFilter),
+		retry.OnRetry(func(_ uint, _ error) {
+			// Cancel the context immediately after first attempt.
+			cancel()
+		}),
+	)
+	duration := time.Since(before)
+
+	if counter.calls != expectedAttempts {
+		t.Errorf("Expected to only make %d attempt, got %d", expectedAttempts, counter.calls)
+	}
+	if duration >= delay {
+		t.Errorf("Expected the whole retrybp.Do to return as soon as context is canceled, actual took %v", duration)
 	}
 }
