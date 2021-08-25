@@ -11,6 +11,7 @@ import (
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/iobp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/randbp"
@@ -288,12 +289,12 @@ func ReportPayloadSizeMetrics(rate float64) thrift.ProcessorMiddleware {
 								Name:             "payload.size." + name + ".request",
 								Rate:             1,
 								AlreadySampledAt: metricsbp.Float64Ptr(rate),
-							}).With("proto", proto).Observe(float64(itrans))
+							}).With("proto", proto).Observe(float64(itrans.Size()))
 							metricsbp.M.HistogramWithRate(metricsbp.RateArgs{
 								Name:             "payload.size." + name + ".response",
 								Rate:             1,
 								AlreadySampledAt: metricsbp.Float64Ptr(rate),
-							}).With("proto", proto).Observe(float64(otrans))
+							}).With("proto", proto).Observe(float64(otrans.Size()))
 						}()
 					}
 				}
@@ -305,15 +306,11 @@ func ReportPayloadSizeMetrics(rate float64) thrift.ProcessorMiddleware {
 }
 
 // countingTransport implements thrift.TTransport
-type countingTransport int64
+type countingTransport struct {
+	iobp.CountingSink
+}
 
 var _ thrift.TTransport = (*countingTransport)(nil)
-
-func (c *countingTransport) Write(p []byte) (n int, err error) {
-	n = len(p)
-	*c += countingTransport(n)
-	return
-}
 
 func (countingTransport) IsOpen() bool {
 	return true
