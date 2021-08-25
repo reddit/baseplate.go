@@ -23,6 +23,7 @@ go_library(
         "//ecinterface",
         "//errorsbp",
         "//internal/gen-go/reddit/baseplate",
+        "//iobp",
         "//log",
         "//metricsbp",
         "//randbp",

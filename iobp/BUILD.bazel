@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "iobp",
+    srcs = [
+        "counting_sink.go",
+        "doc.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/iobp",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "iobp_test",
+    size = "small",
+    srcs = [
+        "counting_sink_example_test.go",
+        "counting_sink_test.go",
+    ],
+    deps = [":iobp"],
+)
