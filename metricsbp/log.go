@@ -34,9 +34,11 @@ type LogWrapperArgs struct {
 
 // LogWrapper creates a log.Wrapper implementation with metrics emitting.
 func LogWrapper(args LogWrapperArgs) log.Wrapper {
-	var counter metrics.Counter = discard.NewCounter()
+	var counter metrics.Counter
 	if args.Counter != "" {
 		counter = args.Statsd.Counter(args.Counter).With(args.Tags.AsStatsdTags()...)
+	} else {
+		counter = discard.NewCounter()
 	}
 
 	return func(ctx context.Context, msg string) {

@@ -5,7 +5,6 @@ you should set it up so that it auto runs the following tools for you:
 
 - `go vet`
 - `gofmt -s`
-- `golint` (via `go install golang.org/x/lint/golint@latest`)
 - `staticcheck` (via `go install honnef.co/go/tools/cmd/staticcheck@latest`)
 
 ## Vim/NeoVim
@@ -15,11 +14,11 @@ The easiest way to do that is to install the
 
 In addition to `vim-go`,
 It's recommended to use [`ale`](https://github.com/dense-analysis/ale) for
-`golint` and `staticcheck` linting:
+`staticcheck` linting:
 
 ```vim
 let g:ale_linters = {
-\ 'go': ['golint', 'staticcheck'],
+\ 'go': ['staticcheck'],
 \}
 ```
 
