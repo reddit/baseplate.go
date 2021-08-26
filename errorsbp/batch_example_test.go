@@ -10,10 +10,13 @@ import (
 	"github.com/reddit/baseplate.go/errorsbp"
 )
 
-func ExampleBatch() {
+// This example demonstrates how adding errors into a batch affects the single
+// error returned by Compile().
+func ExampleBatch_incrementalErrors() {
 	var batch errorsbp.Batch
+	var singleError error
 
-	var singleError error = batch.Compile()
+	singleError = batch.Compile()
 	fmt.Printf("0: %v\n", singleError)
 
 	err := errors.New("foo")
@@ -37,14 +40,14 @@ func ExampleBatch() {
 		errors.New("buzz"),
 	)
 	newBatch.Add(batch)
-	fmt.Printf("3: %v\n", newBatch.Compile())
+	fmt.Printf("4: %v\n", newBatch.Compile())
 
 	// Output:
 	// 0: <nil>
 	// 1: prefix: foo
 	// Nil errors are skipped: prefix: foo
 	// 2: errorsbp.Batch: total 2 error(s) in this batch: prefix: foo; bar
-	// 3: errorsbp.Batch: total 4 error(s) in this batch: fizz; buzz; prefix: foo; bar
+	// 4: errorsbp.Batch: total 4 error(s) in this batch: fizz; buzz; prefix: foo; bar
 }
 
 // This example demonstrates how a BatchError can be inspected with errors.Is.
