@@ -84,6 +84,12 @@ type DefaultClientMiddlewareArgs struct {
 	//
 	// If it's not set, the global one from ecinterface.Get will be used instead.
 	EdgeContextImpl ecinterface.Interface
+
+	// The name for the server to identify this client,
+	// via the "User-Agent" (HeaderUserAgent) THeader.
+	//
+	// Optional. If this is empty, no "User-Agent" header will be sent.
+	ClientName string
 }
 
 // BaseplateDefaultClientMiddlewares returns the default client middlewares that
@@ -105,9 +111,11 @@ type DefaultClientMiddlewareArgs struct {
 //
 // 5. MonitorClient - This creates the spans of the raw client calls.
 //
-// 6. BaseplateErrorWrapper
+// 6. SetClientName(clientName)
 //
-// 7. SetDeadlineBudget
+// 7. BaseplateErrorWrapper
+//
+// 8. SetDeadlineBudget
 func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
@@ -132,6 +140,7 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 			ServiceSlug:         args.ServiceSlug,
 			ErrorSpanSuppressor: args.ErrorSpanSuppressor,
 		}),
+		SetClientName(args.ClientName),
 		BaseplateErrorWrapper,
 		SetDeadlineBudget,
 	)
@@ -276,6 +285,26 @@ func BaseplateErrorWrapper(next thrift.TClient) thrift.TClient {
 			meta, err := next.Call(ctx, method, args, result)
 			return meta, WrapBaseplateError(err)
 		},
+	}
+}
+
+// SetClientName sets the "User-Agent" (HeaderUserAgent) thrift THeader on the
+// requests.
+//
+// If clientName is empty, no "User-Agent" header will be sent.
+func SetClientName(clientName string) thrift.ClientMiddleware {
+	const header = HeaderUserAgent
+	return func(next thrift.TClient) thrift.TClient {
+		return thrift.WrappedTClient{
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				if clientName == "" {
+					ctx = thrift.UnsetHeader(ctx, header)
+				} else {
+					ctx = AddClientHeader(ctx, header, clientName)
+				}
+				return next.Call(ctx, method, args, result)
+			},
+		}
 	}
 }
 

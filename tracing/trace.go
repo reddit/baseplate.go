@@ -11,9 +11,10 @@ import (
 
 // Well-known (special) span tag keys
 const (
-	TagKeyClient   = "client"
-	TagKeyEndpoint = "endpoint"
-	TagKeySuccess  = "success"
+	TagKeyClient      = "client"
+	TagKeyEndpoint    = "endpoint"
+	TagKeySuccess     = "success"
+	TagKeyPeerService = "peer.service"
 )
 
 // FlagMask values.
