@@ -36,6 +36,8 @@ func edgecontextRecorderMiddleware(impl ecinterface.Interface, recorder *edgecon
 }
 
 func TestInjectServerSpan(t *testing.T) {
+	const ua = "foo"
+
 	defer func() {
 		tracing.CloseTracer()
 		tracing.InitGlobalTracer(tracing.TracerConfig{})
@@ -65,6 +67,7 @@ func TestInjectServerSpan(t *testing.T) {
 	)
 	ctx := context.Background()
 	ctx = thrift.SetHeader(ctx, thriftbp.HeaderTracingSampled, thriftbp.HeaderTracingSampledTrue)
+	ctx = thrift.SetHeader(ctx, thriftbp.HeaderUserAgent, ua)
 	ctx = thrifttest.SetMockTProcessorName(ctx, name)
 
 	wrapped := thrift.WrapProcessor(processor, thriftbp.InjectServerSpan(nil))
@@ -82,14 +85,31 @@ func TestInjectServerSpan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hasError := false
+	var hasError, hasPeerService bool
 	for _, annotation := range trace.BinaryAnnotations {
 		if annotation.Key == "error" {
 			hasError = true
 		}
+		if annotation.Key == tracing.TagKeyPeerService {
+			hasPeerService = true
+			v, ok := annotation.Value.(string)
+			if !ok || v != ua {
+				t.Errorf(
+					"Expected binary annotation of %q to be %q, got %#v, %q, %v",
+					tracing.TagKeyPeerService,
+					ua,
+					annotation.Value,
+					v,
+					ok,
+				)
+			}
+		}
 	}
 	if !hasError {
 		t.Error("Error binary annotation was not present.")
+	}
+	if !hasPeerService {
+		t.Errorf("%q binary annotation was not present.", tracing.TagKeyPeerService)
 	}
 }
 

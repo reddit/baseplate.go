@@ -42,6 +42,11 @@ const (
 	HeaderDeadlineBudget = "Deadline-Budget"
 )
 
+// UserAgent related headers.
+const (
+	HeaderUserAgent = "User-Agent"
+)
+
 // HeadersToForward are the headers that should always be forwarded to upstream
 // thrift servers, to be used in thrift.TSimpleServer.SetForwardHeaders.
 var HeadersToForward = []string{

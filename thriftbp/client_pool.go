@@ -173,6 +173,12 @@ type ClientPoolConfig struct {
 	//
 	// If it's not set, the global one from ecinterface.Get will be used instead.
 	EdgeContextImpl ecinterface.Interface
+
+	// The name for the server to identify this client,
+	// via the "User-Agent" (HeaderUserAgent) THeader.
+	//
+	// Optional. If this is empty, no "User-Agent" header will be sent.
+	ClientName string `yaml:"clientName"`
 }
 
 // Validate checks ClientPoolConfig for any missing or erroneous values.
@@ -330,6 +336,7 @@ func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMi
 			RetryOptions:        cfg.DefaultRetryOptions,
 			ErrorSpanSuppressor: cfg.ErrorSpanSuppressor,
 			BreakerConfig:       cfg.BreakerConfig,
+			ClientName:          cfg.ClientName,
 		},
 	)
 	middlewares = append(middlewares, defaults...)

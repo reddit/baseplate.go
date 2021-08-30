@@ -128,6 +128,10 @@ func StartSpanFromThriftContext(ctx context.Context, name string) (context.Conte
 // it will be changed to IDLExceptionSuppressor instead.
 // Please use errorsbp.SuppressNone explicitly instead if that's what's wanted.
 //
+// If "User-Agent" (HeaderUserAgent) THeader is set,
+// the created server span will also have
+// "peer.service" (tracing.TagKeyPeerService) tag set to its value.
+//
 // Note, the span will be created according to tracing related headers already
 // being set on the context object.
 // These should be automatically injected by your thrift.TSimpleServer.
@@ -139,6 +143,9 @@ func InjectServerSpan(suppressor errorsbp.Suppressor) thrift.ProcessorMiddleware
 		return thrift.WrappedTProcessorFunction{
 			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
 				ctx, span := StartSpanFromThriftContext(ctx, name)
+				if userAgent, ok := thrift.GetHeader(ctx, HeaderUserAgent); ok {
+					span.SetTag(tracing.TagKeyPeerService, userAgent)
+				}
 				defer func() {
 					span.FinishWithOptions(tracing.FinishOptions{
 						Ctx: ctx,

@@ -377,3 +377,83 @@ func TestRetry(t *testing.T) {
 		t.Errorf("expected middleware to trigger a retry %d times, got %d", expected, c.count)
 	}
 }
+
+func TestSetClientName(t *testing.T) {
+	const header = thriftbp.HeaderUserAgent
+
+	initClientsForUA := func(ua string) (*thrifttest.RecordedClient, thrift.TClient) {
+		ecImpl := ecinterface.Mock()
+		mock := &thrifttest.MockClient{FailUnregisteredMethods: true}
+		mock.AddMockCall(
+			method,
+			func(ctx context.Context, args, result thrift.TStruct) (meta thrift.ResponseMeta, err error) {
+				return
+			},
+		)
+
+		recorder := thrifttest.NewRecordedClient(mock)
+		client := thrift.WrapClient(
+			recorder,
+			thriftbp.BaseplateDefaultClientMiddlewares(
+				thriftbp.DefaultClientMiddlewareArgs{
+					EdgeContextImpl: ecImpl,
+					ServiceSlug:     service,
+					ClientName:      ua,
+				},
+			)...,
+		)
+		return recorder, client
+	}
+
+	t.Run(
+		"unset",
+		func(t *testing.T) {
+			const ua = ""
+			recorder, client := initClientsForUA(ua)
+
+			_, err := client.Call(context.Background(), method, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if len(recorder.Calls()) != 1 {
+				t.Fatalf("Wrong number of calls: %d", len(recorder.Calls()))
+			}
+
+			ctx := recorder.Calls()[0].Ctx
+			headers := thrift.GetWriteHeaderList(ctx)
+			for _, h := range headers {
+				if h == header {
+					t.Errorf("Did not expect header %q in write header list", header)
+				}
+			}
+			v, ok := thrift.GetHeader(ctx, header)
+			if ok || v != "" {
+				t.Errorf("Did not expect header %q, got %q, %v", header, v, ok)
+			}
+		},
+	)
+
+	t.Run(
+		"set",
+		func(t *testing.T) {
+			const ua = "foo"
+			recorder, client := initClientsForUA(ua)
+
+			_, err := client.Call(context.Background(), method, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if len(recorder.Calls()) != 1 {
+				t.Fatalf("Wrong number of calls: %d", len(recorder.Calls()))
+			}
+
+			ctx := recorder.Calls()[0].Ctx
+			headerInWriteHeaderList(ctx, t, header)
+			if v, ok := thrift.GetHeader(ctx, header); v != ua {
+				t.Errorf("Expected header %q to be %q, got %q, %v", header, ua, v, ok)
+			}
+		},
+	)
+}
