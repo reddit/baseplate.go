@@ -276,6 +276,15 @@ func TestWrapBaseplateError(t *testing.T) {
 			},
 			expected: `baseplate.Error: "message" (code=1, retryable=true)`,
 		},
+		{
+			label: "already-wrapped",
+			orig: fmt.Errorf("already wrapped: %w", thriftbp.WrapBaseplateError(&baseplatethrift.Error{
+				Message:   thrift.StringPtr("message"),
+				Code:      thrift.Int32Ptr(1),
+				Retryable: thrift.BoolPtr(true),
+			})),
+			expected: `already wrapped: baseplate.Error: "message" (code=1, retryable=true)`,
+		},
 	} {
 		c := _c
 		t.Run(c.label, func(t *testing.T) {

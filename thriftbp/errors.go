@@ -147,6 +147,11 @@ func (e wrappedBaseplateError) Unwrap() error {
 // thrift IDL by the thrift server, and the client would get a generic
 // TApplicationException instead.
 func WrapBaseplateError(e error) error {
+	if errors.As(e, new(wrappedBaseplateError)) {
+		// Already wrapped, return e as-is to avoid double wrapping
+		return e
+	}
+
 	var bpErr baseplateError
 	if errors.As(e, &bpErr) {
 		return wrappedBaseplateError{
