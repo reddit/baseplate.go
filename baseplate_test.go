@@ -297,10 +297,10 @@ redis:
 		},
 
 		Tracing: tracing.Config{
-			Namespace:     "baseplate-test",
-			QueueName:     "test",
-			RecordTimeout: time.Millisecond,
-			SampleRate:    0.01,
+			Namespace:        "baseplate-test",
+			QueueName:        "test",
+			MaxRecordTimeout: time.Millisecond,
+			SampleRate:       0.01,
 		},
 	}
 
@@ -400,10 +400,10 @@ redis:
 		},
 
 		Tracing: tracing.Config{
-			Namespace:     "baseplate-test",
-			QueueName:     "test",
-			RecordTimeout: time.Millisecond,
-			SampleRate:    0.01,
+			Namespace:        "baseplate-test",
+			QueueName:        "test",
+			MaxRecordTimeout: time.Millisecond,
+			SampleRate:       0.01,
 		},
 	}
 

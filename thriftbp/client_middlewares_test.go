@@ -51,7 +51,7 @@ func initServerSpan(ctx context.Context, t *testing.T) (context.Context, *mqsend
 		MaxQueueSize:   100,
 		MaxMessageSize: 1024,
 	})
-	tracing.InitGlobalTracer(tracing.TracerConfig{
+	tracing.InitGlobalTracer(tracing.Config{
 		SampleRate:               1.0,
 		TestOnlyMockMessageQueue: recorder,
 	})
@@ -135,7 +135,7 @@ func TestWrapMonitoredClient(t *testing.T) {
 			func(t *testing.T) {
 				defer func() {
 					tracing.CloseTracer()
-					tracing.InitGlobalTracer(tracing.TracerConfig{})
+					tracing.InitGlobalTracer(tracing.Config{})
 				}()
 
 				mock, recorder, client := initClients(nil)

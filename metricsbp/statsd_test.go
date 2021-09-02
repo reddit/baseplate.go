@@ -48,8 +48,8 @@ func TestNoFallback(t *testing.T) {
 	prefix := "counter"
 	st := metricsbp.NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
-			Prefix: prefix,
+		metricsbp.Config{
+			Namespace: prefix,
 		},
 	)
 	st.Counter("foo").Add(1)
@@ -63,8 +63,8 @@ func TestNoFallback(t *testing.T) {
 	prefix = "histogram"
 	st = metricsbp.NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
-			Prefix: prefix,
+		metricsbp.Config{
+			Namespace: prefix,
 		},
 	)
 	st.Histogram("foo").Observe(1)
@@ -78,8 +78,8 @@ func TestNoFallback(t *testing.T) {
 	prefix = "timing"
 	st = metricsbp.NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
-			Prefix: prefix,
+		metricsbp.Config{
+			Namespace: prefix,
 		},
 	)
 	st.Timing("foo").Observe(1)
@@ -93,8 +93,8 @@ func TestNoFallback(t *testing.T) {
 	prefix = "gauge"
 	st = metricsbp.NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
-			Prefix: prefix,
+		metricsbp.Config{
+			Namespace: prefix,
 		},
 	)
 	st.Gauge("foo").Set(1)
@@ -123,7 +123,7 @@ func BenchmarkStatsd(b *testing.B) {
 
 	st := metricsbp.NewStatsd(
 		context.Background(),
-		metricsbp.StatsdConfig{
+		metricsbp.Config{
 			Tags: initialTags,
 		},
 	)

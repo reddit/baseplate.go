@@ -17,11 +17,11 @@ import (
 // Default values to be used in the config.
 const (
 	// DefaultSampleRate is the default value to be used when *SampleRate in
-	// StatsdConfig is nil (zero value).
+	// Config is nil (zero value).
 	DefaultSampleRate = 1
 
 	// DefaultBufferSize is the default value to be used when BufferSize in
-	// StatsdConfig is 0.
+	// Config is 0.
 	DefaultBufferSize = 4096
 )
 
@@ -46,7 +46,7 @@ var ReporterTickerInterval = time.Minute
 //       defer cancel()
 //       metricsbp.M = metricsbp.NewStatsd{
 //         ctx,
-//         metricsbp.StatsdConfig{
+//         metricsbp.Config{
 //           ...
 //         },
 //       }
@@ -59,7 +59,7 @@ var ReporterTickerInterval = time.Minute
 //       metricsbp.M.Counter("my-counter").Add(1)
 //       ...
 //     }
-var M = NewStatsd(context.Background(), StatsdConfig{})
+var M = NewStatsd(context.Background(), Config{})
 
 // Statsd defines a statsd reporter (with influx extension) and the root of the
 // metrics.
@@ -81,72 +81,13 @@ var M = NewStatsd(context.Background(), StatsdConfig{})
 type Statsd struct {
 	statsd *influxstatsd.Influxstatsd
 
-	cfg                 StatsdConfig
+	cfg                 Config
 	ctx                 context.Context
 	cancel              context.CancelFunc
 	histogramSampleRate float64
 	writer              *bufferedWriter
 
 	activeRequests int64
-}
-
-// StatsdConfig is the configs used in NewStatsd.
-type StatsdConfig struct {
-	// Prefix is the common metrics path prefix shared by all metrics managed by
-	// (created from) this Metrics object.
-	//
-	// If it's not ending with a period ("."), a period will be added.
-	Prefix string
-
-	// The reporting sample rate used when creating timings/histograms.
-	//
-	// DefaultSampleRate will be used when they are nil (zero value).
-	//
-	// Use Float64Ptr to convert literals or other values that you can't get the
-	// pointer directly.
-	//
-	// To override global sample rate set here for particular counters/histograms,
-	// use CounterWithRate/HistogramWithRate/TimingWithRate.
-	HistogramSampleRate *float64
-
-	// Address is the UDP address (in "host:port" format) of the statsd service.
-	//
-	// It could be empty string, in which case we won't start the background
-	// reporting goroutine.
-	//
-	// When Address is the empty string,
-	// the Statsd object and the metrics created under it will not be reported
-	// anywhere,
-	// so it can be used in lieu of discarded metrics in test code.
-	// But the metrics are still stored in memory,
-	// so it shouldn't be used in lieu of discarded metrics in prod code.
-	Address string
-
-	// When Address is configured,
-	// BufferSize can be used to buffer writes to statsd collector together.
-	//
-	// Set it to an appropriate number will reduce the number of UDP messages sent
-	// to the statsd collector. (Recommendation: 4KB)
-	//
-	// It's guaranteed that every single UDP message will not exceed BufferSize,
-	// unless a single metric line exceeds it
-	// (usually around 100 bytes depending on the length of the metric path).
-	//
-	// When it's 0 (default), DefaultBufferSize will be used.
-	//
-	// To disable buffering, set it to negative value (e.g. -1) or a value smaller
-	// than a single statsd metric line (usually around 100, so 1 works),
-	// on ReporterTickerInterval we will write one UDP message per metric to the
-	// statsd collector.
-	BufferSize int
-
-	// The log level used by the reporting goroutine.
-	LogLevel log.Level
-
-	// Tags are the tags to be attached to every metrics created from this Statsd
-	// object. For tags only needed by some metrics, use Counter/Gauge/Timing.With()
-	// instead.
-	Tags Tags
 }
 
 func convertSampleRate(rate *float64) float64 {
@@ -167,8 +108,8 @@ func Float64Ptr(v float64) *float64 {
 // The goroutine will be stopped when the passed in context is canceled.
 //
 // NewStatsd never returns nil.
-func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
-	prefix := cfg.Prefix
+func NewStatsd(ctx context.Context, cfg Config) *Statsd {
+	prefix := cfg.Namespace
 	if prefix != "" && !strings.HasSuffix(prefix, ".") {
 		prefix = prefix + "."
 	}
@@ -181,12 +122,12 @@ func NewStatsd(ctx context.Context, cfg StatsdConfig) *Statsd {
 	}
 	st.ctx, st.cancel = context.WithCancel(ctx)
 
-	if cfg.Address != "" {
+	if cfg.Endpoint != "" {
 		if cfg.BufferSize == 0 {
 			cfg.BufferSize = DefaultBufferSize
 		}
 		st.writer = newBufferedWriter(
-			conn.NewDefaultManager("udp", cfg.Address, kitlogger),
+			conn.NewDefaultManager("udp", cfg.Endpoint, kitlogger),
 			cfg.BufferSize,
 		)
 		go func() {
@@ -262,8 +203,8 @@ func (ra RateArgs) ReportingRate() float64 {
 	return rate * ra.Rate
 }
 
-// Counter returns a counter metrics to the name,
-// with sample rate inherited from StatsdConfig.
+// Counter returns a counter metrics to the name, with sample rate inherited
+// from Config.
 func (st *Statsd) Counter(name string) metrics.Counter {
 	st = st.fallback()
 	return st.CounterWithRate(RateArgs{
@@ -272,8 +213,8 @@ func (st *Statsd) Counter(name string) metrics.Counter {
 	})
 }
 
-// CounterWithRate returns a counter metrics to the name,
-// with sample rate passed in instead of inherited from StatsdConfig.
+// CounterWithRate returns a counter metrics to the name, with sample rate
+// passed in instead of inherited from Config.
 func (st *Statsd) CounterWithRate(args RateArgs) metrics.Counter {
 	st = st.fallback()
 	counter := st.statsd.NewCounter(args.Name, args.ReportingRate())
@@ -287,7 +228,7 @@ func (st *Statsd) CounterWithRate(args RateArgs) metrics.Counter {
 }
 
 // Histogram returns a histogram metrics to the name with no specific unit,
-// with sample rate inherited from StatsdConfig.
+// with sample rate inherited from Config.
 func (st *Statsd) Histogram(name string) metrics.Histogram {
 	st = st.fallback()
 	return st.HistogramWithRate(RateArgs{
@@ -297,7 +238,7 @@ func (st *Statsd) Histogram(name string) metrics.Histogram {
 }
 
 // HistogramWithRate returns a histogram metrics to the name with no specific
-// unit, with sample rate passed in instead of inherited from StatsdConfig.
+// unit, with sample rate passed in instead of inherited from Config.
 func (st *Statsd) HistogramWithRate(args RateArgs) metrics.Histogram {
 	st = st.fallback()
 	histogram := st.statsd.NewHistogram(args.Name, args.ReportingRate())
@@ -310,8 +251,8 @@ func (st *Statsd) HistogramWithRate(args RateArgs) metrics.Histogram {
 	}
 }
 
-// Timing returns a histogram metrics to the name with milliseconds as the unit,
-// with sample rate inherited from StatsdConfig.
+// Timing returns a histogram metrics to the name with milliseconds as the
+// unit, with sample rate inherited from Config.
 func (st *Statsd) Timing(name string) metrics.Histogram {
 	st = st.fallback()
 	return st.TimingWithRate(RateArgs{
@@ -321,7 +262,7 @@ func (st *Statsd) Timing(name string) metrics.Histogram {
 }
 
 // TimingWithRate returns a histogram metrics to the name with milliseconds as
-// the unit, with sample rate passed in instead of inherited from StatsdConfig.
+// the unit, with sample rate passed in instead of inherited from Config.
 func (st *Statsd) TimingWithRate(args RateArgs) metrics.Histogram {
 	st = st.fallback()
 	histogram := st.statsd.NewTiming(args.Name, args.ReportingRate())

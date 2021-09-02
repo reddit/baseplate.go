@@ -18,17 +18,17 @@ func TestSampledHistogram(t *testing.T) {
 
 	statsd := NewStatsd(
 		context.Background(),
-		StatsdConfig{},
+		Config{},
 	)
 	statsdSampled := NewStatsd(
 		context.Background(),
-		StatsdConfig{
+		Config{
 			HistogramSampleRate: Float64Ptr(rate),
 		},
 	)
 	statsdWithTags := NewStatsd(
 		context.Background(),
-		StatsdConfig{
+		Config{
 			Tags: map[string]string{
 				"foo": "bar",
 			},
@@ -36,7 +36,7 @@ func TestSampledHistogram(t *testing.T) {
 	)
 	statsdWithTagsSampled := NewStatsd(
 		context.Background(),
-		StatsdConfig{
+		Config{
 			HistogramSampleRate: Float64Ptr(rate),
 			Tags: map[string]string{
 				"foo": "bar",
@@ -203,11 +203,11 @@ func TestSampledCounter(t *testing.T) {
 
 	statsd := NewStatsd(
 		context.Background(),
-		StatsdConfig{},
+		Config{},
 	)
 	statsdWithTags := NewStatsd(
 		context.Background(),
-		StatsdConfig{
+		Config{
 			Tags: map[string]string{
 				"foo": "bar",
 			},

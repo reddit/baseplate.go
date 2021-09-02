@@ -22,13 +22,13 @@ var (
 func TestMain(m *testing.M) {
 	defer func() {
 		_ = tracing.CloseTracer()
-		_ = tracing.InitGlobalTracer(tracing.TracerConfig{})
+		_ = tracing.InitGlobalTracer(tracing.Config{})
 	}()
 	mmq = mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
 		MaxQueueSize:   100,
 		MaxMessageSize: 1024,
 	})
-	if err := tracing.InitGlobalTracer(tracing.TracerConfig{
+	if err := tracing.InitGlobalTracer(tracing.Config{
 		SampleRate:               1,
 		MaxRecordTimeout:         testTimeout,
 		Logger:                   nil,

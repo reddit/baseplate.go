@@ -132,9 +132,11 @@ var (
 )
 
 // Config defines the config to be used in New function.
+//
+// Can be deserialized from YAML.
 type Config struct {
 	// The path to the file to be watched, required.
-	Path string
+	Path string `yaml:"path"`
 
 	// The parser to parse the data load, required.
 	Parser Parser
@@ -143,7 +145,7 @@ type Config struct {
 	// either returned by parser or by the underlying file system watcher.
 	// Please note that this does not include errors returned by the first parser
 	// call, which will be returned directly.
-	Logger log.Wrapper
+	Logger log.Wrapper `yaml:"logger"`
 
 	// Optional. When <=0 DefaultMaxFileSize will be used instead.
 	//
@@ -157,7 +159,7 @@ type Config struct {
 	//
 	// If the hard limit is violated,
 	// The loading of the file will fail immediately.
-	MaxFileSize int64
+	MaxFileSize int64 `yaml:"maxFileSize"`
 }
 
 // New creates a new file watcher.

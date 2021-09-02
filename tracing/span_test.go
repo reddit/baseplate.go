@@ -187,10 +187,10 @@ var (
 func TestChildSpan(t *testing.T) {
 	defer func() {
 		CloseTracer()
-		InitGlobalTracer(TracerConfig{})
+		InitGlobalTracer(Config{})
 	}()
 	logger, startFailing := TestWrapper(t)
-	InitGlobalTracer(TracerConfig{
+	InitGlobalTracer(Config{
 		SampleRate: 0.2,
 		Logger:     logger,
 	})
