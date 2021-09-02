@@ -11,7 +11,7 @@ type HealthChecker interface {
 	IsHealthy(ctx context.Context) bool
 }
 
-// HealthCheckCloser is the combination of Healthyer and io.Closer.
+// HealthCheckCloser is the combination of HealthChecker and io.Closer.
 type HealthCheckCloser interface {
 	HealthChecker
 	io.Closer
