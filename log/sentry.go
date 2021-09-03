@@ -88,9 +88,11 @@ func InitSentry(cfg SentryConfig) (io.Closer, error) {
 			// swap source location and of error type as title in issue list
 			// https://github.com/getsentry/sentry-go/issues/307#issuecomment-737871530
 			event.Exception[i].Type, event.Exception[i].Value = event.Exception[i].Value, event.Exception[i].Type
-			for j, frame := range exception.Stacktrace.Frames {
-				if frame.Module == base || strings.HasPrefix(frame.Module, prefix) {
-					event.Exception[i].Stacktrace.Frames[j].InApp = false
+			if exception.Stacktrace != nil {
+				for j, frame := range exception.Stacktrace.Frames {
+					if frame.Module == base || strings.HasPrefix(frame.Module, prefix) {
+						event.Exception[i].Stacktrace.Frames[j].InApp = false
+					}
 				}
 			}
 		}
