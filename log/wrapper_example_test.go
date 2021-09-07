@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"strings"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
-	"gopkg.in/yaml.v2"
 )
 
 // ExtendedLogWrapper extends log.Wrapper to support metricsbp.LogWrapper.

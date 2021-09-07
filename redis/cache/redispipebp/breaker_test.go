@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/joomcode/redispipe/redis"
-	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/sony/gobreaker"
 
+	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/redis/cache/redispipebp"
 	"github.com/reddit/baseplate.go/redis/cache/redisx"
 )

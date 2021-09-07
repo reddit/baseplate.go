@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-redis/redis/v8"
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/tracing"

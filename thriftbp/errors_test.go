@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	retry "github.com/avast/retry-go"
+	"github.com/avast/retry-go"
 
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/thriftbp"

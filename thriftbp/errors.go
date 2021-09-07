@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	retry "github.com/avast/retry-go"
+	"github.com/avast/retry-go"
 
 	"github.com/reddit/baseplate.go/errorsbp"
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
