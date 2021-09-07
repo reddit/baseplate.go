@@ -213,9 +213,11 @@ func TestSentryBeforeSend(t *testing.T) {
 	t.Run("swap-exception-type-and-value", func(t *testing.T) {
 		var exception sentry.Exception
 		closer, err := InitSentry(SentryConfig{
-			BeforeSend: func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
-				exception = event.Exception[0]
-				return event
+			BeforeSend: func(event *sentry.Event, hint *sentry.EventHint) (ret *sentry.Event) {
+				defer func() {
+					exception = ret.Exception[0]
+				}()
+				return SentryBeforeSendSwapExceptionTypeAndValue(event, hint)
 			},
 		})
 		if err != nil {
