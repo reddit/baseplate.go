@@ -85,9 +85,7 @@ func InitSentry(cfg SentryConfig) (io.Closer, error) {
 	)
 	beforeSend := func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
 		for i, exception := range event.Exception {
-			// swap source location and of error type as title in issue list
-			// https://github.com/getsentry/sentry-go/issues/307#issuecomment-737871530
-			event.Exception[i].Type, event.Exception[i].Value = event.Exception[i].Value, event.Exception[i].Type
+			// Mark stacktraces from baseplate.go as not in-app.
 			if exception.Stacktrace != nil {
 				for j, frame := range exception.Stacktrace.Frames {
 					if frame.Module == base || strings.HasPrefix(frame.Module, prefix) {
@@ -125,6 +123,37 @@ func InitSentry(cfg SentryConfig) (io.Closer, error) {
 		})
 	}
 	return closer(cfg.FlushTimeout), nil
+}
+
+// SentryBeforeSendSwapExceptionTypeAndValue is a sentry.BeforeSend
+// implementation that swaps the error message and error type reported to sentry.
+//
+// See [1] for context on why doing this might be a good idea for your service.
+//
+// This is not enabled by default,
+// as it makes sentry no longer cluster errors with same type but slightly
+// different error message as the same error.
+// If you want to use this feature,
+// set SentryConfig.BeforeSend to this function.
+// If you have other things you want to do in your BeforeSend,
+// you can call this function in your BeforeSend implementation instead. e.g.:
+//
+//     sentryConfig.BeforeSend = func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+//       // Do other things you want to do here.
+//
+//       // Also do the swapping.
+//       return log.SentryBeforeSendSwapExceptionTypeAndValue(event, hint)
+//     }
+//
+// [1]: https://github.com/getsentry/sentry-go/issues/307#issuecomment-737871530
+func SentryBeforeSendSwapExceptionTypeAndValue(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+	if event == nil {
+		return nil
+	}
+	for i := range event.Exception {
+		event.Exception[i].Type, event.Exception[i].Value = event.Exception[i].Value, event.Exception[i].Type
+	}
+	return event
 }
 
 type closer time.Duration
