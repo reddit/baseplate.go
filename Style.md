@@ -38,22 +38,10 @@ import (
 )
 ```
 
-### Exceptions
-
-In whole file examples
-(see the end of https://pkg.go.dev/testing?tab=doc#hdr-Examples),
-merge Groups 2&3.
-The reason is that whole file examples are presented in package users' point of
-view,
-and in that point of view everything under `github.com/reddit/baseplate.go` are
-also third-party packages.
-
-Please note that this exception does not include tests and normal examples.
-
 ## Rename imports
 
-When an imported package name is different from the last element of the import
-path, always rename import it to make it explicit.
+When an imported package name is different from what is implied by the
+final element(s) of the import path, rename the import it to make it explicit.
 
 Example:
 
@@ -66,11 +54,15 @@ import (
 
 ### Exceptions
 
-As recommended by go modules version design,
-in the example of `"github.com/go-redis/redis/v7"`,
-`v7` is the major version number,
-so we consider `redis` as the actual last element of import path.
-As a result there's no need to rename import it.
+The implied package name of all of the following is still "foo", and thus
+they do not need to be renamed:
+
+* `.../foo.v1`
+* `.../foo/v1`
+* `.../foo-go`
+* `.../foo.go`
+
+Most import tools already understand these conventions.
 
 ## One-per-line style
 
