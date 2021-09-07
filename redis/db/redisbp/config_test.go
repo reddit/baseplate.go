@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"gopkg.in/yaml.v2"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/reddit/baseplate.go/redis/db/redisbp"
 )
 

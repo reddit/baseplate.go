@@ -1,7 +1,8 @@
 package httpbp
 
 import (
-	retry "github.com/avast/retry-go"
+	"github.com/avast/retry-go"
+
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/errorsbp"
 )

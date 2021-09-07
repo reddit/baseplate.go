@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/reddit/baseplate.go/metricsbp"
 )

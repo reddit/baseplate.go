@@ -6,6 +6,7 @@ import (
 
 	"github.com/avast/retry-go"
 	"github.com/joomcode/redispipe/redis"
+
 	"github.com/reddit/baseplate.go/retrybp"
 
 	"github.com/reddit/baseplate.go/redis/cache/redispipebp"

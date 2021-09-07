@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net"
 
-	retry "github.com/avast/retry-go"
+	"github.com/avast/retry-go"
 	"github.com/sony/gobreaker"
 )
 

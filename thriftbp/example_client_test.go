@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	retry "github.com/avast/retry-go"
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/avast/retry-go"
+	"github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/retrybp"

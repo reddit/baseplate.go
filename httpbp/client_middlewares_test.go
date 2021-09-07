@@ -14,7 +14,8 @@ import (
 	"testing"
 	"time"
 
-	retry "github.com/avast/retry-go"
+	"github.com/avast/retry-go"
+
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/tracing"

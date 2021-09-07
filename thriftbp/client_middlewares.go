@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	retry "github.com/avast/retry-go"
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/avast/retry-go"
+	"github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/ecinterface"

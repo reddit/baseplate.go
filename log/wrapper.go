@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	sentry "github.com/getsentry/sentry-go"
+	"github.com/getsentry/sentry-go"
 )
 
 // DefaultWrapper defines the default one to be used in log.Wrapper.

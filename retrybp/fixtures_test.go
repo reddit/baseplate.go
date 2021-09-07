@@ -3,7 +3,7 @@ package retrybp_test
 import (
 	"fmt"
 
-	retry "github.com/avast/retry-go"
+	"github.com/avast/retry-go"
 )
 
 const (

@@ -7,7 +7,8 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
