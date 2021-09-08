@@ -33,6 +33,7 @@ go_test(
     deps = [
         ":redisbp",
         "//:baseplate_go",
+        "//configbp",
         "//ecinterface",
         "//metricsbp",
         "//mqsend",

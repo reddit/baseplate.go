@@ -36,6 +36,7 @@ go_test(
     ],
     deps = [
         ":baseplate_go",
+        "//configbp",
         "//ecinterface",
         "//internal/gen-go/reddit/baseplate",
         "//log",

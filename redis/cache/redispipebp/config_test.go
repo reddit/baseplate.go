@@ -11,7 +11,6 @@ import (
 	"github.com/joomcode/redispipe/redisconn"
 
 	"github.com/reddit/baseplate.go/configbp"
-
 	"github.com/reddit/baseplate.go/redis/cache/redispipebp"
 )
 
