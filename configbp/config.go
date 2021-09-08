@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
+	"github.com/reddit/baseplate.go/internal/limitopen"
 	"github.com/reddit/baseplate.go/log"
 )
 
@@ -21,7 +22,7 @@ var BaseplateConfigPath = os.Getenv("BASEPLATE_CONFIG_PATH")
 
 type envsubstReader struct {
 	buffer bytes.Buffer
-	lines  bufio.Scanner
+	lines  *bufio.Scanner
 }
 
 func (r *envsubstReader) Read(buf []byte) (int, error) {
@@ -47,7 +48,7 @@ func (r *envsubstReader) Read(buf []byte) (int, error) {
 // Environment variables (e.g. $FOO and ${FOO}) are substituted from the environment before parsing.
 // The configuration is parsed into each of the targets, which will typically be pointers to structs.
 func ParseStrictFile(path string, ptr interface{}) error {
-	f, err := os.Open(path)
+	f, _, err := limitopen.Open(path)
 	if err != nil {
 		return err // contains filename
 	}
@@ -67,7 +68,7 @@ func ParseStrictFile(path string, ptr interface{}) error {
 // The configuration is parsed into each of the targets, which will typically be pointers to structs.
 func ParseStrictYAML(reader io.Reader, ptr interface{}) error {
 	reader = &envsubstReader{
-		lines: *bufio.NewScanner(reader),
+		lines: bufio.NewScanner(reader),
 	}
 
 	var debugOutput strings.Builder

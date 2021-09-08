@@ -232,7 +232,8 @@ func Serve(ctx context.Context, args ServeArgs) error {
 //       log.Fatalf("Parsing config: %s", err)
 //     }
 //     ctx, bp, err := baseplate.New(baseplate.NewArgs{
-//       ServiceCfg: cfg,
+//       EdgeContextFactory: edgecontext.Factory(...),
+//       ServiceCfg:         cfg,
 //     })
 //
 // If you do have customized configurations to decode from YAML,
@@ -250,7 +251,8 @@ func Serve(ctx context.Context, args ServeArgs) error {
 //       log.Fatalf("Parsing config: %s", err)
 //     }
 //     ctx, bp, err := baseplate.New(baseplate.NewArgs{
-//       ServiceCfg: cfg,
+//       EdgeContextFactory: edgecontext.Factory(...),
+//       ServiceCfg:         cfg,
 //     })
 //
 // Environment variable references (e.g. $FOO and ${FOO}) are substituted into the
