@@ -17,8 +17,8 @@ type ttlClient struct {
 
 	trans thrift.TTransport
 
-	// if expiration is nil, then the client will be kept open indefinetly.
-	expiration *time.Time
+	// if expiration is zero, then the client will be kept open indefinetly.
+	expiration time.Time
 }
 
 // Close implements Client interface.
@@ -36,7 +36,7 @@ func (c *ttlClient) IsOpen() bool {
 	if !c.trans.IsOpen() {
 		return false
 	}
-	if c.expiration != nil && time.Now().After(*c.expiration) {
+	if !c.expiration.IsZero() && time.Now().After(c.expiration) {
 		c.trans.Close()
 		return false
 	}
@@ -55,6 +55,6 @@ func newTTLClient(trans thrift.TTransport, client thrift.TClient, ttl time.Durat
 	return &ttlClient{
 		TClient:    client,
 		trans:      trans,
-		expiration: &expiration,
+		expiration: expiration,
 	}
 }
