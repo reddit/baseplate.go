@@ -53,6 +53,9 @@ func TestGetSeed(t *testing.T) {
 	)
 	for i := 0; i <= maxBytes; i++ {
 		t.Run(fmt.Sprintf("read-%d-bytes", i), func(t *testing.T) {
+			if i == 0 {
+				t.Skipf("Time is not random enough to pass this test if zero bytes are read")
+			}
 			cryptoReader = readerGenerator(t, i)
 			set := make(map[int64]bool)
 			var lock sync.Mutex

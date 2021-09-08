@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/go-redis/redis/v8"
+
+	"github.com/reddit/baseplate.go/configbp"
 	"github.com/reddit/baseplate.go/redis/db/redisbp"
 )
 
@@ -100,7 +100,7 @@ timeouts:
 			c.name,
 			func(t *testing.T) {
 				var cfg redisbp.ClientConfig
-				if err := yaml.NewDecoder(strings.NewReader(c.raw)).Decode(&cfg); err != nil {
+				if err := configbp.ParseStrictYAML(strings.NewReader(c.raw), &cfg); err != nil {
 					t.Fatal(err)
 				}
 				if !reflect.DeepEqual(c.expected, cfg) {
@@ -209,7 +209,7 @@ timeouts:
 			c.name,
 			func(t *testing.T) {
 				var cfg redisbp.ClusterConfig
-				if err := yaml.NewDecoder(strings.NewReader(c.raw)).Decode(&cfg); err != nil {
+				if err := configbp.ParseStrictYAML(strings.NewReader(c.raw), &cfg); err != nil {
 					t.Fatal(err)
 				}
 				if !reflect.DeepEqual(c.expected, cfg) {

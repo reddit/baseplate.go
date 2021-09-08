@@ -17,7 +17,7 @@ func ExampleNewBaseplateServer() {
 	var ecFactory ecinterface.Factory
 
 	var cfg baseplate.Config
-	if err := baseplate.ParseConfigYAML("example.yaml", &cfg); err != nil {
+	if err := baseplate.ParseConfigYAML(&cfg); err != nil {
 		panic(err)
 	}
 	ctx, bp, err := baseplate.New(context.Background(), baseplate.NewArgs{

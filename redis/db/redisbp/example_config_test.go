@@ -21,7 +21,7 @@ func ExampleClientConfig() {
 	var ecFactory ecinterface.Factory
 
 	var cfg Config
-	if err := baseplate.ParseConfigYAML("example.yaml", &cfg); err != nil {
+	if err := baseplate.ParseConfigYAML(&cfg); err != nil {
 		panic(err)
 	}
 
