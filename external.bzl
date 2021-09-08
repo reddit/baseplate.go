@@ -700,8 +700,8 @@ def go_dependencies():
     go_repository(
         name = "com_github_opentracing_opentracing_go",
         importpath = "github.com/opentracing/opentracing-go",
-        sum = "h1:pWlfV3Bxv7k65HYwkikxat0+s3pV4bsqf19k25Ur8rU=",
-        version = "v1.1.0",
+        sum = "h1:uEJPy/1a5RIPAJ0Ov+OIO8OxWu77jEv+1B0VhjKrZUs=",
+        version = "v1.2.0",
     )
     go_repository(
         name = "com_github_pelletier_go_toml",

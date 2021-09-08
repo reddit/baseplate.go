@@ -11,8 +11,8 @@ const (
 	ctxKey = "context"
 
 	// Note that this must be the same as
-	// https://github.com/opentracing/opentracing-go/blob/v1.1.0/log/field.go#L128
-	errorKey = "error"
+	// https://github.com/opentracing/opentracing-go/blob/v1.2.0/log/field.go#L128
+	errorKey = "error.object"
 )
 
 // FinishOptions are the options to be converted into opentracing.FinishOptions.
