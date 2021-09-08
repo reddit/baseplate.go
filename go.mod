@@ -13,7 +13,7 @@ require (
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/joomcode/errorx v1.0.3
 	github.com/joomcode/redispipe v0.9.4
-	github.com/opentracing/opentracing-go v1.1.0
+	github.com/opentracing/opentracing-go v1.2.0
 	github.com/sony/gobreaker v0.4.1
 	go.uber.org/zap v1.15.0
 	gopkg.in/fsnotify.v1 v1.4.7
