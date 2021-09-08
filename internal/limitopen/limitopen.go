@@ -22,10 +22,10 @@ import (
 // 2. It returns the size reported by the system to the user.
 //
 // 3. The io.ReadCloser returned would be guaranteed to be not able to read
-//    beyond the size returned (for example, if you use this function to open
-//    /dev/zero, the system would return 0 as the size, and as a result when
-//    reading from r you would get EOF immediately, instead of being able to
-//    read from it indefinitely)
+// beyond the size returned (for example, if you use this function to open
+// /dev/zero, the system would return 0 as the size, and as a result when
+// reading from r you would get EOF immediately, instead of being able to
+// read from it indefinitely)
 //
 // It would never return both non-nil r and err.
 // When err is nil it's the caller's responsibility to close r returned.
