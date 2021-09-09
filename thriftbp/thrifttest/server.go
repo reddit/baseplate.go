@@ -83,7 +83,7 @@ type ServerConfig struct {
 	// middleware.
 	ErrorSpanSuppressor errorsbp.Suppressor
 
-	// The edge context implementation. Optional.
+	// Optional, the edge context implementation.
 	//
 	// If it's not set, ecinterface.Mock() will be used instead.
 	EdgeContextImpl ecinterface.Interface
@@ -125,57 +125,6 @@ func (s *Server) Close() error {
 //
 // This is inspired by httptest.NewServer from the go standard library and can
 // be used to test a thrift service.
-//
-// "cfg" may be empty, if it is, sane defaults will be chosen.
-// The server and pool that are returned should be closed when done, but the
-// Baseplate used by the server does not need to be.
-//
-// Here is an example usage of NewBaseplateServer:
-//
-//	import (
-//		"context"
-//		"testing"
-//
-//		baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
-//		"github.com/reddit/baseplate.go/secrets"
-//		"github.com/reddit/baseplate.go/thriftbp/thrifttest"
-//	)
-//
-//	type BaseplateService struct {
-//		Fail bool
-//		Err  error
-//	}
-//
-//	func (srv BaseplateService) IsHealthy(ctx context.Context, req *baseplatethrift.IsHealthyRequest) (r bool, err error) {
-//		return !srv.Fail, srv.Err
-//	}
-//
-//	func TestService(t *testing.T){
-//		// Initialize this properly in a real test
-//		var secrets *secrets.Store
-//
-//		ctx, cancel := context.WithCancel(context.Background())
-//		defer cancel()
-//
-//		processor := baseplatethrift.NewBaseplateServiceV2Processor(BaseplateService{})
-//		server, err := thrifttest.NewBaseplateServer(store, processor, nil, thrifttest.ServerConfig{})
-//		if err != nil {
-//			t.Fatal(err)
-//		}
-//		// cancelling the context will close the server.
-//		server.Start(ctx)
-//
-//		client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool)
-//		success, err := client.IsHealthy(ctx)
-//
-//		if err != nil {
-//			t.Errorf("expected no error, got %v", err)
-//		}
-//
-//		if !success {
-// 			t.Errorf("result mismatch, expected %v, got %v", c.expected.result, result)
-//		}
-//	}
 func NewBaseplateServer(cfg ServerConfig) (*Server, error) {
 	socket, err := thrift.NewTServerSocket(loopbackAddr)
 	if err != nil {

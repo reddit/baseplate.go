@@ -15,6 +15,7 @@ go_library(
 
 go_test(
     name = "configbp_test",
+    size = "small",
     srcs = ["config_test.go"],
     deps = [
         ":configbp",

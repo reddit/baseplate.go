@@ -26,6 +26,7 @@ go_test(
     size = "small",
     srcs = [
         "mocks_test.go",
+        "server_example_test.go",
         "server_test.go",
     ],
     deps = [
