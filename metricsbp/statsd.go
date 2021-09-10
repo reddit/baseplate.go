@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -86,6 +87,7 @@ type Statsd struct {
 	cancel              context.CancelFunc
 	histogramSampleRate float64
 	writer              *bufferedWriter
+	wg                  sync.WaitGroup
 
 	activeRequests int64
 }
@@ -104,7 +106,7 @@ func Float64Ptr(v float64) *float64 {
 
 // NewStatsd creates a Statsd object.
 //
-// It also starts a background reporting goroutine when Address is not empty.
+// It also starts a background reporting goroutine when Endpoint is not empty.
 // The goroutine will be stopped when the passed in context is canceled.
 //
 // NewStatsd never returns nil.
@@ -130,7 +132,9 @@ func NewStatsd(ctx context.Context, cfg Config) *Statsd {
 			conn.NewDefaultManager("udp", cfg.Endpoint, kitlogger),
 			cfg.BufferSize,
 		)
+		st.wg.Add(1)
 		go func() {
+			defer st.wg.Done()
 			ticker := time.NewTicker(ReporterTickerInterval)
 			defer ticker.Stop()
 
@@ -318,16 +322,16 @@ func (st *Statsd) Ctx() context.Context {
 	return st.ctx
 }
 
-// Close flushes all metrics not written to collector (if Address was set),
+// Close flushes all metrics not written to collector (if Endpoint was set),
 // and cancel the context,
 // thus stop all background goroutines started by this Statsd.
 //
+// It blocks until the flushing is completed.
+//
 // After Close() is called,
 // no more metrics will be send to the remote collector,
-// similar to the situation that this Statsd was initialized without Address
-// set,
-// but the difference is that calling Close() again will do the manual flush
-// again.
+// similar to the situation that this Statsd was initialized without Endpoint
+// set.
 //
 // After Close() is called,
 // Ctx() will always return an already canceled context.
@@ -340,6 +344,7 @@ func (st *Statsd) Ctx() context.Context {
 // and use Close() call to do the cleanup instead of canceling the context.
 func (st *Statsd) Close() error {
 	st.cancel()
+	st.wg.Wait()
 	return nil
 }
 
