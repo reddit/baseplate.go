@@ -8,15 +8,15 @@ import (
 )
 
 func TestTTLClient(t *testing.T) {
-	trans := thrift.NewTMemoryBuffer()
+	transport := thrift.NewTMemoryBuffer()
 	factory := thrift.NewTBinaryProtocolFactoryConf(nil)
 	tc := thrift.NewTStandardClient(
-		factory.GetProtocol(trans),
-		factory.GetProtocol(trans),
+		factory.GetProtocol(transport),
+		factory.GetProtocol(transport),
 	)
 	ttl := time.Millisecond
 
-	client := newTTLClient(trans, tc, ttl)
+	client := newTTLClient(transport, tc, ttl)
 	if !client.IsOpen() {
 		t.Error("Expected immediate IsOpen call to return true, got false.")
 	}
@@ -28,15 +28,15 @@ func TestTTLClient(t *testing.T) {
 }
 
 func TestTTLClientNegativeTTL(t *testing.T) {
-	trans := thrift.NewTMemoryBuffer()
+	transport := thrift.NewTMemoryBuffer()
 	factory := thrift.NewTBinaryProtocolFactoryConf(nil)
 	tc := thrift.NewTStandardClient(
-		factory.GetProtocol(trans),
-		factory.GetProtocol(trans),
+		factory.GetProtocol(transport),
+		factory.GetProtocol(transport),
 	)
 	ttl := time.Millisecond
 
-	client := newTTLClient(trans, tc, -ttl)
+	client := newTTLClient(transport, tc, -ttl)
 	if !client.IsOpen() {
 		t.Error("Expected immediate IsOpen call to return true, got false.")
 	}

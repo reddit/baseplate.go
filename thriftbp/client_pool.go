@@ -460,17 +460,16 @@ func newClient(
 		return nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client: %w", err)
 	}
 
-	conn, err := net.DialTimeout("tcp", addr, cfg.GetConnectTimeout())
-	if err != nil {
-		return nil, fmt.Errorf("thriftbp: error opening connection for new Thrift client: %w", err)
+	transport := thrift.NewTSocketConf(addr, cfg)
+	if err = transport.Open(); err != nil {
+		return nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client: %w", err)
 	}
-	trans := thrift.NewTSocketFromConnConf(conn, cfg)
 
 	client := thrift.NewTStandardClient(
-		protoFactory.GetProtocol(trans),
-		protoFactory.GetProtocol(trans),
+		protoFactory.GetProtocol(transport),
+		protoFactory.GetProtocol(transport),
 	)
-	return newTTLClient(trans, client, maxConnectionAge), nil
+	return newTTLClient(transport, client, maxConnectionAge), nil
 }
 
 func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration, tags []string) {

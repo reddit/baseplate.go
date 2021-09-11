@@ -34,8 +34,8 @@ def go_dependencies():
     go_repository(
         name = "com_github_apache_thrift",
         importpath = "github.com/apache/thrift",
-        sum = "h1:hY4rAyg7Eqbb27GB6gkhUKrRAuc8xRjlNtJq+LseKeY=",
-        version = "v0.14.2",
+        sum = "h1:aGvdaR0v1t9XLgjtBYwxcBvBOTMqClzwE26CHOgjW1Y=",
+        version = "v0.15.0",
     )
     go_repository(
         name = "com_github_armon_consul_api",
@@ -330,6 +330,12 @@ def go_dependencies():
         importpath = "github.com/gofrs/uuid",
         sum = "h1:y12jRkkFxsd7GpqdSZ+/KCs/fJbqpEXSGd4+jfEaewE=",
         version = "v3.2.0+incompatible",
+    )
+    go_repository(
+        name = "com_github_golang_mock",
+        importpath = "github.com/golang/mock",
+        sum = "h1:jlYHihg//f7RRwuPfptm04yp4s7O6Kw8EZiVYIGcH0g=",
+        version = "v1.5.0",
     )
     go_repository(
         name = "com_github_golang_protobuf",
