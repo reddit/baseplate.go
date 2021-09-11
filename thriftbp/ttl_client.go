@@ -15,7 +15,7 @@ var _ Client = (*ttlClient)(nil)
 type ttlClient struct {
 	thrift.TClient
 
-	trans thrift.TTransport
+	transport thrift.TTransport
 
 	// if expiration is zero, then the client will be kept open indefinetly.
 	expiration time.Time
@@ -25,7 +25,7 @@ type ttlClient struct {
 //
 // It calls underlying TTransport's Close function.
 func (c *ttlClient) Close() error {
-	return c.trans.Close()
+	return c.transport.Close()
 }
 
 // IsOpen implements Client interface.
@@ -33,18 +33,18 @@ func (c *ttlClient) Close() error {
 // If TTL has passed, it closes the underlying TTransport and returns false.
 // Otherwise it just calls the underlying TTransport's IsOpen function.
 func (c *ttlClient) IsOpen() bool {
-	if !c.trans.IsOpen() {
+	if !c.transport.IsOpen() {
 		return false
 	}
 	if !c.expiration.IsZero() && time.Now().After(c.expiration) {
-		c.trans.Close()
+		c.transport.Close()
 		return false
 	}
 	return true
 }
 
 // newTTLClient creates a ttlClient with a thrift TTransport and a ttl.
-func newTTLClient(trans thrift.TTransport, client thrift.TClient, ttl time.Duration) *ttlClient {
+func newTTLClient(transport thrift.TTransport, client thrift.TClient, ttl time.Duration) *ttlClient {
 	var expiration time.Time
 	if ttl == 0 {
 		ttl = DefaultMaxConnectionAge
@@ -54,7 +54,7 @@ func newTTLClient(trans thrift.TTransport, client thrift.TClient, ttl time.Durat
 	}
 	return &ttlClient{
 		TClient:    client,
-		trans:      trans,
+		transport:  transport,
 		expiration: expiration,
 	}
 }
