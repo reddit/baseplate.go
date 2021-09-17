@@ -2,7 +2,7 @@ workspace(name = "baseplate_go")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-GO_VERSION = "1.17"
+GO_VERSION = "1.17.1"
 
 # For rules_go
 RULES_GO_VERSION = "v0.28.0"
