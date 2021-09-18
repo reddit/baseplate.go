@@ -206,7 +206,7 @@ func (t *Tracer) StartSpan(operationName string, opts ...opentracing.StartSpanOp
 	} else {
 		span.trace.traceID = t.newTraceID()
 		span.trace.sampled = randbp.ShouldSampleWithRate(t.sampleRate)
-		initRootSpan(span)
+		initRootSpan(context.Background(), span)
 	}
 
 	if span.spanType == SpanTypeServer {

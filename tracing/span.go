@@ -305,24 +305,6 @@ func (s Span) getHub() *sentry.Hub {
 	return getNopHub()
 }
 
-// InjectTraceContext injects the sentry hub and logger with trace id
-// information to the context object.
-//
-// It's called automatically by StartSpanFromHeaders and thriftbp/httpbp
-// middlewares,
-// so you don't need to call it for spans created automatically from requests.
-// But you should call it if you created a top level span manually.
-//
-// It's also not needed to be called for the child spans,
-// as the trace id attached would be the same.
-func (s Span) InjectTraceContext(ctx context.Context) context.Context {
-	ctx = context.WithValue(ctx, sentry.HubContextKey, s.getHub())
-	ctx = log.Attach(ctx, log.AttachArgs{
-		TraceID: s.TraceID(),
-	})
-	return ctx
-}
-
 // ForeachBaggageItem implements opentracing.SpanContext.
 //
 // We don't support any extra baggage items, so it's a noop.
@@ -443,7 +425,9 @@ func StartTopLevelServerSpan(ctx context.Context, name string) (context.Context,
 		SpanTypeOption{Type: SpanTypeServer},
 	)
 	span := AsSpan(otSpan)
-	return span.InjectTraceContext(ctx), span
+	return log.Attach(ctx, log.AttachArgs{
+		TraceID: span.TraceID(),
+	}), span
 }
 
 // Headers is the argument struct for starting a Span from upstream headers.
@@ -588,8 +572,7 @@ func StartSpanFromHeaders(ctx context.Context, name string, headers Headers) (co
 		span.trace.sampled = sampled
 	}
 
-	initRootSpan(span)
-	ctx = span.InjectTraceContext(ctx)
+	ctx = initRootSpan(ctx, span)
 
 	return ctx, span
 }
@@ -606,18 +589,12 @@ func StartSpanFromHeaders(ctx context.Context, name string, headers Headers) (co
 // It doesn't necessarily mean top level traces.
 //
 // It also doesn't necessarily mean the span must be a server span.
-func initRootSpan(s *Span) {
-	hub := sentry.CurrentHub()
-	if hub == nil {
-		// This shouldn't happen, but just in case to avoid panic.
-		hub = getNopHub()
-	} else {
-		hub = hub.Clone()
-	}
-	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetTag("trace_id", s.TraceID())
+func initRootSpan(ctx context.Context, s *Span) context.Context {
+	ctx = log.Attach(ctx, log.AttachArgs{
+		TraceID: s.TraceID(),
 	})
-	s.hub = hub
+	s.hub = sentry.GetHubFromContext(ctx)
+	return ctx
 }
 
 var nopHub = sentry.NewHub(nil, sentry.NewScope())
