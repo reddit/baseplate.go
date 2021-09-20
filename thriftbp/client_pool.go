@@ -167,7 +167,7 @@ type ClientPoolConfig struct {
 	// When BreakerConfig is non-nil,
 	// a breakerbp.FailureRatioBreaker will be created for the pool,
 	// and its middleware will be set for the pool.
-	BreakerConfig *breakerbp.Config
+	BreakerConfig *breakerbp.Config `yaml:"breakerConfig"`
 
 	// The edge context implementation. Optional.
 	//
