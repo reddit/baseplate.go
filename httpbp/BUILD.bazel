@@ -61,5 +61,6 @@ go_test(
         "//secrets",
         "//tracing",
         "@com_github_avast_retry_go//:retry-go",
+        "@com_github_sony_gobreaker//:gobreaker",
     ],
 )

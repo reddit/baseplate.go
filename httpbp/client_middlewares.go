@@ -137,7 +137,8 @@ func CircuitBreaker(config breakerbp.Config) ClientMiddleware {
 	var breakers sync.Map
 	pool := sync.Pool{
 		New: func() interface{} {
-			return breakerbp.NewFailureRatioBreaker(config)
+			breaker := breakerbp.NewFailureRatioBreaker(config)
+			return &breaker
 		},
 	}
 
@@ -150,28 +151,28 @@ func CircuitBreaker(config breakerbp.Config) ClientMiddleware {
 			newBreaker := pool.Get()
 			breaker, loaded := breakers.LoadOrStore(host, newBreaker)
 			if loaded {
-				defer pool.Put(newBreaker)
+				pool.Put(newBreaker)
+				newBreaker = nil
 			}
 
-			resp, err := breaker.(breakerbp.FailureRatioBreaker).Execute(func() (interface{}, error) {
-				resp, err := next.RoundTrip(req)
+			var resp *http.Response
+			_, err := breaker.(*breakerbp.FailureRatioBreaker).Execute(func() (interface{}, error) {
+				r, err := next.RoundTrip(req)
 				if err != nil {
 					return nil, err
 				}
+				resp = r
 				// circuit break on any HTTP 5xx code
 				if resp.StatusCode >= http.StatusInternalServerError {
-					// read & close to ensure underlying RoundTripper
-					// (http.Transport) is able to re-use the persistent TCP
-					// connection.
-					_, _ = io.ReadAll(resp.Body)
-					return nil, resp.Body.Close()
+					DrainAndClose(resp.Body)
+					return nil, ClientError{
+						Status:     resp.Status,
+						StatusCode: resp.StatusCode,
+					}
 				}
-				return resp, nil
+				return nil, nil
 			})
-			if resp != nil {
-				return resp.(*http.Response), err
-			}
-			return nil, err
+			return resp, err
 		})
 	}
 }
