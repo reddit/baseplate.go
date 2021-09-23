@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
+	"github.com/sony/gobreaker"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/mqsend"
@@ -383,5 +384,36 @@ func TestMaxConcurrency(t *testing.T) {
 	expected := uint64(maxConcurrency)
 	if errors != expected {
 		t.Errorf("expected %d, actual: %d", expected, errors)
+	}
+}
+
+func TestCircuitBreaker(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const code = http.StatusInternalServerError
+		w.WriteHeader(code)
+		io.WriteString(w, http.StatusText(code))
+	}))
+	// The first 2 requests should return normal error (ClientError),
+	// the 3rd one should return breaker error.
+	breaker := CircuitBreaker(breakerbp.Config{
+		MinRequestsToTrip: 2,
+		FailureThreshold:  1,
+	})
+	client := server.Client()
+	client.Transport = breaker(client.Transport)
+
+	_, err := client.Get(server.URL)
+	if !errors.As(err, new(ClientError)) {
+		t.Errorf("Expected the first request to return ClientError, got %v", err)
+	}
+
+	_, err = client.Get(server.URL)
+	if !errors.As(err, new(ClientError)) {
+		t.Errorf("Expected the second request to return ClientError, got %v", err)
+	}
+
+	_, err = client.Get(server.URL)
+	if !errors.Is(err, gobreaker.ErrOpenState) {
+		t.Errorf("Expected the third request to return %v, got %v", gobreaker.ErrOpenState, err)
 	}
 }
