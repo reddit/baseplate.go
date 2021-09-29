@@ -1,0 +1,11 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "transport",
+    srcs = [
+        "doc.go",
+        "headers.go",
+    ],
+    importpath = "github.com/reddit/baseplate.go/transport",
+    visibility = ["//visibility:public"],
+)

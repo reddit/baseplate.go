@@ -6,40 +6,41 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/reddit/baseplate.go/ecinterface"
+	"github.com/reddit/baseplate.go/transport"
 )
 
 // Edge request context propagation related headers, as defined in
 // https://pages.github.snooguts.net/reddit/baseplate.spec/component-apis/thrift#edge-request-context-propagation
 const (
-	HeaderEdgeRequest = "Edge-Request"
+	HeaderEdgeRequest = transport.HeaderEdgeRequest
 )
 
 // Tracing related headers, as defined in
 // https://pages.github.snooguts.net/reddit/baseplate.spec/component-apis/thrift#tracing
 const (
 	// The Trace ID, a 64-bit integer encoded in decimal.
-	HeaderTracingTrace = "Trace"
+	HeaderTracingTrace = transport.HeaderTracingTrace
 	// The Span ID, a 64-bit integer encoded in decimal.
-	HeaderTracingSpan = "Span"
+	HeaderTracingSpan = transport.HeaderTracingSpan
 	// The Parent Span ID, a 64-bit integer encoded in decimal.
-	HeaderTracingParent = "Parent"
+	HeaderTracingParent = transport.HeaderTracingParent
 	// The Sampled flag, an ASCII "1" (HeaderTracingSampledTrue) if true,
 	// otherwise false.
 	// If not present, defaults to false.
-	HeaderTracingSampled = "Sampled"
+	HeaderTracingSampled = transport.HeaderTracingSampled
 	// Trace flags, a 64-bit integer encoded in decimal.
 	// If not present, defaults to null.
-	HeaderTracingFlags = "Flags"
+	HeaderTracingFlags = transport.HeaderTracingFlags
 )
 
 // HeaderTracingSampledTrue is the header value to indicate that this trace
 // should be sampled.
-const HeaderTracingSampledTrue = "1"
+const HeaderTracingSampledTrue = transport.HeaderTracingSampledTrue
 
 // Deadline propagation related headers.
 const (
 	// Number of milliseconds, 64-bit integer encoded in decimal.
-	HeaderDeadlineBudget = "Deadline-Budget"
+	HeaderDeadlineBudget = transport.HeaderDeadlineBudget
 )
 
 // UserAgent related headers.

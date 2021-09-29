@@ -1,0 +1,67 @@
+package grpcbp
+
+import (
+	"context"
+
+	"github.com/opentracing/opentracing-go"
+	"github.com/reddit/baseplate.go/ecinterface"
+	"github.com/reddit/baseplate.go/tracing"
+
+	"google.golang.org/grpc"
+)
+
+// MonitorInterceptorArgs are the arguments to be passed into the
+// MonitorInterceptorUnary function.
+type MonitorInterceptorArgs struct {
+	ServiceSlug string
+}
+
+// MonitorInterceptorUnary is a client middleware that provides tracing and
+// metrics by starting or continuing a span.
+func MonitorInterceptorUnary(args MonitorInterceptorArgs) grpc.UnaryClientInterceptor {
+	prefix := args.ServiceSlug + "."
+	return func(
+		ctx context.Context,
+		method string,
+		req interface{},
+		reply interface{},
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption,
+	) (err error) {
+		m := methodSlug(method)
+		span, ctx := opentracing.StartSpanFromContext(
+			ctx,
+			prefix+m,
+			tracing.SpanTypeOption{
+				Type: tracing.SpanTypeClient,
+			},
+		)
+		ctx = CreateGRPCContextFromSpan(ctx, tracing.AsSpan(span))
+		defer func() {
+			span.FinishWithOptions(tracing.FinishOptions{
+				Ctx: ctx,
+				Err: err,
+			}.Convert())
+		}()
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
+// ForwardEdgeContextUnary is a client middleware that forwards the
+// EdgeRequestContext set on the context object to the gRPC service being
+// called if one is set.
+func ForwardEdgeContextUnary(ecImpl ecinterface.Interface) grpc.UnaryClientInterceptor {
+	return func(
+		ctx context.Context,
+		method string,
+		req interface{},
+		reply interface{},
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption,
+	) (err error) {
+		ctx = AttachEdgeRequestContext(ctx, ecImpl)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}

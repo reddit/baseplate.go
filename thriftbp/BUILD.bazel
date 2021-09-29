@@ -29,6 +29,7 @@ go_library(
         "//randbp",
         "//retrybp",
         "//tracing",
+        "//transport",
         "@com_github_apache_thrift//lib/go/thrift",
         "@com_github_avast_retry_go//:retry-go",
         "@com_github_go_kit_kit//metrics",
