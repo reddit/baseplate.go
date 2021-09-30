@@ -2,12 +2,13 @@ package grpcbp
 
 import (
 	"context"
+	"errors"
 
 	"github.com/opentracing/opentracing-go"
+	"google.golang.org/grpc"
+
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/tracing"
-
-	"google.golang.org/grpc"
 )
 
 // MonitorInterceptorArgs are the arguments to be passed into the
@@ -48,6 +49,23 @@ func MonitorInterceptorUnary(args MonitorInterceptorArgs) grpc.UnaryClientInterc
 	}
 }
 
+// MonitorInterceptorStreaming is a client middleware that provides tracing and
+// metrics by starting or continuing a span.
+//
+// This is not implemented yet.
+func MonitorInterceptorStreaming(args MonitorInterceptorArgs) grpc.StreamClientInterceptor {
+	return func(
+		ctx context.Context,
+		desc *grpc.StreamDesc,
+		cc *grpc.ClientConn,
+		method string,
+		streamer grpc.Streamer,
+		opts ...grpc.CallOption,
+	) (grpc.ClientStream, error) {
+		return nil, errors.New("MonitorInterceptorStreaming: not implemented")
+	}
+}
+
 // ForwardEdgeContextUnary is a client middleware that forwards the
 // EdgeRequestContext set on the context object to the gRPC service being
 // called if one is set.
@@ -63,5 +81,23 @@ func ForwardEdgeContextUnary(ecImpl ecinterface.Interface) grpc.UnaryClientInter
 	) (err error) {
 		ctx = AttachEdgeRequestContext(ctx, ecImpl)
 		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
+// ForwardEdgeContextStreaming is a client middleware that forwards the
+// EdgeRequestContext set on the context object to the gRPC service being
+// called if one is set.
+//
+// This is not implemented yet.
+func ForwardEdgeContextStreaming(ecImpl ecinterface.Interface) grpc.StreamClientInterceptor {
+	return func(
+		ctx context.Context,
+		desc *grpc.StreamDesc,
+		cc *grpc.ClientConn,
+		method string,
+		streamer grpc.Streamer,
+		opts ...grpc.CallOption,
+	) (grpc.ClientStream, error) {
+		return nil, errors.New("ForwardEdgeContextStreaming: not implemented")
 	}
 }

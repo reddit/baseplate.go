@@ -8,12 +8,13 @@ import (
 	"time"
 
 	pb "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -36,18 +37,15 @@ func TestInjectServerSpanInterceptorUnary(t *testing.T) {
 	t.Run("span-success", func(t *testing.T) {
 		// send request to server
 		if _, err := client.Ping(context.Background(), &pb.PingRequest{}); err != nil {
-			t.Fatal(err)
+			t.Fatalf("Ping: %v", err)
 		}
 
 		// drain recorder to validate spans
-		msg, err := drainRecorder(mmq)
-		if err != nil {
-			t.Fatal(err)
-		}
+		msg := drainRecorder(t, mmq)
 
 		var trace tracing.ZipkinSpan
-		if err = json.Unmarshal(msg, &trace); err != nil {
-			t.Fatal(err)
+		if err := json.Unmarshal(msg, &trace); err != nil {
+			t.Fatalf("recorded invalid JSON: %v", err)
 		}
 
 		got := trace.Name
@@ -67,18 +65,15 @@ func TestInjectServerSpanInterceptorUnary(t *testing.T) {
 	t.Run("span-error", func(t *testing.T) {
 		// send request to server
 		if _, err := client.PingError(context.Background(), &pb.PingRequest{}); err == nil {
-			t.Error("got no error, want error")
+			t.Error("PingError: got no error, want error")
 		}
 
 		// drain recorder to validate spans
-		msg, err := drainRecorder(mmq)
-		if err != nil {
-			t.Fatal(err)
-		}
+		msg := drainRecorder(t, mmq)
 
 		var trace tracing.ZipkinSpan
-		if err = json.Unmarshal(msg, &trace); err != nil {
-			t.Fatal(err)
+		if err := json.Unmarshal(msg, &trace); err != nil {
+			t.Fatalf("recorded invalid JSON: %v", err)
 		}
 
 		got := trace.Name
@@ -115,11 +110,11 @@ func TestInjectEdgeContextInterceptorUnary(t *testing.T) {
 	// create edge context
 	ctx, err := impl.HeaderToContext(context.Background(), "dummy-edge-context")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("HeaderToContext: %v", err)
 	}
 
-	if _, err = client.Ping(ctx, &pb.PingRequest{}); err != nil {
-		t.Fatal(err)
+	if _, err := client.Ping(ctx, &pb.PingRequest{}); err != nil {
+		t.Fatalf("Ping: %v", err)
 	}
 
 	ctx = service.ctx

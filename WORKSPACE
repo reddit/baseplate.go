@@ -46,8 +46,8 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 git_repository(
     name = "com_google_protobuf",
-    # actual: tag = "v3.14.0",
-    commit = "2514f0bd7da7e2af1bed4c5d1b84f031c4d12c10",
+    # actual: tag = "v3.18.0",
+    commit = "89b14b1d16eba4d44af43256fc45b24a6a348557",
     remote = "https://github.com/protocolbuffers/protobuf",
     shallow_since = "1605300819 -0800",
 )

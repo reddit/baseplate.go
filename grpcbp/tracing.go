@@ -5,42 +5,38 @@ import (
 	"strconv"
 	"strings"
 
+	"google.golang.org/grpc/metadata"
+
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
-
-	"google.golang.org/grpc/metadata"
 )
 
 // CreateGRPCContextFromSpan injects span info into a context object that can
 // be used in gRPC client code.
 func CreateGRPCContextFromSpan(ctx context.Context, span *tracing.Span) context.Context {
-	ctx = metadata.AppendToOutgoingContext(
-		ctx,
+	kvs := []string{
 		transport.HeaderTracingTrace, span.TraceID(),
 		transport.HeaderTracingSpan, span.ID(),
 		transport.HeaderTracingFlags, strconv.FormatInt(span.Flags(), 10),
-	)
+	}
+
 	if span.ParentID() != "" {
-		ctx = metadata.AppendToOutgoingContext(
-			ctx,
-			transport.HeaderTracingParent, span.ParentID(),
-		)
+		kvs = append(kvs, transport.HeaderTracingParent, span.ParentID())
 	} else {
 		md, _ := metadata.FromIncomingContext(ctx)
 		md.Delete(transport.HeaderTracingParent)
 		ctx = metadata.NewOutgoingContext(ctx, md)
 	}
+
 	if span.Sampled() {
-		ctx = metadata.AppendToOutgoingContext(
-			ctx,
-			transport.HeaderTracingSampled, transport.HeaderTracingSampledTrue,
-		)
+		kvs = append(kvs, transport.HeaderTracingSampled, transport.HeaderTracingSampledTrue)
 	} else {
 		md, _ := metadata.FromIncomingContext(ctx)
 		md.Delete(transport.HeaderTracingSampled)
 		ctx = metadata.NewOutgoingContext(ctx, md)
 	}
-	return ctx
+
+	return metadata.AppendToOutgoingContext(ctx, kvs...)
 
 }
 

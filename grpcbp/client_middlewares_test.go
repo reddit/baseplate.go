@@ -9,12 +9,11 @@ import (
 
 	pb "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
 	"github.com/opentracing/opentracing-go"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/tracing"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
 )
 
 func TestMonitorInterceptorUnary(t *testing.T) {
@@ -36,18 +35,15 @@ func TestMonitorInterceptorUnary(t *testing.T) {
 
 	t.Run("span-success", func(t *testing.T) {
 		if _, err := client.Ping(ctx, &pb.PingRequest{}); err != nil {
-			t.Fatal(err)
+			t.Fatalf("Ping: %v", err)
 		}
 
 		// drain recorder to validate spans
-		msg, err := drainRecorder(mmq)
-		if err != nil {
-			t.Fatal(err)
-		}
+		msg := drainRecorder(t, mmq)
 
 		var trace tracing.ZipkinSpan
-		if err = json.Unmarshal(msg, &trace); err != nil {
-			t.Fatal(err)
+		if err := json.Unmarshal(msg, &trace); err != nil {
+			t.Fatalf("recorded invalid JSON: %v", err)
 		}
 
 		got := trace.Name
@@ -71,14 +67,11 @@ func TestMonitorInterceptorUnary(t *testing.T) {
 		}
 
 		// drain recorder to validate spans
-		msg, err := drainRecorder(mmq)
-		if err != nil {
-			t.Fatal(err)
-		}
+		msg := drainRecorder(t, mmq)
 
 		var trace tracing.ZipkinSpan
-		if err = json.Unmarshal(msg, &trace); err != nil {
-			t.Fatal(err)
+		if err := json.Unmarshal(msg, &trace); err != nil {
+			t.Fatalf("recorded invalid JSON: %v", err)
 		}
 
 		got := trace.Name
@@ -118,9 +111,8 @@ func setupServer(t *testing.T, opts ...grpc.ServerOption) (*bufconn.Listener, *m
 func setupClient(t *testing.T, l *bufconn.Listener, opts ...grpc.DialOption) *grpc.ClientConn {
 	t.Helper()
 
-	// configure required dial option and let test add any further options
-	bufDialer := func(context.Context, string) (net.Conn, error) {
-		return l.Dial()
+	bufDialer := func(ctx context.Context, _ string) (net.Conn, error) {
+		return l.DialContext(ctx)
 	}
 	opts = append([]grpc.DialOption{
 		grpc.WithContextDialer(bufDialer),
@@ -139,7 +131,7 @@ func setupClient(t *testing.T, l *bufconn.Listener, opts ...grpc.DialOption) *gr
 	t.Cleanup(func() {
 		err := conn.Close()
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("close connection: %v", err)
 		}
 	})
 
@@ -167,8 +159,13 @@ func setupServerSpan(t *testing.T) (context.Context, *mqsend.MockMessageQueue) {
 	return ctx, recorder
 }
 
-func drainRecorder(recorder *mqsend.MockMessageQueue) ([]byte, error) {
+func drainRecorder(t *testing.T, recorder *mqsend.MockMessageQueue) []byte {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 	defer cancel()
-	return recorder.Receive(ctx)
+	msg, err := recorder.Receive(ctx)
+	if err != nil {
+		t.Fatalf("draining recorder: %v", err)
+	}
+	return msg
 }

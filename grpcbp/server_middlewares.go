@@ -2,14 +2,15 @@ package grpcbp
 
 import (
 	"context"
+	"errors"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 // InjectServerSpanInterceptorUnary is a server middleware that injects a server
@@ -39,6 +40,20 @@ func InjectServerSpanInterceptorUnary() grpc.UnaryServerInterceptor {
 	}
 }
 
+// InjectServerSpanInterceptorStreaming is a server middleware that injects a
+// server span into the `next` context.
+//
+// If "User-Agent" (transport.HeaderUserAgent) header is set, the created
+// server span will also have "peer.service" (tracing.TagKeyPeerService) tag
+// set to its value.
+//
+// This is not implemented yet.
+func InjectServerSpanInterceptorStreaming() grpc.StreamServerInterceptor {
+	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		return errors.New("InjectServerSpanInterceptorStreaming: not implemented")
+	}
+}
+
 // InjectEdgeContextInterceptorUnary is a server middleware that injects an
 // edge request context created from the gRPC headers set on the context.
 func InjectEdgeContextInterceptorUnary(impl ecinterface.Interface) grpc.UnaryServerInterceptor {
@@ -48,6 +63,16 @@ func InjectEdgeContextInterceptorUnary(impl ecinterface.Interface) grpc.UnarySer
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
 		ctx = InitializeEdgeContext(ctx, impl)
 		return handler(ctx, req)
+	}
+}
+
+// InjectEdgeContextInterceptorStreaming is a server middleware that injects an
+// edge request context created from the gRPC headers set on the context.
+//
+// This is not implemented yet.
+func InjectEdgeContextInterceptorStreaming(impl ecinterface.Interface) grpc.StreamServerInterceptor {
+	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		return errors.New("InjectEdgeContextInterceptorStreaming: not implemented")
 	}
 }
 
@@ -97,11 +122,7 @@ func StartSpanFromGRPCContext(ctx context.Context, name string) (context.Context
 		sampled bool
 	)
 
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return tracing.StartSpanFromHeaders(ctx, name, headers)
-	}
-
+	md, _ := metadata.FromIncomingContext(ctx)
 	if value, ok := GetHeader(md, transport.HeaderTracingTrace); ok {
 		headers.TraceID = value
 	}
