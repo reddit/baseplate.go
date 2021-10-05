@@ -33,6 +33,7 @@ go_test(
         "sentry_test.go",
         "wrapper_example_test.go",
         "wrapper_test.go",
+        "zap_wrapper_test.go",
     ],
     embed = [":log"],
     deps = [
