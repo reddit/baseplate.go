@@ -431,6 +431,8 @@ func newClientPool(
 	pooledClient := &clientPool{
 		Pool: pool,
 
+		slug: cfg.ServiceSlug,
+
 		poolExhaustedCounter: metricsbp.M.Counter(
 			cfg.ServiceSlug + ".pool-exhausted",
 		).With(tags...),
@@ -495,6 +497,8 @@ func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, t
 type clientPool struct {
 	clientpool.Pool
 
+	slug string
+
 	poolExhaustedCounter         metrics.Counter
 	releaseErrorCounter          metrics.Counter
 	poolClosedConnectionsCounter metrics.Counter
@@ -538,7 +542,12 @@ func (p *clientPool) pooledCall(ctx context.Context, method string, args, result
 		if shouldCloseConnection(err) {
 			p.poolClosedConnectionsCounter.Add(1)
 			if e := client.Close(); e != nil {
-				log.Errorw("Failed to close client", "origErr", err, "closeErr", e)
+				log.C(ctx).Errorw(
+					"Failed to close client",
+					"pool", p.slug,
+					"origErr", err,
+					"closeErr", e,
+				)
 			}
 		}
 		p.releaseClient(client)
@@ -553,7 +562,11 @@ func (p *clientPool) getClient() (Client, error) {
 		if errors.Is(err, clientpool.ErrExhausted) {
 			p.poolExhaustedCounter.Add(1)
 		}
-		log.Errorw("Failed to get client from pool", "err", err)
+		log.Errorw(
+			"Failed to get client from pool",
+			"pool", p.slug,
+			"err", err,
+		)
 		return nil, err
 	}
 	return c.(Client), nil
@@ -561,7 +574,11 @@ func (p *clientPool) getClient() (Client, error) {
 
 func (p *clientPool) releaseClient(c Client) {
 	if err := p.Pool.Release(c); err != nil {
-		log.Errorw("Failed to release client back to pool", "err", err)
+		log.Errorw(
+			"Failed to release client back to pool",
+			"pool", p.slug,
+			"err", err,
+		)
 		p.releaseErrorCounter.Add(1)
 	}
 }
