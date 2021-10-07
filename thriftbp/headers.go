@@ -11,6 +11,8 @@ import (
 
 // Edge request context propagation related headers, as defined in
 // https://pages.github.snooguts.net/reddit/baseplate.spec/component-apis/thrift#edge-request-context-propagation
+//
+// Deprecated: use transport.HeaderEdgeRequest instead
 const (
 	HeaderEdgeRequest = transport.HeaderEdgeRequest
 )
@@ -18,33 +20,34 @@ const (
 // Tracing related headers, as defined in
 // https://pages.github.snooguts.net/reddit/baseplate.spec/component-apis/thrift#tracing
 const (
-	// The Trace ID, a 64-bit integer encoded in decimal.
+	// Deprecated: use transport.HeaderTracingTrace instead
 	HeaderTracingTrace = transport.HeaderTracingTrace
-	// The Span ID, a 64-bit integer encoded in decimal.
+	// Deprecated: use transport.HeaderTracingSpan instead
 	HeaderTracingSpan = transport.HeaderTracingSpan
-	// The Parent Span ID, a 64-bit integer encoded in decimal.
+	// Deprecated: use transport.HeaderTracingParent instead
 	HeaderTracingParent = transport.HeaderTracingParent
-	// The Sampled flag, an ASCII "1" (HeaderTracingSampledTrue) if true,
-	// otherwise false.
-	// If not present, defaults to false.
+	// Deprecated: use transport.HeaderTracingSampled instead
 	HeaderTracingSampled = transport.HeaderTracingSampled
-	// Trace flags, a 64-bit integer encoded in decimal.
-	// If not present, defaults to null.
+	// Deprecated: use transport.HeaderTracingFlags instead
 	HeaderTracingFlags = transport.HeaderTracingFlags
 )
 
 // HeaderTracingSampledTrue is the header value to indicate that this trace
 // should be sampled.
-const HeaderTracingSampledTrue = transport.HeaderTracingSampledTrue
+const (
+	// Deprecated: use transport.HeaderTracingSampledTrue instead
+	HeaderTracingSampledTrue = transport.HeaderTracingSampledTrue
+)
 
 // Deadline propagation related headers.
 const (
-	// Number of milliseconds, 64-bit integer encoded in decimal.
+	// Deprecated: use transport.HeaderDeadlineBudget instead
 	HeaderDeadlineBudget = transport.HeaderDeadlineBudget
 )
 
 // UserAgent related headers.
 const (
+	// Deprecated: use transport.HeaderUserAgent instead
 	HeaderUserAgent = "User-Agent"
 )
 
