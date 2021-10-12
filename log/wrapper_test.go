@@ -57,6 +57,18 @@ func TestLogWrapperUnmarshalText(t *testing.T) {
 			expected: "log.ZapWrapper",
 		},
 		{
+			text: "zap:error:key",
+			err:  true, // expect error because of dangling key.
+		},
+		{
+			text: "zap:error:key=value:extra",
+			err:  true, // expect error because of extra.
+		},
+		{
+			text:     "zap:info:key1=value1,key2=value2 with space",
+			expected: "log.ZapWrapper",
+		},
+		{
 			text: "zaperror",
 			err:  true,
 		},

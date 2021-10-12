@@ -113,10 +113,12 @@ func (w Wrapper) ToThriftLogger() thrift.Logger {
 // - "std": StdWrapper with default stdlib logger
 // (log.New(os.Stderr, "", log.LstdFlags)).
 //
-// - "zap": ZapWrapper on default level (Info).
+// - "zap": ZapWrapper on default level (Info) with no kv pairs.
 //
-// - "zap:level": ZapWrapper with given level, for example "zap:error" means
-// ZapWrapper on Error level.
+// - "zap:level:k1=v1,k2=v2...": ZapWrapper with given level and kv pairs, with
+// the ":k=v..." part being optional. For example "zap:error" means ZapWrapper on
+// Error level with no kv pairs, "zap:info:key1=value1" means ZapWrapper on Info
+// level with "key1":"value1" pair.
 //
 // - "sentry": ErrorWithSentryWrapper.
 //
@@ -127,7 +129,32 @@ func (w *Wrapper) UnmarshalText(text []byte) error {
 	// Special handling for "zap:level" case
 	const zapLevelPrefix = "zap:"
 	if strings.HasPrefix(s, zapLevelPrefix) {
-		*w = ZapWrapper(Level(strings.ToLower(s[len(zapLevelPrefix):])))
+		split := strings.Split(s, ":")
+		if len(split) > 3 {
+			return fmt.Errorf(`log.Wrapper.UnmarshalText: malformed input: too many ":": %q`, s)
+		}
+		var pairs map[string]interface{}
+		if len(split) > 2 {
+			kvs := strings.Split(split[2], ",")
+			pairs = make(map[string]interface{}, len(kvs))
+			for _, kv := range kvs {
+				kv = strings.TrimSpace(kv)
+				index := strings.Index(kv, "=")
+				if index < 0 {
+					return fmt.Errorf(`log.Wrapper.UnmarshalText: malformed input: no "=" in kv pair %q`, kv)
+				}
+				key := kv[:index]
+				val := kv[index+1:]
+				if _, ok := pairs[key]; ok {
+					return fmt.Errorf("log.Wrapper.UnmarshalText: malformed input: key %q appeared at least twice", key)
+				}
+				pairs[key] = val
+			}
+		}
+		*w = ZapWrapper(ZapWrapperArgs{
+			Level:   Level(strings.ToLower(split[1])),
+			KVPairs: pairs,
+		})
 		return nil
 	}
 
@@ -141,7 +168,9 @@ func (w *Wrapper) UnmarshalText(text []byte) error {
 	case "std":
 		*w = StdWrapper(stdlog.New(os.Stderr, "", stdlog.LstdFlags))
 	case "zap":
-		*w = ZapWrapper(Level(""))
+		*w = ZapWrapper(ZapWrapperArgs{
+			Level: Level(""),
+		})
 	case "sentry":
 		*w = ErrorWithSentryWrapper()
 	}
@@ -180,29 +209,40 @@ func TestWrapper(tb testing.TB) Wrapper {
 	}
 }
 
+// ZapWrapperArgs defines the args used in ZapWrapper.
+type ZapWrapperArgs struct {
+	Level   Level
+	KVPairs map[string]interface{}
+}
+
 // ZapWrapper wraps zap log package into a Wrapper.
-func ZapWrapper(level Level) Wrapper {
-	if level == NopLevel {
+func ZapWrapper(args ZapWrapperArgs) Wrapper {
+	if args.Level == NopLevel {
 		return NopWrapper
+	}
+
+	kv := make([]interface{}, 0, len(args.KVPairs)*2)
+	for k, v := range args.KVPairs {
+		kv = append(kv, k, v)
 	}
 
 	return func(ctx context.Context, msg string) {
 		logger := C(ctx)
 		// For unknown values, fallback to info level.
-		f := logger.Info
-		switch level {
+		f := logger.Infow
+		switch args.Level {
 		case DebugLevel:
-			f = logger.Debug
+			f = logger.Debugw
 		case WarnLevel:
-			f = logger.Warn
+			f = logger.Warnw
 		case ErrorLevel:
-			f = logger.Error
+			f = logger.Errorw
 		case PanicLevel:
-			f = logger.Panic
+			f = logger.Panicw
 		case FatalLevel:
-			f = logger.Fatal
+			f = logger.Fatalw
 		}
-		f(msg)
+		f(msg, kv...)
 	}
 }
 
