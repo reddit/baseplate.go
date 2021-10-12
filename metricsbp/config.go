@@ -63,7 +63,8 @@ type Config struct {
 // with the global tracing hook registry.
 func InitFromConfig(ctx context.Context, cfg Config) io.Closer {
 	M = NewStatsd(ctx, cfg)
-	tracing.RegisterCreateServerSpanHooks(CreateServerSpanHook{Metrics: M})
+	pm := NewPrometheusMetrics(ctx, cfg)
+	tracing.RegisterCreateServerSpanHooks(CreateServerSpanHook{Metrics: M, PrometheusMetrics: pm})
 	if cfg.RunSysStats {
 		M.RunSysStats()
 	}

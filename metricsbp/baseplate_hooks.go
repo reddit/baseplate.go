@@ -17,15 +17,18 @@ const (
 type CreateServerSpanHook struct {
 	// Optional, will fallback to M when it's nil.
 	Metrics *Statsd
+
+	PrometheusMetrics *PrometheusMetrics
 }
 
 // OnCreateServerSpan registers MetricSpanHooks on a server Span.
 func (h CreateServerSpanHook) OnCreateServerSpan(span *tracing.Span) error {
 	statsd := h.Metrics.fallback()
 	span.AddHooks(
-		newSpanHook(statsd, span),
+		newSpanHook(statsd, h.PrometheusMetrics, span),
 		countActiveRequestsHook{
-			metrics: statsd,
+			metrics:           statsd,
+			prometheusMetrics: h.PrometheusMetrics,
 		},
 	)
 	return nil
@@ -35,21 +38,23 @@ func (h CreateServerSpanHook) OnCreateServerSpan(span *tracing.Span) error {
 // ends, with success=True/False tags for the counter based on whether an error
 // was passed to `span.End` or not.
 type spanHook struct {
-	metrics *Statsd
+	metrics           *Statsd
+	prometheusMetrics *PrometheusMetrics
 
 	startTime time.Time
 }
 
-func newSpanHook(metrics *Statsd, span *tracing.Span) *spanHook {
+func newSpanHook(metrics *Statsd, pm *PrometheusMetrics, span *tracing.Span) *spanHook {
 	return &spanHook{
-		metrics: metrics,
+		metrics:           metrics,
+		prometheusMetrics: pm,
 	}
 }
 
 // OnCreateChild registers a child MetricsSpanHook on the child Span and starts
 // a new Timer around the Span.
 func (h *spanHook) OnCreateChild(parent, child *tracing.Span) error {
-	child.AddHooks(newSpanHook(h.metrics, child))
+	child.AddHooks(newSpanHook(h.metrics, h.prometheusMetrics, child))
 	return nil
 }
 
@@ -118,16 +123,19 @@ func (h *spanHook) OnAddCounter(span *tracing.Span, key string, delta float64) e
 }
 
 type countActiveRequestsHook struct {
-	metrics *Statsd
+	metrics           *Statsd
+	prometheusMetrics *PrometheusMetrics
 }
 
 func (h countActiveRequestsHook) OnPostStart(_ *tracing.Span) error {
 	h.metrics.incActiveRequests()
+	h.prometheusMetrics.incActiveRequests()
 	return nil
 }
 
 func (h countActiveRequestsHook) OnPreStop(_ *tracing.Span, _ error) error {
 	h.metrics.decActiveRequests()
+	h.prometheusMetrics.decActiveRequests()
 	return nil
 }
 
