@@ -129,13 +129,13 @@ type countActiveRequestsHook struct {
 
 func (h countActiveRequestsHook) OnPostStart(_ *tracing.Span) error {
 	h.metrics.incActiveRequests()
-	h.prometheusMetrics.incActiveRequests()
+	h.prometheusMetrics.ActiveRequests.Inc()
 	return nil
 }
 
 func (h countActiveRequestsHook) OnPreStop(_ *tracing.Span, _ error) error {
 	h.metrics.decActiveRequests()
-	h.prometheusMetrics.decActiveRequests()
+	h.prometheusMetrics.ActiveRequests.Dec()
 	return nil
 }
 
