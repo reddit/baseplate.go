@@ -161,3 +161,18 @@ func WrapBaseplateError(e error) error {
 	}
 	return e
 }
+
+func tExceptionTypeToString(t thrift.TExceptionType) string {
+	switch t {
+	case thrift.TExceptionTypeCompiled:
+		return "thrift.TExceptionTypeCompiled"
+	case thrift.TExceptionTypeApplication:
+		return "thrift.TExceptionTypeApplication"
+	case thrift.TExceptionTypeProtocol:
+		return "thrift.TExceptionTypeProtocol"
+	case thrift.TExceptionTypeTransport:
+		return "thrift.TExceptionTypeTransport"
+	default:
+		return "thrift.TExceptionTypeUnknown"
+	}
+}
