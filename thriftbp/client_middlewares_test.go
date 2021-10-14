@@ -19,6 +19,7 @@ import (
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
 	"github.com/reddit/baseplate.go/tracing"
+	"github.com/reddit/baseplate.go/transport"
 )
 
 const (
@@ -214,9 +215,9 @@ func TestForwardEdgeRequestContext(t *testing.T) {
 	}
 
 	ctx = recorder.Calls()[0].Ctx
-	headerInWriteHeaderList(ctx, t, thriftbp.HeaderEdgeRequest)
+	headerInWriteHeaderList(ctx, t, transport.HeaderEdgeRequest)
 
-	header, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
+	header, ok := thrift.GetHeader(ctx, transport.HeaderEdgeRequest)
 	if !ok {
 		t.Fatal("header not set")
 	}
@@ -243,7 +244,7 @@ func TestForwardEdgeRequestContextNotSet(t *testing.T) {
 	}
 
 	ctx := recorder.Calls()[0].Ctx
-	_, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
+	_, ok := thrift.GetHeader(ctx, transport.HeaderEdgeRequest)
 	if ok {
 		t.Fatal("edge request header should not be set")
 	}
@@ -290,19 +291,19 @@ func TestSetDeadlineBudget(t *testing.T) {
 			}
 
 			ctx = recorder.Calls()[0].Ctx
-			v, ok := thrift.GetHeader(ctx, thriftbp.HeaderDeadlineBudget)
+			v, ok := thrift.GetHeader(ctx, transport.HeaderDeadlineBudget)
 			if !ok {
-				t.Fatalf("%s header not set", thriftbp.HeaderDeadlineBudget)
+				t.Fatalf("%s header not set", transport.HeaderDeadlineBudget)
 			}
 			if v != "1" {
 				t.Errorf(
 					"Expected 1 in header %s, got %q",
-					thriftbp.HeaderDeadlineBudget,
+					transport.HeaderDeadlineBudget,
 					v,
 				)
 			}
 
-			headerInWriteHeaderList(ctx, t, thriftbp.HeaderDeadlineBudget)
+			headerInWriteHeaderList(ctx, t, transport.HeaderDeadlineBudget)
 		},
 	)
 }
@@ -379,7 +380,7 @@ func TestRetry(t *testing.T) {
 }
 
 func TestSetClientName(t *testing.T) {
-	const header = thriftbp.HeaderUserAgent
+	const header = transport.HeaderUserAgent
 
 	initClientsForUA := func(ua string) (*thrifttest.RecordedClient, thrift.TClient) {
 		ecImpl := ecinterface.Mock()

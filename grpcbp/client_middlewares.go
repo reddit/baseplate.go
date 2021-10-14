@@ -62,7 +62,7 @@ func MonitorInterceptorStreaming(args MonitorInterceptorArgs) grpc.StreamClientI
 		streamer grpc.Streamer,
 		opts ...grpc.CallOption,
 	) (grpc.ClientStream, error) {
-		return nil, errors.New("MonitorInterceptorStreaming: not implemented")
+		return nil, errors.New("grpc.MonitorInterceptorStreaming: not implemented")
 	}
 }
 
@@ -98,6 +98,6 @@ func ForwardEdgeContextStreaming(ecImpl ecinterface.Interface) grpc.StreamClient
 		streamer grpc.Streamer,
 		opts ...grpc.CallOption,
 	) (grpc.ClientStream, error) {
-		return nil, errors.New("ForwardEdgeContextStreaming: not implemented")
+		return nil, errors.New("grpc.ForwardEdgeContextStreaming: not implemented")
 	}
 }

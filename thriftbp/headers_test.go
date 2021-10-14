@@ -8,6 +8,7 @@ import (
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/thriftbp"
+	"github.com/reddit/baseplate.go/transport"
 )
 
 func TestAttachEdgeRequestContext(t *testing.T) {
@@ -19,7 +20,7 @@ func TestAttachEdgeRequestContext(t *testing.T) {
 	headers := thrift.GetWriteHeaderList(ctx)
 	var found bool
 	for _, key := range headers {
-		if key == thriftbp.HeaderEdgeRequest {
+		if key == transport.HeaderEdgeRequest {
 			found = true
 			break
 		}
@@ -28,7 +29,7 @@ func TestAttachEdgeRequestContext(t *testing.T) {
 		t.Error("header not added to thrift write list")
 	}
 
-	header, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
+	header, ok := thrift.GetHeader(ctx, transport.HeaderEdgeRequest)
 	if !ok {
 		t.Fatal("header not set")
 	}
@@ -40,11 +41,11 @@ func TestAttachEdgeRequestContext(t *testing.T) {
 func TestAttachEdgeRequestContextNilHeader(t *testing.T) {
 	ctx := thrift.SetWriteHeaderList(
 		context.Background(),
-		[]string{thriftbp.HeaderEdgeRequest},
+		[]string{transport.HeaderEdgeRequest},
 	)
 	ctx = thriftbp.AttachEdgeRequestContext(ctx, ecinterface.Mock())
 
-	_, ok := thrift.GetHeader(ctx, thriftbp.HeaderEdgeRequest)
+	_, ok := thrift.GetHeader(ctx, transport.HeaderEdgeRequest)
 	if ok {
 		t.Fatal("header should not be set")
 	}
