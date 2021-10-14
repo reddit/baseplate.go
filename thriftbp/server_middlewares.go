@@ -13,6 +13,7 @@ import (
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/iobp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
@@ -393,7 +394,7 @@ func PrometheusMetrics(method string, next thrift.TProcessorFunction) thrift.TPr
 				successLabel = "false"
 			}
 
-			var exceptionTypeLabel, baseplateStatus, baseplateCode string
+			var exceptionTypeLabel, baseplateStatus, baseplateStatusCode string
 			if err != nil {
 				successLabel = "false"
 				exceptionTypeLabel = tExceptionTypeToString(err.TExceptionType())
@@ -401,8 +402,12 @@ func PrometheusMetrics(method string, next thrift.TProcessorFunction) thrift.TPr
 				var bpErr baseplateError
 				if errors.As(err, &bpErr) {
 					exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
-					baseplateCode = fmt.Sprintf("%d", bpErr.GetCode())
-					// todo: set baseplateStatus
+					code := bpErr.GetCode()
+					baseplateStatusCode = fmt.Sprintf("%d", code)
+					status := baseplate.ErrorCode(code).String()
+					if status != "<UNSET>" {
+						baseplateStatus = status
+					}
 				}
 			}
 
@@ -411,7 +416,7 @@ func PrometheusMetrics(method string, next thrift.TProcessorFunction) thrift.TPr
 				"thrift_success":               successLabel,
 				"thrift_exception_type":        exceptionTypeLabel,
 				"thrift_baseplate_status":      baseplateStatus,
-				"thrift_baseplate_status_code": baseplateCode,
+				"thrift_baseplate_status_code": baseplateStatusCode,
 			}
 			latencyDistribution.With(labels).Observe(time.Since(start).Seconds())
 			rpcStatusCounter.With(labels).Inc()
