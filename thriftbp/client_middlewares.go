@@ -14,6 +14,7 @@ import (
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
+	"github.com/reddit/baseplate.go/transport"
 )
 
 // MonitorClientWrappedSlugSuffix is a suffix to be added to the service slug
@@ -248,7 +249,7 @@ func SetDeadlineBudget(next thrift.TClient) thrift.TClient {
 					ms = 1
 				}
 				value := strconv.FormatInt(ms, 10)
-				ctx = AddClientHeader(ctx, HeaderDeadlineBudget, value)
+				ctx = AddClientHeader(ctx, transport.HeaderDeadlineBudget, value)
 			}
 
 			return next.Call(ctx, method, args, result)
@@ -293,7 +294,7 @@ func BaseplateErrorWrapper(next thrift.TClient) thrift.TClient {
 //
 // If clientName is empty, no "User-Agent" header will be sent.
 func SetClientName(clientName string) thrift.ClientMiddleware {
-	const header = HeaderUserAgent
+	const header = transport.HeaderUserAgent
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {

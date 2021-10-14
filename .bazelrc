@@ -1,1 +1,0 @@
-test --@io_bazel_rules_go//go/config:race --test_output=errors --test_verbose_timeout_warnings --verbose_failures

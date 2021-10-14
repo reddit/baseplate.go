@@ -35,38 +35,9 @@ We did not include those thrift files into this repo to avoid duplications.
 This directory will be regenerated when either thrift compiler or the thrift
 files changed significantly.
 
-## Bazel support
-
-This project also comes with *optional* [Bazel][bazel] support.
-It's optional as in you can totally ignore Bazel and still use the go toolchain,
-but the added support will make it easier for projects using Bazel to add this
-project as a dependency.
-
-When you made a change to `go.mod` file,
-please run the following command to reflect the changes in Bazel:
-
-```
-bazel run //:gazelle -- update-repos -from_file=go.mod -prune
-```
-
-Or just use the script we used in CI:
-
-```
-./scripts/bazel_cleanup.sh
-```
-
-To run tests via Bazel, use the following command:
-
-```
-bazel test //...:all
-```
-
-
 [baseplate.py]: https://github.com/reddit/baseplate.py
 
 [baseplate.thrift]: https://github.com/reddit/baseplate.py/blob/b1e1dbddd0994c2b2a36c8c456fe8f08dadf1c9d/baseplate/thrift/baseplate.thrift
-
-[bazel]: https://bazel.build/
 
 [godev]: https://pkg.go.dev/github.com/reddit/baseplate.go
 
