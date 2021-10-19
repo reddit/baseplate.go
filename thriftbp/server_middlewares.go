@@ -390,7 +390,7 @@ func PrometheusMetrics(service string) thrift.ProcessorMiddleware {
 		process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
 			start := time.Now()
 			var successLabel, exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
-			activeRequestLables := prometheus.Labels{
+			activeRequestLabels := prometheus.Labels{
 				"thrift_service":               service,
 				"thrift_method":                method,
 				"thrift_success":               successLabel,
@@ -398,7 +398,7 @@ func PrometheusMetrics(service string) thrift.ProcessorMiddleware {
 				"thrift_baseplate_status":      baseplateStatus,
 				"thrift_baseplate_status_code": baseplateStatusCode,
 			}
-			activeRequests.With(activeRequestLables).Inc()
+			activeRequests.With(activeRequestLabels).Inc()
 
 			defer func() {
 				successLabel := "true"
@@ -421,7 +421,7 @@ func PrometheusMetrics(service string) thrift.ProcessorMiddleware {
 					}
 				}
 
-				activeRequests.With(activeRequestLables).Dec()
+				activeRequests.With(activeRequestLabels).Dec()
 				labels := prometheus.Labels{
 					"thrift_service":               service,
 					"thrift_method":                method,
