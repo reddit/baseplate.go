@@ -342,7 +342,8 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 				return false, te
 			},
 		}
-		wrapped := thriftbp.PrometheusMetrics("testmethod", next)
+		promMiddleware := thriftbp.PrometheusMetrics("service")
+		wrapped := promMiddleware("testmethod", next)
 		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
 		if ok {
 			t.Errorf("expected ok to be false, got true")
@@ -359,7 +360,8 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 				return false, te
 			},
 		}
-		wrapped := thriftbp.PrometheusMetrics("testmethod", next)
+		promMiddleware := thriftbp.PrometheusMetrics("service")
+		wrapped := promMiddleware("testmethod", next)
 		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
 		if ok {
 			t.Errorf("expected ok to be false, got true")
@@ -376,7 +378,8 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 				return false, te
 			},
 		}
-		wrapped := thriftbp.PrometheusMetrics("testmethod", next)
+		promMiddleware := thriftbp.PrometheusMetrics("service")
+		wrapped := promMiddleware("testmethod", next)
 		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
 		if ok {
 			t.Errorf("expected ok to be false, got true")
@@ -392,7 +395,8 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 				return true, nil
 			},
 		}
-		wrapped := thriftbp.PrometheusMetrics("testmethod", next)
+		promMiddleware := thriftbp.PrometheusMetrics("service")
+		wrapped := promMiddleware("testmethod", next)
 		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
 		if !ok {
 			t.Errorf("expected ok to be true, got false")

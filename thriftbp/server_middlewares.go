@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
@@ -384,47 +385,57 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 }
 
 // PrometheusMetrics tracks Prometheus metrics specific to the Thrift service.
-func PrometheusMetrics(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
-	process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
-		start := time.Now()
-		ThriftPrometheusMetrics.setLabels(method, "", "", "", "")
-		ThriftPrometheusMetrics.incActiveRequests()
-		defer func() {
-			successLabel := "true"
-			if !success {
-				successLabel = "false"
+func PrometheusMetrics(service string) thrift.ProcessorMiddleware {
+	return func(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+		process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
+			start := time.Now()
+			var successLabel, exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
+			activeRequestLables := prometheus.Labels{
+				"thrift_service":               service,
+				"thrift_method":                method,
+				"thrift_success":               successLabel,
+				"thrift_exception_type":        exceptionTypeLabel,
+				"thrift_baseplate_status":      baseplateStatus,
+				"thrift_baseplate_status_code": baseplateStatusCode,
 			}
+			activeRequests.With(activeRequestLables).Inc()
 
-			var exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
-			if err != nil {
-				successLabel = "false"
-				exceptionTypeLabel = tExceptionTypeToString(err.TExceptionType())
+			defer func() {
+				successLabel := "true"
+				if !success {
+					successLabel = "false"
+				}
 
-				var bpErr baseplateError
-				if errors.As(err, &bpErr) {
+				if err != nil {
+					successLabel = "false"
 					exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
-					code := bpErr.GetCode()
-					baseplateStatusCode = fmt.Sprintf("%d", code)
-					status := baseplate.ErrorCode(code).String()
-					if status != "<UNSET>" {
-						baseplateStatus = status
+
+					var bpErr baseplateError
+					if errors.As(err, &bpErr) {
+						code := bpErr.GetCode()
+						baseplateStatusCode = fmt.Sprintf("%d", code)
+						status := baseplate.ErrorCode(code).String()
+						if status != "<UNSET>" {
+							baseplateStatus = status
+						}
 					}
 				}
-			}
 
-			ThriftPrometheusMetrics.decActiveRequests()
-			ThriftPrometheusMetrics.setLabels(
-				method,
-				successLabel,
-				exceptionTypeLabel,
-				baseplateStatus,
-				baseplateStatusCode,
-			)
-			ThriftPrometheusMetrics.incRPCStatusCounter()
-			ThriftPrometheusMetrics.observeLatencyDistribution(start)
-		}()
+				activeRequests.With(activeRequestLables).Dec()
+				labels := prometheus.Labels{
+					"thrift_service":               service,
+					"thrift_method":                method,
+					"thrift_success":               successLabel,
+					"thrift_exception_type":        exceptionTypeLabel,
+					"thrift_baseplate_status":      baseplateStatus,
+					"thrift_baseplate_status_code": baseplateStatusCode,
+				}
+				latencyDistribution.With(labels).Observe(time.Since(start).Seconds())
+				rpcStatusCounter.With(labels).Inc()
+			}()
 
-		return next.Process(ctx, seqID, in, out)
+			return next.Process(ctx, seqID, in, out)
+		}
+		return thrift.WrappedTProcessorFunction{Wrapped: process}
 	}
-	return thrift.WrappedTProcessorFunction{Wrapped: process}
 }
