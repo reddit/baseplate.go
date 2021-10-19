@@ -10,6 +10,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/reddit/baseplate.go/ecinterface"
+	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
@@ -329,6 +330,75 @@ func TestPanicMiddleware(t *testing.T) {
 		}
 		if err == nil {
 			t.Error("expected an error, got nil")
+		}
+	})
+}
+
+func TestPrometheusMetricsMiddleware(t *testing.T) {
+	t.Run("bp error", func(t *testing.T) {
+		te := thrift.NewTProtocolExceptionWithType(thrift.PROTOCOL_ERROR, thriftbp.WrapBaseplateError(errors.New("test")))
+		next := thrift.WrappedTProcessorFunction{
+			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+				return false, te
+			},
+		}
+		wrapped := thriftbp.PrometheusMetrics("testmethod", next)
+		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
+		if ok {
+			t.Errorf("expected ok to be false, got true")
+		}
+		if err == nil {
+			t.Error("expected an error, got nil")
+		}
+	})
+
+	t.Run("application error", func(t *testing.T) {
+		te := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "unknown err mdsg")
+		next := thrift.WrappedTProcessorFunction{
+			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+				return false, te
+			},
+		}
+		wrapped := thriftbp.PrometheusMetrics("testmethod", next)
+		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
+		if ok {
+			t.Errorf("expected ok to be false, got true")
+		}
+		if err == nil {
+			t.Error("expected an error, got nil")
+		}
+	})
+
+	t.Run("compile error", func(t *testing.T) {
+		te := baseplate.NewError()
+		next := thrift.WrappedTProcessorFunction{
+			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+				return false, te
+			},
+		}
+		wrapped := thriftbp.PrometheusMetrics("testmethod", next)
+		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
+		if ok {
+			t.Errorf("expected ok to be false, got true")
+		}
+		if err == nil {
+			t.Error("expected an error, got nil")
+		}
+	})
+
+	t.Run("success", func(t *testing.T) {
+		next := thrift.WrappedTProcessorFunction{
+			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+				return true, nil
+			},
+		}
+		wrapped := thriftbp.PrometheusMetrics("testmethod", next)
+		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
+		if !ok {
+			t.Errorf("expected ok to be true, got false")
+		}
+		if err != nil {
+			t.Error("expected nil, got an error")
 		}
 	})
 }

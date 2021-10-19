@@ -19,7 +19,7 @@ require (
 	github.com/garyburd/redigo v1.6.2 // indirect
 	github.com/getsentry/sentry-go v0.11.0
 	github.com/go-kit/kit v0.9.0
-	github.com/go-logfmt/logfmt v0.4.0 // indirect
+	github.com/go-logfmt/logfmt v0.5.0 // indirect
 	github.com/go-redis/redis/v8 v8.10.0
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/golang/protobuf v1.4.3 // indirect
@@ -35,10 +35,10 @@ require (
 	github.com/joomcode/errorx v1.0.3
 	github.com/joomcode/redispipe v0.9.4
 	github.com/klauspost/compress v1.12.2 // indirect
-	github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515 // indirect
 	github.com/mediocregopher/radix.v2 v0.0.0-20181115013041-b67df6e626f9 // indirect
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
+	github.com/prometheus/client_golang v1.11.0
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/sony/gobreaker v0.4.1
 	github.com/yuin/gopher-lua v0.0.0-20200816102855-ee81675732da // indirect
@@ -56,8 +56,16 @@ require (
 	golang.org/x/tools v0.1.3-0.20210608163600-9ed039809d4c // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	google.golang.org/grpc v1.41.0
-	google.golang.org/protobuf v1.25.0 // indirect
+	google.golang.org/protobuf v1.26.0-rc.1 // indirect
 	gopkg.in/fsnotify.v1 v1.4.7
 	gopkg.in/yaml.v2 v2.3.0
 	honnef.co/go/tools v0.2.0 // indirect
+)
+
+require (
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
+	github.com/prometheus/client_model v0.2.0 // indirect
+	github.com/prometheus/common v0.26.0 // indirect
+	github.com/prometheus/procfs v0.6.0 // indirect
 )

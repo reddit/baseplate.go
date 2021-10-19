@@ -388,13 +388,21 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 func PrometheusMetrics(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 	process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
 		start := time.Now()
+		var successLabel, exceptionTypeLabel, baseplateStatus, baseplateStatusCode string
+		labels := prometheus.Labels{
+			"thrift_method":                method,
+			"thrift_success":               successLabel,
+			"thrift_exception_type":        exceptionTypeLabel,
+			"thrift_baseplate_status":      baseplateStatus,
+			"thrift_baseplate_status_code": baseplateStatusCode,
+		}
+		activeRequests.With(labels).Inc()
 		defer func() {
-			successLabel := "true"
+			successLabel = "true"
 			if !success {
 				successLabel = "false"
 			}
 
-			var exceptionTypeLabel, baseplateStatus, baseplateStatusCode string
 			if err != nil {
 				successLabel = "false"
 				exceptionTypeLabel = tExceptionTypeToString(err.TExceptionType())
@@ -411,6 +419,7 @@ func PrometheusMetrics(method string, next thrift.TProcessorFunction) thrift.TPr
 				}
 			}
 
+			activeRequests.With(labels).Dec()
 			labels := prometheus.Labels{
 				"thrift_method":                method,
 				"thrift_success":               successLabel,

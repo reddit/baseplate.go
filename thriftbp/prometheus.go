@@ -25,6 +25,11 @@ var (
 		Name: "thrift_server_handled_total",
 		Help: "Total RPC request count",
 	}, thriftLabels)
+
+	activeRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "thrift_active_requests",
+		Help: "The number of requests being handled by the service.",
+	}, thriftLabels)
 )
 
 // SetPrometheusServiceLabels adds Prometheus labels that are specific to the Thrift service.
@@ -34,6 +39,9 @@ func SetPrometheusServiceLabels(thriftServiceName string) {
 		"thrift_service": thriftServiceName,
 	})
 	rpcStatusCounter.With(prometheus.Labels{
+		"thrift_service": thriftServiceName,
+	})
+	activeRequests.With(prometheus.Labels{
 		"thrift_service": thriftServiceName,
 	})
 }
