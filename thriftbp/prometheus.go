@@ -26,8 +26,13 @@ var (
 		Help: "Total RPC request count",
 	}, thriftLabels)
 
+	activeRequestsLabels = []string{
+		"thrift_service",
+		"thrift_method",
+	}
+
 	activeRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "thrift_active_requests",
 		Help: "The number of requests being handled by the service.",
-	}, thriftLabels)
+	}, activeRequestsLabels)
 )

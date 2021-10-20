@@ -335,74 +335,34 @@ func TestPanicMiddleware(t *testing.T) {
 }
 
 func TestPrometheusMetricsMiddleware(t *testing.T) {
-	t.Run("bp error", func(t *testing.T) {
-		te := thrift.NewTProtocolExceptionWithType(thrift.PROTOCOL_ERROR, thriftbp.WrapBaseplateError(errors.New("test")))
-		next := thrift.WrappedTProcessorFunction{
-			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
-				return false, te
-			},
-		}
-		promMiddleware := thriftbp.PrometheusMetrics("service")
-		wrapped := promMiddleware("testmethod", next)
-		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
-		if ok {
-			t.Errorf("expected ok to be false, got true")
-		}
-		if err == nil {
-			t.Error("expected an error, got nil")
-		}
-	})
+	testCases := []struct {
+		name    string
+		wantErr thrift.TException
+		wantOK  bool
+	}{
+		{"bp error", thrift.NewTProtocolExceptionWithType(thrift.PROTOCOL_ERROR, thriftbp.WrapBaseplateError(errors.New("test"))), false},
+		{"application error", thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "unknown err mdsg"), false},
+		{"compile error", baseplate.NewError(), false},
+		{"success", nil, true},
+	}
 
-	t.Run("application error", func(t *testing.T) {
-		te := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "unknown err mdsg")
-		next := thrift.WrappedTProcessorFunction{
-			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
-				return false, te
-			},
-		}
-		promMiddleware := thriftbp.PrometheusMetrics("service")
-		wrapped := promMiddleware("testmethod", next)
-		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
-		if ok {
-			t.Errorf("expected ok to be false, got true")
-		}
-		if err == nil {
-			t.Error("expected an error, got nil")
-		}
-	})
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			next := thrift.WrappedTProcessorFunction{
+				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+					return tt.wantOK, tt.wantErr
+				},
+			}
+			promMiddleware := thriftbp.PrometheusMetricMiddleware("service")
+			wrapped := promMiddleware("testmethod", next)
+			gotOK, gotErr := wrapped.Process(context.Background(), 1, nil, nil)
 
-	t.Run("compile error", func(t *testing.T) {
-		te := baseplate.NewError()
-		next := thrift.WrappedTProcessorFunction{
-			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
-				return false, te
-			},
-		}
-		promMiddleware := thriftbp.PrometheusMetrics("service")
-		wrapped := promMiddleware("testmethod", next)
-		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
-		if ok {
-			t.Errorf("expected ok to be false, got true")
-		}
-		if err == nil {
-			t.Error("expected an error, got nil")
-		}
-	})
-
-	t.Run("success", func(t *testing.T) {
-		next := thrift.WrappedTProcessorFunction{
-			Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
-				return true, nil
-			},
-		}
-		promMiddleware := thriftbp.PrometheusMetrics("service")
-		wrapped := promMiddleware("testmethod", next)
-		ok, err := wrapped.Process(context.Background(), 1, nil, nil)
-		if !ok {
-			t.Errorf("expected ok to be true, got false")
-		}
-		if err != nil {
-			t.Error("expected nil, got an error")
-		}
-	})
+			if gotOK != tt.wantOK {
+				t.Errorf("wanted %v, got %v", tt.wantOK, gotOK)
+			}
+			if gotErr != tt.wantErr {
+				t.Errorf("wanted %v, got %v", tt.wantErr, gotErr)
+			}
+		})
+	}
 }
