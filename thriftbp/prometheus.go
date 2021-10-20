@@ -5,34 +5,43 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
+const (
+	serviceLabel             = "thrift_service"
+	methodLabel              = "thrift_method"
+	successLabel             = "thrift_success"
+	exceptionLabel           = "thrift_exception_type"
+	baseplateStatusLabel     = "thrift_baseplate_status"
+	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
+)
+
 var (
-	thriftLabels = []string{
-		"thrift_service",
-		"thrift_method",
-		"thrift_success",
-		"thrift_exception_type",
-		"thrift_baseplate_status",
-		"thrift_baseplate_status_code",
+	ThriftLabels = []string{
+		serviceLabel,
+		methodLabel,
+		successLabel,
+		exceptionLabel,
+		baseplateStatusLabel,
+		baseplateStatusCodeLabel,
 	}
 
-	latencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	LatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "thrift_server_handling_seconds",
 		Help:    "RPC latencies",
 		Buckets: prometheus.ExponentialBuckets(0.0001, 1.5, 26), // 100us ~ 2.5s
-	}, thriftLabels)
+	}, ThriftLabels)
 
-	rpcStatusCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "thrift_server_handled_total",
+	RPCStatusCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "thrift_server_handled",
 		Help: "Total RPC request count",
-	}, thriftLabels)
+	}, ThriftLabels)
 
-	activeRequestsLabels = []string{
-		"thrift_service",
-		"thrift_method",
+	ActiveRequestsLabels = []string{
+		serviceLabel,
+		methodLabel,
 	}
 
-	activeRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	ActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "thrift_active_requests",
 		Help: "The number of requests being handled by the service.",
-	}, activeRequestsLabels)
+	}, ActiveRequestsLabels)
 )

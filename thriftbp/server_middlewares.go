@@ -390,14 +390,14 @@ func PrometheusMetricMiddleware(serviceSlug string) thrift.ProcessorMiddleware {
 		process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
 			start := time.Now()
 			activeRequestLabels := prometheus.Labels{
-				"thrift_service": serviceSlug,
-				"thrift_method":  method,
+				serviceLabel: serviceSlug,
+				methodLabel:  method,
 			}
-			activeRequests.With(activeRequestLabels).Inc()
+			ActiveRequests.With(activeRequestLabels).Inc()
 
 			defer func() {
 				var exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
-				successLabel := strconv.FormatBool(err == nil)
+				successLbl := strconv.FormatBool(err == nil)
 				if err != nil {
 					exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
 
@@ -413,16 +413,16 @@ func PrometheusMetricMiddleware(serviceSlug string) thrift.ProcessorMiddleware {
 				}
 
 				labels := prometheus.Labels{
-					"thrift_service":               serviceSlug,
-					"thrift_method":                method,
-					"thrift_success":               successLabel,
-					"thrift_exception_type":        exceptionTypeLabel,
-					"thrift_baseplate_status":      baseplateStatus,
-					"thrift_baseplate_status_code": baseplateStatusCode,
+					serviceLabel:             serviceSlug,
+					methodLabel:              method,
+					successLabel:             successLbl,
+					exceptionLabel:           exceptionTypeLabel,
+					baseplateStatusLabel:     baseplateStatus,
+					baseplateStatusCodeLabel: baseplateStatusCode,
 				}
-				latencyDistribution.With(labels).Observe(time.Since(start).Seconds())
-				rpcStatusCounter.With(labels).Inc()
-				activeRequests.With(activeRequestLabels).Dec()
+				LatencyDistribution.With(labels).Observe(time.Since(start).Seconds())
+				RPCStatusCounter.With(labels).Inc()
+				ActiveRequests.With(activeRequestLabels).Dec()
 			}()
 
 			return next.Process(ctx, seqID, in, out)
