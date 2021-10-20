@@ -15,7 +15,7 @@ const (
 )
 
 var (
-	ThriftLabels = []string{
+	thriftLabels = []string{
 		serviceLabel,
 		methodLabel,
 		successLabel,
@@ -24,24 +24,24 @@ var (
 		baseplateStatusCodeLabel,
 	}
 
-	LatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	latencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "thrift_server_handling_seconds",
 		Help:    "RPC latencies",
 		Buckets: prometheus.ExponentialBuckets(0.0001, 1.5, 26), // 100us ~ 2.5s
-	}, ThriftLabels)
+	}, thriftLabels)
 
-	RPCStatusCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	rpcStatusCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "thrift_server_handled",
 		Help: "Total RPC request count",
-	}, ThriftLabels)
+	}, thriftLabels)
 
-	ActiveRequestsLabels = []string{
+	activeRequestsLabels = []string{
 		serviceLabel,
 		methodLabel,
 	}
 
-	ActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	activeRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "thrift_active_requests",
 		Help: "The number of requests being handled by the service.",
-	}, ActiveRequestsLabels)
+	}, activeRequestsLabels)
 )
