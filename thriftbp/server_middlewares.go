@@ -384,7 +384,9 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 	}
 }
 
-// PrometheusMetricMiddleware returns middleware to track Prometheus metrics specific to the Thrift service.
+// PrometheusMetricMiddleware returns middleware to track Prometheus metrics
+// specific to the Thrift service.
+//
 // It emits the following prometheus metrics:
 //
 // * thrift_server_active_requests gauge with labels:
@@ -392,13 +394,17 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 //   - thrift_service: the serviceSlug arg
 //   - thrift_method: the method of the endpoint called
 //
-// * thrift_server_handling_seconds histogram and thrift_server_handled_total counter with labels:
+// * thrift_server_handling_seconds histogram and thrift_server_handled_total
+//   counter with labels:
 //
 //   - thrift_service and thrift_method
 //   - thrift_success: "true" if err == nil, "false" otherwise
-//   - thrift_exception_type: the human-readable exception type, e.g. baseplate.Error, etc
-//   - thrift_baseplate_status: the numeric status code from a baseplate.Error as a string if present (e.g. 404), or the empty string
-//   - thrift_baseplate_status_code: the human-readable status code, e.g. NOT_FOUND, or the empty string
+//   - thrift_exception_type: the human-readable exception type, e.g.
+//     baseplate.Error, etc
+//   - thrift_baseplate_status: the numeric status code from a baseplate.Error
+//     as a string if present (e.g. 404), or the empty string
+//   - thrift_baseplate_status_code: the human-readable status code, e.g.
+//     NOT_FOUND, or the empty string
 func PrometheusMetricMiddleware(serviceSlug string) thrift.ProcessorMiddleware {
 	return func(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
