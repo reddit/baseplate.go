@@ -233,7 +233,7 @@ func Serve(ctx context.Context, args ServeArgs) error {
 //     }
 //     ctx, bp, err := baseplate.New(baseplate.NewArgs{
 //       EdgeContextFactory: edgecontext.Factory(...),
-//       ServiceCfg:         cfg,
+//       Config:             cfg,
 //     })
 //
 // If you do have customized configurations to decode from YAML,
@@ -252,7 +252,7 @@ func Serve(ctx context.Context, args ServeArgs) error {
 //     }
 //     ctx, bp, err := baseplate.New(baseplate.NewArgs{
 //       EdgeContextFactory: edgecontext.Factory(...),
-//       ServiceCfg:         cfg,
+//       Config:             cfg,
 //     })
 //
 // Environment variable references (e.g. $FOO and ${FOO}) are substituted into the
