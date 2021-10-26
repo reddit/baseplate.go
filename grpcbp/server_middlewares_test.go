@@ -8,7 +8,9 @@ import (
 	"time"
 
 	pb "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/reddit/baseplate.go/ecinterface"
@@ -180,4 +182,93 @@ func (t *mockService) PingList(req *pb.PingRequest, c pb.TestService_PingListSer
 }
 func (t *mockService) PingStream(c pb.TestService_PingStreamServer) error {
 	panic("not implemented")
+}
+
+func TestInjectPrometheusUnaryServerInterceptor(t *testing.T) {
+	const (
+		serviceName = "testSvc"
+		serverName  = "testServer"
+		method      = "Ping"
+	)
+	// create test server with InjectPrometheusUnaryServerInterceptor
+	l, service := setupServer(t, grpc.UnaryInterceptor(
+		InjectPrometheusUnaryServerInterceptor(serviceName),
+	))
+
+	// create test client
+	conn := setupClient(t, l, grpc.WithUnaryInterceptor(
+		PrometheusUnaryClientInterceptor(serviceName, serverName),
+	))
+
+	// instantiate gRPC client
+	client := pb.NewTestServiceClient(conn)
+
+	testCases := []struct {
+		name       string
+		wantErr    codes.Code
+		grpcStatus string
+		success    string
+		method     string
+	}{
+		{"success", codes.OK, "OK", "true", "Ping"},
+		{"err", codes.Internal, "Unknown", "false", "PingError"},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			serverLatencyDistribution.Reset()
+			serverRPCStatusCounter.Reset()
+			serverActiveRequests.Reset()
+
+			ctx := context.Background()
+
+			if tt.success == "true" {
+				if _, err := client.Ping(ctx, &pb.PingRequest{}); err != nil {
+					t.Fatalf("Ping: %v", err)
+				}
+			} else {
+				if _, err := client.PingError(ctx, &pb.PingRequest{}); err == nil {
+					t.Fatalf("Ping: expected err got nil")
+				}
+			}
+
+			ctx = service.ctx
+			if ctx == nil {
+				t.Error("got nil context")
+			}
+			labelValues := []string{
+				serviceName,
+				tt.method,
+				unary,
+				tt.success,
+				tt.grpcStatus,
+			}
+			latencyMetricCount := testutil.CollectAndCount(serverLatencyDistribution)
+			if latencyMetricCount != 1 {
+				t.Errorf("wanted %v, got %v", 1, latencyMetricCount)
+			}
+
+			rpcMetricValue := testutil.ToFloat64(serverRPCStatusCounter.WithLabelValues(labelValues...))
+			if rpcMetricValue != 1 {
+				t.Errorf("wanted %v, got %v", 1, rpcMetricValue)
+			}
+			rpcMetricCount := testutil.CollectAndCount(serverRPCStatusCounter)
+			if rpcMetricCount != 1 {
+				t.Errorf("wanted %v, got %v", 1, rpcMetricCount)
+			}
+
+			requestLabelValues := []string{
+				serviceName,
+				tt.method,
+			}
+			requestMetricValue := testutil.ToFloat64(serverActiveRequests.WithLabelValues(requestLabelValues...))
+			if requestMetricValue != 0 {
+				t.Errorf("wanted %v, got %v", 0, requestMetricValue)
+			}
+			requestMetricCount := testutil.CollectAndCount(serverActiveRequests)
+			if requestMetricCount != 1 {
+				t.Errorf("wanted %v, got %v", 1, requestMetricCount)
+			}
+		})
+	}
 }
