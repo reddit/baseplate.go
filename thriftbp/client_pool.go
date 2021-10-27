@@ -72,11 +72,18 @@ type ClientPoolConfig struct {
 	// MaxConnectionAge is the maximum duration that a pooled connection will be
 	// kept before closing in favor of a new one.
 	//
-	// If this is not set, the default duration is 5 minutes.
+	// If this is not set, the default duration is 5 minutes
+	// (see DefaultMaxConnectionAge).
 	//
 	// To disable this and keep connections in the pool indefinetly, set this to
 	// a negative value.
-	MaxConnectionAge time.Duration `yaml:"maxConnectionAge"`
+	//
+	// MaxConnectionAgeJitter is the ratio of random jitter +/- on top of
+	// MaxConnectionAge. Default to 10% (see DefaultMaxConnectionAgeJitter).
+	// For example, when MaxConnectionAge is 5min and MaxConnectionAgeJitter is
+	// 10%, the TTL of the clients would be in range of (4:30, 5:30).
+	MaxConnectionAge       time.Duration `yaml:"maxConnectionAge"`
+	MaxConnectionAgeJitter *float64      `yaml:"maxConnectionAgeJitter"`
 
 	// ConnectTimeout and SocketTimeout are timeouts used by the underlying
 	// thrift.TSocket.
@@ -373,10 +380,15 @@ func newClientPool(
 ) (*clientPool, error) {
 	tConfig := cfg.ToTConfiguration()
 	tags := cfg.MetricsTags.AsStatsdTags()
+	jitter := DefaultMaxConnectionAgeJitter
+	if cfg.MaxConnectionAgeJitter != nil {
+		jitter = *cfg.MaxConnectionAgeJitter
+	}
 	opener := func() (clientpool.Client, error) {
 		return newClient(
 			tConfig,
 			cfg.MaxConnectionAge,
+			jitter,
 			genAddr,
 			proto,
 		)
@@ -454,6 +466,7 @@ func newClientPool(
 func newClient(
 	cfg *thrift.TConfiguration,
 	maxConnectionAge time.Duration,
+	maxConnectionAgeJitter float64,
 	genAddr AddressGenerator,
 	protoFactory thrift.TProtocolFactory,
 ) (*ttlClient, error) {
@@ -471,7 +484,7 @@ func newClient(
 		protoFactory.GetProtocol(transport),
 		protoFactory.GetProtocol(transport),
 	)
-	return newTTLClient(transport, client, maxConnectionAge), nil
+	return newTTLClient(transport, client, maxConnectionAge, maxConnectionAgeJitter), nil
 }
 
 func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration, tags []string) {

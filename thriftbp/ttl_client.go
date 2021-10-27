@@ -4,10 +4,16 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+
+	"github.com/reddit/baseplate.go/randbp"
 )
 
 // DefaultMaxConnectionAge is the default max age for a Thrift client connection.
 const DefaultMaxConnectionAge = time.Minute * 5
+
+// DefaultMaxConnectionAgeJitter is the default jitter to MaxConnectionAge for a
+// Thrift client connection.
+const DefaultMaxConnectionAgeJitter = 0.1
 
 var _ Client = (*ttlClient)(nil)
 
@@ -43,14 +49,14 @@ func (c *ttlClient) IsOpen() bool {
 	return true
 }
 
-// newTTLClient creates a ttlClient with a thrift TTransport and a ttl.
-func newTTLClient(transport thrift.TTransport, client thrift.TClient, ttl time.Duration) *ttlClient {
+// newTTLClient creates a ttlClient with a thrift TTransport and a ttl+jitter.
+func newTTLClient(transport thrift.TTransport, client thrift.TClient, ttl time.Duration, jitter float64) *ttlClient {
 	var expiration time.Time
 	if ttl == 0 {
 		ttl = DefaultMaxConnectionAge
 	}
 	if ttl > 0 {
-		expiration = time.Now().Add(ttl)
+		expiration = time.Now().Add(randbp.JitterDuration(ttl, jitter))
 	}
 	return &ttlClient{
 		TClient:    client,
