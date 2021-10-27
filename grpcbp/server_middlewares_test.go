@@ -8,13 +8,13 @@ import (
 	"time"
 
 	pb "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
-	"github.com/prometheus/client_golang/prometheus/testutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/mqsend"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
 )
@@ -216,10 +216,6 @@ func TestInjectPrometheusUnaryServerInterceptor(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			serverLatencyDistribution.Reset()
-			serverRPCStatusCounter.Reset()
-			serverActiveRequests.Reset()
-
 			ctx := context.Background()
 
 			if tt.success == "true" {
@@ -243,32 +239,42 @@ func TestInjectPrometheusUnaryServerInterceptor(t *testing.T) {
 				tt.success,
 				tt.grpcStatus,
 			}
-			latencyMetricCount := testutil.CollectAndCount(serverLatencyDistribution)
-			if latencyMetricCount != 1 {
-				t.Errorf("wanted %v, got %v", 1, latencyMetricCount)
-			}
-
-			rpcMetricValue := testutil.ToFloat64(serverRPCStatusCounter.WithLabelValues(labelValues...))
-			if rpcMetricValue != 1 {
-				t.Errorf("wanted %v, got %v", 1, rpcMetricValue)
-			}
-			rpcMetricCount := testutil.CollectAndCount(serverRPCStatusCounter)
-			if rpcMetricCount != 1 {
-				t.Errorf("wanted %v, got %v", 1, rpcMetricCount)
-			}
 
 			requestLabelValues := []string{
 				serviceName,
 				tt.method,
 			}
-			requestMetricValue := testutil.ToFloat64(serverActiveRequests.WithLabelValues(requestLabelValues...))
-			if requestMetricValue != 0 {
-				t.Errorf("wanted %v, got %v", 0, requestMetricValue)
+
+			promtestMetrics := prometheusbp.TestProm{
+				ServerLatencyDistribution: serverLatencyDistribution,
+				ServerRPCStatusCounter:    serverRPCStatusCounter,
+				ServerActiveRequests:      serverActiveRequests,
+				ClientLatencyDistribution: clientLatencyDistribution,
+				ClientRPCStatusCounter:    clientRPCStatusCounter,
+				ClientActiveRequests:      clientActiveRequests,
 			}
-			requestMetricCount := testutil.CollectAndCount(serverActiveRequests)
-			if requestMetricCount != 1 {
-				t.Errorf("wanted %v, got %v", 1, requestMetricCount)
+			if err := promtestMetrics.TestServerMetrics(labelValues, requestLabelValues); err != nil {
+				t.Error(err)
 			}
+
+			clientLabels = []string{
+				serviceName,
+				"/mwitkow.testproto.TestService/" + tt.method,
+				unary,
+				tt.success,
+				tt.grpcStatus,
+				serverName,
+			}
+
+			clientActiveRequestsLabels = []string{
+				serviceName,
+				tt.method,
+				serverName,
+			}
+			if err := promtestMetrics.TestClientMetrics(clientLabels, clientActiveRequestsLabels); err != nil {
+				t.Error(err)
+			}
+			promtestMetrics.Reset()
 		})
 	}
 }

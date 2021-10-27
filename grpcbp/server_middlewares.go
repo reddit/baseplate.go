@@ -238,6 +238,7 @@ func InjectPrometheusStreamServerInterceptor(serviceSlug string) grpc.StreamServ
 			serverLatencyDistribution.With(labels).Observe(time.Since(start).Seconds())
 			serverActiveRequests.With(requestsLabels).Dec()
 		}()
+
 		return handler(srv, stream)
 	}
 }
