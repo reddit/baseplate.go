@@ -82,6 +82,18 @@ type ClientPoolConfig struct {
 	// MaxConnectionAge. Default to 10% (see DefaultMaxConnectionAgeJitter).
 	// For example, when MaxConnectionAge is 5min and MaxConnectionAgeJitter is
 	// 10%, the TTL of the clients would be in range of (4:30, 5:30).
+	//
+	// When this is enabled, there will be one additional goroutine per connection
+	// in the pool to do background housekeeping (to replace the expired
+	// connections). We emit <ServiceSlug>.connection-housekeeping counter with
+	// success=True/False tag to provide observalibility into the background
+	// housekeeping.
+	//
+	// Due to a Go runtime bug [1], if you use a very small MaxConnectionAge or a
+	// jitter very close to 1, the background housekeeping could cause excessive
+	// CPU overhead.
+	//
+	// [1]: https://github.com/golang/go/issues/27707
 	MaxConnectionAge       time.Duration `yaml:"maxConnectionAge"`
 	MaxConnectionAgeJitter *float64      `yaml:"maxConnectionAgeJitter"`
 
@@ -387,6 +399,8 @@ func newClientPool(
 	opener := func() (clientpool.Client, error) {
 		return newClient(
 			tConfig,
+			cfg.ServiceSlug,
+			cfg.MetricsTags,
 			cfg.MaxConnectionAge,
 			jitter,
 			genAddr,
@@ -465,26 +479,29 @@ func newClientPool(
 
 func newClient(
 	cfg *thrift.TConfiguration,
+	slug string,
+	tags metricsbp.Tags,
 	maxConnectionAge time.Duration,
 	maxConnectionAgeJitter float64,
 	genAddr AddressGenerator,
 	protoFactory thrift.TProtocolFactory,
 ) (*ttlClient, error) {
-	addr, err := genAddr()
-	if err != nil {
-		return nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client: %w", err)
-	}
+	return newTTLClient(func() (thrift.TClient, thrift.TTransport, error) {
+		addr, err := genAddr()
+		if err != nil {
+			return nil, nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client: %w", err)
+		}
 
-	transport := thrift.NewTSocketConf(addr, cfg)
-	if err = transport.Open(); err != nil {
-		return nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client: %w", err)
-	}
+		transport := thrift.NewTSocketConf(addr, cfg)
+		if err := transport.Open(); err != nil {
+			return nil, nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client: %w", err)
+		}
 
-	client := thrift.NewTStandardClient(
-		protoFactory.GetProtocol(transport),
-		protoFactory.GetProtocol(transport),
-	)
-	return newTTLClient(transport, client, maxConnectionAge, maxConnectionAgeJitter), nil
+		return thrift.NewTStandardClient(
+			protoFactory.GetProtocol(transport),
+			protoFactory.GetProtocol(transport),
+		), transport, nil
+	}, maxConnectionAge, maxConnectionAgeJitter, slug, tags)
 }
 
 func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration, tags []string) {
