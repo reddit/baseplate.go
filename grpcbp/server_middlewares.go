@@ -186,7 +186,7 @@ func InjectPrometheusUnaryServerInterceptor(serviceSlug string) grpc.UnaryServer
 				codeLabel:    status.Code().String(),
 				successLabel: success,
 			}
-			serverRPCStatusCounter.With(labels).Inc()
+			serverRequestCounter.With(labels).Inc()
 			serverLatencyDistribution.With(labels).Observe(time.Since(start).Seconds())
 			serverActiveRequests.With(requestsLabels).Dec()
 		}()
@@ -234,7 +234,7 @@ func InjectPrometheusStreamServerInterceptor(serviceSlug string) grpc.StreamServ
 				codeLabel:    status.Code().String(),
 				successLabel: success,
 			}
-			serverRPCStatusCounter.With(labels).Inc()
+			serverRequestCounter.With(labels).Inc()
 			serverLatencyDistribution.With(labels).Observe(time.Since(start).Seconds())
 			serverActiveRequests.With(requestsLabels).Dec()
 		}()

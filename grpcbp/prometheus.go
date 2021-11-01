@@ -1,6 +1,9 @@
 package grpcbp
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/reddit/baseplate.go/prometheusbp"
 )
 
@@ -19,13 +22,21 @@ const (
 	serverStream = "server_stream"
 )
 
-const (
-	serverMetricPrefix = "grpc_server"
-	clientMetricPrefix = "grpc_client"
-)
-
 var (
-	serverLabels = []string{
+	serverLatencyLabels = []string{
+		serviceLabel,
+		methodLabel,
+		typeLabel,
+		successLabel,
+	}
+
+	serverLatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "grpc_server_latency_seconds",
+		Help:    "RPC latencies",
+		Buckets: prometheusbp.DefaultBuckets,
+	}, serverLatencyLabels)
+
+	serverRequestLabels = []string{
 		serviceLabel,
 		methodLabel,
 		typeLabel,
@@ -33,18 +44,38 @@ var (
 		codeLabel,
 	}
 
+	serverRequestCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "grpc_server_requests_total",
+		Help: "Total RPC request count",
+	}, serverRequestLabels)
+
 	serverActiveRequestsLabels = []string{
 		serviceLabel,
 		methodLabel,
 	}
 
-	serverLatencyDistribution = prometheusbp.NewLatencyDistribution(serverMetricPrefix, serverLabels)
-	serverRPCStatusCounter    = prometheusbp.NewRPCRequest(serverMetricPrefix, serverLabels)
-	serverActiveRequests      = prometheusbp.NewActiveRequest(serverMetricPrefix, serverActiveRequestsLabels)
+	serverActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "grpc_server_active_requests",
+		Help: "The number of requests being handled by the server.",
+	}, serverActiveRequestsLabels)
 )
 
 var (
-	clientLabels = []string{
+	clientLatencyLabels = []string{
+		serviceLabel,
+		methodLabel,
+		typeLabel,
+		successLabel,
+		slugLabel,
+	}
+
+	clientLatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "grpc_client_latency_seconds",
+		Help:    "RPC latencies",
+		Buckets: prometheusbp.DefaultBuckets,
+	}, clientLatencyLabels)
+
+	clientRequestLabels = []string{
 		serviceLabel,
 		methodLabel,
 		typeLabel,
@@ -52,6 +83,11 @@ var (
 		codeLabel,
 		slugLabel,
 	}
+
+	clientRequestCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "grpc_client_requests_total",
+		Help: "Total RPC request count",
+	}, clientRequestLabels)
 
 	clientActiveRequestsLabels = []string{
 		serviceLabel,
@@ -59,7 +95,8 @@ var (
 		slugLabel,
 	}
 
-	clientLatencyDistribution = prometheusbp.NewLatencyDistribution(clientMetricPrefix, clientLabels)
-	clientRPCStatusCounter    = prometheusbp.NewRPCRequest(clientMetricPrefix, clientLabels)
-	clientActiveRequests      = prometheusbp.NewActiveRequest(clientMetricPrefix, clientActiveRequestsLabels)
+	clientActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "grpc_client_active_requests",
+		Help: "The number of requests in-flight by the client.",
+	}, clientActiveRequestsLabels)
 )

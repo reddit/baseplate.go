@@ -204,20 +204,70 @@ func TestInjectPrometheusUnaryServerInterceptor(t *testing.T) {
 	client := pb.NewTestServiceClient(conn)
 
 	testCases := []struct {
-		name       string
-		wantErr    codes.Code
-		grpcStatus string
-		success    string
-		method     string
+		name      string
+		wantErr   codes.Code
+		gRequests string
+		success   string
+		method    string
 	}{
-		{"success", codes.OK, "OK", "true", "Ping"},
-		{"err", codes.Internal, "Unknown", "false", "PingError"},
+		{
+			name:      "success",
+			wantErr:   codes.OK,
+			gRequests: "OK",
+			success:   "true",
+			method:    "Ping",
+		},
+		{
+			name:      "err",
+			wantErr:   codes.Internal,
+			gRequests: "Unknown",
+			success:   "false",
+			method:    "PingError",
+		},
 	}
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			serverLatencyDistribution.Reset()
+			serverRequestCounter.Reset()
+			serverActiveRequests.Reset()
+			clientLatencyDistribution.Reset()
+			clientRequestCounter.Reset()
+			clientActiveRequests.Reset()
 
+			serverLabelValues := []string{
+				serviceName,
+				tt.method,
+				unary,
+				tt.success,
+				tt.gRequests,
+			}
+
+			serverRequestsLabelValues := []string{
+				serviceName,
+				tt.method,
+			}
+
+			clientLabelValues := []string{
+				serviceName,
+				"/mwitkow.testproto.TestService/" + tt.method,
+				unary,
+				tt.success,
+				tt.gRequests,
+				serverName,
+			}
+
+			clientRequestsLabelValues := []string{
+				serviceName,
+				tt.method,
+				serverName,
+			}
+			defer prometheusbp.MetricTest(t, "server rpc count", clientRequestCounter).CheckDelta(1, serverLabelValues...)
+			defer prometheusbp.MetricTest(t, "server active requests", serverActiveRequests).CheckDelta(0, serverRequestsLabelValues...)
+			defer prometheusbp.MetricTest(t, "client rpc count", clientRequestCounter).CheckDelta(1, clientLabelValues...)
+			defer prometheusbp.MetricTest(t, "client active requests", clientActiveRequests).CheckDelta(0, clientRequestsLabelValues...)
+
+			ctx := context.Background()
 			if tt.success == "true" {
 				if _, err := client.Ping(ctx, &pb.PingRequest{}); err != nil {
 					t.Fatalf("Ping: %v", err)
@@ -232,49 +282,6 @@ func TestInjectPrometheusUnaryServerInterceptor(t *testing.T) {
 			if ctx == nil {
 				t.Error("got nil context")
 			}
-			labelValues := []string{
-				serviceName,
-				tt.method,
-				unary,
-				tt.success,
-				tt.grpcStatus,
-			}
-
-			requestLabelValues := []string{
-				serviceName,
-				tt.method,
-			}
-
-			promtestMetrics := prometheusbp.TestProm{
-				ServerLatencyDistribution: serverLatencyDistribution,
-				ServerRPCStatusCounter:    serverRPCStatusCounter,
-				ServerActiveRequests:      serverActiveRequests,
-				ClientLatencyDistribution: clientLatencyDistribution,
-				ClientRPCStatusCounter:    clientRPCStatusCounter,
-				ClientActiveRequests:      clientActiveRequests,
-			}
-			if err := promtestMetrics.TestServerMetrics(labelValues, requestLabelValues); err != nil {
-				t.Error(err)
-			}
-
-			clientLabels = []string{
-				serviceName,
-				"/mwitkow.testproto.TestService/" + tt.method,
-				unary,
-				tt.success,
-				tt.grpcStatus,
-				serverName,
-			}
-
-			clientActiveRequestsLabels = []string{
-				serviceName,
-				tt.method,
-				serverName,
-			}
-			if err := promtestMetrics.TestClientMetrics(clientLabels, clientActiveRequestsLabels); err != nil {
-				t.Error(err)
-			}
-			promtestMetrics.Reset()
 		})
 	}
 }

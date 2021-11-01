@@ -139,7 +139,7 @@ func PrometheusUnaryClientInterceptor(serviceSlug, serverSlug string) grpc.Unary
 				successLabel: success,
 				slugLabel:    serverSlug,
 			}
-			clientRPCStatusCounter.With(labels).Inc()
+			clientRequestCounter.With(labels).Inc()
 			clientLatencyDistribution.With(labels).Observe(time.Since(start).Seconds())
 			clientActiveRequests.With(requestsLabels).Dec()
 		}()
@@ -179,7 +179,7 @@ func PrometheusStreamClientInterceptor(serviceSlug, serverSlug string) grpc.Stre
 				successLabel: success,
 				slugLabel:    serverSlug,
 			}
-			clientRPCStatusCounter.With(labels).Inc()
+			clientRequestCounter.With(labels).Inc()
 			clientLatencyDistribution.With(labels).Observe(time.Since(start).Seconds())
 			clientActiveRequests.With(requestsLabels).Dec()
 		}()
