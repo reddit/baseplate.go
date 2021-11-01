@@ -433,15 +433,15 @@ func PrometheusMetricMiddleware(serviceSlug string) thrift.ProcessorMiddleware {
 				}
 
 				labels := prometheus.Labels{
-					serviceLabel:             serviceSlug,
-					methodLabel:              method,
-					successLabel:             successLbl,
-					exceptionLabel:           exceptionTypeLabel,
-					baseplateStatusLabel:     baseplateStatus,
-					baseplateStatusCodeLabel: baseplateStatusCode,
+					serviceLabel: serviceSlug,
+					methodLabel:  method,
+					successLabel: successLbl,
 				}
 				latencyDistribution.With(labels).Observe(time.Since(start).Seconds())
-				rpcStatusCounter.With(labels).Inc()
+				labels[baseplateStatusCodeLabel] = baseplateStatusCode
+				labels[exceptionLabel] = exceptionTypeLabel
+				labels[baseplateStatusLabel] = baseplateStatus
+				rpcRequestCounter.With(labels).Inc()
 				activeRequests.With(activeRequestLabels).Dec()
 			}()
 

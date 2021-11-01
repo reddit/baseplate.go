@@ -10,6 +10,7 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 )
 
@@ -20,10 +21,30 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 		wantOK        bool
 		baseplateCode string
 	}{
-		{"bp error", thrift.NewTProtocolExceptionWithType(thrift.PROTOCOL_ERROR, WrapBaseplateError(errors.New("test"))), false, ""},
-		{"application error", thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "unknown err msg"), false, ""},
-		{"compile error", baseplate.NewError(), false, "0"},
-		{"success", nil, true, ""},
+		{
+			name:          "bp error",
+			wantErr:       thrift.NewTProtocolExceptionWithType(thrift.PROTOCOL_ERROR, WrapBaseplateError(errors.New("test"))),
+			wantOK:        false,
+			baseplateCode: "",
+		},
+		{
+			name:          "application error",
+			wantErr:       thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "unknown err msg"),
+			wantOK:        false,
+			baseplateCode: "",
+		},
+		{
+			name:          "compile error",
+			wantErr:       baseplate.NewError(),
+			wantOK:        false,
+			baseplateCode: "0",
+		},
+		{
+			name:          "success",
+			wantErr:       nil,
+			wantOK:        true,
+			baseplateCode: "",
+		},
 	}
 
 	const (
@@ -33,7 +54,7 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			latencyDistribution.Reset()
-			rpcStatusCounter.Reset()
+			rpcRequestCounter.Reset()
 			activeRequests.Reset()
 
 			next := thrift.WrappedTProcessorFunction{
@@ -71,11 +92,11 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 				t.Errorf("wanted %v, got %v", 1, latencyMetricCount)
 			}
 
-			rpcMetricValue := testutil.ToFloat64(rpcStatusCounter.WithLabelValues(thriftLabelValues...))
+			rpcMetricValue := testutil.ToFloat64(rpcRequestCounter.WithLabelValues(thriftLabelValues...))
 			if rpcMetricValue != 1 {
 				t.Errorf("wanted %v, got %v", 0, rpcMetricValue)
 			}
-			rpcMetricCount := testutil.CollectAndCount(rpcStatusCounter)
+			rpcMetricCount := testutil.CollectAndCount(rpcRequestCounter)
 			if rpcMetricCount != 1 {
 				t.Errorf("wanted %v, got %v", 1, rpcMetricCount)
 			}
