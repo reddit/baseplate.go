@@ -9,7 +9,7 @@ import (
 
 // PrometheusMetricTest stores information about a metric to use for testing.
 type PrometheusMetricTest struct {
-	t           *testing.T
+	tb          testing.TB
 	metric      prometheus.Collector
 	name        string
 	initValue   float64
@@ -21,7 +21,7 @@ func (p *PrometheusMetricTest) CheckDelta(delta float64) {
 	got := p.getValue()
 	got -= float64(p.initValue)
 	if got != delta {
-		p.t.Errorf("%s metric delta: wanted %v, got %v", p.name, delta, got)
+		p.tb.Errorf("%s metric delta: wanted %v, got %v", p.name, delta, got)
 	}
 }
 
@@ -29,15 +29,15 @@ func (p *PrometheusMetricTest) CheckDelta(delta float64) {
 func (p *PrometheusMetricTest) CheckExists() {
 	got := testutil.CollectAndCount(p.metric)
 	if got != 1 {
-		p.t.Errorf("%s metric count: wanted %v, got %v", p.name, 1, got)
+		p.tb.Errorf("%s metric count: wanted %v, got %v", p.name, 1, got)
 	}
 }
 
 // MetricTest stores the current value of the metric along with the metric name
 // to be used later for testing.
-func MetricTest(t *testing.T, name string, metric prometheus.Collector, labelValues ...string) *PrometheusMetricTest {
+func MetricTest(tb testing.TB, name string, metric prometheus.Collector, labelValues ...string) *PrometheusMetricTest {
 	p := &PrometheusMetricTest{
-		t:           t,
+		tb:          tb,
 		metric:      metric,
 		name:        name,
 		labelValues: labelValues,
@@ -53,17 +53,19 @@ func (p *PrometheusMetricTest) getValue() float64 {
 	case *prometheus.GaugeVec:
 		gague, err := m.GetMetricWithLabelValues(p.labelValues...)
 		if err != nil {
-			p.t.Fatalf("get %s metric err %v", p.name, err)
+			p.tb.Fatalf("get %s metric err %v", p.name, err)
 		}
 		value = testutil.ToFloat64(gague)
 	case *prometheus.CounterVec:
 		counter, err := m.GetMetricWithLabelValues(p.labelValues...)
 		if err != nil {
-			p.t.Fatalf("get %s metric err %v", p.name, err)
+			p.tb.Fatalf("get %s metric err %v", p.name, err)
 		}
 		value = testutil.ToFloat64(counter)
+	case *prometheus.HistogramVec:
+		// prometheus.HistogramVec not supported for testutil.ToFloat64
 	default:
-		p.t.Fatalf("not supported type %T\n", m)
+		p.tb.Fatalf("not supported type %T\n", m)
 	}
 	return value
 }
