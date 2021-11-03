@@ -46,6 +46,7 @@ func MetricTest(t *testing.T, name string, metric prometheus.Collector, labelVal
 	return p
 }
 
+// getValue returns the current value of the metric.
 func (p *PrometheusMetricTest) getValue() float64 {
 	var value float64
 	switch m := p.metric.(type) {
