@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/prometheusbp"
@@ -79,8 +78,9 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 				method,
 			}
 
-			defer prometheusbp.MetricTest(t, "rpc count", rpcRequestCounter).CheckDelta(1, thriftLabelValues...)
-			defer prometheusbp.MetricTest(t, "active requests", activeRequests).CheckDelta(0, requestLabelValues...)
+			defer prometheusbp.MetricTest(t, "latency", latencyDistribution).CheckExists()
+			defer prometheusbp.MetricTest(t, "rpc count", rpcRequestCounter, thriftLabelValues...).CheckDelta(1)
+			defer prometheusbp.MetricTest(t, "active requests", activeRequests, requestLabelValues...).CheckDelta(0)
 
 			next := thrift.WrappedTProcessorFunction{
 				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
@@ -96,11 +96,6 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 			}
 			if gotErr != tt.wantErr {
 				t.Errorf("wanted %v, got %v", tt.wantErr, gotErr)
-			}
-
-			latencyMetricCount := testutil.CollectAndCount(latencyDistribution)
-			if latencyMetricCount != 1 {
-				t.Errorf("wanted %v, got %v", 1, latencyMetricCount)
 			}
 		})
 	}
