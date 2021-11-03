@@ -3,6 +3,8 @@ package thriftbp
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/reddit/baseplate.go/prometheusbp"
 )
 
 const (
@@ -24,7 +26,7 @@ var (
 	latencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "thrift_server_latency_seconds",
 		Help:    "RPC latencies",
-		Buckets: prometheus.ExponentialBuckets(0.0001, 1.5, 26), // 100us ~ 2.5s
+		Buckets: prometheusbp.DefaultBuckets,
 	}, thriftLatencyLabels)
 
 	thriftRequestLabels = []string{

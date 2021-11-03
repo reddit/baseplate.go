@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+	"github.com/reddit/baseplate.go/prometheusbp"
 )
 
 func TestPrometheusMetricsMiddleware(t *testing.T) {
@@ -57,6 +58,30 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 			rpcRequestCounter.Reset()
 			activeRequests.Reset()
 
+			var baseplateCodeStatus string
+			var exceptionType string
+			if tt.wantErr != nil {
+				exceptionType = strings.TrimPrefix(fmt.Sprintf("%T", tt.wantErr), "*")
+			}
+
+			success := strconv.FormatBool(tt.wantErr == nil)
+			thriftLabelValues := []string{
+				serviceName,
+				method,
+				success,
+				exceptionType,
+				baseplateCodeStatus,
+				tt.baseplateCode,
+			}
+
+			requestLabelValues := []string{
+				serviceName,
+				method,
+			}
+
+			defer prometheusbp.MetricTest(t, "rpc count", rpcRequestCounter).CheckDelta(1, thriftLabelValues...)
+			defer prometheusbp.MetricTest(t, "active requests", activeRequests).CheckDelta(0, requestLabelValues...)
+
 			next := thrift.WrappedTProcessorFunction{
 				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
 					return tt.wantOK, tt.wantErr
@@ -73,45 +98,9 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 				t.Errorf("wanted %v, got %v", tt.wantErr, gotErr)
 			}
 
-			var baseplateCodeStatus string
-			var exceptionType string
-			if gotErr != nil {
-				exceptionType = strings.TrimPrefix(fmt.Sprintf("%T", gotErr), "*")
-			}
-			success := strconv.FormatBool(gotErr == nil)
-			thriftLabelValues := []string{
-				serviceName,
-				method,
-				success,
-				exceptionType,
-				baseplateCodeStatus,
-				tt.baseplateCode,
-			}
 			latencyMetricCount := testutil.CollectAndCount(latencyDistribution)
 			if latencyMetricCount != 1 {
 				t.Errorf("wanted %v, got %v", 1, latencyMetricCount)
-			}
-
-			rpcMetricValue := testutil.ToFloat64(rpcRequestCounter.WithLabelValues(thriftLabelValues...))
-			if rpcMetricValue != 1 {
-				t.Errorf("wanted %v, got %v", 0, rpcMetricValue)
-			}
-			rpcMetricCount := testutil.CollectAndCount(rpcRequestCounter)
-			if rpcMetricCount != 1 {
-				t.Errorf("wanted %v, got %v", 1, rpcMetricCount)
-			}
-
-			requestLabelValues := []string{
-				serviceName,
-				method,
-			}
-			requestMetricValue := testutil.ToFloat64(activeRequests.WithLabelValues(requestLabelValues...))
-			if requestMetricValue != 0 {
-				t.Errorf("wanted %v, got %v", 0, requestMetricValue)
-			}
-			requestMetricCount := testutil.CollectAndCount(activeRequests)
-			if requestMetricCount != 1 {
-				t.Errorf("wanted %v, got %v", 1, requestMetricCount)
 			}
 		})
 	}
