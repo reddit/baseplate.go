@@ -37,8 +37,7 @@ type Config struct {
 	// or simply ":${Port}".
 	Addr string `yaml:"addr"`
 
-	// Timeout is the socket connection timeout for Servers that
-	// support that.
+	// Deprecated: No-op for now, will be removed in a future release.
 	Timeout time.Duration `yaml:"timeout"`
 
 	// StopTimeout is the timeout for the Stop command for the service.
