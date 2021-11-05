@@ -54,23 +54,14 @@ type ServerConfig struct {
 	// This is ignored if Socket is non-nil.
 	Addr string
 
-	// Optional, used only by NewServer.
-	// In NewBaseplateServer the timeout set in bp.Config() will be used instead.
-	//
-	// The timeout for the underlying thrift.TServerSocket transport.
-	//
-	// If your clients use client pool,
-	// it's recommended to either not set a Timeout on your server,
-	// or set it to a long value that's longer than your clients' pool TTL.
-	//
-	// This is ignored if Socket is non-nil.
+	// Deprecated: No-op for now, will be removed in a future release.
 	Timeout time.Duration
 
 	// Optional, used only by NewServer.
 	// In NewBaseplateServer the address and timeout set in bp.Config() will be
 	// used instead.
 	//
-	// You can choose to set Socket instead of Addr plus Timeout.
+	// You can choose to set Socket instead of Addr.
 	Socket *thrift.TServerSocket
 }
 
@@ -81,7 +72,7 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 	var transport *thrift.TServerSocket
 	if cfg.Socket == nil {
 		var err error
-		transport, err = thrift.NewTServerSocketTimeout(cfg.Addr, cfg.Timeout)
+		transport, err = thrift.NewTServerSocket(cfg.Addr)
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +113,6 @@ func NewBaseplateServer(
 		},
 	}).ToThriftLogger()
 	cfg.Addr = bp.GetConfig().Addr
-	cfg.Timeout = bp.GetConfig().Timeout
 	cfg.Socket = nil
 	srv, err := NewServer(cfg)
 	if err != nil {
