@@ -3,9 +3,13 @@ package grpcbp
 import (
 	"context"
 	"errors"
+	"strconv"
+	"time"
 
 	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/tracing"
@@ -99,5 +103,87 @@ func ForwardEdgeContextStreaming(ecImpl ecinterface.Interface) grpc.StreamClient
 		opts ...grpc.CallOption,
 	) (grpc.ClientStream, error) {
 		return nil, errors.New("grpc.ForwardEdgeContextStreaming: not implemented")
+	}
+}
+
+// PrometheusUnaryClientInterceptor is a client-side interceptor that provides Prometheus
+// monitoring for Unary RPCs.
+func PrometheusUnaryClientInterceptor(serviceSlug, serverSlug string) grpc.UnaryClientInterceptor {
+	return func(
+		ctx context.Context,
+		method string,
+		req interface{},
+		reply interface{},
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption,
+	) (err error) {
+		start := time.Now()
+		m := methodSlug(method)
+		activeRequestsLabels := prometheus.Labels{
+			serviceLabel: serviceSlug,
+			methodLabel:  m,
+			slugLabel:    serverSlug,
+		}
+		clientActiveRequests.With(activeRequestsLabels).Inc()
+
+		defer func() {
+			success := strconv.FormatBool(err == nil)
+			status, _ := status.FromError(err)
+
+			labels := prometheus.Labels{
+				serviceLabel: serviceSlug,
+				methodLabel:  m,
+				typeLabel:    unary,
+				successLabel: success,
+				slugLabel:    serverSlug,
+			}
+
+			clientLatencyDistribution.With(labels).Observe(time.Since(start).Seconds())
+			labels[codeLabel] = status.Code().String()
+			clientRequestCounter.With(labels).Inc()
+			clientActiveRequests.With(activeRequestsLabels).Dec()
+		}()
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
+// PrometheusStreamClientInterceptor is a client-side interceptor that provides Prometheus
+// monitoring for Streaming RPCs.
+func PrometheusStreamClientInterceptor(serviceSlug, serverSlug string) grpc.StreamClientInterceptor {
+	return func(
+		ctx context.Context,
+		desc *grpc.StreamDesc,
+		cc *grpc.ClientConn,
+		method string,
+		streamer grpc.Streamer,
+		opts ...grpc.CallOption,
+	) (_ grpc.ClientStream, err error) {
+		start := time.Now()
+		m := methodSlug(method)
+		activeRequestsLabels := prometheus.Labels{
+			serviceLabel: serviceSlug,
+			methodLabel:  m,
+			slugLabel:    serverSlug,
+		}
+		clientActiveRequests.With(activeRequestsLabels).Inc()
+
+		defer func() {
+			success := strconv.FormatBool(err == nil)
+			status, _ := status.FromError(err)
+
+			labels := prometheus.Labels{
+				serviceLabel: serviceSlug,
+				methodLabel:  m,
+				typeLabel:    clientStream,
+				successLabel: success,
+				slugLabel:    serverSlug,
+			}
+			clientLatencyDistribution.With(labels).Observe(time.Since(start).Seconds())
+			labels[codeLabel] = status.Code().String()
+			clientRequestCounter.With(labels).Inc()
+			clientActiveRequests.With(activeRequestsLabels).Dec()
+		}()
+		return streamer(ctx, desc, cc, method, opts...)
 	}
 }
