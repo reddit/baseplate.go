@@ -393,13 +393,12 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 //
 //   - thrift_service: the serviceSlug arg
 //   - thrift_method: the method of the endpoint called
-//   - thrift_slug: the service being contacted
 //
-// * thrift_server_handling_seconds histogram with labels above plus:
+// * thrift_server_latency_seconds histogram with labels above plus:
 //
 //   - thrift_success: "true" if err == nil, "false" otherwise
 //
-// * thrift_server_handled_total counter with all labels above plus:
+// * thrift_server_requests_total counter with all labels above plus:
 //
 //   - thrift_exception_type: the human-readable exception type, e.g.
 //     baseplate.Error, etc

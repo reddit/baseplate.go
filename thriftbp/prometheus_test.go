@@ -125,7 +125,6 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 	requestLabelValues := []string{
 		service,
 		method,
-		server,
 	}
 
 	defer prometheusbp.MetricTest(t, "latency", clientLatencyDistribution).CheckExists()

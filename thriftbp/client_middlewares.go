@@ -328,13 +328,13 @@ var (
 //
 //   - thrift_service: the serviceSlug arg
 //   - thrift_method: the method of the endpoint called
-//   - thrift_slug: the service being contacted
 //
-// * thrift_client_handling_seconds histogram with labels above plus:
+// * thrift_client_latency_seconds histogram with labels above plus:
 //
 //   - thrift_success: "true" if err == nil, "false" otherwise
+//   - thrift_slug: the service being contacted
 //
-// * thrift_client_handled_total counter with all labels above plus:
+// * thrift_client_requests_total counter with all labels above plus:
 //
 //   - thrift_exception_type: the human-readable exception type, e.g.
 //     baseplate.Error, etc
@@ -350,7 +350,6 @@ func PrometheusClientMiddleware(serviceSlug, serverSlug string) thrift.ClientMid
 				activeRequestLabels := prometheus.Labels{
 					serviceLabel: serviceSlug,
 					methodLabel:  method,
-					slugLabel:    serverSlug,
 				}
 				clientActiveRequests.With(activeRequestLabels).Inc()
 

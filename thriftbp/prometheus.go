@@ -87,7 +87,6 @@ var (
 	clientActiveRequestsLabels = []string{
 		serviceLabel,
 		methodLabel,
-		slugLabel,
 	}
 
 	clientActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
