@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	serverThriftLatencyLabels = []string{
+	serverLatencyLabels = []string{
 		serviceLabel,
 		methodLabel,
 		successLabel,
@@ -28,9 +28,9 @@ var (
 		Name:    "thrift_server_latency_seconds",
 		Help:    "RPC latencies",
 		Buckets: prometheusbp.DefaultBuckets,
-	}, serverThriftLatencyLabels)
+	}, serverLatencyLabels)
 
-	serverThriftRequestLabels = []string{
+	serverRequestLabels = []string{
 		serviceLabel,
 		methodLabel,
 		successLabel,
@@ -42,7 +42,7 @@ var (
 	serverRPCRequestCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "thrift_server_requests_total",
 		Help: "Total RPC request count",
-	}, serverThriftRequestLabels)
+	}, serverRequestLabels)
 
 	serverActiveRequestsLabels = []string{
 		serviceLabel,
@@ -56,7 +56,7 @@ var (
 )
 
 var (
-	clientThriftLatencyLabels = []string{
+	clientLatencyLabels = []string{
 		serviceLabel,
 		methodLabel,
 		successLabel,
@@ -67,9 +67,9 @@ var (
 		Name:    "thrift_client_latency_seconds",
 		Help:    "RPC latencies",
 		Buckets: prometheusbp.DefaultBuckets,
-	}, clientThriftLatencyLabels)
+	}, clientLatencyLabels)
 
-	clientThriftRequestLabels = []string{
+	clientRequestLabels = []string{
 		serviceLabel,
 		methodLabel,
 		successLabel,
@@ -82,11 +82,12 @@ var (
 	clientRPCRequestCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "thrift_client_requests_total",
 		Help: "Total RPC request count",
-	}, clientThriftRequestLabels)
+	}, clientRequestLabels)
 
 	clientActiveRequestsLabels = []string{
 		serviceLabel,
 		methodLabel,
+		slugLabel,
 	}
 
 	clientActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{

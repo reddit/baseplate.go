@@ -102,9 +102,25 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 }
 
 func TestPrometheusClientMiddleware(t *testing.T) {
-	clientLatencyDistribution.Reset()
-	clientRPCRequestCounter.Reset()
-	clientActiveRequests.Reset()
+	testCases := []struct {
+		name        string
+		wantErr     bool
+		wantSuccess string
+		exception   string
+	}{
+		{
+			name:        "error",
+			wantErr:     true,
+			wantSuccess: "false",
+			exception:   "thriftbp.PoolError",
+		},
+		{
+			name:        "success",
+			wantErr:     false,
+			wantSuccess: "true",
+			exception:   "",
+		},
+	}
 
 	const (
 		service = "testService"
@@ -112,35 +128,52 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 		method  = "testMethod"
 	)
 
-	labelValues := []string{
-		service,
-		method,
-		"true",
-		"",
-		"",
-		"",
-		server,
-	}
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			clientLatencyDistribution.Reset()
+			clientRPCRequestCounter.Reset()
+			clientActiveRequests.Reset()
 
-	requestLabelValues := []string{
-		service,
-		method,
-	}
+			labelValues := []string{
+				service,
+				method,
+				tt.wantSuccess,
+				tt.exception,
+				"",
+				"",
+				server,
+			}
 
-	defer prometheusbp.MetricTest(t, "latency", clientLatencyDistribution).CheckExists()
-	defer prometheusbp.MetricTest(t, "rpc count", clientRPCRequestCounter, labelValues...).CheckDelta(1)
-	defer prometheusbp.MetricTest(t, "active requests", clientActiveRequests, requestLabelValues...).CheckDelta(0)
+			requestLabelValues := []string{
+				service,
+				method,
+				server,
+			}
 
-	client := thrift.WrapClient(mockClient{}, PrometheusClientMiddleware(service, server))
-	if _, err := client.Call(context.Background(), method, nil, nil); err != nil {
-		t.Fatal(err)
+			defer prometheusbp.MetricTest(t, "latency", clientLatencyDistribution).CheckExists()
+			defer prometheusbp.MetricTest(t, "rpc count", clientRPCRequestCounter, labelValues...).CheckDelta(1)
+			defer prometheusbp.MetricTest(t, "active requests", clientActiveRequests, requestLabelValues...).CheckDelta(0)
+
+			client := thrift.WrapClient(mockClient{tt.wantErr}, PrometheusClientMiddleware(service, server))
+			_, err := client.Call(context.Background(), method, nil, nil)
+			if tt.wantErr && err == nil {
+				t.Error("wanted an err, but got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("got err: %v", err)
+			}
+		})
 	}
 }
 
 type mockClient struct {
+	returnErr bool
 }
 
 func (c mockClient) Call(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+	if c.returnErr {
+		return thrift.ResponseMeta{}, PoolError{Cause: errors.New("reasons")}
+	}
 	return thrift.ResponseMeta{}, nil
 }
 
