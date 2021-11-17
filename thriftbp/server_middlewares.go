@@ -411,14 +411,14 @@ func PrometheusServerMiddleware(serviceSlug string) thrift.ProcessorMiddleware {
 		process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
 			start := time.Now()
 			activeRequestLabels := prometheus.Labels{
-				serviceLabel: serviceSlug,
-				methodLabel:  method,
+				localServiceLabel: serviceSlug,
+				methodLabel:       method,
 			}
 			serverActiveRequests.With(activeRequestLabels).Inc()
 
 			defer func() {
 				var exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
-				successLbl := strconv.FormatBool(err == nil)
+				success := strconv.FormatBool(err == nil)
 				if err != nil {
 					exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
 
@@ -426,23 +426,28 @@ func PrometheusServerMiddleware(serviceSlug string) thrift.ProcessorMiddleware {
 					if errors.As(err, &bpErr) {
 						code := bpErr.GetCode()
 						baseplateStatusCode = strconv.FormatInt(int64(code), 10)
-						baseplateStatus := baseplate.ErrorCode(code).String()
-						if baseplateStatus == "<UNSET>" {
-							baseplateStatus = ""
+						if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
+							baseplateStatus = status
 						}
 					}
 				}
 
-				labels := prometheus.Labels{
-					serviceLabel: serviceSlug,
-					methodLabel:  method,
-					successLabel: successLbl,
+				latencyLabels := prometheus.Labels{
+					localServiceLabel: serviceSlug,
+					methodLabel:       method,
+					successLabel:      success,
 				}
-				serverLatencyDistribution.With(labels).Observe(time.Since(start).Seconds())
-				labels[baseplateStatusCodeLabel] = baseplateStatusCode
-				labels[exceptionLabel] = exceptionTypeLabel
-				labels[baseplateStatusLabel] = baseplateStatus
-				serverRPCRequestCounter.With(labels).Inc()
+				serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+				rpcCountLabels := prometheus.Labels{
+					localServiceLabel:        serviceSlug,
+					methodLabel:              method,
+					successLabel:             success,
+					exceptionLabel:           exceptionTypeLabel,
+					baseplateStatusLabel:     baseplateStatus,
+					baseplateStatusCodeLabel: baseplateStatusCode,
+				}
+				serverRPCRequestCounter.With(rpcCountLabels).Inc()
 				serverActiveRequests.With(activeRequestLabels).Dec()
 			}()
 

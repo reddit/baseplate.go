@@ -342,21 +342,21 @@ var (
 //     as a string if present (e.g. 404), or the empty string
 //   - thrift_baseplate_status_code: the human-readable status code, e.g.
 //     NOT_FOUND, or the empty string
-func PrometheusClientMiddleware(serviceSlug, serverSlug string) thrift.ClientMiddleware {
+func PrometheusClientMiddleware(localServiceSlug, remoteServiceSlug string) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (_ thrift.ResponseMeta, err error) {
 				start := time.Now()
 				activeRequestLabels := prometheus.Labels{
-					serviceLabel: serviceSlug,
-					methodLabel:  method,
-					slugLabel:    serverSlug,
+					localServiceLabel:      localServiceSlug,
+					methodLabel:            method,
+					remoteServiceSlugLabel: remoteServiceSlug,
 				}
 				clientActiveRequests.With(activeRequestLabels).Inc()
 
 				defer func() {
 					var exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
-					successLbl := strconv.FormatBool(err == nil)
+					success := strconv.FormatBool(err == nil)
 					if err != nil {
 						exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
 
@@ -364,24 +364,30 @@ func PrometheusClientMiddleware(serviceSlug, serverSlug string) thrift.ClientMid
 						if errors.As(err, &bpErr) {
 							code := bpErr.GetCode()
 							baseplateStatusCode = strconv.FormatInt(int64(code), 10)
-							baseplateStatus := baseplate.ErrorCode(code).String()
-							if baseplateStatus == "<UNSET>" {
-								baseplateStatus = ""
+							if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
+								baseplateStatus = status
 							}
 						}
 					}
 
-					labels := prometheus.Labels{
-						serviceLabel: serviceSlug,
-						methodLabel:  method,
-						successLabel: successLbl,
-						slugLabel:    serverSlug,
+					latencyLabels := prometheus.Labels{
+						localServiceLabel:      localServiceSlug,
+						methodLabel:            method,
+						successLabel:           success,
+						remoteServiceSlugLabel: remoteServiceSlug,
 					}
-					clientLatencyDistribution.With(labels).Observe(time.Since(start).Seconds())
-					labels[baseplateStatusCodeLabel] = baseplateStatusCode
-					labels[exceptionLabel] = exceptionTypeLabel
-					labels[baseplateStatusLabel] = baseplateStatus
-					clientRPCRequestCounter.With(labels).Inc()
+					clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+					rpcCountLabels := prometheus.Labels{
+						localServiceLabel:        localServiceSlug,
+						methodLabel:              method,
+						successLabel:             success,
+						exceptionLabel:           exceptionTypeLabel,
+						baseplateStatusCodeLabel: baseplateStatusCode,
+						baseplateStatusLabel:     baseplateStatus,
+						remoteServiceSlugLabel:   remoteServiceSlug,
+					}
+					clientRPCRequestCounter.With(rpcCountLabels).Inc()
 					clientActiveRequests.With(activeRequestLabels).Dec()
 				}()
 
