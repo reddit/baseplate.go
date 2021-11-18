@@ -101,80 +101,31 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 	}
 }
 
-func TestPrometheusClientMiddleware(t *testing.T) {
-	testCases := []struct {
-		name        string
-		wantErr     bool
-		wantSuccess string
-		exception   string
-	}{
-		{
-			name:        "error",
-			wantErr:     true,
-			wantSuccess: "false",
-			exception:   "thriftbp.PoolError",
-		},
-		{
-			name:        "success",
-			wantErr:     false,
-			wantSuccess: "true",
-			exception:   "",
-		},
-	}
+// PromClientMetricsTest keeps track of the Thrift client Prometheus metrics
+// during testing.
+type PromClientMetricsTest struct {
+	latency        *prometheusbp.PrometheusMetricTest
+	rpcCount       *prometheusbp.PrometheusMetricTest
+	activeRequests *prometheusbp.PrometheusMetricTest
+}
 
-	const (
-		service = "testService"
-		server  = "testServer"
-		method  = "testMethod"
-	)
-
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-			clientLatencyDistribution.Reset()
-			clientRPCRequestCounter.Reset()
-			clientActiveRequests.Reset()
-
-			labelValues := []string{
-				service,
-				method,
-				tt.wantSuccess,
-				tt.exception,
-				"",
-				"",
-				server,
-			}
-
-			requestLabelValues := []string{
-				service,
-				method,
-				server,
-			}
-
-			defer prometheusbp.MetricTest(t, "latency", clientLatencyDistribution).CheckExists()
-			defer prometheusbp.MetricTest(t, "rpc count", clientRPCRequestCounter, labelValues...).CheckDelta(1)
-			defer prometheusbp.MetricTest(t, "active requests", clientActiveRequests, requestLabelValues...).CheckDelta(0)
-
-			client := thrift.WrapClient(mockClient{tt.wantErr}, PrometheusClientMiddleware(service, server))
-			_, err := client.Call(context.Background(), method, nil, nil)
-			if tt.wantErr && err == nil {
-				t.Error("wanted an err, but got nil")
-			}
-			if !tt.wantErr && err != nil {
-				t.Errorf("got err: %v", err)
-			}
-		})
+// PrometheusClientMetricsTest resets the Thrift client Prometheus metrics and
+// setups the test to track the client metrics.
+func PrometheusClientMetricsTest(t *testing.T, requestCountLabelValues, activeRequestsLabelValues []string) PromClientMetricsTest {
+	clientLatencyDistribution.Reset()
+	clientRPCRequestCounter.Reset()
+	clientActiveRequests.Reset()
+	return PromClientMetricsTest{
+		latency:        prometheusbp.MetricTest(t, "latency", clientLatencyDistribution),
+		rpcCount:       prometheusbp.MetricTest(t, "rpc count", clientRPCRequestCounter, requestCountLabelValues...),
+		activeRequests: prometheusbp.MetricTest(t, "active requests", clientActiveRequests, activeRequestsLabelValues...),
 	}
 }
 
-type mockClient struct {
-	returnErr bool
+// CheckMetrics ensure the correct client metrics were registered and tracked
+// for Thrift client Prometheus metrics.
+func (p PromClientMetricsTest) CheckMetrics() {
+	p.latency.CheckExists()
+	p.rpcCount.CheckDelta(1)
+	p.activeRequests.CheckDelta(0)
 }
-
-func (c mockClient) Call(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-	if c.returnErr {
-		return thrift.ResponseMeta{}, PoolError{Cause: errors.New("reasons")}
-	}
-	return thrift.ResponseMeta{}, nil
-}
-
-var _ thrift.TClient = (*mockClient)(nil)
