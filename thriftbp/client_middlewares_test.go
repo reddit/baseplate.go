@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -457,4 +458,104 @@ func TestSetClientName(t *testing.T) {
 			}
 		},
 	)
+}
+
+const (
+	localSvr        = "localsvr"
+	remoteSvr       = "remotesvr"
+	methodIsHealthy = "is_healthy"
+)
+
+func TestPrometheusClientMiddleware(t *testing.T) {
+	testCases := []struct {
+		name          string
+		wantErr       error
+		wantFail      bool
+		exceptionType string
+	}{
+		{
+			name:          "error",
+			wantErr:       errors.New("test"),
+			wantFail:      true,
+			exceptionType: "thrift.tApplicationException",
+		},
+		{
+			name:          "success",
+			wantErr:       nil,
+			wantFail:      false,
+			exceptionType: "",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			labelValues := []string{
+				localSvr,
+				methodIsHealthy,
+				strconv.FormatBool(!tt.wantFail),
+				tt.exceptionType,
+				"",
+				"",
+				remoteSvr,
+			}
+
+			requestLabelValues := []string{
+				localSvr,
+				methodIsHealthy,
+				remoteSvr,
+			}
+
+			defer thriftbp.PrometheusClientMetricsTest(t, labelValues, requestLabelValues).CheckMetrics()
+
+			ctx := context.Background()
+			handler := mockBaseplateService{fail: tt.wantFail, err: tt.wantErr}
+			client := setupFake(ctx, t, handler)
+			bpClient := baseplatethrift.NewBaseplateServiceV2Client(client.TClient())
+			result, err := bpClient.IsHealthy(
+				ctx,
+				&baseplatethrift.IsHealthyRequest{
+					Probe: baseplatethrift.IsHealthyProbePtr(baseplatethrift.IsHealthyProbe_READINESS),
+				},
+			)
+			if tt.wantErr != nil && err == nil {
+				t.Error("expected an error, got nil")
+			} else if tt.wantErr == nil && err != nil {
+				t.Errorf("expected no error, got %v", err)
+			}
+
+			if result == tt.wantFail {
+				t.Errorf("result mismatch, expected %v, got %v", tt.wantFail, result)
+			}
+		})
+	}
+}
+
+type mockBaseplateService struct {
+	fail bool
+	err  error
+}
+
+func (srv mockBaseplateService) IsHealthy(ctx context.Context, req *baseplatethrift.IsHealthyRequest) (r bool, err error) {
+	return !srv.fail, srv.err
+}
+
+func setupFake(ctx context.Context, t *testing.T, handler baseplatethrift.BaseplateServiceV2) thriftbp.ClientPool {
+	srv, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
+		Processor:         baseplatethrift.NewBaseplateServiceV2Processor(handler),
+		ClientMiddlewares: []thrift.ClientMiddleware{thriftbp.PrometheusClientMiddleware(localSvr, remoteSvr)},
+	})
+	if err != nil {
+		t.Fatalf("SETUP: Setting up baseplate server: %s", err)
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	t.Cleanup(cancel)
+
+	// Shut down the start goroutine when the test completes
+	srv.Start(ctx)
+
+	// The thrift server doesn't shut down cleanly, so we have to close it in a goroutine :(
+	t.Cleanup(func() { go srv.Close() })
+
+	return srv.ClientPool
 }
