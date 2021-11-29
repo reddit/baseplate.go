@@ -12,6 +12,7 @@ import (
 
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/prometheusbp"
+	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 )
 
 func TestPrometheusMetricsMiddleware(t *testing.T) {
@@ -51,6 +52,7 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 		serviceName = "testservice"
 		method      = "testmethod"
 	)
+
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			latencyDistribution.Reset()
@@ -81,6 +83,7 @@ func TestPrometheusMetricsMiddleware(t *testing.T) {
 			defer prometheusbp.MetricTest(t, "latency", latencyDistribution).CheckExists()
 			defer prometheusbp.MetricTest(t, "rpc count", rpcRequestCounter, thriftLabelValues...).CheckDelta(1)
 			defer prometheusbp.MetricTest(t, "active requests", activeRequests, requestLabelValues...).CheckDelta(0)
+			defer promtest.ValidateSpec(t, "thrift", 3)
 
 			next := thrift.WrappedTProcessorFunction{
 				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
