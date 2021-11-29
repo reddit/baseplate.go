@@ -384,7 +384,7 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 	}
 }
 
-// PrometheusMetricMiddleware returns middleware to track Prometheus metrics
+// PrometheusServerMiddleware returns middleware to track Prometheus metrics
 // specific to the Thrift service.
 //
 // It emits the following prometheus metrics:
@@ -394,30 +394,31 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 //   - thrift_service: the serviceSlug arg
 //   - thrift_method: the method of the endpoint called
 //
-// * thrift_server_handling_seconds histogram and thrift_server_handled_total
-//   counter with labels:
+// * thrift_server_latency_seconds histogram with labels above plus:
 //
-//   - thrift_service and thrift_method
 //   - thrift_success: "true" if err == nil, "false" otherwise
+//
+// * thrift_server_requests_total counter with all labels above plus:
+//
 //   - thrift_exception_type: the human-readable exception type, e.g.
 //     baseplate.Error, etc
 //   - thrift_baseplate_status: the numeric status code from a baseplate.Error
 //     as a string if present (e.g. 404), or the empty string
 //   - thrift_baseplate_status_code: the human-readable status code, e.g.
 //     NOT_FOUND, or the empty string
-func PrometheusMetricMiddleware(serviceSlug string) thrift.ProcessorMiddleware {
+func PrometheusServerMiddleware(serviceSlug string) thrift.ProcessorMiddleware {
 	return func(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
 			start := time.Now()
 			activeRequestLabels := prometheus.Labels{
-				serviceLabel: serviceSlug,
-				methodLabel:  method,
+				localServiceLabel: serviceSlug,
+				methodLabel:       method,
 			}
-			activeRequests.With(activeRequestLabels).Inc()
+			serverActiveRequests.With(activeRequestLabels).Inc()
 
 			defer func() {
 				var exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
-				successLbl := strconv.FormatBool(err == nil)
+				success := strconv.FormatBool(err == nil)
 				if err != nil {
 					exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
 
@@ -425,24 +426,29 @@ func PrometheusMetricMiddleware(serviceSlug string) thrift.ProcessorMiddleware {
 					if errors.As(err, &bpErr) {
 						code := bpErr.GetCode()
 						baseplateStatusCode = strconv.FormatInt(int64(code), 10)
-						baseplateStatus := baseplate.ErrorCode(code).String()
-						if baseplateStatus == "<UNSET>" {
-							baseplateStatus = ""
+						if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
+							baseplateStatus = status
 						}
 					}
 				}
 
-				labels := prometheus.Labels{
-					serviceLabel: serviceSlug,
-					methodLabel:  method,
-					successLabel: successLbl,
+				latencyLabels := prometheus.Labels{
+					localServiceLabel: serviceSlug,
+					methodLabel:       method,
+					successLabel:      success,
 				}
-				latencyDistribution.With(labels).Observe(time.Since(start).Seconds())
-				labels[baseplateStatusCodeLabel] = baseplateStatusCode
-				labels[exceptionLabel] = exceptionTypeLabel
-				labels[baseplateStatusLabel] = baseplateStatus
-				rpcRequestCounter.With(labels).Inc()
-				activeRequests.With(activeRequestLabels).Dec()
+				serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+				rpcCountLabels := prometheus.Labels{
+					localServiceLabel:        serviceSlug,
+					methodLabel:              method,
+					successLabel:             success,
+					exceptionLabel:           exceptionTypeLabel,
+					baseplateStatusLabel:     baseplateStatus,
+					baseplateStatusCodeLabel: baseplateStatusCode,
+				}
+				serverRPCRequestCounter.With(rpcCountLabels).Inc()
+				serverActiveRequests.With(activeRequestLabels).Dec()
 			}()
 
 			return next.Process(ctx, seqID, in, out)
