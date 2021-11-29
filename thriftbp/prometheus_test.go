@@ -11,7 +11,6 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
-	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 )
 
@@ -80,9 +79,9 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 				method,
 			}
 
-			defer prometheusbp.MetricTest(t, "latency", serverLatencyDistribution).CheckExists()
-			defer prometheusbp.MetricTest(t, "rpc count", serverRPCRequestCounter, labelValues...).CheckDelta(1)
-			defer prometheusbp.MetricTest(t, "active requests", serverActiveRequests, requestLabelValues...).CheckDelta(0)
+			defer promtest.MetricTest(t, "latency", serverLatencyDistribution).CheckExists()
+			defer promtest.MetricTest(t, "rpc count", serverRPCRequestCounter, labelValues...).CheckDelta(1)
+			defer promtest.MetricTest(t, "active requests", serverActiveRequests, requestLabelValues...).CheckDelta(0)
 			defer promtest.ValidateSpec(t, "thrift", 3)
 
 			next := thrift.WrappedTProcessorFunction{
@@ -107,9 +106,9 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 // PromClientMetricsTest keeps track of the Thrift client Prometheus metrics
 // during testing.
 type PromClientMetricsTest struct {
-	latency        *prometheusbp.PrometheusMetricTest
-	rpcCount       *prometheusbp.PrometheusMetricTest
-	activeRequests *prometheusbp.PrometheusMetricTest
+	latency        *promtest.PrometheusMetricTest
+	rpcCount       *promtest.PrometheusMetricTest
+	activeRequests *promtest.PrometheusMetricTest
 }
 
 // PrometheusClientMetricsTest resets the Thrift client Prometheus metrics and
@@ -119,9 +118,9 @@ func PrometheusClientMetricsTest(t *testing.T, requestCountLabelValues, activeRe
 	clientRPCRequestCounter.Reset()
 	clientActiveRequests.Reset()
 	return PromClientMetricsTest{
-		latency:        prometheusbp.MetricTest(t, "latency", clientLatencyDistribution),
-		rpcCount:       prometheusbp.MetricTest(t, "rpc count", clientRPCRequestCounter, requestCountLabelValues...),
-		activeRequests: prometheusbp.MetricTest(t, "active requests", clientActiveRequests, activeRequestsLabelValues...),
+		latency:        promtest.MetricTest(t, "latency", clientLatencyDistribution),
+		rpcCount:       promtest.MetricTest(t, "rpc count", clientRPCRequestCounter, requestCountLabelValues...),
+		activeRequests: promtest.MetricTest(t, "active requests", clientActiveRequests, activeRequestsLabelValues...),
 	}
 }
 

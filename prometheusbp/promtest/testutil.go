@@ -1,4 +1,4 @@
-package prometheusbp
+package promtest
 
 import (
 	"testing"
