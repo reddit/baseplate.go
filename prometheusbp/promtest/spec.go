@@ -32,8 +32,9 @@ func ValidateSpec(t *testing.T, metricPrefix string, wantMetricCount int) {
 	if gotMetricCount != wantMetricCount {
 		batchErrs.Add(fmt.Errorf("%w: got %d, want %d", errCount, gotMetricCount, wantMetricCount))
 	}
-	if len(batchErrs.GetErrors()) > 0 {
-		t.Error(batchErrs.GetErrors())
+
+	for _, e := range batchErrs.GetErrors() {
+		t.Errorf("err: %v", e.Error())
 	}
 }
 
