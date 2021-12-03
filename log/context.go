@@ -15,18 +15,16 @@ type contextKeyType struct{}
 var contextKey contextKeyType
 
 func init() {
+	copyContext := func(dst, src context.Context) context.Context {
+		if logger, ok := src.Value(contextKey).(*zap.SugaredLogger); ok && logger != nil {
+			dst = context.WithValue(dst, contextKey, logger)
+		}
+		return dst
+	}
 	detach.Register(detach.Hooks{
-		Inline: func(dst, src context.Context) context.Context {
-			if logger, ok := src.Value(contextKey).(*zap.SugaredLogger); ok && logger != nil {
-				dst = context.WithValue(dst, contextKey, logger)
-			}
-			return dst
-		},
+		Inline: copyContext,
 		Async: func(dst, src context.Context, next func(ctx context.Context)) {
-			if logger, ok := src.Value(contextKey).(*zap.SugaredLogger); ok && logger != nil {
-				dst = context.WithValue(dst, contextKey, logger)
-			}
-			next(dst)
+			next(copyContext(dst, src))
 		},
 	})
 }
