@@ -128,7 +128,10 @@ func ExampleAsync() {
 		}
 		fmt.Println("timed out")
 
-		go detach.Async(ctx, 100*parentTimeout, func(detachedCtx context.Context) {
+		go detach.Async(ctx, func(detachedCtx context.Context) {
+			detachedCtx, detachedCancel := context.WithTimeout(detachedCtx, 100*parentTimeout)
+			defer detachedCancel()
+
 			fmt.Printf("parent.Err() == %v\n", ctx.Err())
 			fmt.Printf("detached.Err() ==  %v\n", detachedCtx.Err())
 			detachedV, _ := detachedCtx.Value(contextKey).(*ctxVal)

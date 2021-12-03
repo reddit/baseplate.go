@@ -43,13 +43,20 @@ func init() {
 			return opentracing.ContextWithSpan(dst, opentracing.SpanFromContext(src))
 		},
 		Async: func(dst, src context.Context, next func(ctx context.Context)) {
-			span, _ := opentracing.StartSpanFromContext(
-				src,
+			span := AsSpan(opentracing.SpanFromContext(src))
+			if span == nil {
+				next(dst)
+				return
+			}
+
+			child := opentracing.GlobalTracer().StartSpan(
 				"asyncTask",
+				opentracing.ChildOf(span),
 				SpanTypeOption{Type: SpanTypeLocal},
 			)
-			defer span.Finish()
-			next(opentracing.ContextWithSpan(dst, span))
+			defer child.Finish()
+
+			next(opentracing.ContextWithSpan(dst, child))
 		},
 	})
 }
