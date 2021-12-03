@@ -6,11 +6,30 @@ import (
 
 	"github.com/getsentry/sentry-go"
 	"go.uber.org/zap"
+
+	"github.com/reddit/baseplate.go/detach"
 )
 
 type contextKeyType struct{}
 
 var contextKey contextKeyType
+
+func init() {
+	detach.Register(detach.Hooks{
+		Inline: func(dst, src context.Context) context.Context {
+			if logger, ok := src.Value(contextKey).(*zap.SugaredLogger); ok && logger != nil {
+				dst = context.WithValue(dst, contextKey, logger)
+			}
+			return dst
+		},
+		Async: func(dst, src context.Context, next func(ctx context.Context)) {
+			if logger, ok := src.Value(contextKey).(*zap.SugaredLogger); ok && logger != nil {
+				dst = context.WithValue(dst, contextKey, logger)
+			}
+			next(dst)
+		},
+	})
+}
 
 // logger keys for attached data.
 const (

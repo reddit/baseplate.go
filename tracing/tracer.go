@@ -11,6 +11,7 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 
+	"github.com/reddit/baseplate.go/detach"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/randbp"
@@ -36,6 +37,21 @@ func init() {
 	opentracing.SetGlobalTracer(&globalTracer)
 	// Init the global allow-list
 	SetMetricsTagsAllowList(nil)
+	// Register a ValueWrap with the detach library
+	detach.Register(detach.Hooks{
+		Inline: func(dst, src context.Context) context.Context {
+			return opentracing.ContextWithSpan(dst, opentracing.SpanFromContext(src))
+		},
+		Async: func(dst, src context.Context, next func(ctx context.Context)) {
+			span, _ := opentracing.StartSpanFromContext(
+				src,
+				"asyncTask",
+				SpanTypeOption{Type: SpanTypeLocal},
+			)
+			defer span.Finish()
+			next(opentracing.ContextWithSpan(dst, span))
+		},
+	})
 }
 
 var globalTracer = Tracer{logger: log.NopWrapper}
