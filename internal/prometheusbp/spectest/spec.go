@@ -133,6 +133,11 @@ func validateLabels(name string, gotLabels map[string]string) error {
 		if _, ok := gotLabels[wantLabel]; !ok {
 			batch.Add(fmt.Errorf("%w metric %q label %q", errLabelNotFound, name, wantLabel))
 		}
+		delete(wantLabels, wantLabel)
+	}
+
+	if len(wantLabels) > 0 {
+		// todo: err
 	}
 	return batch.Compile()
 }
