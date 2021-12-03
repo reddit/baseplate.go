@@ -43,7 +43,7 @@ func init() {
 			return opentracing.ContextWithSpan(dst, opentracing.SpanFromContext(src))
 		},
 		Async: func(dst, src context.Context, next func(ctx context.Context)) {
-			span := AsSpan(opentracing.SpanFromContext(src))
+			span := opentracing.SpanFromContext(src)
 			if span == nil {
 				next(dst)
 				return
@@ -51,7 +51,7 @@ func init() {
 
 			child := opentracing.GlobalTracer().StartSpan(
 				"asyncTask",
-				opentracing.ChildOf(span),
+				opentracing.ChildOf(AsSpan(span)),
 				SpanTypeOption{Type: SpanTypeLocal},
 			)
 			defer child.Finish()
