@@ -11,6 +11,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
 	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 )
 
@@ -82,7 +83,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 			defer promtest.MetricTest(t, "latency", serverLatencyDistribution).CheckExists()
 			defer promtest.MetricTest(t, "rpc count", serverRPCRequestCounter, labelValues...).CheckDelta(1)
 			defer promtest.MetricTest(t, "active requests", serverActiveRequests, requestLabelValues...).CheckDelta(0)
-			defer promtest.ValidateSpec(t, "thrift", 3)
+			defer spectest.ValidateSpec(t, "thrift", 3)
 
 			next := thrift.WrappedTProcessorFunction{
 				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {

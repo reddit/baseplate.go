@@ -1,4 +1,4 @@
-package promtest
+package spectest
 
 import (
 	"errors"
@@ -14,7 +14,7 @@ var (
 	}
 
 	suffixRequests = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "suffix_test_foo",
+		Name: "suffix_client_test_foo",
 		Help: "Test help message",
 	}, testLabels)
 
@@ -56,16 +56,15 @@ func TestValidateSpec(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			gotCount, gotErrs := validateSpec(tt.prefix)
-			if len(gotErrs) != len(tt.wantErrs) {
-				t.Fatalf("wrong number of errs got: %d, want: %d", len(gotErrs), len(tt.wantErrs))
-			}
+			gotCount, gotBatch := validateSpec(tt.prefix)
+			t.Log(gotBatch)
 
-			if len(gotErrs) > 0 {
-				for i, e := range gotErrs {
-					if errors.Unwrap(e) != tt.wantErrs[i] {
-						t.Fatalf("got: %v, want: %v", e, tt.wantErrs[i])
-					}
+			if got, want := len(gotBatch.GetErrors()), len(tt.wantErrs); got != want {
+				t.Fatalf("not same number of errors got %d, want %d", got, want)
+			}
+			for i, e := range tt.wantErrs {
+				if got, want := gotBatch.GetErrors()[i], e; !errors.Is(got, want) {
+					t.Fatalf("not same errors got %d, want %d", got, want)
 				}
 			}
 
@@ -85,7 +84,7 @@ func TestValidateName(t *testing.T) {
 	}{
 		{
 			name:         "prefix not in beginning of metric name",
-			metricName:   "foo_bar_total",
+			metricName:   "foo_client_bar_total",
 			metricPrefix: "bar",
 			wantErrs:     []error{errPrefix},
 		},
@@ -93,17 +92,17 @@ func TestValidateName(t *testing.T) {
 			name:         "prefix not in beginning of metric name",
 			metricName:   "foo_bar_total",
 			metricPrefix: "fo",
-			wantErrs:     []error{errPrefix},
+			wantErrs:     []error{errPrefix, errClientServer},
 		},
 		{
 			name:         "wrong length, only 1 part",
 			metricName:   "foo",
 			metricPrefix: "foo",
-			wantErrs:     []error{errLength, errPrefix},
+			wantErrs:     []error{errLength},
 		},
 		{
 			name:         "wrong length, only 2 parts",
-			metricName:   "foo_total",
+			metricName:   "foo_client",
 			metricPrefix: "foo",
 			wantErrs:     []error{errLength},
 		},
@@ -111,7 +110,7 @@ func TestValidateName(t *testing.T) {
 			name:         "wrong length, 0 parts",
 			metricName:   "",
 			metricPrefix: "foo",
-			wantErrs:     []error{errLength, errPrefix},
+			wantErrs:     []error{errLength},
 		},
 	}
 

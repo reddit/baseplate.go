@@ -15,8 +15,8 @@ import (
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
 	"github.com/reddit/baseplate.go/mqsend"
-	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
@@ -507,7 +507,7 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 			}
 
 			defer thriftbp.PrometheusClientMetricsTest(t, labelValues, requestLabelValues).CheckMetrics()
-			defer promtest.ValidateSpec(t, "thrift", 3)
+			defer spectest.ValidateSpec(t, "thrift", 3)
 
 			ctx := context.Background()
 			handler := mockBaseplateService{fail: tt.wantFail, err: tt.wantErr}
