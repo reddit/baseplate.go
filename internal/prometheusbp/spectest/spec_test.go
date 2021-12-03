@@ -2,74 +2,74 @@ package spectest
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var (
-	testLabels = []string{
-		"testlabel",
-	}
-
-	suffixRequests = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "suffix_client_test_foo",
-		Help: "Test help message",
-	}, testLabels)
-
-	multiErrsRequests = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "bar_baz",
-		Help: "Test help message",
-	}, testLabels)
-)
-
-func TestValidateSpec(t *testing.T) {
-	labels := prometheus.Labels{
-		"testlabel": "foo",
-	}
-	suffixRequests.With(labels).Inc()
-	multiErrsRequests.With(labels).Inc()
-
+func TestMissingMetrics(t *testing.T) {
 	testCases := []struct {
-		name      string
-		metric    prometheus.Collector
-		prefix    string
-		wantCount int
-		wantErrs  []error
+		name    string
+		missing map[string]struct{}
+		want    []string
 	}{
 		{
-			name:      "wrong suffix",
-			metric:    suffixRequests,
-			prefix:    "suffix",
-			wantCount: 1,
-			wantErrs:  []error{errPrometheusLint},
+			name:    "none missing",
+			missing: map[string]struct{}{},
+			want:    []string{},
 		},
 		{
-			name:      "multi errs",
-			metric:    multiErrsRequests,
-			prefix:    "bar",
-			wantCount: 1,
-			wantErrs:  []error{errPrometheusLint, errLength},
+			name:    "missing",
+			missing: map[string]struct{}{"foo": {}},
+			want:    []string{"foo"},
 		},
 	}
-
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			gotCount, gotBatch := validateSpec(tt.prefix)
-			t.Log(gotBatch)
-
-			if got, want := len(gotBatch.GetErrors()), len(tt.wantErrs); got != want {
-				t.Fatalf("not same number of errors got %d, want %d", got, want)
+			if got, want := missingMetrics(tt.missing), tt.want; !reflect.DeepEqual(got, want) {
+				t.Fatalf("got %v, want %v", got, want)
 			}
-			for i, e := range tt.wantErrs {
-				if got, want := gotBatch.GetErrors()[i], e; !errors.Is(got, want) {
-					t.Fatalf("not same errors got %d, want %d", got, want)
-				}
-			}
+		})
+	}
+}
 
-			if gotCount != tt.wantCount {
-				t.Fatalf("metric count err got: %v, want: %v", gotCount, tt.wantCount)
+func TestBuildMetricsNames(t *testing.T) {
+	testCases := []struct {
+		name   string
+		prefix string
+		want   map[string]struct{}
+	}{
+		{
+			name:   "with prefix",
+			prefix: "prefix",
+			want: map[string]struct{}{
+				"prefix_client_active_requests": {},
+				"prefix_client_latency_seconds": {},
+				"prefix_client_requests_total":  {},
+				"prefix_server_active_requests": {},
+				"prefix_server_latency_seconds": {},
+				"prefix_server_requests_total":  {},
+			},
+		},
+		{
+			name:   "without prefix",
+			prefix: "",
+			want: map[string]struct{}{
+				"client_active_requests": {},
+				"client_latency_seconds": {},
+				"client_requests_total":  {},
+				"server_active_requests": {},
+				"server_latency_seconds": {},
+				"server_requests_total":  {},
+			},
+		},
+	}
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, want := buildMetricNames(tt.prefix), tt.want; !reflect.DeepEqual(got, want) {
+				t.Fatalf("got %v, want %v", got, want)
 			}
 		})
 	}
@@ -116,15 +116,198 @@ func TestValidateName(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			gotErrs := validateName(tt.metricName, tt.metricPrefix)
-			if len(gotErrs) != len(tt.wantErrs) {
-				t.Fatalf("wrong number of errs got: %d %v, want: %d %v", len(gotErrs), gotErrs, len(tt.wantErrs), tt.wantErrs)
+			gotBatch := validateName(tt.metricName, tt.metricPrefix)
+
+			if got, want := len(gotBatch.GetErrors()), len(tt.wantErrs); got != want {
+				t.Fatalf("not same number of errors got %d, want %d", got, want)
 			}
-			if len(gotErrs) > 0 {
-				for i, e := range gotErrs {
-					if errors.Unwrap(e) != tt.wantErrs[i] {
-						t.Fatalf("got: %v, want: %v", e, tt.wantErrs[i])
-					}
+			for i, e := range tt.wantErrs {
+				if got, want := gotBatch.GetErrors()[i], e; !errors.Is(got, want) {
+					t.Fatalf("not same errors got %d, want %d", got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateLabels(t *testing.T) {
+	testCases := []struct {
+		name       string
+		metricName string
+		prefix     string
+		gotLabels  map[string]struct{}
+		wantErrs   []error
+	}{
+		{
+			name:       "provide wrong labels",
+			metricName: "foo_bar_total",
+			prefix:     "fo",
+			gotLabels:  map[string]struct{}{"test": {}},
+			wantErrs:   []error{errDiffLabels},
+		},
+		{
+			name:       "latency success",
+			metricName: "test_latency_seconds",
+			prefix:     "test",
+			gotLabels:  map[string]struct{}{"test_method": {}, "test_service": {}, "test_success": {}},
+			wantErrs:   []error{},
+		},
+		{
+			name:       "latency wrong labels",
+			metricName: "test_latency_seconds",
+			prefix:     "test",
+			gotLabels:  map[string]struct{}{"test_method": {}},
+			wantErrs:   []error{errDiffLabels},
+		},
+		{
+			name:       "request total success",
+			metricName: "test_requests_total",
+			prefix:     "test",
+			gotLabels: map[string]struct{}{
+				"test_method":                {},
+				"test_service":               {},
+				"test_success":               {},
+				"test_baseplate_status":      {},
+				"test_baseplate_status_code": {},
+				"test_exception_type":        {},
+			},
+			wantErrs: []error{},
+		},
+		{
+			name:       "request total labels",
+			metricName: "test_requests_total",
+			prefix:     "test",
+			gotLabels:  map[string]struct{}{"test_method": {}},
+			wantErrs:   []error{errDiffLabels},
+		},
+		{
+			name:       "active_requests success",
+			metricName: "test_active_requests",
+			prefix:     "test",
+			gotLabels:  map[string]struct{}{"test_method": {}, "test_service": {}},
+			wantErrs:   []error{},
+		},
+		{
+			name:       "active_requests wrong labels",
+			metricName: "test_active_requests",
+			prefix:     "test",
+			gotLabels:  map[string]struct{}{"test_method": {}},
+			wantErrs:   []error{errDiffLabels},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			gotBatch := validateLabels(tt.metricName, tt.prefix, tt.gotLabels)
+
+			if got, want := len(gotBatch.GetErrors()), len(tt.wantErrs); got != want {
+				t.Fatalf("not same number of errors got %d, want %d", got, want)
+			}
+			for i, e := range tt.wantErrs {
+				if got, want := gotBatch.GetErrors()[i], e; !errors.Is(got, want) {
+					t.Fatalf("not same errors got %d, want %d", got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildLabels(t *testing.T) {
+	testCases := []struct {
+		name       string
+		metricName string
+		prefix     string
+		want       map[string]struct{}
+	}{
+		{
+			name:       "latency_seconds labels",
+			metricName: "test_latency_seconds",
+			prefix:     "test",
+			want:       map[string]struct{}{"test_method": {}, "test_service": {}, "test_success": {}},
+		},
+		{
+			name:       "requests_total labels",
+			metricName: "test_requests_total",
+			prefix:     "test",
+			want: map[string]struct{}{
+				"test_method":                {},
+				"test_service":               {},
+				"test_success":               {},
+				"test_baseplate_status":      {},
+				"test_baseplate_status_code": {},
+				"test_exception_type":        {},
+			},
+		},
+		{
+			name:       "active_requests labels",
+			metricName: "test_active_requests",
+			prefix:     "test",
+			want:       map[string]struct{}{"test_method": {}, "test_service": {}},
+		},
+		{
+			name:   "none",
+			prefix: "test",
+			want:   map[string]struct{}{},
+		},
+	}
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, want := buildLables(tt.metricName, tt.prefix), tt.want; !reflect.DeepEqual(got, want) {
+				t.Fatalf("got %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+func TestValidateSpec(t *testing.T) {
+	var (
+		testLabels = []string{
+			"thrift_method",
+			"thrift_service",
+			"thrift_success",
+			"thrift_baseplate_status",
+		}
+
+		multiErrsRequests = promauto.NewCounterVec(prometheus.CounterOpts{
+			Name: "thrift_client_latency_seconds",
+			Help: "Test help message",
+		}, testLabels)
+	)
+
+	labels := prometheus.Labels{
+		"thrift_method":           "foo",
+		"thrift_service":          "foo",
+		"thrift_success":          "foo",
+		"thrift_baseplate_status": "foo",
+	}
+	multiErrsRequests.With(labels).Inc()
+
+	testCases := []struct {
+		name      string
+		metric    prometheus.Collector
+		prefix    string
+		wantCount int
+		wantErrs  []error
+	}{
+		{
+			name:     "multi errs",
+			metric:   multiErrsRequests,
+			prefix:   "thrift",
+			wantErrs: []error{errPrometheusLint, errDiffLabels, errNotFound},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			gotBatch := validateSpec(tt.prefix)
+			t.Log(gotBatch)
+
+			if got, want := len(gotBatch.GetErrors()), len(tt.wantErrs); got != want {
+				t.Fatalf("not same number of errors got %d, want %d", got, want)
+			}
+			for i, e := range tt.wantErrs {
+				if got, want := gotBatch.GetErrors()[i], e; !errors.Is(got, want) {
+					t.Fatalf("not same errors got %d, want %d", got, want)
 				}
 			}
 		})

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
@@ -22,8 +23,8 @@ var (
 	errClientServer   = fmt.Errorf("missing %q or %q as the second part of the metric name", client, server)
 	errLength         = errors.New("metric name should have a minimum of three parts")
 	errNotFound       = errors.New("metric not found")
-	errLabelNotFound  = errors.New("label not found")
 	errPrometheusLint = errors.New("prometheus GatherAndLint")
+	errDiffLabels     = errors.New("labels are incorrect")
 )
 
 // ValidateSpec validates that the Prometheus metrics being exposed from baseplate.go
@@ -47,51 +48,55 @@ func validateSpec(prefix string) errorsbp.Batch {
 		return batch
 	}
 
-	allMetricNames := buildMetricNames(prefix)
+	metricsUnderTest := buildMetricNames(prefix)
 
 	for _, m := range metricFam {
 		name := *m.Name
 
-		if _, ok := allMetricNames[name]; !ok {
+		if _, ok := metricsUnderTest[name]; !ok {
 			continue
 		}
 
 		batch.Add(validatePromLint(name))
 		batch.Add(validateName(name, prefix))
 
-		labels := map[string]string{}
+		labels := map[string]struct{}{}
 		for _, metric := range m.GetMetric() {
 			for _, label := range metric.Label {
-				labels[*label.Name] = *label.Value
+				labels[*label.Name] = struct{}{}
 			}
 		}
-		batch.Add(validateLabels(name, labels))
+		batch.Add(validateLabels(name, prefix, labels))
 
 		// after we validate the metric, delete it from the set of all
 		// expected metrics so that we can track if any were not found.
-		delete(allMetricNames, name)
+		delete(metricsUnderTest, name)
 	}
 
-	if len(allMetricNames) > 0 {
-		notFound := make([]string, 0, len(allMetricNames))
-		for k := range allMetricNames {
-			notFound = append(notFound, k)
-		}
-		batch.Add(fmt.Errorf("%w metrics %v", errNotFound, notFound))
-	}
+	batch.Add(fmt.Errorf("%w %v", errNotFound, missingMetrics(metricsUnderTest)))
 
 	return batch
+}
+
+func missingMetrics(metrics map[string]struct{}) []string {
+	missing := []string{}
+	if len(metrics) > 0 {
+		for m := range metrics {
+			missing = append(missing, m)
+		}
+	}
+	return missing
 }
 
 // buildMetricNames creates a set of all the expected metrics names for the given prefix
 // that should be registered with Prometheus as defined in the baseplate spec.
 // The prefix will be either thrift, http, or grpc.
 func buildMetricNames(prefix string) map[string]struct{} {
-	suffixes := []string{"_latency_seconds", "_requests_total", "_active_requests"}
+	suffixes := []string{"latency_seconds", "requests_total", "active_requests"}
 	names := map[string]struct{}{}
 	for _, suffix := range suffixes {
-		names[prefix+"_"+server+suffix] = struct{}{}
-		names[prefix+"_"+client+suffix] = struct{}{}
+		names[prometheus.BuildFQName(prefix, server, suffix)] = struct{}{}
+		names[prometheus.BuildFQName(prefix, client, suffix)] = struct{}{}
 	}
 	return names
 }
@@ -102,7 +107,7 @@ func buildMetricNames(prefix string) map[string]struct{} {
 // Ref: https://prometheus.io/docs/practices/naming
 // 2) the metric name has the correct prefix.
 // 3) the metric contains either "client" or "server" as the second part.
-func validateName(name, prefix string) error {
+func validateName(name, prefix string) errorsbp.Batch {
 	var batch errorsbp.Batch
 
 	const (
@@ -112,7 +117,7 @@ func validateName(name, prefix string) error {
 	parts := strings.SplitN(name, separator, partCount)
 	if len(parts) < partCount {
 		batch.Add(fmt.Errorf("%w metric %q does not have minimum number (%d) of parts", errLength, name, partCount))
-		return batch.Compile()
+		return batch
 	}
 
 	if got, want := parts[0], prefix; got != want {
@@ -122,24 +127,18 @@ func validateName(name, prefix string) error {
 	if parts[1] != client && parts[1] != server {
 		batch.Add(fmt.Errorf("%w metric %q", errClientServer, name))
 	}
-	return batch.Compile()
+	return batch
 }
 
-func validateLabels(name string, gotLabels map[string]string) error {
-	wantLabels := buildLables(name)
-
+func validateLabels(name, prefix string, gotLabels map[string]struct{}) errorsbp.Batch {
 	var batch errorsbp.Batch
-	for wantLabel := range wantLabels {
-		if _, ok := gotLabels[wantLabel]; !ok {
-			batch.Add(fmt.Errorf("%w metric %q label %q", errLabelNotFound, name, wantLabel))
-		}
-		delete(wantLabels, wantLabel)
+
+	wantLabels := buildLables(name, prefix)
+	if diff := cmp.Diff(gotLabels, wantLabels); diff != "" {
+		batch.Add(fmt.Errorf("%w: (-got +want)\n%s", errDiffLabels, diff))
 	}
 
-	if len(wantLabels) > 0 {
-		// todo: err
-	}
-	return batch.Compile()
+	return batch
 }
 
 // buildLables returns a set of expected labels for the metric name provided.
@@ -158,39 +157,27 @@ func validateLabels(name string, gotLabels map[string]string) error {
 // active_requests metrics expect the following labels:
 //   - "<prefix>_service"
 //   - "<prefix>_method"
-func buildLables(name string) map[string]struct{} {
-	const (
-		separator = "_"
-		partCount = 3
-	)
-	parts := strings.SplitN(name, separator, partCount)
-	if len(parts) < partCount {
-		// todo: err
-	}
-	prefix := parts[0]
-	suffix := parts[1:]
-
+func buildLables(name, prefix string) map[string]struct{} {
 	labelSuffixes := []string{"service", "method"}
 	successLabelSuffix := "success"
-	switch strings.Join(suffix, separator) {
-	case "_latency_seconds":
+	switch {
+	case strings.HasSuffix(name, "_latency_seconds"):
 		labelSuffixes = append(labelSuffixes, successLabelSuffix)
-	case "_requests_total":
+	case strings.HasSuffix(name, "_requests_total"):
 		labelSuffixes = append(labelSuffixes, successLabelSuffix, "exception_type", "baseplate_status", "baseplate_status_code")
-	case "_active_requests":
+	case strings.HasSuffix(name, "_active_requests"):
 		// no op
 	default:
-		// todo: error
+		labelSuffixes = []string{}
 	}
-
 	var wantLabels = map[string]struct{}{}
 	for _, label := range labelSuffixes {
-		wantLabels[prefix+separator+label] = struct{}{}
+		wantLabels[prefix+"_"+label] = struct{}{}
 	}
 	return wantLabels
 }
 
-func validatePromLint(metricName string) error {
+func validatePromLint(metricName string) errorsbp.Batch {
 	var batch errorsbp.Batch
 	problems, err := testutil.GatherAndLint(prometheus.DefaultGatherer, metricName)
 	if err != nil {
@@ -199,5 +186,5 @@ func validatePromLint(metricName string) error {
 	for _, p := range problems {
 		batch.Add(fmt.Errorf("%w metric %q %s", errPrometheusLint, metricName, p.Text))
 	}
-	return batch.Compile()
+	return batch
 }
