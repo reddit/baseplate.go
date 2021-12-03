@@ -65,7 +65,7 @@ func validateSpec(prefix string) errorsbp.Batch {
 				labels[*label.Name] = *label.Value
 			}
 		}
-		batch.Add(validateLabels(name, prefix, labels))
+		batch.Add(validateLabels(name, labels))
 
 		// after we validate the metric, delete it from the set of all
 		// expected metrics so that we can track if any were not found.
@@ -125,78 +125,64 @@ func validateName(name, prefix string) error {
 	return batch.Compile()
 }
 
-func validateLabels(prefix, name string, labels map[string]string) error {
-	var (
-		localServiceLabel        = prefix + "_service"
-		methodLabel              = prefix + "_method"
-		successLabel             = prefix + "_success"
-		exceptionLabel           = prefix + "_exception_type"
-		baseplateStatusLabel     = prefix + "_baseplate_status"
-		baseplateStatusCodeLabel = prefix + "_baseplate_status_code"
-		remoteServiceSlugLabel   = prefix + "_slug"
-
-		serverLatencyLabels = []string{
-			localServiceLabel,
-			methodLabel,
-			successLabel,
-		}
-
-		serverRequestLabels = []string{
-			localServiceLabel,
-			methodLabel,
-			successLabel,
-			exceptionLabel,
-			baseplateStatusLabel,
-			baseplateStatusCodeLabel,
-		}
-
-		serverActiveRequestsLabels = []string{
-			localServiceLabel,
-			methodLabel,
-		}
-
-		clientLatencyLabels = []string{
-			localServiceLabel,
-			methodLabel,
-			successLabel,
-			remoteServiceSlugLabel,
-		}
-		clientRequestLabels = []string{
-			localServiceLabel,
-			methodLabel,
-			successLabel,
-			exceptionLabel,
-			baseplateStatusLabel,
-			baseplateStatusCodeLabel,
-			remoteServiceSlugLabel,
-		}
-		clientActiveRequestsLabels = []string{
-			localServiceLabel,
-			methodLabel,
-			remoteServiceSlugLabel,
-		}
-	)
-	suffixes := []string{"_latency_seconds", "_requests_total", "_active_requests"}
-	metricLabelPair := map[string][]string{}
-	metricLabelPair[prefix+server+suffixes[0]] = serverLatencyLabels
-	metricLabelPair[prefix+client+suffixes[0]] = clientLatencyLabels
-	metricLabelPair[prefix+server+suffixes[1]] = serverRequestLabels
-	metricLabelPair[prefix+client+suffixes[1]] = clientRequestLabels
-	metricLabelPair[prefix+server+suffixes[2]] = serverActiveRequestsLabels
-	metricLabelPair[prefix+client+suffixes[2]] = clientActiveRequestsLabels
+func validateLabels(name string, gotLabels map[string]string) error {
+	wantLabels := buildLables(name)
 
 	var batch errorsbp.Batch
-
-	val, ok := metricLabelPair[name]
-	if !ok {
-		batch.AddPrefix("validate labels", fmt.Errorf("%w metric %q", errNotFound, name))
-	}
-	for _, wantLabel := range val {
-		if _, ok := labels[wantLabel]; !ok {
+	for wantLabel := range wantLabels {
+		if _, ok := gotLabels[wantLabel]; !ok {
 			batch.Add(fmt.Errorf("%w metric %q label %q", errLabelNotFound, name, wantLabel))
 		}
 	}
 	return batch.Compile()
+}
+
+// buildLables returns a set of expected labels for the metric name provided.
+// prefix is either thrift, http, or grpc.
+// latency_seconds metrics expect the following labels:
+//   - "<prefix>_service"
+//   - "<prefix>_method"
+//   - "<prefix>_success"
+// request_total metrics expect the following labels:
+//   - "<prefix>_service"
+//   - "<prefix>_method"
+//   - "<prefix>_success"
+//   - "<prefix>_exception_type"
+//   - "<prefix>_baseplate_status"
+//   - "<prefix>_baseplate_status_code"
+// active_requests metrics expect the following labels:
+//   - "<prefix>_service"
+//   - "<prefix>_method"
+func buildLables(name string) map[string]struct{} {
+	const (
+		separator = "_"
+		partCount = 3
+	)
+	parts := strings.SplitN(name, separator, partCount)
+	if len(parts) < partCount {
+		// todo: err
+	}
+	prefix := parts[0]
+	suffix := parts[1:]
+
+	labelSuffixes := []string{"service", "method"}
+	successLabelSuffix := "success"
+	switch strings.Join(suffix, separator) {
+	case "_latency_seconds":
+		labelSuffixes = append(labelSuffixes, successLabelSuffix)
+	case "_requests_total":
+		labelSuffixes = append(labelSuffixes, successLabelSuffix, "exception_type", "baseplate_status", "baseplate_status_code")
+	case "_active_requests":
+		// no op
+	default:
+		// todo: error
+	}
+
+	var wantLabels = map[string]struct{}{}
+	for _, label := range labelSuffixes {
+		wantLabels[prefix+separator+label] = struct{}{}
+	}
+	return wantLabels
 }
 
 func validatePromLint(metricName string) error {
