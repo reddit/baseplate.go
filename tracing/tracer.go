@@ -54,7 +54,9 @@ func init() {
 				opentracing.ChildOf(AsSpan(span)),
 				SpanTypeOption{Type: SpanTypeLocal},
 			)
-			defer child.Finish()
+			defer child.FinishWithOptions(FinishOptions{
+				Ctx: dst,
+			}.Convert())
 
 			next(opentracing.ContextWithSpan(dst, child))
 		},
