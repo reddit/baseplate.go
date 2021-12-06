@@ -28,7 +28,7 @@ func TestMissingMetrics(t *testing.T) {
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, want := missingMetrics(tt.missing), tt.want; !reflect.DeepEqual(got, want) {
+			if got, want := keysFrom(tt.missing), tt.want; !reflect.DeepEqual(got, want) {
 				t.Fatalf("got %v, want %v", got, want)
 			}
 		})
@@ -37,29 +37,26 @@ func TestMissingMetrics(t *testing.T) {
 
 func TestBuildMetricsNames(t *testing.T) {
 	testCases := []struct {
-		name   string
-		prefix string
-		want   map[string]struct{}
+		name           string
+		prefix         string
+		clientOrServer string
+		want           map[string]struct{}
 	}{
 		{
-			name:   "with prefix",
-			prefix: "prefix",
+			name:           "with prefix",
+			prefix:         "prefix",
+			clientOrServer: "client",
 			want: map[string]struct{}{
 				"prefix_client_active_requests": {},
 				"prefix_client_latency_seconds": {},
 				"prefix_client_requests_total":  {},
-				"prefix_server_active_requests": {},
-				"prefix_server_latency_seconds": {},
-				"prefix_server_requests_total":  {},
 			},
 		},
 		{
-			name:   "without prefix",
-			prefix: "",
+			name:           "without prefix",
+			prefix:         "",
+			clientOrServer: "server",
 			want: map[string]struct{}{
-				"client_active_requests": {},
-				"client_latency_seconds": {},
-				"client_requests_total":  {},
 				"server_active_requests": {},
 				"server_latency_seconds": {},
 				"server_requests_total":  {},
@@ -68,7 +65,7 @@ func TestBuildMetricsNames(t *testing.T) {
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, want := buildMetricNames(tt.prefix), tt.want; !reflect.DeepEqual(got, want) {
+			if got, want := buildMetricNames(tt.prefix, tt.clientOrServer), tt.want; !reflect.DeepEqual(got, want) {
 				t.Fatalf("got %v, want %v", got, want)
 			}
 		})
@@ -283,23 +280,32 @@ func TestValidateSpec(t *testing.T) {
 	multiErrsRequests.With(labels).Inc()
 
 	testCases := []struct {
-		name      string
-		metric    prometheus.Collector
-		prefix    string
-		wantCount int
-		wantErrs  []error
+		name           string
+		metric         prometheus.Collector
+		prefix         string
+		clientOrServer string
+		wantCount      int
+		wantErrs       []error
 	}{
 		{
-			name:     "multi errs",
-			metric:   multiErrsRequests,
-			prefix:   "thrift",
-			wantErrs: []error{errPrometheusLint, errDiffLabels, errNotFound},
+			name:           "not found server",
+			metric:         multiErrsRequests,
+			prefix:         "thrift",
+			clientOrServer: "server",
+			wantErrs:       []error{errNotFound},
+		},
+		{
+			name:           "multi errs client",
+			metric:         multiErrsRequests,
+			prefix:         "thrift",
+			clientOrServer: "client",
+			wantErrs:       []error{errPrometheusLint, errDiffLabels, errNotFound},
 		},
 	}
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			gotBatch := validateSpec(tt.prefix)
+			gotBatch := validateSpec(tt.prefix, tt.clientOrServer)
 			t.Log(gotBatch)
 
 			if got, want := len(gotBatch.GetErrors()), len(tt.wantErrs); got != want {

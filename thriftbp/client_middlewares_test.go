@@ -507,7 +507,7 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 			}
 
 			defer thriftbp.PrometheusClientMetricsTest(t, labelValues, requestLabelValues).CheckMetrics()
-			defer spectest.ValidateSpec(t, "thrift", 3)
+			defer spectest.ValidateSpec(t, "thrift", "client")
 
 			ctx := context.Background()
 			handler := mockBaseplateService{fail: tt.wantFail, err: tt.wantErr}
