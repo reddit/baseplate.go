@@ -93,13 +93,14 @@ func Async(parent context.Context, run func(ctx context.Context)) {
 	for i := len(allHooks) - 1; i >= 0; i-- {
 		hooks := allHooks[i]
 		if hooks.Async != nil {
-			// assign 'next' to an inner variable rather than using 'run! directly in
+			// Assign 'next' to an inner variable rather than using 'run' directly in
 			// the wrapped call to avoid an infinite loop.
+			//
+			// If you just used 'run' in the closure, it would always use the last
+			// value of 'run', so it would call itself over and over again, creating
+			// an infinite loop.
 			next := run
 			run = func(ctx context.Context) {
-				// if you just used 'run' in here, it would always use the last value of
-				// "run", so it would call itself over and over again, creating an
-				// infinite loop.
 				hooks.Async(ctx, parent, next)
 			}
 		}
