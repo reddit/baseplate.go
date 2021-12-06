@@ -9,9 +9,11 @@ import (
 	"github.com/reddit/baseplate.go/detach"
 )
 
-// In a real package, you likely want to register hooks for both inline and async
-// calls at the same time within an `init()` function rather than calling the
-// function explicitly
+// In a real package, you should register hooks for both inline and async
+// calls at the same time.
+//
+// It should likely be done within an `init()` function rather than calling the
+// function explicitly.
 func InitAsync() {
 	detach.Register(detach.Hooks{
 		Inline: nil,
