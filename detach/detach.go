@@ -45,7 +45,9 @@ func (r *hooksRegistry) allHooks() []Hooks {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	return r.hooks
+	hooks := make([]Hooks, len(r.hooks))
+	copy(hooks, r.hooks)
+	return hooks
 }
 
 var registry = new(hooksRegistry)
