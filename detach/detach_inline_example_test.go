@@ -44,6 +44,7 @@ func ExampleInline() {
 	const parentTimeout = time.Millisecond
 
 	v := &inlineContextVal{val: 1}
+	defer v.close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), parentTimeout)
 	defer cancel()

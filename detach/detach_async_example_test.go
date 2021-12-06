@@ -48,13 +48,6 @@ func (v *asyncContextVal) close() {
 	v.closed = true
 }
 
-func (v *asyncContextVal) isClosed() bool {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-
-	return v.closed
-}
-
 func ExampleAsync() {
 	InitAsync()
 
