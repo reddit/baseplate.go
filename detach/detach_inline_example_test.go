@@ -77,7 +77,7 @@ func ExampleInline() {
 
 	ch := make(chan bool, 1)
 	go func() {
-		time.Sleep(5 * parentTimeout)
+		time.Sleep(100 * parentTimeout)
 		ch <- true
 	}()
 
