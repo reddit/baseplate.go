@@ -18,6 +18,7 @@ type PrometheusMetricTest struct {
 
 // CheckDelta checks that the metric value changes exactly delta from when Helper was called.
 func (p *PrometheusMetricTest) CheckDelta(delta float64) {
+	p.tb.Helper()
 	got := p.getValue()
 	got -= float64(p.initValue)
 	if got != delta {
@@ -27,6 +28,7 @@ func (p *PrometheusMetricTest) CheckDelta(delta float64) {
 
 // CheckExists confirms that the metric exists and returns the count of metrics.
 func (p *PrometheusMetricTest) CheckExists() {
+	p.tb.Helper()
 	got := testutil.CollectAndCount(p.metric)
 	if got != 1 {
 		p.tb.Errorf("%s metric count: wanted %v, got %v", p.name, 1, got)

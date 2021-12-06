@@ -4,15 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"testing"
 	"time"
 
 	pb "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/mqsend"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
 )
@@ -179,5 +182,203 @@ func (t *mockService) PingList(req *pb.PingRequest, c pb.TestService_PingListSer
 	panic("not implemented")
 }
 func (t *mockService) PingStream(c pb.TestService_PingStreamServer) error {
-	panic("not implemented")
+	return nil
+}
+
+func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
+	const (
+		serviceName = "testSvc"
+		serverName  = "testServer"
+		method      = "Ping"
+	)
+	// create test server with InjectPrometheusUnaryServerInterceptor
+	l, service := setupServer(t, grpc.UnaryInterceptor(
+		InjectPrometheusUnaryServerInterceptor(serviceName),
+	))
+
+	// create test client
+	conn := setupClient(t, l, grpc.WithUnaryInterceptor(
+		PrometheusUnaryClientInterceptor(serviceName, serverName),
+	))
+
+	// instantiate gRPC client
+	client := pb.NewTestServiceClient(conn)
+
+	testCases := []struct {
+		name    string
+		wantErr codes.Code
+		code    string
+		success string
+		method  string
+	}{
+		{
+			name:    "success",
+			wantErr: codes.OK,
+			code:    "OK",
+			success: "true",
+			method:  "Ping",
+		},
+		{
+			name:    "err",
+			wantErr: codes.Internal,
+			code:    "Unknown",
+			success: "false",
+			method:  "PingError",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			serverLatencyDistribution.Reset()
+			serverRPCRequestCounter.Reset()
+			serverActiveRequests.Reset()
+			clientLatencyDistribution.Reset()
+			clientRPCRequestCounter.Reset()
+			clientActiveRequests.Reset()
+
+			serverLabelValues := []string{
+				serviceName,
+				tt.method,
+				unary,
+				tt.success,
+				tt.code,
+			}
+
+			serverRequestsLabelValues := []string{
+				serviceName,
+				tt.method,
+			}
+
+			clientLabelValues := []string{
+				serviceName,
+				tt.method,
+				unary,
+				tt.success,
+				tt.code,
+				serverName,
+			}
+
+			clientRequestsLabelValues := []string{
+				serviceName,
+				tt.method,
+				serverName,
+			}
+
+			defer prometheusbp.MetricTest(t, "server latency", serverLatencyDistribution).CheckExists()
+			defer prometheusbp.MetricTest(t, "server rpc count", serverRPCRequestCounter, serverLabelValues...).CheckDelta(1)
+			defer prometheusbp.MetricTest(t, "server active requests", serverActiveRequests, serverRequestsLabelValues...).CheckDelta(0)
+			defer prometheusbp.MetricTest(t, "client latency", clientLatencyDistribution).CheckExists()
+			defer prometheusbp.MetricTest(t, "client rpc count", clientRPCRequestCounter, clientLabelValues...).CheckDelta(1)
+			defer prometheusbp.MetricTest(t, "client active requests", clientActiveRequests, clientRequestsLabelValues...).CheckDelta(0)
+
+			ctx := context.Background()
+			if tt.success == "true" {
+				if _, err := client.Ping(ctx, &pb.PingRequest{}); err != nil {
+					t.Fatalf("Ping: %v", err)
+				}
+			} else {
+				if _, err := client.PingError(ctx, &pb.PingRequest{}); err == nil {
+					t.Fatalf("Ping: expected err got nil")
+				}
+			}
+
+			ctx = service.ctx
+			if ctx == nil {
+				t.Error("got nil context")
+			}
+		})
+	}
+}
+
+func TestInjectPrometheusStreamServerClientInterceptor(t *testing.T) {
+	const (
+		serviceName = "testSvc"
+		serverName  = "testServer"
+		method      = "Ping"
+	)
+	// create test server with InjectPrometheusStreamerverInterceptor
+	l, _ := setupServer(t, grpc.StreamInterceptor(
+		InjectPrometheusStreamServerInterceptor(serviceName),
+	))
+
+	// create test client
+	conn := setupClient(t, l, grpc.WithStreamInterceptor(
+		PrometheusStreamClientInterceptor(serviceName, serverName),
+	))
+
+	// instantiate gRPC client
+	client := pb.NewTestServiceClient(conn)
+
+	testCases := []struct {
+		name    string
+		wantErr codes.Code
+		code    string
+		success string
+		method  string
+	}{
+		{
+			name:    "success",
+			wantErr: codes.OK,
+			code:    "OK",
+			success: "true",
+			method:  "PingStream",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			serverLatencyDistribution.Reset()
+			serverRPCRequestCounter.Reset()
+			serverActiveRequests.Reset()
+			clientLatencyDistribution.Reset()
+			clientRPCRequestCounter.Reset()
+			clientActiveRequests.Reset()
+
+			serverLabelValues := []string{
+				serviceName,
+				tt.method,
+				serverStream,
+				tt.success,
+				tt.code,
+			}
+
+			serverRequestsLabelValues := []string{
+				serviceName,
+				tt.method,
+			}
+
+			clientLabelValues := []string{
+				serviceName,
+				tt.method,
+				clientStream,
+				tt.success,
+				tt.code,
+				serverName,
+			}
+
+			clientRequestsLabelValues := []string{
+				serviceName,
+				tt.method,
+				serverName,
+			}
+
+			defer prometheusbp.MetricTest(t, "server latency", serverLatencyDistribution).CheckExists()
+			defer prometheusbp.MetricTest(t, "server rpc count", serverRPCRequestCounter, serverLabelValues...).CheckDelta(1)
+			defer prometheusbp.MetricTest(t, "server active requests", serverActiveRequests, serverRequestsLabelValues...).CheckDelta(0)
+			defer prometheusbp.MetricTest(t, "client latency", clientLatencyDistribution).CheckExists()
+			defer prometheusbp.MetricTest(t, "client rpc count", clientRPCRequestCounter, clientLabelValues...).CheckDelta(1)
+			defer prometheusbp.MetricTest(t, "client active requests", clientActiveRequests, clientRequestsLabelValues...).CheckDelta(0)
+
+			ctx := context.Background()
+			if tt.success == "true" {
+				s, err := client.PingStream(ctx)
+				if err != nil {
+					t.Fatalf("PingStream: %v", err)
+				}
+				if _, err := s.Recv(); err != nil && err != io.EOF {
+					t.Fatalf("PingStream Recv: %v", err)
+				}
+			}
+		})
+	}
 }
