@@ -7,6 +7,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/reddit/baseplate.go/errorsbp"
 )
 
 func TestMissingMetrics(t *testing.T) {
@@ -113,53 +115,50 @@ func TestValidateName(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			gotBatch := validateName(tt.metricName, tt.metricPrefix)
-
-			if got, want := len(gotBatch.GetErrors()), len(tt.wantErrs); got != want {
-				t.Fatalf("not same number of errors got %d, want %d", got, want)
-			}
-			for i, e := range tt.wantErrs {
-				if got, want := gotBatch.GetErrors()[i], e; !errors.Is(got, want) {
-					t.Fatalf("not same errors got %d, want %d", got, want)
-				}
-			}
+			gotErr := validateName(tt.metricName, tt.metricPrefix, client)
+			checkErrors(t, gotErr, tt.wantErrs)
 		})
 	}
 }
 
 func TestValidateLabels(t *testing.T) {
 	testCases := []struct {
-		name       string
-		metricName string
-		prefix     string
-		gotLabels  map[string]struct{}
-		wantErrs   []error
+		name           string
+		metricName     string
+		prefix         string
+		clientOrServer string
+		gotLabels      map[string]struct{}
+		wantErrs       []error
 	}{
 		{
-			name:       "provide wrong labels",
-			metricName: "foo_bar_total",
-			prefix:     "fo",
-			gotLabels:  map[string]struct{}{"test": {}},
-			wantErrs:   []error{errDiffLabels},
+			name:           "provide wrong labels",
+			metricName:     "foo_bar_total",
+			prefix:         "fo",
+			clientOrServer: server,
+			gotLabels:      map[string]struct{}{"test": {}},
+			wantErrs:       []error{errDiffLabels},
 		},
 		{
-			name:       "latency success",
-			metricName: "test_latency_seconds",
-			prefix:     "test",
-			gotLabels:  map[string]struct{}{"test_method": {}, "test_service": {}, "test_success": {}},
-			wantErrs:   []error{},
+			name:           "latency success",
+			metricName:     "test_latency_seconds",
+			prefix:         "test",
+			clientOrServer: client,
+			gotLabels:      map[string]struct{}{"test_method": {}, "test_service": {}, "test_success": {}, "test_slug": {}},
+			wantErrs:       []error{},
 		},
 		{
-			name:       "latency wrong labels",
-			metricName: "test_latency_seconds",
-			prefix:     "test",
-			gotLabels:  map[string]struct{}{"test_method": {}},
-			wantErrs:   []error{errDiffLabels},
+			name:           "latency wrong labels",
+			metricName:     "test_latency_seconds",
+			prefix:         "test",
+			clientOrServer: server,
+			gotLabels:      map[string]struct{}{"test_method": {}},
+			wantErrs:       []error{errDiffLabels},
 		},
 		{
-			name:       "request total success",
-			metricName: "test_requests_total",
-			prefix:     "test",
+			name:           "request total success",
+			metricName:     "test_requests_total",
+			prefix:         "test",
+			clientOrServer: server,
 			gotLabels: map[string]struct{}{
 				"test_method":                {},
 				"test_service":               {},
@@ -171,61 +170,59 @@ func TestValidateLabels(t *testing.T) {
 			wantErrs: []error{},
 		},
 		{
-			name:       "request total labels",
-			metricName: "test_requests_total",
-			prefix:     "test",
-			gotLabels:  map[string]struct{}{"test_method": {}},
-			wantErrs:   []error{errDiffLabels},
+			name:           "request total labels",
+			metricName:     "test_requests_total",
+			prefix:         "test",
+			clientOrServer: server,
+			gotLabels:      map[string]struct{}{"test_method": {}},
+			wantErrs:       []error{errDiffLabels},
 		},
 		{
-			name:       "active_requests success",
-			metricName: "test_active_requests",
-			prefix:     "test",
-			gotLabels:  map[string]struct{}{"test_method": {}, "test_service": {}},
-			wantErrs:   []error{},
+			name:           "active_requests success",
+			metricName:     "test_active_requests",
+			prefix:         "test",
+			clientOrServer: server,
+			gotLabels:      map[string]struct{}{"test_method": {}, "test_service": {}},
+			wantErrs:       []error{},
 		},
 		{
-			name:       "active_requests wrong labels",
-			metricName: "test_active_requests",
-			prefix:     "test",
-			gotLabels:  map[string]struct{}{"test_method": {}},
-			wantErrs:   []error{errDiffLabels},
+			name:           "active_requests wrong labels",
+			metricName:     "test_active_requests",
+			prefix:         "test",
+			clientOrServer: server,
+			gotLabels:      map[string]struct{}{"test_method": {}},
+			wantErrs:       []error{errDiffLabels},
 		},
 	}
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			gotBatch := validateLabels(tt.metricName, tt.prefix, tt.gotLabels)
-
-			if got, want := len(gotBatch.GetErrors()), len(tt.wantErrs); got != want {
-				t.Fatalf("not same number of errors got %d, want %d", got, want)
-			}
-			for i, e := range tt.wantErrs {
-				if got, want := gotBatch.GetErrors()[i], e; !errors.Is(got, want) {
-					t.Fatalf("not same errors got %d, want %d", got, want)
-				}
-			}
+			gotErr := validateLabels(tt.metricName, tt.prefix, tt.clientOrServer, tt.gotLabels)
+			checkErrors(t, gotErr, tt.wantErrs)
 		})
 	}
 }
 
 func TestBuildLabels(t *testing.T) {
 	testCases := []struct {
-		name       string
-		metricName string
-		prefix     string
-		want       map[string]struct{}
+		name           string
+		metricName     string
+		prefix         string
+		clientOrServer string
+		want           map[string]struct{}
 	}{
 		{
-			name:       "latency_seconds labels",
-			metricName: "test_latency_seconds",
-			prefix:     "test",
-			want:       map[string]struct{}{"test_method": {}, "test_service": {}, "test_success": {}},
+			name:           "latency_seconds labels",
+			metricName:     "test_latency_seconds",
+			prefix:         "test",
+			clientOrServer: server,
+			want:           map[string]struct{}{"test_method": {}, "test_service": {}, "test_success": {}},
 		},
 		{
-			name:       "requests_total labels",
-			metricName: "test_requests_total",
-			prefix:     "test",
+			name:           "requests_total labels",
+			metricName:     "test_requests_total",
+			prefix:         "test",
+			clientOrServer: client,
 			want: map[string]struct{}{
 				"test_method":                {},
 				"test_service":               {},
@@ -233,23 +230,26 @@ func TestBuildLabels(t *testing.T) {
 				"test_baseplate_status":      {},
 				"test_baseplate_status_code": {},
 				"test_exception_type":        {},
+				"test_slug":                  {},
 			},
 		},
 		{
-			name:       "active_requests labels",
-			metricName: "test_active_requests",
-			prefix:     "test",
-			want:       map[string]struct{}{"test_method": {}, "test_service": {}},
+			name:           "active_requests labels",
+			metricName:     "test_active_requests",
+			prefix:         "test",
+			clientOrServer: server,
+			want:           map[string]struct{}{"test_method": {}, "test_service": {}},
 		},
 		{
-			name:   "none",
-			prefix: "test",
-			want:   map[string]struct{}{},
+			name:           "none",
+			prefix:         "test",
+			clientOrServer: server,
+			want:           map[string]struct{}{},
 		},
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, want := buildLables(tt.metricName, tt.prefix), tt.want; !reflect.DeepEqual(got, want) {
+			if got, want := buildLables(tt.metricName, tt.prefix, tt.clientOrServer), tt.want; !reflect.DeepEqual(got, want) {
 				t.Fatalf("got %v, want %v", got, want)
 			}
 		})
@@ -265,7 +265,7 @@ func TestValidateSpec(t *testing.T) {
 			"thrift_baseplate_status",
 		}
 
-		multiErrsRequests = promauto.NewCounterVec(prometheus.CounterOpts{
+		testMetric = promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "thrift_client_latency_seconds",
 			Help: "Test help message",
 		}, testLabels)
@@ -277,7 +277,7 @@ func TestValidateSpec(t *testing.T) {
 		"thrift_success":          "foo",
 		"thrift_baseplate_status": "foo",
 	}
-	multiErrsRequests.With(labels).Inc()
+	testMetric.With(labels).Inc()
 
 	testCases := []struct {
 		name           string
@@ -289,14 +289,14 @@ func TestValidateSpec(t *testing.T) {
 	}{
 		{
 			name:           "not found server",
-			metric:         multiErrsRequests,
+			metric:         testMetric,
 			prefix:         "thrift",
 			clientOrServer: "server",
 			wantErrs:       []error{errNotFound},
 		},
 		{
 			name:           "multi errs client",
-			metric:         multiErrsRequests,
+			metric:         testMetric,
 			prefix:         "thrift",
 			clientOrServer: "client",
 			wantErrs:       []error{errPrometheusLint, errDiffLabels, errNotFound},
@@ -305,17 +305,36 @@ func TestValidateSpec(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			gotBatch := validateSpec(tt.prefix, tt.clientOrServer)
-			t.Log(gotBatch)
-
-			if got, want := len(gotBatch.GetErrors()), len(tt.wantErrs); got != want {
-				t.Fatalf("not same number of errors got %d, want %d", got, want)
-			}
-			for i, e := range tt.wantErrs {
-				if got, want := gotBatch.GetErrors()[i], e; !errors.Is(got, want) {
-					t.Fatalf("not same errors got %d, want %d", got, want)
-				}
-			}
+			gotErr := validateSpec(tt.prefix, tt.clientOrServer)
+			checkErrors(t, gotErr, tt.wantErrs)
 		})
+	}
+}
+
+func checkErrors(tb testing.TB, gotErr error, wantErrs []error) {
+	tb.Helper()
+
+	switch len(wantErrs) {
+	case 0:
+		if gotErr != nil {
+			tb.Errorf("expected nil err, got: %v", gotErr)
+		}
+	case 1:
+		// no op if only 1 error is expected
+	default:
+		var be errorsbp.Batch
+		if errors.As(gotErr, &be) {
+			if got, want := len(be.GetErrors()), len(wantErrs); got != want {
+				tb.Errorf("not same number of errors got %d, want %d", got, want)
+			}
+		} else {
+			tb.Error("more than 1 error returned so a batch is expected")
+		}
+	}
+
+	for _, wantErr := range wantErrs {
+		if !errors.Is(gotErr, wantErr) {
+			tb.Fatalf("error mismatch: got %v, want %v", gotErr, wantErr)
+		}
 	}
 }
