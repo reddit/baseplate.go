@@ -33,9 +33,9 @@ func (p *PrometheusMetricTest) CheckExists() {
 	}
 }
 
-// MetricTest stores the current value of the metric along with the metric name
-// to be used later for testing.
-func MetricTest(tb testing.TB, name string, metric prometheus.Collector, labelValues ...string) *PrometheusMetricTest {
+// NewPrometheusMetricTest creates a new test object for a Prometheus metric.
+// It stores the current value of the metric along with the metric name.
+func NewPrometheusMetricTest(tb testing.TB, name string, metric prometheus.Collector, labelValues ...string) *PrometheusMetricTest {
 	p := &PrometheusMetricTest{
 		tb:          tb,
 		metric:      metric,

@@ -120,16 +120,16 @@ func validateName(name, prefix, clientOrServer string) errorsbp.Batch {
 	)
 	parts := strings.SplitN(name, separator, partCount)
 	if len(parts) < partCount {
-		batch.Add(fmt.Errorf("%w metric %q does not have minimum number (%d) of parts", errLength, name, partCount))
+		batch.Add(fmt.Errorf("%w: name: %q part count: %d", errLength, name, partCount))
 		return batch
 	}
 
 	if got, want := parts[0], prefix; got != want {
-		batch.Add(fmt.Errorf("%w metric %q does not have the expected prefix %q", errPrefix, name, prefix))
+		batch.Add(fmt.Errorf("%w: name: %q prefix: %q", errPrefix, name, prefix))
 	}
 
 	if got, want := parts[1], clientOrServer; got != want {
-		batch.Add(fmt.Errorf("%w metric %q", errClientServer, name))
+		batch.Add(fmt.Errorf("%w: name: %q", errClientServer, name))
 	}
 	return batch
 }
@@ -192,7 +192,7 @@ func lintMetric(metricName string) errorsbp.Batch {
 		batch.Add(err)
 	}
 	for _, p := range problems {
-		batch.Add(fmt.Errorf("%w metric %q %s", errPrometheusLint, metricName, p.Text))
+		batch.Add(fmt.Errorf("%w: name: %q %s", errPrometheusLint, metricName, p.Text))
 	}
 	return batch
 }
