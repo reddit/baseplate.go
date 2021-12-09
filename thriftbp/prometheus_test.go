@@ -80,9 +80,9 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 				method,
 			}
 
-			defer promtestNewPrometheusMetricTestt, "latency", serverLatencyDistribution).CheckExists()
-			defer promtestNewPrometheusMetricTestt, "rpc count", serverRPCRequestCounter, labelValues...).CheckDelta(1)
-			defer promtestNewPrometheusMetricTestt, "active requests", serverActiveRequests, requestLabelValues...).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "latency", serverLatencyDistribution).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "rpc count", serverRPCRequestCounter, labelValues...).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "active requests", serverActiveRequests, requestLabelValues...).CheckDelta(0)
 			defer spectest.ValidateSpec(t, "thrift", "server")
 
 			next := thrift.WrappedTProcessorFunction{
@@ -119,9 +119,9 @@ func PrometheusClientMetricsTest(t *testing.T, requestCountLabelValues, activeRe
 	clientRPCRequestCounter.Reset()
 	clientActiveRequests.Reset()
 	return PromClientMetricsTest{
-		latency:        promtestNewPrometheusMetricTestt, "latency", clientLatencyDistribution),
-		rpcCount:       promtestNewPrometheusMetricTestt, "rpc count", clientRPCRequestCounter, requestCountLabelValues...),
-		activeRequests: promtestNewPrometheusMetricTestt, "active requests", clientActiveRequests, activeRequestsLabelValues...),
+		latency:        promtest.NewPrometheusMetricTest(t, "latency", clientLatencyDistribution),
+		rpcCount:       promtest.NewPrometheusMetricTest(t, "rpc count", clientRPCRequestCounter, requestCountLabelValues...),
+		activeRequests: promtest.NewPrometheusMetricTest(t, "active requests", clientActiveRequests, activeRequestsLabelValues...),
 	}
 }
 
