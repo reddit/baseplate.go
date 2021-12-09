@@ -40,6 +40,11 @@ func (be Batch) Error() string {
 	return sb.String()
 }
 
+// Len returns the size of the batch.
+func (be Batch) Len() int {
+	return len(be.errors)
+}
+
 // As implements helper interface for errors.As.
 //
 // If v is pointer to either Batch or *Batch,
@@ -208,4 +213,25 @@ func (e *prefixedError) Error() string {
 
 func (e *prefixedError) Unwrap() error {
 	return e.err
+}
+
+// BatchSize returns the size of the batch for error err.
+//
+// If err is either errorsbp.Batch or *errorsbp.Batch,
+// this function returns its Len().
+// Otherwise, it returns 1 if err is non-nil, and 0 if err is nil.
+//
+// It's useful in tests,
+// for example to verify that a function indeed returns the exact number of
+// errors as expected.
+func BatchSize(err error) int {
+	if err == nil {
+		return 0
+	}
+	var be Batch
+	if errors.As(err, &be) {
+		return be.Len()
+	}
+	// single, non-batch error.
+	return 1
 }
