@@ -314,22 +314,8 @@ func TestValidateSpec(t *testing.T) {
 func checkErrors(tb testing.TB, gotErr error, wantErrs []error) {
 	tb.Helper()
 
-	switch len(wantErrs) {
-	case 0:
-		if gotErr != nil {
-			tb.Errorf("expected nil err, got: %v", gotErr)
-		}
-	case 1:
-		// no op if only 1 error is expected
-	default:
-		var be errorsbp.Batch
-		if errors.As(gotErr, &be) {
-			if got, want := len(be.GetErrors()), len(wantErrs); got != want {
-				tb.Errorf("not same number of errors got %d, want %d", got, want)
-			}
-		} else {
-			tb.Error("more than 1 error returned so a batch is expected")
-		}
+	if got, want := errorsbp.BatchSize(gotErr), len(wantErrs); got != want {
+		tb.Errorf("not same number of errors got %d, want %d", got, want)
 	}
 
 	for _, wantErr := range wantErrs {
