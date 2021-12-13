@@ -135,14 +135,11 @@ func validateName(name, prefix, clientOrServer string) error {
 }
 
 func validateLabels(name, prefix, clientOrServer string, gotLabels map[string]struct{}) error {
-	var batch errorsbp.Batch
-
 	wantLabels := buildLables(name, prefix, clientOrServer)
 	if diff := cmp.Diff(gotLabels, wantLabels); diff != "" {
-		batch.Add(fmt.Errorf("%w: (-got +want)\n%s", errDiffLabels, diff))
+		return fmt.Errorf("%w: (-got +want)\n%s", errDiffLabels, diff)
 	}
-
-	return batch.Compile()
+	return nil
 }
 
 // buildLables returns a set of expected labels for the metric name provided.
