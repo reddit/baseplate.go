@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/mqsend"
@@ -162,6 +163,7 @@ func initTracing(t *testing.T) *mqsend.MockMessageQueue {
 
 type mockService struct {
 	ctx context.Context
+	err error
 }
 
 func (t *mockService) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
@@ -181,8 +183,22 @@ func (t *mockService) PingEmpty(ctx context.Context, req *pb.Empty) (*pb.PingRes
 func (t *mockService) PingList(req *pb.PingRequest, c pb.TestService_PingListServer) error {
 	panic("not implemented")
 }
+
 func (t *mockService) PingStream(c pb.TestService_PingStreamServer) error {
-	return nil
+	if t.err != nil {
+		return t.err
+	}
+	for {
+		if _, err := c.Recv(); err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		if err := c.Send(&pb.PingResponse{}); err != nil {
+			return err
+		}
+	}
 }
 
 func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
@@ -296,8 +312,8 @@ func TestInjectPrometheusStreamServerClientInterceptor(t *testing.T) {
 		serverName  = "testServer"
 		method      = "Ping"
 	)
-	// create test server with InjectPrometheusStreamerverInterceptor
-	l, _ := setupServer(t, grpc.StreamInterceptor(
+
+	l, service := setupServer(t, grpc.StreamInterceptor(
 		InjectPrometheusStreamServerInterceptor(serviceName),
 	))
 
@@ -323,6 +339,13 @@ func TestInjectPrometheusStreamServerClientInterceptor(t *testing.T) {
 			success: "true",
 			method:  "PingStream",
 		},
+		{
+			name:    "err",
+			wantErr: codes.NotFound,
+			code:    "NotFound",
+			success: "false",
+			method:  "PingStream",
+		},
 	}
 
 	for _, tt := range testCases {
@@ -333,6 +356,10 @@ func TestInjectPrometheusStreamServerClientInterceptor(t *testing.T) {
 			clientLatencyDistribution.Reset()
 			clientRPCRequestCounter.Reset()
 			clientActiveRequests.Reset()
+
+			if tt.success == "false" {
+				service.err = status.Errorf(tt.wantErr, "test err: %v", tt.wantErr.String())
+			}
 
 			serverLabelValues := []string{
 				serviceName,
@@ -349,7 +376,7 @@ func TestInjectPrometheusStreamServerClientInterceptor(t *testing.T) {
 
 			clientLabelValues := []string{
 				serviceName,
-				tt.method,
+				"/mwitkow.testproto.TestService/" + tt.method,
 				clientStream,
 				tt.success,
 				tt.code,
@@ -370,14 +397,46 @@ func TestInjectPrometheusStreamServerClientInterceptor(t *testing.T) {
 			defer prometheusbp.MetricTest(t, "client active requests", clientActiveRequests, clientRequestsLabelValues...).CheckDelta(0)
 
 			ctx := context.Background()
-			if tt.success == "true" {
-				s, err := client.PingStream(ctx)
-				if err != nil {
-					t.Fatalf("PingStream: %v", err)
+			clientStream, err := client.PingStream(ctx)
+			if err != nil {
+				t.Fatalf("PingStream: %v", err)
+			}
+
+			var count int
+			for {
+				switch {
+				case count < 2:
+					err = clientStream.Send(&pb.PingRequest{})
+				default:
+					err = clientStream.CloseSend()
 				}
-				if _, err := s.Recv(); err != nil && err != io.EOF {
-					t.Fatalf("PingStream Recv: %v", err)
+				if err != nil && err != io.EOF {
+					t.Fatalf("clientStream Send or CloseSend: %v", err)
 				}
+				if err == io.EOF {
+					break
+				}
+
+				_, err := clientStream.Recv()
+				if err == io.EOF {
+					break
+				}
+				if tt.success == "false" {
+					if err != nil {
+						status, _ := status.FromError(err)
+						if want, got := tt.wantErr.String(), status.Code().String(); want != got {
+							t.Fatalf("error mismatch: want %v, got %v", want, got)
+						}
+					}
+					if err == nil {
+						t.Fatal("clientStream Recv: expected err got nil")
+					}
+				}
+
+				if err != nil && tt.success == "true" {
+					t.Fatalf("clientStream Recv: %v", err)
+				}
+				count++
 			}
 		})
 	}
