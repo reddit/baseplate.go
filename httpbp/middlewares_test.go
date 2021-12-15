@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/reddit/baseplate.go/ecinterface"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
@@ -58,6 +59,7 @@ func TestInjectServerSpan(t *testing.T) {
 	startFailing()
 
 	req := newRequest(t, "")
+	var suppressor errorsbp.Suppressor = httpbp.HTTPErrorSuppressor
 
 	cases := []struct {
 		name           string
@@ -75,6 +77,18 @@ func TestInjectServerSpan(t *testing.T) {
 			truster:        httpbp.AlwaysTrustHeaders{},
 			hasAnnotations: true,
 			err:            errors.New("test"),
+		},
+		{
+			name:           "trust/http-err/4xx",
+			truster:        httpbp.AlwaysTrustHeaders{},
+			hasAnnotations: true,
+			err:            httpbp.JSONError(httpbp.BadRequest(), nil),
+		},
+		{
+			name:           "trust/http-err/5xx",
+			truster:        httpbp.AlwaysTrustHeaders{},
+			hasAnnotations: true,
+			err:            httpbp.JSONError(httpbp.InternalServerError(), nil),
 		},
 		{
 			name:           "no-trust/no-err",
@@ -96,7 +110,7 @@ func TestInjectServerSpan(t *testing.T) {
 				handle := httpbp.Wrap(
 					"test",
 					newTestHandler(testHandlerPlan{err: c.err}),
-					httpbp.InjectServerSpan(c.truster),
+					httpbp.InjectServerSpan(c.truster, suppressor),
 				)
 				handle(req.Context(), httptest.NewRecorder(), req)
 
@@ -121,16 +135,16 @@ func TestInjectServerSpan(t *testing.T) {
 					t.Fatal("no binary annotations")
 				}
 				t.Logf("%#v", trace.BinaryAnnotations)
-				if c.err != nil {
-					hasError := false
-					for _, annotation := range trace.BinaryAnnotations {
-						if annotation.Key == "error" {
-							hasError = true
-						}
+				hasError := false
+				for _, annotation := range trace.BinaryAnnotations {
+					if annotation.Key == "error" {
+						hasError = true
 					}
-					if !hasError {
-						t.Error("error binary annotation was not present.")
-					}
+				}
+				if suppressor.Wrap(c.err) != nil && !hasError {
+					t.Error("error binary annotation was not present.")
+				} else if suppressor.Wrap(c.err) == nil && hasError {
+					t.Error("unexpected error binary annotation")
 				}
 			},
 		)

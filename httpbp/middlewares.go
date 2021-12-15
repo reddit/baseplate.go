@@ -2,12 +2,14 @@ package httpbp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
 	"strings"
 
 	"github.com/reddit/baseplate.go/ecinterface"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -63,7 +65,7 @@ func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 		args.TrustHandler = NeverTrustHeaders{}
 	}
 	return []Middleware{
-		InjectServerSpan(args.TrustHandler),
+		InjectServerSpan(args.TrustHandler, HTTPErrorSuppressor),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
 	}
 }
@@ -108,6 +110,14 @@ func StartSpanFromTrustedRequest(
 	return tracing.StartSpanFromHeaders(ctx, name, spanHeaders)
 }
 
+func HTTPErrorSuppressor(err error) bool {
+	var httpErr HTTPError
+	if errors.As(err, &httpErr) {
+		return httpErr.Response().Code < 500
+	}
+	return false
+}
+
 // InjectServerSpan returns a Middleware that will automatically wrap the
 // HansderFunc in a new server span and stop the span after the function
 // returns.
@@ -115,14 +125,17 @@ func StartSpanFromTrustedRequest(
 // InjectServerSpan should generally not be used directly, instead use the
 // NewBaseplateServer function which will automatically include InjectServerSpan
 // as one of the Middlewares to wrap your handlers in.
-func InjectServerSpan(truster HeaderTrustHandler) Middleware {
+func InjectServerSpan(truster HeaderTrustHandler, suppressor errorsbp.Suppressor) Middleware {
+	if suppressor == nil {
+		suppressor = HTTPErrorSuppressor
+	}
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			ctx, span := StartSpanFromTrustedRequest(ctx, name, truster, r)
 			defer func() {
 				span.FinishWithOptions(tracing.FinishOptions{
 					Ctx: ctx,
-					Err: err,
+					Err: suppressor.Wrap(err),
 				}.Convert())
 			}()
 
