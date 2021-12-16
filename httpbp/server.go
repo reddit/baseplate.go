@@ -45,6 +45,7 @@ type httpHandlerFactory struct {
 }
 
 func (f httpHandlerFactory) NewHandler(endpoint Endpoint) http.Handler {
+	// +2 because we always add SupportedMethods and recoverPanic
 	wrappers := make([]Middleware, 0, len(f.middlewares)+len(endpoint.Middlewares)+2)
 	wrappers = append(wrappers, SupportedMethods(endpoint.Methods[0], endpoint.Methods[1:]...))
 	wrappers = append(wrappers, f.middlewares...)
