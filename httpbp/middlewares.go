@@ -58,7 +58,7 @@ type DefaultMiddlewareArgs struct {
 	EdgeContextImpl ecinterface.Interface
 }
 
-// DefaultMiddleware returns a slice of all of the default Middleware for a
+// DefaultMiddleware returns a slice of all the default Middleware for a
 // Baseplate HTTP server.
 func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	if args.TrustHandler == nil {
@@ -110,6 +110,8 @@ func StartSpanFromTrustedRequest(
 	return tracing.StartSpanFromHeaders(ctx, name, spanHeaders)
 }
 
+// HTTPErrorSuppressor is an errorsbp.Suppressor that can be used to suppress
+// HTTPErrors that have a response code under 500.
 func HTTPErrorSuppressor(err error) bool {
 	var httpErr HTTPError
 	if errors.As(err, &httpErr) {
@@ -119,13 +121,19 @@ func HTTPErrorSuppressor(err error) bool {
 }
 
 // InjectServerSpan returns a Middleware that will automatically wrap the
-// HansderFunc in a new server span and stop the span after the function
+// HandlerFunc in a new server span and stop the span after the function
 // returns.
+//
+// Starts the server span before calling the `next` HandlerFunc and stops
+// the span after it finishes.
+// If the function returns an error that's not suppressed by HTTPErrorSuppressor,
+// that will be passed to span.Stop.
 //
 // InjectServerSpan should generally not be used directly, instead use the
 // NewBaseplateServer function which will automatically include InjectServerSpan
 // as one of the Middlewares to wrap your handlers in.
 func InjectServerSpan(truster HeaderTrustHandler) Middleware {
+	// TODO: make a breaking change to allow us to pass in a Suppressor
 	var suppressor errorsbp.Suppressor = HTTPErrorSuppressor
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
