@@ -31,7 +31,7 @@ var (
 
 // ValidateSpec validates that the Prometheus metrics being exposed from baseplate.go
 // conform to the baseplate spec.
-// metricPrefix should be either "grpc", "http", or "thirft".
+// metricPrefix should be either "grpc", "http", or "thrift".
 // clientOrServer should be either "client" or "server".
 func ValidateSpec(tb testing.TB, metricPrefix, clientOrServer string) {
 	tb.Helper()
@@ -95,7 +95,7 @@ func keysFrom(metrics map[string]struct{}) []string {
 
 // buildMetricNames creates a set of all the expected metrics names for the given prefix
 // that should be registered with Prometheus as defined in the baseplate spec.
-// The prefix will be either thrift, http, or grpc.
+// The prefix will be either "grpc", "http", or "thrift".
 func buildMetricNames(prefix, clientOrServer string) map[string]struct{} {
 	suffixes := []string{"latency_seconds", "requests_total", "active_requests"}
 	var names = map[string]struct{}{}
@@ -114,9 +114,8 @@ func buildMetricNames(prefix, clientOrServer string) map[string]struct{} {
 func validateName(name, prefix, clientOrServer string) error {
 	var batch errorsbp.Batch
 
-	const (
-		separator = "_"
-	)
+	const separator = "_"
+
 	parts := strings.SplitN(name, separator, partsCount)
 	if len(parts) < partsCount {
 		batch.Add(fmt.Errorf("%w: name: %q part count: %d", errLength, name, len(parts)))
@@ -147,7 +146,7 @@ func validateLabels(name, prefix, clientOrServer string, gotLabels map[string]st
 //   - "<prefix>_service"
 //   - "<prefix>_method"
 //   - "<prefix>_success"
-// request_total metrics expect the following labels:
+// requests_total metrics expect the following labels:
 //   - "<prefix>_service"
 //   - "<prefix>_method"
 //   - "<prefix>_success"
