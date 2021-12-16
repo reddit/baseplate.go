@@ -110,7 +110,7 @@ func TestInjectServerSpan(t *testing.T) {
 				handle := httpbp.Wrap(
 					"test",
 					newTestHandler(testHandlerPlan{err: c.err}),
-					httpbp.InjectServerSpan(c.truster, suppressor),
+					httpbp.InjectServerSpan(c.truster),
 				)
 				handle(req.Context(), httptest.NewRecorder(), req)
 

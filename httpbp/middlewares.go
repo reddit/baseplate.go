@@ -65,7 +65,7 @@ func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 		args.TrustHandler = NeverTrustHeaders{}
 	}
 	return []Middleware{
-		InjectServerSpan(args.TrustHandler, HTTPErrorSuppressor),
+		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
 	}
 }
@@ -125,10 +125,8 @@ func HTTPErrorSuppressor(err error) bool {
 // InjectServerSpan should generally not be used directly, instead use the
 // NewBaseplateServer function which will automatically include InjectServerSpan
 // as one of the Middlewares to wrap your handlers in.
-func InjectServerSpan(truster HeaderTrustHandler, suppressor errorsbp.Suppressor) Middleware {
-	if suppressor == nil {
-		suppressor = HTTPErrorSuppressor
-	}
+func InjectServerSpan(truster HeaderTrustHandler) Middleware {
+	var suppressor errorsbp.Suppressor = HTTPErrorSuppressor
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			ctx, span := StartSpanFromTrustedRequest(ctx, name, truster, r)
