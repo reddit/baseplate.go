@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"
@@ -242,6 +245,51 @@ func SupportedMethods(method string, additional ...string) Middleware {
 					PlainTextContentType,
 				)
 			}
+			return next(ctx, w, r)
+		}
+	}
+}
+
+func PrometheusServerMetrics(serverSlug string, x bool) Middleware {
+	return func(name string, next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+			start := time.Now()
+			method := r.Method
+			endpoint := r.URL.Path
+			activeRequestLabels := prometheus.Labels{
+				methodLabel:   method,
+				endpointLabel: endpoint,
+			}
+			serverActiveRequests.With(activeRequestLabels).Inc()
+
+			defer func() {
+				success := strconv.FormatBool(err == nil)
+				code := http.StatusText(http.StatusOK)
+				if err != nil {
+					code = err.Error()
+					fmt.Println("err:", code)
+				}
+
+				labels := prometheus.Labels{
+					methodLabel:   method,
+					successLabel:  success,
+					endpointLabel: endpoint,
+				}
+
+				serverLatency.With(labels).Observe(time.Since(start).Seconds())
+				serverRequestSize.With(labels).Observe(time.Since(start).Seconds())
+				serverResponseSize.With(labels).Observe(time.Since(start).Seconds())
+
+				totalRequestLabels := prometheus.Labels{
+					methodLabel:   method,
+					successLabel:  success,
+					endpointLabel: endpoint,
+					codeLabel:     code,
+				}
+				serverTotalRequests.With(totalRequestLabels).Inc()
+				serverActiveRequests.With(activeRequestLabels).Dec()
+			}()
+
 			return next(ctx, w, r)
 		}
 	}

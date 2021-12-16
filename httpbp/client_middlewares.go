@@ -4,11 +4,14 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/avast/retry-go"
 	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/retrybp"
@@ -242,6 +245,48 @@ func MonitorClient(slug string) ClientMiddleware {
 				}.Convert())
 			}()
 			return next.RoundTrip(req.WithContext(ctx))
+		})
+	}
+}
+
+// PrometheusClientMetrics returns a middleware that tracks Prometheus metrics for client http.
+func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
+	return func(next http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
+			start := time.Now()
+			method := req.Method
+			endpoint := req.URL.Path
+			activeRequestLabels := prometheus.Labels{
+				methodLabel:            method,
+				endpointLabel:          endpoint,
+				remoteServiceSlugLabel: serverSlug,
+			}
+			clientActiveRequests.With(activeRequestLabels).Inc()
+
+			defer func() {
+				success := strconv.FormatBool(err == nil && resp.StatusCode == http.StatusOK)
+
+				latencyLabels := prometheus.Labels{
+					methodLabel:            method,
+					successLabel:           success,
+					endpointLabel:          endpoint,
+					remoteServiceSlugLabel: serverSlug,
+				}
+
+				clientLatency.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+				totalRequestLabels := prometheus.Labels{
+					methodLabel:            method,
+					successLabel:           success,
+					endpointLabel:          endpoint,
+					codeLabel:              resp.Status,
+					remoteServiceSlugLabel: serverSlug,
+				}
+				clientTotalRequests.With(totalRequestLabels).Inc()
+				clientActiveRequests.With(activeRequestLabels).Dec()
+			}()
+
+			return next.RoundTrip(req)
 		})
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -17,8 +18,11 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/sony/gobreaker"
 
+	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/breakerbp"
+	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/mqsend"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -415,5 +419,131 @@ func TestCircuitBreaker(t *testing.T) {
 	_, err = client.Get(server.URL)
 	if !errors.Is(err, gobreaker.ErrOpenState) {
 		t.Errorf("Expected the third request to return %v, got %v", gobreaker.ErrOpenState, err)
+	}
+}
+
+func TestPrometheusClientMetrics(t *testing.T) {
+	testCases := []struct {
+		name     string
+		code     string
+		success  string
+		method   string
+		endpoint string
+	}{
+		{
+			name:     "success",
+			code:     "200 OK",
+			success:  "true",
+			method:   "GET",
+			endpoint: "/test",
+		},
+		{
+			name:     "err",
+			code:     "500 Internal Server Error",
+			success:  "false",
+			method:   "POST",
+			endpoint: "/error",
+		},
+	}
+
+	const (
+		serverSlug = "testServer"
+		get        = "GET"
+		post       = "POST"
+	)
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			serverLatency.Reset()
+			serverTotalRequests.Reset()
+			serverActiveRequests.Reset()
+			clientLatency.Reset()
+			clientTotalRequests.Reset()
+			clientActiveRequests.Reset()
+
+			serverTotalRequestLabels := []string{
+				tt.method,
+				tt.success,
+				tt.endpoint,
+				tt.code,
+			}
+
+			serverActiveRequestLabels := []string{
+				tt.method,
+				tt.endpoint,
+			}
+
+			clientTotalRequestLabels := []string{
+				tt.method,
+				tt.success,
+				tt.endpoint,
+				tt.code,
+				serverSlug,
+			}
+
+			clientActiveRequestLabels := []string{
+				tt.method,
+				tt.endpoint,
+				serverSlug,
+			}
+
+			defer prometheusbp.MetricTest(t, "server latency", serverLatency).CheckNotExists()
+			defer prometheusbp.MetricTest(t, "server total requests", serverTotalRequests, serverTotalRequestLabels...).CheckDelta(0)
+			defer prometheusbp.MetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels...).CheckDelta(0)
+			defer prometheusbp.MetricTest(t, "client latency", clientLatency).CheckExists()
+			defer prometheusbp.MetricTest(t, "client total requests", clientTotalRequests, clientTotalRequestLabels...).CheckDelta(1)
+			defer prometheusbp.MetricTest(t, "client active requests", clientActiveRequests, clientActiveRequestLabels...).CheckDelta(0)
+
+			var methods = []string{}
+			switch {
+			case tt.method == get:
+				methods = append(methods, get)
+			case tt.method == post:
+				methods = append(methods, post)
+			}
+			args := ServerArgs{
+				Baseplate: baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+					Config:          baseplate.Config{Addr: ":8080"},
+					EdgeContextImpl: ecinterface.Mock(),
+				}),
+				Endpoints: map[Pattern]Endpoint{
+					"/test": {
+						Name:    "test",
+						Methods: methods,
+						Handle:  func(ctx context.Context, w http.ResponseWriter, r *http.Request) error { return nil },
+					},
+					"/error": {
+						Name:    "error",
+						Methods: methods,
+						Handle:  func(ctx context.Context, w http.ResponseWriter, r *http.Request) error { return http.ErrHandlerTimeout },
+					},
+				},
+			}
+
+			server, ts, err := NewTestBaseplateServer(args)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer server.Close()
+
+			middleware := PrometheusClientMetrics(serverSlug)
+			client := &http.Client{
+				Transport: middleware(http.DefaultTransport),
+			}
+
+			if tt.method == get {
+				_, err = client.Get(ts.URL + tt.endpoint)
+				if err != nil {
+					t.Fatal("client.Get", err)
+				}
+			}
+
+			if tt.method == post {
+				_, err = client.Post(ts.URL+tt.endpoint, "", strings.NewReader("test"))
+				if err != nil {
+					t.Fatal("client.Post", err)
+				}
+			}
+		})
 	}
 }

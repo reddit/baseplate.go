@@ -33,6 +33,14 @@ func (p *PrometheusMetricTest) CheckExists() {
 	}
 }
 
+// CheckNotExists confirms that the metric does not exists.
+func (p *PrometheusMetricTest) CheckNotExists() {
+	got := testutil.CollectAndCount(p.metric)
+	if got != 0 {
+		p.tb.Errorf("%s metric count: wanted %v, got %v", p.name, 1, got)
+	}
+}
+
 // MetricTest stores the current value of the metric along with the metric name
 // to be used later for testing.
 func MetricTest(tb testing.TB, name string, metric prometheus.Collector, labelValues ...string) *PrometheusMetricTest {
