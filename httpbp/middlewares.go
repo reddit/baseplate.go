@@ -263,10 +263,9 @@ func recoverPanic(name string, next HandlerFunc) HandlerFunc {
 				} else {
 					rErr = fmt.Errorf("panic in %q: %+v", name, r)
 				}
-				log.ErrorWithSentry(
-					ctx,
+				log.C(ctx).Errorw(
 					"recovered from panic:",
-					rErr,
+					"err", rErr,
 					"endpoint", name,
 				)
 				metricsbp.M.Counter("panic.recover").With(
