@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/reddit/baseplate.go/ecinterface"
-	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
@@ -59,7 +58,6 @@ func TestInjectServerSpan(t *testing.T) {
 	startFailing()
 
 	req := newRequest(t, "")
-	var suppressor errorsbp.Suppressor = httpbp.HTTPErrorSuppressor
 
 	cases := []struct {
 		name           string
@@ -141,9 +139,16 @@ func TestInjectServerSpan(t *testing.T) {
 						hasError = true
 					}
 				}
-				if suppressor.Wrap(c.err) != nil && !hasError {
+				expectedErr := c.err
+				var httpErr httpbp.HTTPError
+				if errors.As(c.err, &httpErr) {
+					if httpErr.Response().Code < 500 {
+						expectedErr = nil
+					}
+				}
+				if expectedErr != nil && !hasError {
 					t.Error("error binary annotation was not present.")
-				} else if suppressor.Wrap(c.err) == nil && hasError {
+				} else if expectedErr == nil && hasError {
 					t.Error("unexpected error binary annotation")
 				}
 			},

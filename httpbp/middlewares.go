@@ -110,9 +110,10 @@ func StartSpanFromTrustedRequest(
 	return tracing.StartSpanFromHeaders(ctx, name, spanHeaders)
 }
 
-// HTTPErrorSuppressor is an errorsbp.Suppressor that can be used to suppress
-// HTTPErrors that have a response code under 500.
-func HTTPErrorSuppressor(err error) bool {
+// httpErrorSuppressor is an errorsbp.Suppressor that can be used to suppress
+// HTTPErrors that have a response code under 500. It is used by InjectServerSpan
+// to not mark non 5xx or higher errors as failures.
+func httpErrorSuppressor(err error) bool {
 	var httpErr HTTPError
 	if errors.As(err, &httpErr) {
 		return httpErr.Response().Code < 500
@@ -126,15 +127,15 @@ func HTTPErrorSuppressor(err error) bool {
 //
 // Starts the server span before calling the `next` HandlerFunc and stops
 // the span after it finishes.
-// If the function returns an error that's not suppressed by HTTPErrorSuppressor,
-// that will be passed to span.Stop.
+// If the function returns an error that's an HTTPError with a status code < 500,
+// then it will not be passed to span.Stop, otherwise it will.
 //
 // InjectServerSpan should generally not be used directly, instead use the
 // NewBaseplateServer function which will automatically include InjectServerSpan
 // as one of the Middlewares to wrap your handlers in.
 func InjectServerSpan(truster HeaderTrustHandler) Middleware {
 	// TODO: make a breaking change to allow us to pass in a Suppressor
-	var suppressor errorsbp.Suppressor = HTTPErrorSuppressor
+	var suppressor errorsbp.Suppressor = httpErrorSuppressor
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			ctx, span := StartSpanFromTrustedRequest(ctx, name, truster, r)
