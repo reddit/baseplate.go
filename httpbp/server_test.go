@@ -3,6 +3,8 @@ package httpbp_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -390,5 +392,74 @@ func TestNewTestBaseplateServer(t *testing.T) {
 
 	if c.count != 1 {
 		t.Fatalf("Unexpected count value %v", c.count)
+	}
+}
+
+func TestPanicRecovery(t *testing.T) {
+	var pattern httpbp.Pattern = "/test"
+	path := string(pattern)
+	name := "test"
+
+	store := newSecretsStore(t)
+	defer store.Close()
+
+	panicErr := fmt.Errorf("oops")
+
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config:          baseplate.Config{Addr: ":8080"},
+		Store:           store,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
+
+	args := httpbp.ServerArgs{
+		Baseplate: bp,
+		Endpoints: map[httpbp.Pattern]httpbp.Endpoint{
+			pattern: {
+				Name:    name,
+				Methods: []string{http.MethodGet},
+				Handle: func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+					panic(panicErr)
+				},
+			},
+		},
+		Middlewares: []httpbp.Middleware{
+			func(name string, next httpbp.HandlerFunc) httpbp.HandlerFunc {
+				return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+					var httpErr httpbp.HTTPError
+					defer func() {
+						if errors.As(err, &httpErr) {
+							if httpErr.Response().Code != http.StatusInternalServerError {
+								t.Errorf(
+									"error code mismatch, expected %d, got %d",
+									http.StatusInternalServerError,
+									httpErr.Response().Code,
+								)
+							}
+							if !errors.Is(httpErr, panicErr) {
+								t.Errorf("expected http error to wrap %v, got %v", panicErr, httpErr.Unwrap())
+							}
+						} else {
+							t.Fatalf("unexpected error type %v", err)
+						}
+					}()
+					return next(ctx, w, r)
+				}
+			},
+		},
+	}
+
+	server, ts, err := httpbp.NewTestBaseplateServer(args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+
+	res, err := http.Get(ts.URL + path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("unexpected service code")
 	}
 }
