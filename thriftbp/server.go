@@ -115,7 +115,6 @@ func NewBaseplateServer(
 		}).ToThriftLogger()
 	}
 	cfg.Addr = bp.GetConfig().Addr
-	cfg.Socket = nil
 	srv, err := NewServer(cfg)
 	if err != nil {
 		return nil, err
