@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/go-kit/kit/metrics"
+
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
@@ -35,7 +37,7 @@ type Middleware func(name string, next HandlerFunc) HandlerFunc
 //		N. Middlewares[n]
 //
 // Wrap is provided for clarity and testing purposes and should not generally be
-// called directly.  Instead use one of the provided Handler constructors which
+// called directly. Instead use one of the provided Handler constructors which
 // will Wrap the HandlerFunc you pass it for you.
 func Wrap(name string, handle HandlerFunc, middlewares ...Middleware) HandlerFunc {
 	for i := len(middlewares) - 1; i >= 0; i-- {
@@ -60,7 +62,11 @@ type DefaultMiddlewareArgs struct {
 }
 
 // DefaultMiddleware returns a slice of all the default Middleware for a
-// Baseplate HTTP server.
+// Baseplate HTTP server. The default middleware are (in order):
+//
+//	1. InjectServerSpan
+//	2. InjectEdgeRequestContext
+//	3. RecordStatusCode
 func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	if args.TrustHandler == nil {
 		args.TrustHandler = NeverTrustHeaders{}
@@ -68,6 +74,7 @@ func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	return []Middleware{
 		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
+		RecordStatusCode(metricsbp.M),
 	}
 }
 
@@ -297,5 +304,97 @@ func recoverPanic(name string, next HandlerFunc) HandlerFunc {
 			}
 		}()
 		return next(ctx, w, r)
+	}
+}
+
+// statusCodeRecorder is used by RecordStatusCode to record the code passed to
+// a call to WriteHeader.
+type statusCodeRecorder struct {
+	http.ResponseWriter
+
+	code int
+}
+
+func (r *statusCodeRecorder) WriteHeader(code int) {
+	r.ResponseWriter.WriteHeader(code)
+	if r.code == 0 {
+		r.code = code
+	}
+}
+
+var families = [10]string{
+	"nan",
+	"1xx",
+	"2xx",
+	"3xx",
+	"4xx",
+	"5xx",
+	"6xx",
+	"7xx",
+	"8xx",
+	"9xx",
+}
+
+// statusCodeFamily takes an http status code and returns it as an "Nxx"
+// string. Returns "nan" if code < 100 or code > 999.
+func statusCodeFamily(code int) string {
+	family := code / 100
+	if family < 0 || family >= len(families) {
+		return families[0]
+	}
+	return families[family]
+}
+
+// CounterGenerator is used by RecordStatusCode to create counters for recording
+// http response codes set by the server.
+type CounterGenerator interface {
+	Counter(name string) metrics.Counter
+}
+
+// RecordStatusCode extracts the status code set on the request in the following
+// order:
+//	1. Check if WriteHeader was called on the ResponseWriter and use that code
+//	if it was.
+//	2. If an error was returned, check if it is an HTTPError. If it is, use the
+//	code from the error, otherwise assume 500.
+//	3. Assume 200.
+//
+// If it sees an invalid status code (<100 or >999), it will record the status
+// as "-nan" for codes <100 and "nan" for codes >999. Note that a code that is
+// <100 or >999 is unlikely to appear here and will cause a  panic if passed to
+// WriteHeader.
+//
+// RecordStatusCode should generally not be used directly, instead use the
+// NewBaseplateServer function which will automatically include RecordStatusCode
+// as one of the Middlewares to wrap your handlers in.
+func RecordStatusCode(counters CounterGenerator) Middleware {
+	return func(name string, next HandlerFunc) HandlerFunc {
+		counter := counters.Counter("baseplate.http." + name + ".response")
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+			wrapped := &statusCodeRecorder{ResponseWriter: w}
+			defer func() {
+				var code int
+				if wrapped.code != 0 {
+					// WriteHeader was called explicitly, use that
+					code = wrapped.code
+				} else if err != nil {
+					// something went wrong, check if err is an HTTPErr where we can extract
+					// the code, otherwise assume InternalServerError
+					var httpErr HTTPError
+					if errors.As(err, &httpErr) {
+						code = httpErr.Response().Code
+					} else {
+						code = http.StatusInternalServerError
+					}
+				} else {
+					// if there's no error returned and no call to WriteHeader, assume OK
+					code = http.StatusOK
+				}
+
+				counter.With("status", statusCodeFamily(code)).Add(1)
+			}()
+
+			return next(ctx, wrapped, r)
+		}
 	}
 }
