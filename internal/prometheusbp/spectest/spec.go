@@ -16,12 +16,14 @@ import (
 const (
 	client = "client"
 	server = "server"
+
+	partsCount = 3
 )
 
 var (
 	errPrefix         = errors.New("the prefix is not at the beginning of the metric name")
 	errClientServer   = fmt.Errorf("missing %q or %q as the second part of the metric name", client, server)
-	errLength         = errors.New("metric name should have a minimum of three parts")
+	errLength         = fmt.Errorf("metric name should have a minimum of %d parts", partsCount)
 	errNotFound       = errors.New("metric not found")
 	errPrometheusLint = errors.New("prometheus GatherAndLint")
 	errDiffLabels     = errors.New("labels are incorrect")
@@ -63,7 +65,7 @@ func validateSpec(prefix, clientOrServer string) error {
 		batch.Add(lintMetric(name))
 		batch.Add(validateName(name, prefix, clientOrServer))
 
-		labels := map[string]struct{}{}
+		labels := make(map[string]struct{})
 		for _, metric := range m.GetMetric() {
 			for _, label := range metric.Label {
 				labels[*label.Name] = struct{}{}
@@ -84,11 +86,9 @@ func validateSpec(prefix, clientOrServer string) error {
 }
 
 func keysFrom(metrics map[string]struct{}) []string {
-	missing := []string{}
-	if len(metrics) > 0 {
-		for k := range metrics {
-			missing = append(missing, k)
-		}
+	missing := make([]string, 0, len(metrics))
+	for k := range metrics {
+		missing = append(missing, k)
 	}
 	return missing
 }
@@ -98,7 +98,7 @@ func keysFrom(metrics map[string]struct{}) []string {
 // The prefix will be either thrift, http, or grpc.
 func buildMetricNames(prefix, clientOrServer string) map[string]struct{} {
 	suffixes := []string{"latency_seconds", "requests_total", "active_requests"}
-	names := map[string]struct{}{}
+	var names = map[string]struct{}{}
 	for _, suffix := range suffixes {
 		names[prometheus.BuildFQName(prefix, clientOrServer, suffix)] = struct{}{}
 	}
@@ -116,10 +116,9 @@ func validateName(name, prefix, clientOrServer string) error {
 
 	const (
 		separator = "_"
-		partCount = 3
 	)
-	parts := strings.SplitN(name, separator, partCount)
-	if len(parts) < partCount {
+	parts := strings.SplitN(name, separator, partsCount)
+	if len(parts) < partsCount {
 		batch.Add(fmt.Errorf("%w: name: %q part count: %d", errLength, name, len(parts)))
 		return batch.Compile()
 	}

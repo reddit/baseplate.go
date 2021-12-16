@@ -20,7 +20,6 @@ func TestMissingMetrics(t *testing.T) {
 		{
 			name:    "none missing",
 			missing: map[string]struct{}{},
-			want:    []string{},
 		},
 		{
 			name:    "missing",
@@ -30,11 +29,23 @@ func TestMissingMetrics(t *testing.T) {
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, want := keysFrom(tt.missing), tt.want; !reflect.DeepEqual(got, want) {
+			if got, want := keysFrom(tt.missing), tt.want; !stringSlicesEqual(got, want) {
 				t.Fatalf("got %v, want %v", got, want)
 			}
 		})
 	}
+}
+
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestBuildMetricsNames(t *testing.T) {
@@ -313,6 +324,7 @@ func TestValidateSpec(t *testing.T) {
 
 func checkErrors(tb testing.TB, gotErr error, wantErrs []error) {
 	tb.Helper()
+	tb.Logf("got errors %v, want errors %v", gotErr, wantErrs)
 
 	if got, want := errorsbp.BatchSize(gotErr), len(wantErrs); got != want {
 		tb.Errorf("not same number of errors got %d, want %d", got, want)
@@ -320,7 +332,7 @@ func checkErrors(tb testing.TB, gotErr error, wantErrs []error) {
 
 	for _, wantErr := range wantErrs {
 		if !errors.Is(gotErr, wantErr) {
-			tb.Fatalf("error mismatch: got %v, want %v", gotErr, wantErr)
+			tb.Errorf("want error %v not in returned errors", wantErr)
 		}
 	}
 }
