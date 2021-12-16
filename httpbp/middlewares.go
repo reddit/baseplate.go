@@ -250,7 +250,7 @@ func SupportedMethods(method string, additional ...string) Middleware {
 
 // recoverPanic recovers from any panics, logs them, and sets the returned error
 // to a generic 500 error. recoverPanic is always the last middleware in the
-// middleware chain, so it is the first one when returning, this lets the error
+// middleware chain, so it is the first one when returning which lets the error
 // bubble up into other middlewares. Since it is always added to the middleware
 // chain is a specific position, it is not exported.
 func recoverPanic(name string, next HandlerFunc) HandlerFunc {
