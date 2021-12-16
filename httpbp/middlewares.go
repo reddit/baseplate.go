@@ -267,7 +267,6 @@ func PrometheusServerMetrics(serverSlug string, x bool) Middleware {
 				code := http.StatusText(http.StatusOK)
 				if err != nil {
 					code = err.Error()
-					fmt.Println("err:", code)
 				}
 
 				labels := prometheus.Labels{

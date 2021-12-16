@@ -28,7 +28,7 @@ func TestPrometheusServerMetrics(t *testing.T) {
 		},
 		{
 			name:     "err",
-			code:     "500 Internal Server Error",
+			code:     http.ErrHandlerTimeout.Error(),
 			success:  "false",
 			method:   "POST",
 			endpoint: "/error",
