@@ -347,6 +347,8 @@ func statusCodeFamily(code int) string {
 
 // counterGenerator is used by recordStatusCode to create counters for recording
 // http response codes set by the server.
+//
+// this was added purely to make it easier to test the middleware.
 type counterGenerator interface {
 	Counter(name string) metrics.Counter
 }
