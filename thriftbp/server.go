@@ -106,14 +106,12 @@ func NewBaseplateServer(
 	)
 	middlewares = append(middlewares, cfg.Middlewares...)
 	cfg.Middlewares = middlewares
-	if cfg.Logger == nil {
-		cfg.Logger = log.ZapWrapper(log.ZapWrapperArgs{
-			Level: bp.GetConfig().Log.Level,
-			KVPairs: map[string]interface{}{
-				"from": "thrift",
-			},
-		}).ToThriftLogger()
-	}
+	cfg.Logger = log.ZapWrapper(log.ZapWrapperArgs{
+		Level: bp.GetConfig().Log.Level,
+		KVPairs: map[string]interface{}{
+			"from": "thrift",
+		},
+	}).ToThriftLogger()
 	cfg.Addr = bp.GetConfig().Addr
 	cfg.Socket = nil
 	srv, err := NewServer(cfg)
