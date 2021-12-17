@@ -346,8 +346,9 @@ func tHeaderProtocol2String(proto thrift.THeaderProtocolID) string {
 	}
 }
 
-// RecoverPanic recovers from panics raised in the TProccessorFunction chain, reports them
-// to sentry, and records a metric indicating that the endpoint recovered from a panic.
+// RecoverPanic recovers from panics raised in the TProccessorFunction chain,
+// logs them, and records a metric indicating that the endpoint recovered from a
+// panic.
 func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 	return thrift.WrappedTProcessorFunction{
 		Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (ok bool, err thrift.TException) {
@@ -359,10 +360,9 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 					} else {
 						rErr = fmt.Errorf("panic in %q: %+v", name, r)
 					}
-					log.ErrorWithSentry(
-						ctx,
+					log.C(ctx).Errorw(
 						"recovered from panic:",
-						rErr,
+						"err", rErr,
 						"endpoint", name,
 					)
 					metricsbp.M.Counter("panic.recover").With(
