@@ -1,9 +1,12 @@
 package httpbp
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/reddit/baseplate.go"
@@ -11,7 +14,20 @@ import (
 	"github.com/reddit/baseplate.go/prometheusbp"
 )
 
+type exampleEndpointRequest struct {
+	Input string `json:"input"`
+}
+
+type exampleEndpointResponse struct {
+	Message string `json:"message"`
+}
+
 func TestPrometheusServerMetrics(t *testing.T) {
+	const (
+		serverSlug = "testServer"
+		get        = "GET"
+		post       = "POST"
+	)
 	testCases := []struct {
 		name     string
 		code     string
@@ -21,25 +37,26 @@ func TestPrometheusServerMetrics(t *testing.T) {
 	}{
 		{
 			name:     "success",
-			code:     "OK",
+			code:     "200",
 			success:  "true",
-			method:   "GET",
+			method:   get,
 			endpoint: "/test",
 		},
 		{
-			name:     "err",
-			code:     http.ErrHandlerTimeout.Error(),
+			name:     "err get",
+			code:     "500",
 			success:  "false",
-			method:   "POST",
+			method:   get,
+			endpoint: "/error2",
+		},
+		{
+			name:     "err post",
+			code:     "401",
+			success:  "false",
+			method:   post,
 			endpoint: "/error",
 		},
 	}
-
-	const (
-		serverSlug = "testServer"
-		get        = "GET"
-		post       = "POST"
-	)
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -62,6 +79,12 @@ func TestPrometheusServerMetrics(t *testing.T) {
 				tt.endpoint,
 			}
 
+			sizeLabels := []string{
+				tt.method,
+				tt.success,
+				tt.endpoint,
+			}
+
 			totalRequestLabels := []string{
 				tt.method,
 				tt.success,
@@ -79,6 +102,8 @@ func TestPrometheusServerMetrics(t *testing.T) {
 			defer prometheusbp.MetricTest(t, "server latency", serverLatency).CheckExists()
 			defer prometheusbp.MetricTest(t, "server total requests", serverTotalRequests, serverTotalRequestLabels...).CheckDelta(1)
 			defer prometheusbp.MetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels...).CheckDelta(0)
+			defer prometheusbp.MetricTest(t, "server request size", serverRequestSize, sizeLabels...).CheckDelta(0)
+			defer prometheusbp.MetricTest(t, "server response size", serverResponseSize, sizeLabels...).CheckDelta(0)
 			defer prometheusbp.MetricTest(t, "client latency", clientLatency).CheckNotExists()
 			defer prometheusbp.MetricTest(t, "client total requests", clientTotalRequests, totalRequestLabels...).CheckDelta(0)
 			defer prometheusbp.MetricTest(t, "client active requests", clientActiveRequests, activeRequestLabels...).CheckDelta(0)
@@ -104,10 +129,26 @@ func TestPrometheusServerMetrics(t *testing.T) {
 					"/error": {
 						Name:    "error",
 						Methods: methods,
-						Handle:  func(ctx context.Context, w http.ResponseWriter, r *http.Request) error { return http.ErrHandlerTimeout },
+						Handle: func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+							var req exampleEndpointRequest
+							if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+								return fmt.Errorf("decoding %T: %w", req, err)
+							}
+							body := exampleEndpointResponse{
+								Message: fmt.Sprintf("Input: %q", req.Input),
+							}
+							return WriteJSON(w, Response{Body: body, Code: http.StatusUnauthorized})
+						},
+					},
+					"/error2": {
+						Name:    "error",
+						Methods: methods,
+						Handle: func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+							return errors.New("test")
+						},
 					},
 				},
-				Middlewares: []Middleware{PrometheusServerMetrics(serverSlug, false)},
+				Middlewares: []Middleware{PrometheusServerMetrics(serverSlug)},
 			}
 
 			server, ts, err := NewTestBaseplateServer(args)
@@ -123,14 +164,19 @@ func TestPrometheusServerMetrics(t *testing.T) {
 			if tt.method == get {
 				_, err = client.Get(ts.URL + tt.endpoint)
 				if err != nil {
-					t.Fatal("http.Get", err)
+					t.Fatal("client.Get", err)
 				}
 			}
 
 			if tt.method == post {
-				_, err = client.Post(ts.URL+tt.endpoint, "", strings.NewReader("test"))
+				input := exampleEndpointRequest{Input: "foo"}
+				var body bytes.Buffer
+				if err := json.NewEncoder(&body).Encode(input); err != nil {
+					t.Fatal(err)
+				}
+				_, err = client.Post(ts.URL+tt.endpoint, "", &body)
 				if err != nil {
-					t.Fatal("http.Get", err)
+					t.Fatal("client.Post", err)
 				}
 			}
 		})

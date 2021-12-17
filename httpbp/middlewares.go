@@ -2,6 +2,7 @@ package httpbp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"
@@ -250,7 +252,7 @@ func SupportedMethods(method string, additional ...string) Middleware {
 	}
 }
 
-func PrometheusServerMetrics(serverSlug string, x bool) Middleware {
+func PrometheusServerMetrics(serverSlug string) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			start := time.Now()
@@ -262,34 +264,77 @@ func PrometheusServerMetrics(serverSlug string, x bool) Middleware {
 			}
 			serverActiveRequests.With(activeRequestLabels).Inc()
 
+			wrapped := &statusCodeRecorder{ResponseWriter: w}
 			defer func() {
-				success := strconv.FormatBool(err == nil)
-				code := http.StatusText(http.StatusOK)
-				if err != nil {
-					code = err.Error()
-				}
+				code := getCode(wrapped, err)
+				success := strconv.FormatBool(err == nil && code == http.StatusOK)
 
 				labels := prometheus.Labels{
 					methodLabel:   method,
 					successLabel:  success,
 					endpointLabel: endpoint,
 				}
-
 				serverLatency.With(labels).Observe(time.Since(start).Seconds())
-				serverRequestSize.With(labels).Observe(time.Since(start).Seconds())
-				serverResponseSize.With(labels).Observe(time.Since(start).Seconds())
+				serverRequestSize.With(labels).Observe(float64(r.ContentLength))
+				serverResponseSize.With(labels).Observe(float64(getContentLength(w)))
 
 				totalRequestLabels := prometheus.Labels{
 					methodLabel:   method,
 					successLabel:  success,
 					endpointLabel: endpoint,
-					codeLabel:     code,
+					codeLabel:     strconv.Itoa(code),
 				}
 				serverTotalRequests.With(totalRequestLabels).Inc()
 				serverActiveRequests.With(activeRequestLabels).Dec()
 			}()
 
-			return next(ctx, w, r)
+			return next(ctx, wrapped, r)
 		}
 	}
+}
+
+func getContentLength(w http.ResponseWriter) int64 {
+	if cl := w.Header().Get("Content-Length"); cl != "" {
+		v, err := strconv.ParseInt(cl, 10, 64)
+		if err == nil && v >= 0 {
+			return 0
+		}
+	}
+	return 0
+}
+
+// statusCodeRecorder is used by RecordStatusCode to record the code passed to
+// a call to WriteHeader.
+type statusCodeRecorder struct {
+	http.ResponseWriter
+
+	code int
+}
+
+func (r *statusCodeRecorder) WriteHeader(code int) {
+	r.ResponseWriter.WriteHeader(code)
+	if r.code == 0 {
+		r.code = code
+	}
+}
+
+func getCode(w *statusCodeRecorder, err error) int {
+	var code int
+	if w.code != 0 {
+		// WriteHeader was called explicitly, use that
+		code = w.code
+	} else if err != nil {
+		// something went wrong, check if err is an HTTPErr where we can extract
+		// the code, otherwise assume InternalServerError
+		var httpErr HTTPError
+		if errors.As(err, &httpErr) {
+			code = httpErr.Response().Code
+		} else {
+			code = http.StatusInternalServerError
+		}
+	} else {
+		// if there's no error returned and no call to WriteHeader, assume OK
+		code = http.StatusOK
+	}
+	return code
 }
