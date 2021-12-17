@@ -322,6 +322,27 @@ func (r *statusCodeRecorder) WriteHeader(code int) {
 	}
 }
 
+func (r *statusCodeRecorder) getCode(err error) int {
+	if r.code != 0 {
+		// WriteHeader was called explicitly, use that
+		return r.code
+	}
+	if err != nil {
+		// something went wrong, check if err is an HTTPErr where we can extract
+		// the code, otherwise assume InternalServerError
+		var httpErr HTTPError
+		if errors.As(err, &httpErr) {
+			return httpErr.Response().Code
+		}
+		return http.StatusInternalServerError
+
+	}
+	// if there's no error returned and no call to WriteHeader, Go will
+	// return OK.
+	// https://pkg.go.dev/net/http#ResponseWriter.WriteHeader
+	return http.StatusOK
+}
+
 var families = [10]string{
 	"nan",
 	"1xx",
@@ -359,26 +380,7 @@ func recordStatusCode(counters counterGenerator) Middleware {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			wrapped := &statusCodeRecorder{ResponseWriter: w}
 			defer func() {
-				var code int
-				if wrapped.code != 0 {
-					// WriteHeader was called explicitly, use that
-					code = wrapped.code
-				} else if err != nil {
-					// something went wrong, check if err is an HTTPErr where we can extract
-					// the code, otherwise assume InternalServerError
-					var httpErr HTTPError
-					if errors.As(err, &httpErr) {
-						code = httpErr.Response().Code
-					} else {
-						code = http.StatusInternalServerError
-					}
-				} else {
-					// if there's no error returned and no call to WriteHeader, Go will
-					// return OK.
-					// https://pkg.go.dev/net/http#ResponseWriter.WriteHeader
-					code = http.StatusOK
-				}
-
+				code := wrapped.getCode(err)
 				counter.With("status", statusCodeFamily(code)).Add(1)
 			}()
 
