@@ -266,7 +266,7 @@ func PrometheusServerMetrics(serverSlug string) Middleware {
 
 			wrapped := &statusCodeRecorder{ResponseWriter: w}
 			defer func() {
-				code := getCode(wrapped, err)
+				code := wrapped.getCode(err)
 				success := strconv.FormatBool(err == nil && code == http.StatusOK)
 
 				labels := prometheus.Labels{
@@ -318,11 +318,11 @@ func (r *statusCodeRecorder) WriteHeader(code int) {
 	}
 }
 
-func getCode(w *statusCodeRecorder, err error) int {
+func (r *statusCodeRecorder) getCode(err error) int {
 	var code int
-	if w.code != 0 {
+	if r.code != 0 {
 		// WriteHeader was called explicitly, use that
-		code = w.code
+		code = r.code
 	} else if err != nil {
 		// something went wrong, check if err is an HTTPErr where we can extract
 		// the code, otherwise assume InternalServerError
