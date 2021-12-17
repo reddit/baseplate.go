@@ -11,6 +11,7 @@ import (
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -264,5 +265,37 @@ func SupportedMethods(method string, additional ...string) Middleware {
 			}
 			return next(ctx, w, r)
 		}
+	}
+}
+
+// recoverPanic recovers from any panics, logs them, and sets the returned error
+// to a generic 500 error. recoverPanic is always the last middleware in the
+// middleware chain, so it is the first one when returning which lets the error
+// bubble up into other middlewares. Since it is always added to the middleware
+// chain is a specific position, it is not exported.
+func recoverPanic(name string, next HandlerFunc) HandlerFunc {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				var rErr error
+				if asErr, ok := r.(error); ok {
+					rErr = asErr
+				} else {
+					rErr = fmt.Errorf("panic in %q: %+v", name, r)
+				}
+				log.C(ctx).Errorw(
+					"recovered from panic:",
+					"err", rErr,
+					"endpoint", name,
+				)
+				metricsbp.M.Counter("panic.recover").With(
+					"name", name,
+				).Add(1)
+
+				// change named return value to a generic 500 error
+				err = RawError(InternalServerError(), rErr, PlainTextContentType)
+			}
+		}()
+		return next(ctx, w, r)
 	}
 }
