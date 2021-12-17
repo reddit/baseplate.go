@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/go-kit/kit/metrics"
-	
+
 	"github.com/reddit/baseplate.go/metricsbp"
 )
 

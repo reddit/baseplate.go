@@ -371,7 +371,9 @@ func recordStatusCode(counters counterGenerator) Middleware {
 						code = http.StatusInternalServerError
 					}
 				} else {
-					// if there's no error returned and no call to WriteHeader, assume OK
+					// if there's no error returned and no call to WriteHeader, Go will
+					// return OK.
+					// https://pkg.go.dev/net/http#ResponseWriter.WriteHeader
 					code = http.StatusOK
 				}
 
