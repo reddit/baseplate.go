@@ -74,7 +74,7 @@ func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	return []Middleware{
 		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
-		RecordStatusCode(metricsbp.M),
+		RecordStatusCode(),
 	}
 }
 
@@ -345,29 +345,13 @@ func statusCodeFamily(code int) string {
 	return families[family]
 }
 
-// CounterGenerator is used by RecordStatusCode to create counters for recording
+// counterGenerator is used by recordStatusCode to create counters for recording
 // http response codes set by the server.
-type CounterGenerator interface {
+type counterGenerator interface {
 	Counter(name string) metrics.Counter
 }
 
-// RecordStatusCode extracts the status code set on the request in the following
-// order:
-//	1. Check if WriteHeader was called on the ResponseWriter and use that code
-//	if it was.
-//	2. If an error was returned, check if it is an HTTPError. If it is, use the
-//	code from the error, otherwise assume 500.
-//	3. Assume 200.
-//
-// If it sees an invalid status code (<100 or >999), it will record the status
-// as "-nan" for codes <100 and "nan" for codes >999. Note that a code that is
-// <100 or >999 is unlikely to appear here and will cause a  panic if passed to
-// WriteHeader.
-//
-// RecordStatusCode should generally not be used directly, instead use the
-// NewBaseplateServer function which will automatically include RecordStatusCode
-// as one of the Middlewares to wrap your handlers in.
-func RecordStatusCode(counters CounterGenerator) Middleware {
+func recordStatusCode(counters counterGenerator) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		counter := counters.Counter("baseplate.http." + name + ".response")
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
@@ -397,4 +381,24 @@ func RecordStatusCode(counters CounterGenerator) Middleware {
 			return next(ctx, wrapped, r)
 		}
 	}
+}
+
+// RecordStatusCode extracts the status code set on the request in the following
+// order:
+//	1. Check if WriteHeader was called on the ResponseWriter and use that code
+//	if it was.
+//	2. If an error was returned, check if it is an HTTPError. If it is, use the
+//	code from the error, otherwise assume 500.
+//	3. Assume 200.
+//
+// If it sees an invalid status code (<100 or >999), it will record the status
+// as "-nan" for codes <100 and "nan" for codes >999. Note that a code that is
+// <100 or >999 is unlikely to appear here and will cause a  panic if passed to
+// WriteHeader.
+//
+// RecordStatusCode should generally not be used directly, instead use the
+// NewBaseplateServer function which will automatically include RecordStatusCode
+// as one of the Middlewares to wrap your handlers in.
+func RecordStatusCode() Middleware {
+	return recordStatusCode(metricsbp.M)
 }
