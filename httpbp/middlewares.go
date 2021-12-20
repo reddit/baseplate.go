@@ -353,7 +353,7 @@ var families = [6]string{
 }
 
 // statusCodeFamily takes an http status code and returns it as an "Nxx"
-// string. Returns "nan" if code < 100 or code >= 600.
+// string. Returns "nan" if code < 100 or code > 599.
 func statusCodeFamily(code int) string {
 	family := code / 100
 	if family < 0 || family >= len(families) {
@@ -393,9 +393,9 @@ func recordStatusCode(counters counterGenerator) Middleware {
 //	code from the error, otherwise assume 500.
 //	3. Assume 200.
 //
-// If it sees an invalid status code (<100 or >999), it will record the status
-// as "-nan" for codes <100 and "nan" for codes >999. Note that a code that is
-// <100 or >999 is unlikely to appear here and will cause a  panic if passed to
+// If it sees an invalid status code (<100 or >599), it will record the status
+// as "-nan" for codes <100 and "nan" for codes >599. Note that a code that is
+// <100 or >599 is unlikely to appear here and will cause a  panic if passed to
 // WriteHeader.
 //
 // RecordStatusCode should generally not be used directly, instead use the
