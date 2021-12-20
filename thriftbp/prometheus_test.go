@@ -11,7 +11,8 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
-	"github.com/reddit/baseplate.go/prometheusbp"
+	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
+	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 )
 
 func TestPrometheusServerMiddleware(t *testing.T) {
@@ -51,6 +52,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 		serviceName = "testservice"
 		method      = "testmethod"
 	)
+
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			serverLatencyDistribution.Reset()
@@ -78,9 +80,10 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 				method,
 			}
 
-			defer prometheusbp.MetricTest(t, "latency", serverLatencyDistribution).CheckExists()
-			defer prometheusbp.MetricTest(t, "rpc count", serverRPCRequestCounter, labelValues...).CheckDelta(1)
-			defer prometheusbp.MetricTest(t, "active requests", serverActiveRequests, requestLabelValues...).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "latency", serverLatencyDistribution).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "rpc count", serverRPCRequestCounter, labelValues...).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "active requests", serverActiveRequests, requestLabelValues...).CheckDelta(0)
+			defer spectest.ValidateSpec(t, "thrift", "server")
 
 			next := thrift.WrappedTProcessorFunction{
 				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
@@ -104,9 +107,9 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 // PromClientMetricsTest keeps track of the Thrift client Prometheus metrics
 // during testing.
 type PromClientMetricsTest struct {
-	latency        *prometheusbp.PrometheusMetricTest
-	rpcCount       *prometheusbp.PrometheusMetricTest
-	activeRequests *prometheusbp.PrometheusMetricTest
+	latency        *promtest.PrometheusMetricTest
+	rpcCount       *promtest.PrometheusMetricTest
+	activeRequests *promtest.PrometheusMetricTest
 }
 
 // PrometheusClientMetricsTest resets the Thrift client Prometheus metrics and
@@ -116,9 +119,9 @@ func PrometheusClientMetricsTest(t *testing.T, requestCountLabelValues, activeRe
 	clientRPCRequestCounter.Reset()
 	clientActiveRequests.Reset()
 	return PromClientMetricsTest{
-		latency:        prometheusbp.MetricTest(t, "latency", clientLatencyDistribution),
-		rpcCount:       prometheusbp.MetricTest(t, "rpc count", clientRPCRequestCounter, requestCountLabelValues...),
-		activeRequests: prometheusbp.MetricTest(t, "active requests", clientActiveRequests, activeRequestsLabelValues...),
+		latency:        promtest.NewPrometheusMetricTest(t, "latency", clientLatencyDistribution),
+		rpcCount:       promtest.NewPrometheusMetricTest(t, "rpc count", clientRPCRequestCounter, requestCountLabelValues...),
+		activeRequests: promtest.NewPrometheusMetricTest(t, "active requests", clientActiveRequests, activeRequestsLabelValues...),
 	}
 }
 
