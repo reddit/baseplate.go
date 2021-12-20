@@ -343,7 +343,7 @@ func (r *statusCodeRecorder) getCode(err error) int {
 	return http.StatusOK
 }
 
-var families = [6]string{
+var families = [...]string{
 	"nan",
 	"1xx",
 	"2xx",
