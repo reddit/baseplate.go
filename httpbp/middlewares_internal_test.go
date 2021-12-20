@@ -143,22 +143,22 @@ func TestRecordStatusCode(t *testing.T) {
 		{
 			name:    "non-standard/6xx",
 			handler: newTestHandler(testHandlerPlan{code: 600}),
-			status:  "6xx",
+			status:  "nan",
 		},
 		{
 			name:    "non-standard/7xx",
 			handler: newTestHandler(testHandlerPlan{code: 700}),
-			status:  "7xx",
+			status:  "nan",
 		},
 		{
 			name:    "non-standard/8xx",
 			handler: newTestHandler(testHandlerPlan{code: 800}),
-			status:  "8xx",
+			status:  "nan",
 		},
 		{
 			name:    "non-standard/9xx",
 			handler: newTestHandler(testHandlerPlan{code: 999}),
-			status:  "9xx",
+			status:  "nan",
 		},
 
 		// Note, while these tests show that the "nan" responses for

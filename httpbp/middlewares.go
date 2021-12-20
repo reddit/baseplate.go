@@ -343,17 +343,13 @@ func (r *statusCodeRecorder) getCode(err error) int {
 	return http.StatusOK
 }
 
-var families = [10]string{
+var families = [6]string{
 	"nan",
 	"1xx",
 	"2xx",
 	"3xx",
 	"4xx",
 	"5xx",
-	"6xx",
-	"7xx",
-	"8xx",
-	"9xx",
 }
 
 // statusCodeFamily takes an http status code and returns it as an "Nxx"
