@@ -14,48 +14,94 @@ import (
 	"github.com/reddit/baseplate.go/prometheusbp"
 )
 
-type exampleEndpointRequest struct {
+type exampleRequest struct {
 	Input string `json:"input"`
 }
 
-type exampleEndpointResponse struct {
+type exampleResponse struct {
 	Message string `json:"message"`
 }
 
-func TestPrometheusServerMetrics(t *testing.T) {
-	const (
-		serverSlug = "testServer"
-		get        = "GET"
-		post       = "POST"
-	)
+func TestPrometheusClientServerMetrics(t *testing.T) {
 	testCases := []struct {
 		name     string
 		code     string
 		success  string
 		method   string
 		endpoint string
+		size     int
 	}{
 		{
-			name:     "success",
+			name:     "success get",
 			code:     "200",
 			success:  "true",
-			method:   get,
+			method:   http.MethodGet,
 			endpoint: "/test",
-		},
-		{
-			name:     "err get",
-			code:     "500",
-			success:  "false",
-			method:   get,
-			endpoint: "/error2",
 		},
 		{
 			name:     "err post",
 			code:     "401",
 			success:  "false",
-			method:   post,
+			method:   http.MethodPost,
+			endpoint: "/error2",
+			size:     16,
+		},
+		{
+			name:     "internal err get",
+			code:     "500",
+			success:  "false",
+			method:   http.MethodGet,
 			endpoint: "/error",
 		},
+	}
+
+	const serverSlug = "testServer"
+
+	args := ServerArgs{
+		Baseplate: baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+			Config:          baseplate.Config{Addr: ":8080"},
+			EdgeContextImpl: ecinterface.Mock(),
+		}),
+		Endpoints: map[Pattern]Endpoint{
+			"/test": {
+				Name:    "test",
+				Methods: []string{http.MethodGet},
+				Handle:  func(ctx context.Context, w http.ResponseWriter, r *http.Request) error { return nil },
+			},
+			"/error2": {
+				Name:    "error",
+				Methods: []string{http.MethodPost},
+				Handle: func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+					var req exampleRequest
+					if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+						return fmt.Errorf("decoding %T: %w", req, err)
+					}
+					body := exampleResponse{
+						Message: fmt.Sprintf("Input: %q", req.Input),
+					}
+					return WriteJSON(w, Response{Body: body, Code: Unauthorized().code})
+				},
+			},
+			"/error": {
+				Name:    "error",
+				Methods: []string{http.MethodGet},
+				Handle: func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+					return errors.New("test")
+				},
+			},
+		},
+		Middlewares: []Middleware{PrometheusServerMetrics(serverSlug)},
+	}
+
+	server, ts, err := NewTestBaseplateServer(args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+
+	middleware := PrometheusClientMetrics(serverSlug)
+	client := &http.Client{
+		Transport: middleware(http.DefaultTransport),
 	}
 
 	for _, tt := range testCases {
@@ -79,7 +125,7 @@ func TestPrometheusServerMetrics(t *testing.T) {
 				tt.endpoint,
 			}
 
-			sizeLabels := []string{
+			serverSizeLabels := []string{
 				tt.method,
 				tt.success,
 				tt.endpoint,
@@ -99,82 +145,37 @@ func TestPrometheusServerMetrics(t *testing.T) {
 				serverSlug,
 			}
 
-			defer prometheusbp.MetricTest(t, "server latency", serverLatency).CheckExists()
+			clientSizeLabels := []string{
+				tt.method,
+				tt.success,
+				tt.endpoint,
+				serverSlug,
+			}
+
+			defer prometheusbp.MetricTest(t, "server latency", serverLatency, serverSizeLabels...).CheckExists()
 			defer prometheusbp.MetricTest(t, "server total requests", serverTotalRequests, serverTotalRequestLabels...).CheckDelta(1)
 			defer prometheusbp.MetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels...).CheckDelta(0)
-			defer prometheusbp.MetricTest(t, "server request size", serverRequestSize, sizeLabels...).CheckDelta(0)
-			defer prometheusbp.MetricTest(t, "server response size", serverResponseSize, sizeLabels...).CheckDelta(0)
-			defer prometheusbp.MetricTest(t, "client latency", clientLatency).CheckNotExists()
-			defer prometheusbp.MetricTest(t, "client total requests", clientTotalRequests, totalRequestLabels...).CheckDelta(0)
+			defer prometheusbp.MetricTest(t, "server request size", serverRequestSize, serverSizeLabels...).CheckDelta(float64(tt.size))
+			defer prometheusbp.MetricTest(t, "server response size", serverResponseSize, serverSizeLabels...).CheckDelta(0)
+			defer prometheusbp.MetricTest(t, "client latency", clientLatency, clientSizeLabels...).CheckExists()
+			defer prometheusbp.MetricTest(t, "client total requests", clientTotalRequests, totalRequestLabels...).CheckDelta(1)
 			defer prometheusbp.MetricTest(t, "client active requests", clientActiveRequests, activeRequestLabels...).CheckDelta(0)
 
-			var methods = []string{}
-			switch {
-			case tt.method == get:
-				methods = append(methods, get)
-			case tt.method == post:
-				methods = append(methods, post)
-			}
-			args := ServerArgs{
-				Baseplate: baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
-					Config:          baseplate.Config{Addr: ":8080"},
-					EdgeContextImpl: ecinterface.Mock(),
-				}),
-				Endpoints: map[Pattern]Endpoint{
-					"/test": {
-						Name:    "test",
-						Methods: methods,
-						Handle:  func(ctx context.Context, w http.ResponseWriter, r *http.Request) error { return nil },
-					},
-					"/error": {
-						Name:    "error",
-						Methods: methods,
-						Handle: func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-							var req exampleEndpointRequest
-							if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-								return fmt.Errorf("decoding %T: %w", req, err)
-							}
-							body := exampleEndpointResponse{
-								Message: fmt.Sprintf("Input: %q", req.Input),
-							}
-							return WriteJSON(w, Response{Body: body, Code: http.StatusUnauthorized})
-						},
-					},
-					"/error2": {
-						Name:    "error",
-						Methods: methods,
-						Handle: func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-							return errors.New("test")
-						},
-					},
-				},
-				Middlewares: []Middleware{PrometheusServerMetrics(serverSlug)},
-			}
-
-			server, ts, err := NewTestBaseplateServer(args)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer server.Close()
-
-			client := &http.Client{
-				Transport: http.DefaultTransport,
-			}
-
-			if tt.method == get {
+			if tt.method == http.MethodGet {
 				_, err = client.Get(ts.URL + tt.endpoint)
 				if err != nil {
 					t.Fatal("client.Get", err)
 				}
 			}
 
-			if tt.method == post {
-				input := exampleEndpointRequest{Input: "foo"}
+			if tt.method == http.MethodPost {
+				input := exampleRequest{Input: "foo"}
 				var body bytes.Buffer
 				if err := json.NewEncoder(&body).Encode(input); err != nil {
 					t.Fatal(err)
 				}
-				_, err = client.Post(ts.URL+tt.endpoint, "", &body)
+
+				_, err := client.Post(ts.URL+tt.endpoint, "", &body)
 				if err != nil {
 					t.Fatal("client.Post", err)
 				}

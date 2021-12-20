@@ -279,7 +279,7 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 					methodLabel:            method,
 					successLabel:           success,
 					endpointLabel:          endpoint,
-					codeLabel:              resp.Status,
+					codeLabel:              strconv.Itoa(resp.StatusCode),
 					remoteServiceSlugLabel: serverSlug,
 				}
 				clientTotalRequests.With(totalRequestLabels).Inc()

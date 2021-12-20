@@ -297,7 +297,7 @@ func getContentLength(w http.ResponseWriter) int64 {
 	if cl := w.Header().Get("Content-Length"); cl != "" {
 		v, err := strconv.ParseInt(cl, 10, 64)
 		if err == nil && v >= 0 {
-			return 0
+			return v
 		}
 	}
 	return 0
@@ -319,22 +319,22 @@ func (r *statusCodeRecorder) WriteHeader(code int) {
 }
 
 func (r *statusCodeRecorder) getCode(err error) int {
-	var code int
 	if r.code != 0 {
 		// WriteHeader was called explicitly, use that
-		code = r.code
-	} else if err != nil {
+		return r.code
+	}
+	if err != nil {
 		// something went wrong, check if err is an HTTPErr where we can extract
 		// the code, otherwise assume InternalServerError
 		var httpErr HTTPError
 		if errors.As(err, &httpErr) {
-			code = httpErr.Response().Code
-		} else {
-			code = http.StatusInternalServerError
+			return httpErr.Response().Code
 		}
-	} else {
-		// if there's no error returned and no call to WriteHeader, assume OK
-		code = http.StatusOK
+		return http.StatusInternalServerError
+
 	}
-	return code
+	// if there's no error returned and no call to WriteHeader, Go will
+	// return OK.
+	// https://pkg.go.dev/net/http#ResponseWriter.WriteHeader
+	return http.StatusOK
 }
