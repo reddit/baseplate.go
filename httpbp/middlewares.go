@@ -353,7 +353,7 @@ var families = [6]string{
 }
 
 // statusCodeFamily takes an http status code and returns it as an "Nxx"
-// string. Returns "nan" if code < 100 or code > 999.
+// string. Returns "nan" if code < 100 or code >= 600.
 func statusCodeFamily(code int) string {
 	family := code / 100
 	if family < 0 || family >= len(families) {
