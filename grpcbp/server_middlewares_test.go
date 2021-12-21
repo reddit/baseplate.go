@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 	"time"
@@ -421,21 +422,11 @@ func TestInjectPrometheusStreamServerClientInterceptor(t *testing.T) {
 				if err == io.EOF {
 					break
 				}
-				if tt.success == "false" {
-					if err != nil {
-						status, _ := status.FromError(err)
-						if want, got := tt.wantErr.String(), status.Code().String(); want != got {
-							t.Fatalf("error mismatch: want %v, got %v", want, got)
-						}
-					}
-					if err == nil {
-						t.Fatal("clientStream Recv: expected err got nil")
-					}
+
+				if got, want := tt.success, fmt.Sprint(err == nil || err == io.EOF); got != want {
+					t.Errorf("tt.success = %q, want %q (err: %v)", got, want, err)
 				}
 
-				if err != nil && tt.success == "true" {
-					t.Fatalf("clientStream Recv: %v", err)
-				}
 				count++
 			}
 		})

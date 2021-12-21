@@ -218,21 +218,22 @@ func PrometheusStreamClientInterceptor(serviceSlug, serverSlug string) grpc.Stre
 // monitoredClientStream wraps grpc.ClientStream to track Prometheus metrics when streaming starts and finishes.
 type monitoredClientStream struct {
 	grpc.ClientStream
+
 	start       time.Time
 	method      string
 	serviceSlug string
 	serverSlug  string
 }
 
-func newMonitoredClientStream(stream grpc.ClientStream, method, serviceSlug, serverSlug string) *monitoredClientStream {
+func newMonitoredClientStream(stream grpc.ClientStream, method, localServiceSlug, remoteServiceSlug string) *monitoredClientStream {
 	s := &monitoredClientStream{
 		stream,
 		time.Now(),
 		method,
-		serviceSlug,
-		serverSlug,
+		localServiceSlug,
+		remoteServiceSlug,
 	}
-	s.ActiveRequestsInc()
+	s.incActiveRequests()
 	return s
 }
 
@@ -246,16 +247,17 @@ func (s *monitoredClientStream) SendMsg(m interface{}) error {
 func (s *monitoredClientStream) RecvMsg(m interface{}) error {
 	err := s.ClientStream.RecvMsg(m)
 	if err != nil {
-		if err == io.EOF {
-			s.trackMetrics(nil)
-		} else {
-			s.trackMetrics(err)
-		}
+		s.trackMetrics(err)
 	}
 	return err
 }
 
-func (s *monitoredClientStream) ActiveRequestsInc() {
+func (s *monitoredClientStream) CloseSend() error {
+	s.decActiveRequests()
+	return s.ClientStream.CloseSend()
+}
+
+func (s *monitoredClientStream) incActiveRequests() {
 	activeRequestLabels := prometheus.Labels{
 		localServiceLabel:      s.serviceSlug,
 		methodLabel:            s.method,
@@ -264,8 +266,17 @@ func (s *monitoredClientStream) ActiveRequestsInc() {
 	clientActiveRequests.With(activeRequestLabels).Inc()
 }
 
+func (s *monitoredClientStream) decActiveRequests() {
+	activeRequestLabels := prometheus.Labels{
+		localServiceLabel:      s.serviceSlug,
+		methodLabel:            s.method,
+		remoteServiceSlugLabel: s.serverSlug,
+	}
+	clientActiveRequests.With(activeRequestLabels).Dec()
+}
+
 func (s *monitoredClientStream) trackMetrics(err error) {
-	success := strconv.FormatBool(err == nil)
+	success := strconv.FormatBool(err == nil || err == io.EOF)
 	status, _ := status.FromError(err)
 
 	latencyLabels := prometheus.Labels{
@@ -286,11 +297,4 @@ func (s *monitoredClientStream) trackMetrics(err error) {
 		remoteServiceSlugLabel: s.serverSlug,
 	}
 	clientRPCRequestCounter.With(rpcCountLabels).Inc()
-
-	activeRequestLabels := prometheus.Labels{
-		localServiceLabel:      s.serviceSlug,
-		methodLabel:            s.method,
-		remoteServiceSlugLabel: s.serverSlug,
-	}
-	clientActiveRequests.With(activeRequestLabels).Dec()
 }
