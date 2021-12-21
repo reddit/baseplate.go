@@ -14,7 +14,7 @@ import (
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/mqsend"
-	"github.com/reddit/baseplate.go/prometheusbp"
+	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
 )
@@ -264,12 +264,12 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 				serverName,
 			}
 
-			defer prometheusbp.MetricTest(t, "server latency", serverLatencyDistribution).CheckExists()
-			defer prometheusbp.MetricTest(t, "server rpc count", serverRPCRequestCounter, serverLabelValues...).CheckDelta(1)
-			defer prometheusbp.MetricTest(t, "server active requests", serverActiveRequests, serverRequestsLabelValues...).CheckDelta(0)
-			defer prometheusbp.MetricTest(t, "client latency", clientLatencyDistribution).CheckExists()
-			defer prometheusbp.MetricTest(t, "client rpc count", clientRPCRequestCounter, clientLabelValues...).CheckDelta(1)
-			defer prometheusbp.MetricTest(t, "client active requests", clientActiveRequests, clientRequestsLabelValues...).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "server rpc count", serverRPCRequestCounter, serverLabelValues...).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverRequestsLabelValues...).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "client rpc count", clientRPCRequestCounter, clientLabelValues...).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientRequestsLabelValues...).CheckDelta(0)
 
 			ctx := context.Background()
 			if tt.success == "true" {
