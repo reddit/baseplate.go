@@ -3,6 +3,7 @@ package grpcbp
 import (
 	"context"
 	"errors"
+	"io"
 	"strconv"
 	"time"
 
@@ -175,7 +176,21 @@ func PrometheusUnaryClientInterceptor(serviceSlug, serverSlug string) grpc.Unary
 // PrometheusStreamClientInterceptor is a client-side interceptor that provides Prometheus
 // monitoring for Streaming RPCs.
 //
-// This is not implemented yet.
+// It emits the following metrics:
+//
+// * grpc_client_active_requests gauge with labels:
+//
+//   - grpc_service: the local service slug, serviceSlug arg
+//   - grpc_method: the name of the method called on the gRPC service
+//   - grpc_slug: the name of the remote server the client connects to
+//
+// * grpc_client_latency_seconds histogram and grpc_client_requests_total
+//   counter with labels:
+//
+//   - grpc_service, grpc_method, grpc_slug
+//   - grpc_success: "true" if status is OK, "false" otherwise
+//   - grpc_type: type of request, i.e unary
+//   - grpc_code: the human-readable status code, e.g. OK, Internal, etc
 func PrometheusStreamClientInterceptor(serviceSlug, serverSlug string) grpc.StreamClientInterceptor {
 	return func(
 		ctx context.Context,
@@ -185,6 +200,101 @@ func PrometheusStreamClientInterceptor(serviceSlug, serverSlug string) grpc.Stre
 		streamer grpc.Streamer,
 		opts ...grpc.CallOption,
 	) (_ grpc.ClientStream, err error) {
-		return nil, errors.New("PrometheusStreamClientInterceptor: not implemented")
+
+		clientStream, err := streamer(ctx, desc, cc, method, opts...)
+		if err != nil {
+			return nil, err
+		}
+		monitoredStream := newMonitoredClientStream(
+			clientStream,
+			method,
+			serviceSlug,
+			serverSlug,
+		)
+		return monitoredStream, nil
 	}
+}
+
+// monitoredClientStream wraps grpc.ClientStream to track Prometheus metrics when streaming starts and finishes.
+type monitoredClientStream struct {
+	grpc.ClientStream
+
+	start       time.Time
+	method      string
+	serviceSlug string
+	serverSlug  string
+}
+
+func newMonitoredClientStream(stream grpc.ClientStream, method, localServiceSlug, remoteServiceSlug string) *monitoredClientStream {
+	s := &monitoredClientStream{
+		stream,
+		time.Now(),
+		method,
+		localServiceSlug,
+		remoteServiceSlug,
+	}
+	s.incActiveRequests()
+	return s
+}
+
+func (s *monitoredClientStream) SendMsg(m interface{}) error {
+	return s.ClientStream.SendMsg(m)
+}
+
+// RecvMsg tracks metrics once streaming is complete. Streaming is complete once a non-nil error
+// is returned from grpc.ClientStream. It returns io.EOF when the client has performed a CloseSend. On
+// any non-EOF error, the stream is aborted and the error contains the RPC status.
+func (s *monitoredClientStream) RecvMsg(m interface{}) error {
+	err := s.ClientStream.RecvMsg(m)
+	if err != nil {
+		s.trackMetrics(err)
+	}
+	return err
+}
+
+func (s *monitoredClientStream) CloseSend() error {
+	s.decActiveRequests()
+	return s.ClientStream.CloseSend()
+}
+
+func (s *monitoredClientStream) incActiveRequests() {
+	activeRequestLabels := prometheus.Labels{
+		localServiceLabel:      s.serviceSlug,
+		methodLabel:            s.method,
+		remoteServiceSlugLabel: s.serverSlug,
+	}
+	clientActiveRequests.With(activeRequestLabels).Inc()
+}
+
+func (s *monitoredClientStream) decActiveRequests() {
+	activeRequestLabels := prometheus.Labels{
+		localServiceLabel:      s.serviceSlug,
+		methodLabel:            s.method,
+		remoteServiceSlugLabel: s.serverSlug,
+	}
+	clientActiveRequests.With(activeRequestLabels).Dec()
+}
+
+func (s *monitoredClientStream) trackMetrics(err error) {
+	success := strconv.FormatBool(err == nil || err == io.EOF)
+	status, _ := status.FromError(err)
+
+	latencyLabels := prometheus.Labels{
+		localServiceLabel:      s.serviceSlug,
+		methodLabel:            s.method,
+		typeLabel:              clientStream,
+		successLabel:           success,
+		remoteServiceSlugLabel: s.serverSlug,
+	}
+	clientLatencyDistribution.With(latencyLabels).Observe(time.Since(s.start).Seconds())
+
+	rpcCountLabels := prometheus.Labels{
+		localServiceLabel:      s.serviceSlug,
+		methodLabel:            s.method,
+		typeLabel:              clientStream,
+		successLabel:           success,
+		codeLabel:              status.Code().String(),
+		remoteServiceSlugLabel: s.serverSlug,
+	}
+	clientRPCRequestCounter.With(rpcCountLabels).Inc()
 }

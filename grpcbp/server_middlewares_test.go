@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"testing"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/mqsend"
@@ -161,6 +164,7 @@ func initTracing(t *testing.T) *mqsend.MockMessageQueue {
 
 type mockService struct {
 	ctx context.Context
+	err error
 }
 
 func (t *mockService) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
@@ -182,7 +186,20 @@ func (t *mockService) PingList(req *pb.PingRequest, c pb.TestService_PingListSer
 }
 
 func (t *mockService) PingStream(c pb.TestService_PingStreamServer) error {
-	panic("not implemented")
+	if t.err != nil {
+		return t.err
+	}
+	for {
+		if _, err := c.Recv(); err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		if err := c.Send(&pb.PingResponse{}); err != nil {
+			return err
+		}
+	}
 }
 
 func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
@@ -285,6 +302,132 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 			ctx = service.ctx
 			if ctx == nil {
 				t.Error("got nil context")
+			}
+		})
+	}
+}
+
+func TestInjectPrometheusStreamServerClientInterceptor(t *testing.T) {
+	const (
+		serviceName = "testSvc"
+		serverName  = "testServer"
+		method      = "Ping"
+	)
+
+	l, service := setupServer(t, grpc.StreamInterceptor(
+		InjectPrometheusStreamServerInterceptor(serviceName),
+	))
+
+	// create test client
+	conn := setupClient(t, l, grpc.WithStreamInterceptor(
+		PrometheusStreamClientInterceptor(serviceName, serverName),
+	))
+
+	// instantiate gRPC client
+	client := pb.NewTestServiceClient(conn)
+
+	testCases := []struct {
+		name    string
+		wantErr codes.Code
+		code    string
+		success string
+		method  string
+	}{
+		{
+			name:    "success",
+			wantErr: codes.OK,
+			code:    "OK",
+			success: "true",
+			method:  "PingStream",
+		},
+		{
+			name:    "err",
+			wantErr: codes.NotFound,
+			code:    "NotFound",
+			success: "false",
+			method:  "PingStream",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			serverLatencyDistribution.Reset()
+			serverRPCRequestCounter.Reset()
+			serverActiveRequests.Reset()
+			clientLatencyDistribution.Reset()
+			clientRPCRequestCounter.Reset()
+			clientActiveRequests.Reset()
+
+			if tt.success == "false" {
+				service.err = status.Errorf(tt.wantErr, "test err: %v", tt.wantErr.String())
+			}
+
+			serverLabelValues := []string{
+				serviceName,
+				tt.method,
+				serverStream,
+				tt.success,
+				tt.code,
+			}
+
+			serverRequestsLabelValues := []string{
+				serviceName,
+				tt.method,
+			}
+
+			clientLabelValues := []string{
+				serviceName,
+				"/mwitkow.testproto.TestService/" + tt.method,
+				clientStream,
+				tt.success,
+				tt.code,
+				serverName,
+			}
+
+			clientRequestsLabelValues := []string{
+				serviceName,
+				tt.method,
+				serverName,
+			}
+
+			defer prometheusbp.MetricTest(t, "server latency", serverLatencyDistribution).CheckExists()
+			defer prometheusbp.MetricTest(t, "server rpc count", serverRPCRequestCounter, serverLabelValues...).CheckDelta(1)
+			defer prometheusbp.MetricTest(t, "server active requests", serverActiveRequests, serverRequestsLabelValues...).CheckDelta(0)
+			defer prometheusbp.MetricTest(t, "client latency", clientLatencyDistribution).CheckExists()
+			defer prometheusbp.MetricTest(t, "client rpc count", clientRPCRequestCounter, clientLabelValues...).CheckDelta(1)
+			defer prometheusbp.MetricTest(t, "client active requests", clientActiveRequests, clientRequestsLabelValues...).CheckDelta(0)
+
+			ctx := context.Background()
+			clientStream, err := client.PingStream(ctx)
+			if err != nil {
+				t.Fatalf("PingStream: %v", err)
+			}
+
+			var count int
+			for {
+				switch {
+				case count < 2:
+					err = clientStream.Send(&pb.PingRequest{})
+				default:
+					err = clientStream.CloseSend()
+				}
+				if err != nil && err != io.EOF {
+					t.Fatalf("clientStream Send or CloseSend: %v", err)
+				}
+				if err == io.EOF {
+					break
+				}
+
+				_, err := clientStream.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				if got, want := tt.success, fmt.Sprint(err == nil || err == io.EOF); got != want {
+					t.Errorf("tt.success = %q, want %q (err: %v)", got, want, err)
+				}
+
+				count++
 			}
 		})
 	}
