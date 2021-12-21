@@ -20,6 +20,26 @@ func parser(f io.Reader) (interface{}, error) {
 	return io.ReadAll(f)
 }
 
+// overwriteFile does atomic overwrite (write to a new file, then use rename to
+// overwrite the old file) instead of in-pleace overwrite (truncate open the
+// file, write to it, close the file).
+//
+// filewatcher is designed to handle atomic overwrites, not in-place overwrites.
+// Doing in-place overwrite will cause the filewatcher to be triggered twice
+// (once the file is truncated, once when closing the file), which would cause
+// some of the tests to fail flakily on CI.
+func overwriteFile(tb testing.TB, path string, content []byte) {
+	tb.Helper()
+
+	tmpPath := filepath.Join(tb.TempDir(), "file")
+	if err := os.WriteFile(tmpPath, content, 0644); err != nil {
+		tb.Fatalf("Unable to write file: %v", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		tb.Fatalf("Unable to overwrite file: %v", err)
+	}
+}
+
 func compareBytesData(t *testing.T, data interface{}, expected []byte) {
 	t.Helper()
 
@@ -79,16 +99,7 @@ func TestFileWatcher(t *testing.T) {
 	defer data.Stop()
 	compareBytesData(t, data.Get(), payload1)
 
-	func() {
-		f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer f.Close()
-		if _, err := f.Write(payload2); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	overwriteFile(t, path, payload2)
 	// Give it some time to handle the file content change
 	time.Sleep(time.Millisecond * 500)
 	compareBytesData(t, data.Get(), payload2)
@@ -365,16 +376,7 @@ func TestParserSizeLimit(t *testing.T) {
 	defer data.Stop()
 	compareBytesData(t, data.Get(), expectedPayload)
 
-	func() {
-		f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer f.Close()
-		if _, err := f.Write(payload2); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	overwriteFile(t, path, payload2)
 	// Give it some time to handle the file content change
 	time.Sleep(time.Millisecond * 500)
 	// We expect the second parse would fail because of the data is beyond the
