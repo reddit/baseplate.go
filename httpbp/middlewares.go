@@ -2,13 +2,18 @@ package httpbp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
 	"strings"
 
+	"github.com/go-kit/kit/metrics"
+
 	"github.com/reddit/baseplate.go/ecinterface"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -32,7 +37,7 @@ type Middleware func(name string, next HandlerFunc) HandlerFunc
 //		N. Middlewares[n]
 //
 // Wrap is provided for clarity and testing purposes and should not generally be
-// called directly.  Instead use one of the provided Handler constructors which
+// called directly. Instead use one of the provided Handler constructors which
 // will Wrap the HandlerFunc you pass it for you.
 func Wrap(name string, handle HandlerFunc, middlewares ...Middleware) HandlerFunc {
 	for i := len(middlewares) - 1; i >= 0; i-- {
@@ -56,8 +61,12 @@ type DefaultMiddlewareArgs struct {
 	EdgeContextImpl ecinterface.Interface
 }
 
-// DefaultMiddleware returns a slice of all of the default Middleware for a
-// Baseplate HTTP server.
+// DefaultMiddleware returns a slice of all the default Middleware for a
+// Baseplate HTTP server. The default middleware are (in order):
+//
+//	1. InjectServerSpan
+//	2. InjectEdgeRequestContext
+//	3. RecordStatusCode
 func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	if args.TrustHandler == nil {
 		args.TrustHandler = NeverTrustHeaders{}
@@ -65,6 +74,7 @@ func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	return []Middleware{
 		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
+		RecordStatusCode(),
 	}
 }
 
@@ -108,21 +118,39 @@ func StartSpanFromTrustedRequest(
 	return tracing.StartSpanFromHeaders(ctx, name, spanHeaders)
 }
 
+// httpErrorSuppressor is an errorsbp.Suppressor that can be used to suppress
+// HTTPErrors that have a response code under 500. It is used by InjectServerSpan
+// to not mark non 5xx or higher errors as failures.
+func httpErrorSuppressor(err error) bool {
+	var httpErr HTTPError
+	if errors.As(err, &httpErr) {
+		return httpErr.Response().Code < 500
+	}
+	return false
+}
+
 // InjectServerSpan returns a Middleware that will automatically wrap the
-// HansderFunc in a new server span and stop the span after the function
+// HandlerFunc in a new server span and stop the span after the function
 // returns.
+//
+// Starts the server span before calling the `next` HandlerFunc and stops
+// the span after it finishes.
+// If the function returns an error that's an HTTPError with a status code < 500,
+// then it will not be passed to span.Stop, otherwise it will.
 //
 // InjectServerSpan should generally not be used directly, instead use the
 // NewBaseplateServer function which will automatically include InjectServerSpan
 // as one of the Middlewares to wrap your handlers in.
 func InjectServerSpan(truster HeaderTrustHandler) Middleware {
+	// TODO: make a breaking change to allow us to pass in a Suppressor
+	var suppressor errorsbp.Suppressor = httpErrorSuppressor
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			ctx, span := StartSpanFromTrustedRequest(ctx, name, truster, r)
 			defer func() {
 				span.FinishWithOptions(tracing.FinishOptions{
 					Ctx: ctx,
-					Err: err,
+					Err: suppressor.Wrap(err),
 				}.Convert())
 			}()
 
@@ -245,4 +273,134 @@ func SupportedMethods(method string, additional ...string) Middleware {
 			return next(ctx, w, r)
 		}
 	}
+}
+
+// recoverPanic recovers from any panics, logs them, and sets the returned error
+// to a generic 500 error. recoverPanic is always the last middleware in the
+// middleware chain, so it is the first one when returning which lets the error
+// bubble up into other middlewares. Since it is always added to the middleware
+// chain is a specific position, it is not exported.
+func recoverPanic(name string, next HandlerFunc) HandlerFunc {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				var rErr error
+				if asErr, ok := r.(error); ok {
+					rErr = asErr
+				} else {
+					rErr = fmt.Errorf("panic in %q: %+v", name, r)
+				}
+				log.C(ctx).Errorw(
+					"recovered from panic:",
+					"err", rErr,
+					"endpoint", name,
+				)
+				metricsbp.M.Counter("panic.recover").With(
+					"name", name,
+				).Add(1)
+
+				// change named return value to a generic 500 error
+				err = RawError(InternalServerError(), rErr, PlainTextContentType)
+			}
+		}()
+		return next(ctx, w, r)
+	}
+}
+
+// statusCodeRecorder is used by RecordStatusCode to record the code passed to
+// a call to WriteHeader.
+type statusCodeRecorder struct {
+	http.ResponseWriter
+
+	code int
+}
+
+func (r *statusCodeRecorder) WriteHeader(code int) {
+	r.ResponseWriter.WriteHeader(code)
+	if r.code == 0 {
+		r.code = code
+	}
+}
+
+func (r *statusCodeRecorder) getCode(err error) int {
+	if r.code != 0 {
+		// WriteHeader was called explicitly, use that
+		return r.code
+	}
+	if err != nil {
+		// something went wrong, check if err is an HTTPErr where we can extract
+		// the code, otherwise assume InternalServerError
+		var httpErr HTTPError
+		if errors.As(err, &httpErr) {
+			return httpErr.Response().Code
+		}
+		return http.StatusInternalServerError
+
+	}
+	// if there's no error returned and no call to WriteHeader, Go will
+	// return OK.
+	// https://pkg.go.dev/net/http#ResponseWriter.WriteHeader
+	return http.StatusOK
+}
+
+var families = [...]string{
+	"nan",
+	"1xx",
+	"2xx",
+	"3xx",
+	"4xx",
+	"5xx",
+}
+
+// statusCodeFamily takes an http status code and returns it as an "Nxx"
+// string. Returns "nan" if code < 100 or code > 599.
+func statusCodeFamily(code int) string {
+	family := code / 100
+	if family < 0 || family >= len(families) {
+		return families[0]
+	}
+	return families[family]
+}
+
+// counterGenerator is used by recordStatusCode to create counters for recording
+// http response codes set by the server.
+//
+// this was added purely to make it easier to test the middleware.
+type counterGenerator interface {
+	Counter(name string) metrics.Counter
+}
+
+func recordStatusCode(counters counterGenerator) Middleware {
+	return func(name string, next HandlerFunc) HandlerFunc {
+		counter := counters.Counter("baseplate.http." + name + ".response")
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+			wrapped := &statusCodeRecorder{ResponseWriter: w}
+			defer func() {
+				code := wrapped.getCode(err)
+				counter.With("status", statusCodeFamily(code)).Add(1)
+			}()
+
+			return next(ctx, wrapped, r)
+		}
+	}
+}
+
+// RecordStatusCode extracts the status code set on the request in the following
+// order:
+//	1. Check if WriteHeader was called on the ResponseWriter and use that code
+//	if it was.
+//	2. If an error was returned, check if it is an HTTPError. If it is, use the
+//	code from the error, otherwise assume 500.
+//	3. Assume 200.
+//
+// If it sees an invalid status code (<100 or >599), it will record the status
+// as "-nan" for codes <100 and "nan" for codes >599. Note that a code that is
+// <100 or >599 is unlikely to appear here and will cause a  panic if passed to
+// WriteHeader.
+//
+// RecordStatusCode should generally not be used directly, instead use the
+// NewBaseplateServer function which will automatically include RecordStatusCode
+// as one of the Middlewares to wrap your handlers in.
+func RecordStatusCode() Middleware {
+	return recordStatusCode(metricsbp.M)
 }

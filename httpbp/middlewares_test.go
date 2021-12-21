@@ -77,6 +77,18 @@ func TestInjectServerSpan(t *testing.T) {
 			err:            errors.New("test"),
 		},
 		{
+			name:           "trust/http-err/4xx",
+			truster:        httpbp.AlwaysTrustHeaders{},
+			hasAnnotations: true,
+			err:            httpbp.JSONError(httpbp.BadRequest(), nil),
+		},
+		{
+			name:           "trust/http-err/5xx",
+			truster:        httpbp.AlwaysTrustHeaders{},
+			hasAnnotations: true,
+			err:            httpbp.JSONError(httpbp.InternalServerError(), nil),
+		},
+		{
 			name:           "no-trust/no-err",
 			truster:        httpbp.NeverTrustHeaders{},
 			hasAnnotations: false,
@@ -121,16 +133,23 @@ func TestInjectServerSpan(t *testing.T) {
 					t.Fatal("no binary annotations")
 				}
 				t.Logf("%#v", trace.BinaryAnnotations)
-				if c.err != nil {
-					hasError := false
-					for _, annotation := range trace.BinaryAnnotations {
-						if annotation.Key == "error" {
-							hasError = true
-						}
+				hasError := false
+				for _, annotation := range trace.BinaryAnnotations {
+					if annotation.Key == "error" {
+						hasError = true
 					}
-					if !hasError {
-						t.Error("error binary annotation was not present.")
+				}
+				expectedErr := c.err
+				var httpErr httpbp.HTTPError
+				if errors.As(c.err, &httpErr) {
+					if httpErr.Response().Code < 500 {
+						expectedErr = nil
 					}
+				}
+				if expectedErr != nil && !hasError {
+					t.Error("error binary annotation was not present.")
+				} else if expectedErr == nil && hasError {
+					t.Error("unexpected error binary annotation")
 				}
 			},
 		)

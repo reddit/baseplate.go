@@ -20,6 +20,26 @@ func parser(f io.Reader) (interface{}, error) {
 	return io.ReadAll(f)
 }
 
+// writeFile does atomic write/overwrite (write to a tmp file, then use rename
+// to overwrite the desired path) instead of in-pleace write/overwrite
+// (open/truncate open the file, write to it, close the file).
+//
+// filewatcher is designed to handle atomic writes/overwrites, not in-place
+// ones. Doing in-place write will cause the filewatcher to be triggered twice
+// (once the file is created/truncated, once when closing the file), which would
+// cause some of the tests to fail flakily on CI.
+func writeFile(tb testing.TB, path string, content []byte) {
+	tb.Helper()
+
+	tmpPath := filepath.Join(tb.TempDir(), "file")
+	if err := os.WriteFile(tmpPath, content, 0644); err != nil {
+		tb.Fatalf("Unable to write file: %v", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		tb.Fatalf("Unable to rename file: %v", err)
+	}
+}
+
 func compareBytesData(t *testing.T, data interface{}, expected []byte) {
 	t.Helper()
 
@@ -52,15 +72,7 @@ func TestFileWatcher(t *testing.T) {
 	// Delay writing the file
 	go func() {
 		time.Sleep(writeDelay)
-		f, err := os.Create(path)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		defer f.Close()
-		if _, err := f.Write(payload1); err != nil {
-			t.Error(err)
-		}
+		writeFile(t, path, payload1)
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -79,16 +91,7 @@ func TestFileWatcher(t *testing.T) {
 	defer data.Stop()
 	compareBytesData(t, data.Get(), payload1)
 
-	func() {
-		f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer f.Close()
-		if _, err := f.Write(payload2); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	writeFile(t, path, payload2)
 	// Give it some time to handle the file content change
 	time.Sleep(time.Millisecond * 500)
 	compareBytesData(t, data.Get(), payload2)
@@ -140,15 +143,7 @@ func TestFileWatcherRename(t *testing.T) {
 	// Delay writing the file
 	go func() {
 		time.Sleep(writeDelay)
-		f, err := os.Create(path)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		defer f.Close()
-		if _, err := f.Write(payload1); err != nil {
-			t.Error(err)
-		}
+		writeFile(t, path, payload1)
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -169,19 +164,8 @@ func TestFileWatcherRename(t *testing.T) {
 
 	func() {
 		newpath := path + ".bar"
-		f, err := os.Create(newpath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer func() {
-			if err := f.Close(); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.Rename(newpath, path); err != nil {
-				t.Fatal(err)
-			}
-		}()
-		if _, err := f.Write(payload2); err != nil {
+		writeFile(t, newpath, payload2)
+		if err := os.Rename(newpath, path); err != nil {
 			t.Fatal(err)
 		}
 	}()
@@ -211,11 +195,7 @@ func TestParserFailure(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "foo")
 
-	f, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f.Close()
+	writeFile(t, path, nil)
 
 	// Initial call to parser should return 1, nil
 	data, err := filewatcher.New(
@@ -238,13 +218,7 @@ func TestParserFailure(t *testing.T) {
 
 	// Next call to parser should return nil, err
 	newpath := path + ".bar"
-	f, err = os.Create(newpath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := f.Close(); err != nil {
-		t.Fatal(err)
-	}
+	writeFile(t, newpath, nil)
 	if err := os.Rename(newpath, path); err != nil {
 		t.Fatal(err)
 	}
@@ -259,13 +233,7 @@ func TestParserFailure(t *testing.T) {
 	}
 
 	// Next call to parser should return 3, nil
-	f, err = os.Create(newpath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := f.Close(); err != nil {
-		t.Fatal(err)
-	}
+	writeFile(t, newpath, nil)
 	if err := os.Rename(newpath, path); err != nil {
 		t.Fatal(err)
 	}
@@ -336,15 +304,7 @@ func TestParserSizeLimit(t *testing.T) {
 	// Delay writing the file
 	go func() {
 		time.Sleep(writeDelay)
-		f, err := os.Create(path)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		defer f.Close()
-		if _, err := f.Write(payload1); err != nil {
-			t.Error(err)
-		}
+		writeFile(t, path, payload1)
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -365,16 +325,7 @@ func TestParserSizeLimit(t *testing.T) {
 	defer data.Stop()
 	compareBytesData(t, data.Get(), expectedPayload)
 
-	func() {
-		f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer f.Close()
-		if _, err := f.Write(payload2); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	writeFile(t, path, payload2)
 	// Give it some time to handle the file content change
 	time.Sleep(time.Millisecond * 500)
 	// We expect the second parse would fail because of the data is beyond the
