@@ -500,13 +500,20 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 				remoteSvr,
 			}
 
+			latencyValues := []string{
+				localSvr,
+				methodIsHealthy,
+				strconv.FormatBool(!tt.wantFail),
+				remoteSvr,
+			}
+
 			requestLabelValues := []string{
 				localSvr,
 				methodIsHealthy,
 				remoteSvr,
 			}
 
-			defer thriftbp.PrometheusClientMetricsTest(t, labelValues, requestLabelValues).CheckMetrics()
+			defer thriftbp.PrometheusClientMetricsTest(t, labelValues, requestLabelValues, latencyValues).CheckMetrics()
 			defer spectest.ValidateSpec(t, "thrift", "client")
 
 			ctx := context.Background()

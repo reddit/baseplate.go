@@ -243,6 +243,13 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 				tt.code,
 			}
 
+			serverLatencyLabelValues := []string{
+				serviceName,
+				tt.method,
+				unary,
+				tt.success,
+			}
+
 			serverRequestsLabelValues := []string{
 				serviceName,
 				tt.method,
@@ -257,16 +264,24 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 				serverName,
 			}
 
+			clientLatencyLabelValues := []string{
+				serviceName,
+				tt.method,
+				unary,
+				tt.success,
+				serverName,
+			}
+
 			clientRequestsLabelValues := []string{
 				serviceName,
 				tt.method,
 				serverName,
 			}
 
-			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution, serverLatencyLabelValues...).CheckExists()
 			defer promtest.NewPrometheusMetricTest(t, "server rpc count", serverRPCRequestCounter, serverLabelValues...).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverRequestsLabelValues...).CheckDelta(0)
-			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution, clientLatencyLabelValues...).CheckExists()
 			defer promtest.NewPrometheusMetricTest(t, "client rpc count", clientRPCRequestCounter, clientLabelValues...).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientRequestsLabelValues...).CheckDelta(0)
 

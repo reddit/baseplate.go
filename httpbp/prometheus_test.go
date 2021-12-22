@@ -11,7 +11,7 @@ import (
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
-	"github.com/reddit/baseplate.go/prometheusbp"
+	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 )
 
 type exampleRequest struct {
@@ -152,14 +152,14 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 				serverSlug,
 			}
 
-			defer prometheusbp.MetricTest(t, "server latency", serverLatency, serverSizeLabels...).CheckExists()
-			defer prometheusbp.MetricTest(t, "server total requests", serverTotalRequests, serverTotalRequestLabels...).CheckDelta(1)
-			defer prometheusbp.MetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels...).CheckDelta(0)
-			defer prometheusbp.MetricTest(t, "server request size", serverRequestSize, serverSizeLabels...).CheckDelta(float64(tt.size))
-			defer prometheusbp.MetricTest(t, "server response size", serverResponseSize, serverSizeLabels...).CheckDelta(0)
-			defer prometheusbp.MetricTest(t, "client latency", clientLatency, clientSizeLabels...).CheckExists()
-			defer prometheusbp.MetricTest(t, "client total requests", clientTotalRequests, totalRequestLabels...).CheckDelta(1)
-			defer prometheusbp.MetricTest(t, "client active requests", clientActiveRequests, activeRequestLabels...).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatency, serverSizeLabels...).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "server total requests", serverTotalRequests, serverTotalRequestLabels...).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels...).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "server request size", serverRequestSize, serverSizeLabels...).CheckDelta(float64(tt.size))
+			defer promtest.NewPrometheusMetricTest(t, "server response size", serverResponseSize, serverSizeLabels...).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatency, clientSizeLabels...).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "client total requests", clientTotalRequests, totalRequestLabels...).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, activeRequestLabels...).CheckDelta(0)
 
 			if tt.method == http.MethodGet {
 				_, err = client.Get(ts.URL + tt.endpoint)
