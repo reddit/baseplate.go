@@ -408,6 +408,22 @@ func RecordStatusCode() Middleware {
 	return recordStatusCode(metricsbp.M)
 }
 
+// PrometheusServerMetrics returns a middleware that tracks Prometheus metrics for client http.
+//
+// It emits the following prometheus metrics:
+//
+// * http_server_active_requests gauge with labels:
+//
+//   - http_method: method of the HTTP request
+//   - http_endpoint: path to identify the endpoint handler, may be empty
+//
+// * http_server_latency_seconds, http_server_request_size_bytes, http_server_response_size_bytes histograms with labels above plus:
+//
+//   - http_success: true if the status code is 2xx or 3xx, false otherwise
+//
+// * http_server_requests_total counter with all labels above plus:
+//
+//   - http_response_code: numeric status code as a string, e.g. 200
 func PrometheusServerMetrics(serverSlug string) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {

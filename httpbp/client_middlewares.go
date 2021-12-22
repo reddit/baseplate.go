@@ -250,6 +250,22 @@ func MonitorClient(slug string) ClientMiddleware {
 }
 
 // PrometheusClientMetrics returns a middleware that tracks Prometheus metrics for client http.
+//
+// It emits the following prometheus metrics:
+//
+// * http_client_active_requests gauge with labels:
+//
+//   - http_method: method of the HTTP request
+//   - http_endpoint: path to identify the endpoint handler, may be empty
+//   - http_slug: the remote service being contacted
+//
+// * http_client_latency_seconds histogram with labels above plus:
+//
+//   - http_success: true if the status code is 2xx or 3xx, false otherwise
+//
+// * http_client_requests_total counter with all labels above plus:
+//
+//   - http_response_code: numeric status code as a string, e.g. 200
 func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
