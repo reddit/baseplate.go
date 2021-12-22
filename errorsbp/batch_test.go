@@ -10,18 +10,18 @@ import (
 
 func TestAdd(t *testing.T) {
 	var err errorsbp.Batch
-	if len(err.GetErrors()) != 0 {
+	if err.Len() != 0 {
 		t.Errorf("A new BatchError should contain zero errors: %#v", err.GetErrors())
 	}
 
 	err.Add(nil)
-	if len(err.GetErrors()) != 0 {
+	if err.Len() != 0 {
 		t.Errorf("Nil errors should be skipped: %#v", err.GetErrors())
 	}
 
 	err0 := errors.New("foo")
 	err.Add(err0)
-	if len(err.GetErrors()) != 1 {
+	if err.Len() != 1 {
 		t.Errorf("Non-nil errors should be added to the batch: %#v", err.GetErrors())
 	}
 	actual := err.GetErrors()[0]
@@ -31,7 +31,7 @@ func TestAdd(t *testing.T) {
 
 	var another errorsbp.Batch
 	err.Add(another)
-	if len(err.GetErrors()) != 1 {
+	if err.Len() != 1 {
 		t.Errorf("Empty batch should be skipped: %#v", err.GetErrors())
 	}
 	err1 := errors.New("bar")
@@ -39,7 +39,7 @@ func TestAdd(t *testing.T) {
 	err2 := errors.New("foobar")
 	another.Add(err2)
 	err.Add(another)
-	if len(err.GetErrors()) != 3 {
+	if err.Len() != 3 {
 		t.Errorf(
 			"The underlying errors should be added instead of the batch: %#v",
 			err.GetErrors(),
@@ -58,7 +58,7 @@ func TestAdd(t *testing.T) {
 	}
 
 	err.Clear()
-	if len(err.GetErrors()) != 0 {
+	if err.Len() != 0 {
 		t.Errorf(
 			"A cleared BatchError should contain zero errors: %#v",
 			err.GetErrors(),
@@ -67,7 +67,7 @@ func TestAdd(t *testing.T) {
 
 	pointer := new(errorsbp.Batch)
 	err.Add(pointer)
-	if len(err.GetErrors()) != 0 {
+	if err.Len() != 0 {
 		t.Errorf("Empty batch should be skipped: %#v", err.GetErrors())
 	}
 	err1 = errors.New("bar")
@@ -75,7 +75,7 @@ func TestAdd(t *testing.T) {
 	err2 = errors.New("foobar")
 	pointer.Add(err2)
 	err.Add(pointer)
-	if len(err.GetErrors()) != 2 {
+	if err.Len() != 2 {
 		t.Errorf(
 			"The underlying errors should be added instead of the batch: %#v",
 			err.GetErrors(),
@@ -85,24 +85,24 @@ func TestAdd(t *testing.T) {
 
 func TestAddMultiple(t *testing.T) {
 	var err errorsbp.Batch
-	if len(err.GetErrors()) != 0 {
+	if err.Len() != 0 {
 		t.Errorf("A new BatchError should contain zero errors: %#v", err.GetErrors())
 	}
 
 	err.Add()
-	if len(err.GetErrors()) != 0 {
+	if err.Len() != 0 {
 		t.Errorf("empty errors should be skipped: %#v", err.GetErrors())
 	}
 
 	err.Add(nil, nil)
-	if len(err.GetErrors()) != 0 {
+	if err.Len() != 0 {
 		t.Errorf("empty errors should be skipped: %#v", err.GetErrors())
 	}
 
 	err0 := errors.New("foo")
 	err1 := errors.New("bar")
 	err.Add(err0, err1)
-	if len(err.GetErrors()) != 2 {
+	if err.Len() != 2 {
 		t.Errorf("Non-nil errors should be added to the batch: %v", err.GetErrors())
 	}
 	actual0 := err.GetErrors()[0]
@@ -116,7 +116,7 @@ func TestAddMultiple(t *testing.T) {
 
 	var another errorsbp.Batch
 	err.Add(another)
-	if len(err.GetErrors()) != 2 {
+	if err.Len() != 2 {
 		t.Errorf("Empty batch should be skipped: %#v", err.GetErrors())
 	}
 	err2 := errors.New("fizz")
@@ -124,7 +124,7 @@ func TestAddMultiple(t *testing.T) {
 	err4 := errors.New("alpha")
 	another.Add(err2, err3)
 	err.Add(another, err4)
-	if len(err.GetErrors()) != 5 {
+	if err.Len() != 5 {
 		t.Errorf(
 			"The underlying errors should be added instead of the batch: %#v",
 			err.GetErrors(),
@@ -225,12 +225,12 @@ func TestAddPrefix(t *testing.T) {
 	err2 := errors.New(msg2)
 
 	batch.AddPrefix(prefix1, nil)
-	if len(batch.GetErrors()) != 0 {
+	if batch.Len() != 0 {
 		t.Errorf("Nil errors should be skipped: %#v", batch.GetErrors())
 	}
 
 	batch.AddPrefix(prefix1, err0)
-	if len(batch.GetErrors()) != 1 {
+	if batch.Len() != 1 {
 		t.Errorf("Non-nil errors should be added to the batch: %#v", batch.GetErrors())
 	}
 
