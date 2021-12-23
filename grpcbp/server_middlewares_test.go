@@ -8,6 +8,7 @@ import (
 	"time"
 
 	pb "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -186,18 +187,18 @@ func (t *mockService) PingStream(c pb.TestService_PingStreamServer) error {
 
 func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 	const (
-		serviceName = "testSvc"
-		serverName  = "testServer"
-		method      = "Ping"
+		localService      = "testSvc"
+		remoteServiceSlug = "testServer"
+		method            = "Ping"
 	)
 	// create test server with InjectPrometheusUnaryServerInterceptor
 	l, service := setupServer(t, grpc.UnaryInterceptor(
-		InjectPrometheusUnaryServerInterceptor(serviceName),
+		InjectPrometheusUnaryServerInterceptor(localService),
 	))
 
 	// create test client
 	conn := setupClient(t, l, grpc.WithUnaryInterceptor(
-		PrometheusUnaryClientInterceptor(serviceName, serverName),
+		PrometheusUnaryClientInterceptor(localService, remoteServiceSlug),
 	))
 
 	// instantiate gRPC client
@@ -235,55 +236,55 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 			clientRPCRequestCounter.Reset()
 			clientActiveRequests.Reset()
 
-			serverLabelValues := []string{
-				serviceName,
-				tt.method,
-				unary,
-				tt.success,
-				tt.code,
+			serverLatencyLabels := prometheus.Labels{
+				localServiceLabel: localService,
+				methodLabel:       tt.method,
+				typeLabel:         unary,
+				successLabel:      tt.success,
 			}
 
-			serverLatencyLabelValues := []string{
-				serviceName,
-				tt.method,
-				unary,
-				tt.success,
+			serverTotalRequestLabels := prometheus.Labels{
+				localServiceLabel: localService,
+				methodLabel:       tt.method,
+				typeLabel:         unary,
+				successLabel:      tt.success,
+				codeLabel:         tt.code,
 			}
 
-			serverRequestsLabelValues := []string{
-				serviceName,
-				tt.method,
+			serverActiveRequestLabels := prometheus.Labels{
+				localServiceLabel: localService,
+				methodLabel:       tt.method,
 			}
 
-			clientLabelValues := []string{
-				serviceName,
-				tt.method,
-				unary,
-				tt.success,
-				tt.code,
-				serverName,
+			clientLatencyLabels := prometheus.Labels{
+				localServiceLabel:      localService,
+				methodLabel:            tt.method,
+				typeLabel:              unary,
+				successLabel:           tt.success,
+				remoteServiceSlugLabel: remoteServiceSlug,
 			}
 
-			clientLatencyLabelValues := []string{
-				serviceName,
-				tt.method,
-				unary,
-				tt.success,
-				serverName,
+			clientTotalRequestLabels := prometheus.Labels{
+				localServiceLabel:      localService,
+				methodLabel:            tt.method,
+				typeLabel:              unary,
+				successLabel:           tt.success,
+				remoteServiceSlugLabel: remoteServiceSlug,
+				codeLabel:              tt.code,
 			}
 
-			clientRequestsLabelValues := []string{
-				serviceName,
-				tt.method,
-				serverName,
+			clientActiveRequestLabels := prometheus.Labels{
+				localServiceLabel:      localService,
+				methodLabel:            tt.method,
+				remoteServiceSlugLabel: remoteServiceSlug,
 			}
 
-			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution, serverLatencyLabelValues...).CheckExists()
-			defer promtest.NewPrometheusMetricTest(t, "server rpc count", serverRPCRequestCounter, serverLabelValues...).CheckDelta(1)
-			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverRequestsLabelValues...).CheckDelta(0)
-			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution, clientLatencyLabelValues...).CheckExists()
-			defer promtest.NewPrometheusMetricTest(t, "client rpc count", clientRPCRequestCounter, clientLabelValues...).CheckDelta(1)
-			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientRequestsLabelValues...).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution, serverLatencyLabels).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "server rpc count", serverRPCRequestCounter, serverTotalRequestLabels).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution, clientLatencyLabels).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "client rpc count", clientRPCRequestCounter, clientTotalRequestLabels).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientActiveRequestLabels).CheckDelta(0)
 
 			ctx := context.Background()
 			if tt.success == "true" {

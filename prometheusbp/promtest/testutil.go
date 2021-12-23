@@ -10,11 +10,11 @@ import (
 
 // PrometheusMetricTest stores information about a metric to use for testing.
 type PrometheusMetricTest struct {
-	tb          testing.TB
-	metric      prometheus.Collector
-	name        string
-	initValue   float64
-	labelValues []string
+	tb        testing.TB
+	metric    prometheus.Collector
+	name      string
+	initValue float64
+	labels    prometheus.Labels
 }
 
 // CheckDelta checks that the metric value changes exactly delta from when Helper was called.
@@ -36,12 +36,12 @@ func (p *PrometheusMetricTest) CheckExists() {
 
 // NewPrometheusMetricTest creates a new test object for a Prometheus metric.
 // It stores the current value of the metric along with the metric name.
-func NewPrometheusMetricTest(tb testing.TB, name string, metric prometheus.Collector, labelValues ...string) *PrometheusMetricTest {
+func NewPrometheusMetricTest(tb testing.TB, name string, metric prometheus.Collector, labels prometheus.Labels) *PrometheusMetricTest {
 	p := &PrometheusMetricTest{
-		tb:          tb,
-		metric:      metric,
-		name:        name,
-		labelValues: labelValues,
+		tb:     tb,
+		metric: metric,
+		name:   name,
+		labels: labels,
 	}
 	p.initValue = p.getValue()
 	return p
@@ -52,19 +52,19 @@ func (p *PrometheusMetricTest) getValue() float64 {
 	var value float64
 	switch m := p.metric.(type) {
 	case *prometheus.GaugeVec:
-		gague, err := m.GetMetricWithLabelValues(p.labelValues...)
+		gague, err := m.GetMetricWith(p.labels)
 		if err != nil {
 			p.tb.Fatalf("get %s metric err %v", p.name, err)
 		}
 		value = testutil.ToFloat64(gague)
 	case *prometheus.CounterVec:
-		counter, err := m.GetMetricWithLabelValues(p.labelValues...)
+		counter, err := m.GetMetricWith(p.labels)
 		if err != nil {
 			p.tb.Fatalf("get %s metric err %v", p.name, err)
 		}
 		value = testutil.ToFloat64(counter)
 	case *prometheus.HistogramVec:
-		histrogram, err := m.GetMetricWithLabelValues(p.labelValues...)
+		histrogram, err := m.GetMetricWith(p.labels)
 		if err != nil {
 			p.tb.Fatalf("get %s metric err %v", p.name, err)
 		}

@@ -11,6 +11,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
 	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
@@ -462,9 +463,19 @@ func TestSetClientName(t *testing.T) {
 }
 
 const (
-	localSvr        = "localsvr"
-	remoteSvr       = "remotesvr"
-	methodIsHealthy = "is_healthy"
+	localService      = "localsvr"
+	remoteServiceSlug = "remotesvr"
+	methodIsHealthy   = "is_healthy"
+)
+
+const (
+	localServiceLabel        = "thrift_service"
+	methodLabel              = "thrift_method"
+	successLabel             = "thrift_success"
+	exceptionLabel           = "thrift_exception_type"
+	baseplateStatusLabel     = "thrift_baseplate_status"
+	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
+	remoteServiceSlugLabel   = "thrift_slug"
 )
 
 func TestPrometheusClientMiddleware(t *testing.T) {
@@ -490,30 +501,31 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			labelValues := []string{
-				localSvr,
-				methodIsHealthy,
-				strconv.FormatBool(!tt.wantFail),
-				tt.exceptionType,
-				"",
-				"",
-				remoteSvr,
+
+			latencyLabels := prometheus.Labels{
+				localServiceLabel:      localService,
+				methodLabel:            methodIsHealthy,
+				successLabel:           strconv.FormatBool(!tt.wantFail),
+				remoteServiceSlugLabel: remoteServiceSlug,
 			}
 
-			latencyValues := []string{
-				localSvr,
-				methodIsHealthy,
-				strconv.FormatBool(!tt.wantFail),
-				remoteSvr,
+			rpcCountLabels := prometheus.Labels{
+				localServiceLabel:        localService,
+				methodLabel:              methodIsHealthy,
+				successLabel:             strconv.FormatBool(!tt.wantFail),
+				exceptionLabel:           tt.exceptionType,
+				baseplateStatusCodeLabel: "",
+				baseplateStatusLabel:     "",
+				remoteServiceSlugLabel:   remoteServiceSlug,
 			}
 
-			requestLabelValues := []string{
-				localSvr,
-				methodIsHealthy,
-				remoteSvr,
+			activeRequestLabels := prometheus.Labels{
+				localServiceLabel:      localService,
+				methodLabel:            methodIsHealthy,
+				remoteServiceSlugLabel: remoteServiceSlug,
 			}
 
-			defer thriftbp.PrometheusClientMetricsTest(t, labelValues, requestLabelValues, latencyValues).CheckMetrics()
+			defer thriftbp.PrometheusClientMetricsTest(t, latencyLabels, rpcCountLabels, activeRequestLabels).CheckMetrics()
 			defer spectest.ValidateSpec(t, "thrift", "client")
 
 			ctx := context.Background()
@@ -551,7 +563,7 @@ func (srv mockBaseplateService) IsHealthy(ctx context.Context, req *baseplatethr
 func setupFake(ctx context.Context, t *testing.T, handler baseplatethrift.BaseplateServiceV2) thriftbp.ClientPool {
 	srv, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
 		Processor:         baseplatethrift.NewBaseplateServiceV2Processor(handler),
-		ClientMiddlewares: []thrift.ClientMiddleware{thriftbp.PrometheusClientMiddleware(localSvr, remoteSvr)},
+		ClientMiddlewares: []thrift.ClientMiddleware{thriftbp.PrometheusClientMiddleware(localService, remoteServiceSlug)},
 	})
 	if err != nil {
 		t.Fatalf("SETUP: Setting up baseplate server: %s", err)

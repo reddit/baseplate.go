@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/prometheusbp/promtest"
@@ -113,53 +115,53 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 			clientTotalRequests.Reset()
 			clientActiveRequests.Reset()
 
-			serverTotalRequestLabels := []string{
-				tt.method,
-				tt.success,
-				tt.endpoint,
-				tt.code,
+			serverSizeLabels := prometheus.Labels{
+				methodLabel:   tt.method,
+				successLabel:  tt.success,
+				endpointLabel: tt.endpoint,
 			}
 
-			serverActiveRequestLabels := []string{
-				tt.method,
-				tt.endpoint,
+			serverTotalRequestLabels := prometheus.Labels{
+				methodLabel:   tt.method,
+				successLabel:  tt.success,
+				endpointLabel: tt.endpoint,
+				codeLabel:     tt.code,
 			}
 
-			serverSizeLabels := []string{
-				tt.method,
-				tt.success,
-				tt.endpoint,
+			serverActiveRequestLabels := prometheus.Labels{
+				methodLabel:   tt.method,
+				endpointLabel: tt.endpoint,
 			}
 
-			totalRequestLabels := []string{
-				tt.method,
-				tt.success,
-				tt.endpoint,
-				tt.code,
-				serverSlug,
+			clientLatencyLabels := prometheus.Labels{
+				methodLabel:            tt.method,
+				successLabel:           tt.success,
+				endpointLabel:          tt.endpoint,
+				remoteServiceSlugLabel: serverSlug,
 			}
 
-			activeRequestLabels := []string{
-				tt.method,
-				tt.endpoint,
-				serverSlug,
+			clientTotalRequestLabels := prometheus.Labels{
+				methodLabel:            tt.method,
+				successLabel:           tt.success,
+				endpointLabel:          tt.endpoint,
+				codeLabel:              tt.code,
+				remoteServiceSlugLabel: serverSlug,
 			}
 
-			clientSizeLabels := []string{
-				tt.method,
-				tt.success,
-				tt.endpoint,
-				serverSlug,
+			clientActiveRequestLabels := prometheus.Labels{
+				methodLabel:            tt.method,
+				endpointLabel:          tt.endpoint,
+				remoteServiceSlugLabel: serverSlug,
 			}
 
-			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatency, serverSizeLabels...).CheckExists()
-			defer promtest.NewPrometheusMetricTest(t, "server total requests", serverTotalRequests, serverTotalRequestLabels...).CheckDelta(1)
-			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels...).CheckDelta(0)
-			defer promtest.NewPrometheusMetricTest(t, "server request size", serverRequestSize, serverSizeLabels...).CheckDelta(float64(tt.size))
-			defer promtest.NewPrometheusMetricTest(t, "server response size", serverResponseSize, serverSizeLabels...).CheckDelta(0)
-			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatency, clientSizeLabels...).CheckExists()
-			defer promtest.NewPrometheusMetricTest(t, "client total requests", clientTotalRequests, totalRequestLabels...).CheckDelta(1)
-			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, activeRequestLabels...).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatency, serverSizeLabels).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "server total requests", serverTotalRequests, serverTotalRequestLabels).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "server request size", serverRequestSize, serverSizeLabels).CheckDelta(float64(tt.size))
+			defer promtest.NewPrometheusMetricTest(t, "server response size", serverResponseSize, serverSizeLabels).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatency, clientLatencyLabels).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "client total requests", clientTotalRequests, clientTotalRequestLabels).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientActiveRequestLabels).CheckDelta(0)
 
 			if tt.method == http.MethodGet {
 				_, err = client.Get(ts.URL + tt.endpoint)
@@ -175,8 +177,7 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				_, err := client.Post(ts.URL+tt.endpoint, "", &body)
-				if err != nil {
+				if _, err := client.Post(ts.URL+tt.endpoint, "", &body); err != nil {
 					t.Fatal("client.Post", err)
 				}
 			}
