@@ -37,30 +37,64 @@ type Store struct {
 //
 // Context should come with a timeout otherwise this might block forever, i.e.
 // if the path never becomes available.
-func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
-	store := &Store{
-		secretHandlerFunc: nopSecretHandlerFunc,
-	}
-	store.secretHandler(middlewares...)
+func NewStore(ctx context.Context, path string, provider string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
+	switch provider {
+	case "vault_csi":
+		store := &Store{
+			secretHandlerFunc: nopSecretHandlerFunc,
+		}
+		store.secretHandler(middlewares...)
 
-	result, err := filewatcher.New(
-		ctx,
-		filewatcher.Config{
-			Path:   path,
-			Parser: store.parser,
-			Logger: logger,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
+		result, err := filewatcher.NewDirWatcher(
+			ctx,
+			filewatcher.Config{
+				Path:   path,
+				Parser: store.csiParser,
+				Logger: logger,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
 
-	store.watcher = result
-	return store, nil
+		store.watcher = result
+		return store, nil
+	default:
+		store := &Store{
+			secretHandlerFunc: nopSecretHandlerFunc,
+		}
+		store.secretHandler(middlewares...)
+
+		result, err := filewatcher.New(
+			ctx,
+			filewatcher.Config{
+				Path:   path,
+				Parser: store.parser,
+				Logger: logger,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		store.watcher = result
+		return store, nil
+	}
 }
 
 func (s *Store) parser(r io.Reader) (interface{}, error) {
 	secrets, err := NewSecrets(r)
+	if err != nil {
+		return nil, err
+	}
+
+	s.secretHandlerFunc(secrets)
+
+	return secrets, nil
+}
+
+func (s *Store) csiParser(r io.Reader) (interface{}, error) {
+	secrets, err := NewCSISecrets(r)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +158,7 @@ func (s Store) GetCredentialSecret(path string) (CredentialSecret, error) {
 // token will have policies attached based on the current EC2 server's Vault
 // role. This is only necessary if talking directly to Vault.
 //
-// This function always returns nil error.
+// This function always returns nil error. < Ted: why? I only ask because the vault csi doesnt surface a token for you to use
 func (s Store) GetVault() (Vault, error) {
 	return s.getSecrets().vault, nil
 }

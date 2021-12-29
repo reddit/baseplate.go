@@ -186,6 +186,11 @@ type Document struct {
 	Vault   Vault                    `json:"vault"`
 }
 
+// CSIFile represent the raw parsed object of a file made by the Vault CSI provider
+type CSIFile struct {
+	Secret GenericSecret `json:"data"`
+}
+
 // Validate checks the Document for any errors that violate the Baseplate
 // specification.
 //
@@ -253,6 +258,56 @@ type Vault struct {
 // NewSecrets parses and validates the secret JSON provided by the reader.
 func NewSecrets(r io.Reader) (*Secrets, error) {
 	var secretsDocument Document
+	err := json.NewDecoder(r).Decode(&secretsDocument)
+	if err != nil {
+		return nil, err
+	}
+
+	err = secretsDocument.Validate()
+	if err != nil {
+		return nil, err
+	}
+	secrets := &Secrets{
+		simpleSecrets:     make(map[string]SimpleSecret),
+		versionedSecrets:  make(map[string]VersionedSecret),
+		credentialSecrets: make(map[string]CredentialSecret),
+		vault:             secretsDocument.Vault,
+	}
+	for key, secret := range secretsDocument.Secrets {
+		switch secret.Type {
+		case "simple":
+			simple, err := newSimpleSecret(&secret)
+			if err != nil {
+				return nil, err
+			}
+			secrets.simpleSecrets[key] = simple
+		case "versioned":
+			versioned, err := newVersionedSecret(&secret)
+			if err != nil {
+				return nil, err
+			}
+			secrets.versionedSecrets[key] = versioned
+		case "credential":
+			credential, err := newCredentialSecret(&secret)
+			if err != nil {
+				return nil, err
+			}
+			secrets.credentialSecrets[key] = credential
+		default:
+			return nil, fmt.Errorf(
+				"secrets.NewSecrets: encountered unknown secret type %q for secret %q",
+				secret.Type,
+				key,
+			)
+		}
+	}
+	return secrets, nil
+}
+
+// NewCSISecrets parses and validates the secret JSON provided by the reader.
+func NewCSISecrets(r io.Reader) (*Secrets, error) {
+	var secretsDocument Document
+	// var secretFiles make(map[string]CSIFile)
 	err := json.NewDecoder(r).Decode(&secretsDocument)
 	if err != nil {
 		return nil, err

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -207,10 +208,77 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	// Note: We need to watch the parent directory instead of the file itself,
 	// because only watching the file won't give us CREATE events,
 	// which will happen with atomic renames.
 	err = watcher.Add(filepath.Dir(cfg.Path))
+	if err != nil {
+		return nil, err
+	}
+
+	var d interface{}
+	d, err = cfg.Parser(f)
+	if err != nil {
+		watcher.Close()
+		return nil, err
+	}
+	res := &Result{}
+	res.data.Store(d)
+	res.ctx, res.cancel = context.WithCancel(context.Background())
+
+	go res.watcherLoop(watcher, cfg.Path, cfg.Parser, limit, hardLimit, cfg.Logger)
+
+	return res, nil
+}
+
+// NewDirWatcher initializes a filewatcher design for recursivly
+// looking through a directory instead of a file
+func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
+	limit := cfg.MaxFileSize
+	if limit <= 0 {
+		limit = DefaultMaxFileSize
+	}
+	hardLimit := limit * HardLimitMultiplier
+
+	var f io.ReadCloser
+
+	for {
+		select {
+		default:
+		case <-ctx.Done():
+			return nil, fmt.Errorf("filewatcher: context cancelled while waiting for file under %q to load. %w", cfg.Path, ctx.Err())
+		}
+
+		var err error
+		f, err = limitopen.OpenWithLimit(cfg.Path, limit, hardLimit)
+		if errors.Is(err, os.ErrNotExist) {
+			time.Sleep(InitialReadInterval)
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		break
+	}
+
+	defer f.Close()
+
+	var watcher *fsnotify.Watcher
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+
+	// Need to walk recursively because the watcher
+	// doesnt support recursion by itself
+	secretPath := filepath.Clean(cfg.Path)
+	err = filepath.Walk(secretPath, func(path string, info fs.FileInfo, err error) error {
+		if info.Mode().IsDir() {
+			return watcher.Add(path)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -271,3 +339,12 @@ func (fw *MockFileWatcher) Get() interface{} {
 func (fw *MockFileWatcher) Stop() {}
 
 var _ FileWatcher = (*MockFileWatcher)(nil)
+
+func isDirectory(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+
+	return fileInfo.IsDir(), err
+}

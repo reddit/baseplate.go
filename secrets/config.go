@@ -14,6 +14,9 @@ type Config struct {
 	// Path is the path to the secrets.json file file to load your service's
 	// secrets from.
 	Path string `yaml:"path"`
+
+	// The Service providing secrets. ie vault, vault_csi
+	Provider string `yaml:"provider"`
 }
 
 // InitFromConfig returns a new *secrets.Store using the given context and config.
@@ -21,7 +24,7 @@ func InitFromConfig(ctx context.Context, cfg Config) (*Store, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
-	store, err := NewStore(ctx, cfg.Path, log.ErrorWithSentryWrapper())
+	store, err := NewStore(ctx, cfg.Path, cfg.Provider, log.ErrorWithSentryWrapper())
 	if err != nil {
 		return nil, err
 	}
