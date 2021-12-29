@@ -94,14 +94,14 @@ func (s *Store) parser(r io.Reader) (interface{}, error) {
 }
 
 func (s *Store) csiParser(r io.Reader) (interface{}, error) {
-	secrets, err := NewCSISecrets(r)
+	secret, err := NewCSISecret(r)
 	if err != nil {
 		return nil, err
 	}
 
-	s.secretHandlerFunc(secrets)
+	s.secretHandlerFunc(secret)
 
-	return secrets, nil
+	return secret, nil
 }
 
 // secretHandler creates the middleware chain.
