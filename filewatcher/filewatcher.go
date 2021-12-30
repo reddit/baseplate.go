@@ -150,23 +150,61 @@ func (r *Result) dirWatcherLoop(
 				continue
 			}
 
+			isDir, err := isDirectory(path)
+			if err != nil {
+				logger.Log(context.Background(), "filewatcher: watcher error: "+err.Error())
+			}
+
 			switch ev.Op {
 			default:
 				// Ignore uninterested events.
-			case fsnotify.Create, fsnotify.Write:
+			case fsnotify.Create: // add to watcher, parse if file
 				// Wrap with an anonymous function to make sure that defer works.
 				func() {
-					f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
-					if err != nil {
-						logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
-						return
-					}
-					defer f.Close()
-					d, err := parser(f)
-					if err != nil {
-						logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
+					if isDir {
+						watcher.Add(path)
 					} else {
-						r.data.Store(d)
+						f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
+						if err != nil {
+							logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
+							return
+						}
+						defer f.Close()
+						d, err := parser(f)
+						if err != nil {
+							logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
+						} else {
+							r.data.Store(d)
+						}
+					}
+				}()
+			case fsnotify.Rename, fsnotify.Remove: // remove from watcher
+				// Wrap with an anonymous function to make sure that defer works.
+				func() {
+					if isDir {
+						watcher.Remove(path)
+					} else {
+						// remove data related to path?
+					}
+				}()
+			case fsnotify.Write, fsnotify.Chmod: //parse
+				// Wrap with an anonymous function to make sure that defer works.
+				func() {
+					if isDir {
+						// do nothing
+					} else {
+						f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
+						if err != nil {
+							logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
+							return
+						}
+						defer f.Close()
+						d, err := parser(f)
+						if err != nil {
+							logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
+						} else {
+							r.data.Store(d)
+						}
 					}
 				}()
 			}
@@ -298,15 +336,8 @@ func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
 	// Need to walk recursively because the watcher
 	// doesnt support recursion by itself
 	secretPath := filepath.Clean(cfg.Path)
-	files, _ := os.ReadDir(cfg.Path)
-	for _, file := range files {
-		fmt.Println(file.Name())
-		fmt.Println(file.IsDir())
-		fmt.Println(file.Type())
-
-	}
-	fmt.Println("yo!!!!!!!!!!!!!!!!!!!!!!!!!")
-	fmt.Println(files)
+	// fmt.Println("yo!!!!!!!!!!!!!!!!!!!!!!!!!")
+	// fmt.Println(files)
 	err = filepath.WalkDir(secretPath, func(path string, info fs.DirEntry, err error) error {
 		if info.IsDir() {
 			return watcher.Add(path)
@@ -328,10 +359,10 @@ func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
 				return err
 			}
 			if path != secretPath {
-				fmt.Println("yo############################")
-				fmt.Println(path)
-				fmt.Println(secretPath)
-				d, err = cfg.Parser(f) // this fails, why is dir check false?
+				// fmt.Println("yo############################")
+				// fmt.Println(path)
+				// fmt.Println(secretPath)
+				d, err = cfg.Parser(f)
 				if err != nil {
 					watcher.Close()
 					return err
@@ -348,28 +379,28 @@ func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
 		return nil, err
 	}
 
-	done := make(chan bool)
-	go func() {
-		for {
-			select {
-			// watch for events
-			case event := <-watcher.Events:
-				// if create , add to watcher
-				// if remove or rename, remove from watcher
-				// if write or chmod, parse
-				watcher.Add(event.Name)
-				fmt.Printf("EVENT! %#v %#v\n", event.Op.String(), event.Name)
+	// done := make(chan bool)
+	// go func() {
+	// 	for {
+	// 		select {
+	// 		// watch for events
+	// 		case event := <-watcher.Events:
+	// 			// if create , add to watcher
+	// 			// if remove or rename, remove from watcher
+	// 			// if write or chmod, parse
+	// 			watcher.Add(event.Name)
+	// 			fmt.Printf("EVENT! %#v %#v\n", event.Op.String(), event.Name)
 
-			// watch for errors
-			case err := <-watcher.Errors:
-				fmt.Println("ERROR", err)
-			}
-		}
-	}()
-	<-done
+	// 		// watch for errors
+	// 		case err := <-watcher.Errors:
+	// 			fmt.Println("ERROR", err)
+	// 		}
+	// 	}
+	// }()
+	// <-done
 
 	res.ctx, res.cancel = context.WithCancel(context.Background())
-	// go res.dirWatcherLoop(watcher, cfg.Path, cfg.Parser, limit, hardLimit, cfg.Logger)
+	go res.dirWatcherLoop(watcher, cfg.Path, cfg.Parser, limit, hardLimit, cfg.Logger)
 
 	return res, nil
 }
