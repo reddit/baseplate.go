@@ -350,6 +350,7 @@ func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
 
 	var d interface{}
 	res := &Result{}
+	res.data.Store(Folder{})
 	// Need to walk recursively because the watcher
 	// doesnt support recursion by itself
 	secretPath := filepath.Clean(cfg.Path)
@@ -360,8 +361,8 @@ func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
 
 		// Parse file if you find it
 		return func() error {
-			fmt.Println("yo!!!!!!!!!!!!!!!!!!!!!!!!!")
-			fmt.Println(path)
+			// fmt.Println("yo!!!!!!!!!!!!!!!!!!!!!!!!!")
+			// fmt.Println(path)
 			var f io.ReadCloser
 
 			select {
@@ -380,7 +381,9 @@ func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
 				watcher.Close()
 				return err
 			}
-			res.data.Store(d)
+			folder := res.data.Load().(Folder)
+			folder.Files[path] = d
+			res.data.Store(folder) //merge?
 
 			f.Close()
 
