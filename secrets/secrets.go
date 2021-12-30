@@ -36,6 +36,43 @@ type Secrets struct {
 	vault             Vault
 }
 
+// AddSecret adds a Generic secret to an appropriate map by its type
+func (s *Secrets) AddSecret(path string, g GenericSecret) error {
+	switch g.Type {
+	case "simple":
+		simple, err := newSimpleSecret(&g)
+		if err != nil {
+			return err
+		}
+		s.simpleSecrets[path] = simple
+	case "versioned":
+		versioned, err := newVersionedSecret(&g)
+		if err != nil {
+			return err
+		}
+		s.versionedSecrets[path] = versioned
+	case "credential":
+		credential, err := newCredentialSecret(&g)
+		if err != nil {
+			return err
+		}
+		s.credentialSecrets[path] = credential
+	default:
+		return fmt.Errorf(
+			"secrets.AddSecret: encountered unknown secret type %q for secret %q",
+			g.Type,
+			path,
+		)
+	}
+	return nil
+}
+
+// RemoveSecret removes a secret object based on its path
+func (s *Secrets) RemoveSecret(path string) error {
+	// TODO implement
+	return nil
+}
+
 // GetSimpleSecret fetches a simple secret or error if the key is not present.
 func (s *Secrets) GetSimpleSecret(path string) (SimpleSecret, error) {
 	if path == "" {
@@ -305,50 +342,22 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 }
 
 // NewCSISecret parses and validates the secret JSON provided by the reader.
-func NewCSISecret(r io.Reader) (*Secrets, error) {
-	// var secretsDocument Document
+func NewCSISecret(r io.Reader) (secrets *Secrets, err error) {
 	var secretFile CSIFile
-	err := json.NewDecoder(r).Decode(&secretFile)
-	// fmt.Println("yo??????????????????????????")
-	// fmt.Println("")
-	// fmt.Println(err)
+	err = json.NewDecoder(r).Decode(&secretFile)
 	if err != nil {
 		return nil, err
 	}
 
 	// err = secretFile.Validate()
 	// if err != nil {
-	// 	return nil, err
+	// 	return
 	// }
-	secrets := &Secrets{
+	secrets = &Secrets{
 		simpleSecrets:     make(map[string]SimpleSecret),
 		versionedSecrets:  make(map[string]VersionedSecret),
 		credentialSecrets: make(map[string]CredentialSecret),
 	}
-	switch secretFile.Secret.Type {
-	case "simple":
-		simple, err := newSimpleSecret(&secretFile.Secret)
-		if err != nil {
-			return nil, err
-		}
-		secrets.simpleSecrets["hold"] = simple
-	case "versioned":
-		versioned, err := newVersionedSecret(&secretFile.Secret)
-		if err != nil {
-			return nil, err
-		}
-		secrets.versionedSecrets["hold"] = versioned
-	case "credential":
-		credential, err := newCredentialSecret(&secretFile.Secret)
-		if err != nil {
-			return nil, err
-		}
-		secrets.credentialSecrets["hold"] = credential
-	default:
-		return nil, fmt.Errorf(
-			"secrets.NewSecrets: encountered unknown secret type %q for secret",
-			secretFile.Secret.Type,
-		)
-	}
-	return secrets, nil
+	secrets.AddSecret("hold", secretFile.Secret) // how to get secret name?
+	return
 }

@@ -174,7 +174,9 @@ func (r *Result) dirWatcherLoop(
 						if err != nil {
 							logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
 						} else {
-							r.data.Store(d)
+							folder := r.data.Load().(Folder)
+							folder.Files[path] = d
+							r.data.Store(folder) //merge?
 						}
 					}
 				}()
@@ -203,7 +205,9 @@ func (r *Result) dirWatcherLoop(
 						if err != nil {
 							logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
 						} else {
-							r.data.Store(d)
+							folder := r.data.Load().(Folder)
+							folder.Files[path] = d
+							r.data.Store(folder) //merge?
 						}
 					}
 				}()
@@ -246,6 +250,19 @@ type Config struct {
 	// The loading of the file will fail immediately.
 	MaxFileSize int64 `yaml:"maxFileSize"`
 }
+
+// Folder is a construct to sort data parsed from a filewatcher by its file path
+type Folder struct {
+	Files map[string]interface{}
+}
+
+// func (folder *Folder) AddFile(path string, file interface{}) error {
+// 	return nil
+// }
+
+// func (folder *Folder) RemoveFile(path string) error {
+// 	return nil
+// }
 
 // New creates a new file watcher.
 //
@@ -336,8 +353,6 @@ func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
 	// Need to walk recursively because the watcher
 	// doesnt support recursion by itself
 	secretPath := filepath.Clean(cfg.Path)
-	// fmt.Println("yo!!!!!!!!!!!!!!!!!!!!!!!!!")
-	// fmt.Println(files)
 	err = filepath.WalkDir(secretPath, func(path string, info fs.DirEntry, err error) error {
 		if info.IsDir() {
 			return watcher.Add(path)
@@ -345,6 +360,8 @@ func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
 
 		// Parse file if you find it
 		return func() error {
+			fmt.Println("yo!!!!!!!!!!!!!!!!!!!!!!!!!")
+			fmt.Println(path)
 			var f io.ReadCloser
 
 			select {
@@ -358,15 +375,10 @@ func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
 			if err != nil {
 				return err
 			}
-			if path != secretPath {
-				// fmt.Println("yo############################")
-				// fmt.Println(path)
-				// fmt.Println(secretPath)
-				d, err = cfg.Parser(f)
-				if err != nil {
-					watcher.Close()
-					return err
-				}
+			d, err = cfg.Parser(f)
+			if err != nil {
+				watcher.Close()
+				return err
 			}
 			res.data.Store(d)
 
@@ -378,26 +390,6 @@ func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// done := make(chan bool)
-	// go func() {
-	// 	for {
-	// 		select {
-	// 		// watch for events
-	// 		case event := <-watcher.Events:
-	// 			// if create , add to watcher
-	// 			// if remove or rename, remove from watcher
-	// 			// if write or chmod, parse
-	// 			watcher.Add(event.Name)
-	// 			fmt.Printf("EVENT! %#v %#v\n", event.Op.String(), event.Name)
-
-	// 		// watch for errors
-	// 		case err := <-watcher.Errors:
-	// 			fmt.Println("ERROR", err)
-	// 		}
-	// 	}
-	// }()
-	// <-done
 
 	res.ctx, res.cancel = context.WithCancel(context.Background())
 	go res.dirWatcherLoop(watcher, cfg.Path, cfg.Parser, limit, hardLimit, cfg.Logger)
