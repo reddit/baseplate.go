@@ -350,7 +350,9 @@ func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
 
 	var d interface{}
 	res := &Result{}
-	res.data.Store(Folder{})
+	res.data.Store(Folder{
+		Files: make(map[string]interface{}),
+	})
 	// Need to walk recursively because the watcher
 	// doesnt support recursion by itself
 	secretPath := filepath.Clean(cfg.Path)
