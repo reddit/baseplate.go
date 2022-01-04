@@ -97,36 +97,92 @@ func NewBaseplateServer(
 	bp baseplate.Baseplate,
 	cfg ServerConfig,
 ) (baseplate.Server, error) {
-	ApplyConfigDefaults(bp, cfg)
-	srv, err := NewServer(cfg)
+
+	opts := []ServerOpt{
+		func(optCfg ServerConfig) ServerConfig {
+			return cfg
+		},
+	}
+	opts = append(opts, DefaultServerOpts(bp)...)
+
+	return NewBaseplateServerFromOpts(bp, opts...)
+}
+
+// NewBaseplateServerFromOpts returns a new Thrift implementation of a Baseplate
+// server using a config built from the supplied opts ServerOpt.
+func NewBaseplateServerFromOpts(
+	bp baseplate.Baseplate,
+	opts ...ServerOpt,
+) (baseplate.Server, error) {
+
+	srv, err := NewServer(BuildConfig(opts...))
 	if err != nil {
 		return nil, err
 	}
 	return ApplyBaseplate(bp, srv), nil
 }
 
-// ApplyConfigDefaults initializes the default configuration values
-// used for creating a baseplate server.
-func ApplyConfigDefaults(bp baseplate.Baseplate, cfg ServerConfig) {
-	middlewares := BaseplateDefaultProcessorMiddlewares(
-		DefaultProcessorMiddlewaresArgs{
-			EdgeContextImpl:                    bp.EdgeContextImpl(),
-			ErrorSpanSuppressor:                cfg.ErrorSpanSuppressor,
-			ReportPayloadSizeMetricsSampleRate: cfg.ReportPayloadSizeMetricsSampleRate,
-		},
-	)
-	middlewares = append(middlewares, cfg.Middlewares...)
-	cfg.Middlewares = middlewares
-	if cfg.Logger == nil {
+type ServerOpt func(cfg ServerConfig) ServerConfig
+
+func BuildConfig(opts ...ServerOpt) ServerConfig {
+	cfg := ServerConfig{}
+	for _, opt := range opts {
+		cfg = opt(cfg)
+	}
+
+	return cfg
+}
+
+func DefaultServerOpts(bp baseplate.Baseplate) []ServerOpt {
+	return []ServerOpt{
+		serverOptMiddleware(bp),
+		serverOptLogger(bp),
+		serverOptAddress(bp),
+		serverOptSocket(bp),
+	}
+}
+
+func serverOptMiddleware(bp baseplate.Baseplate) ServerOpt {
+	return func(cfg ServerConfig) ServerConfig {
+		middlewares := BaseplateDefaultProcessorMiddlewares(
+			DefaultProcessorMiddlewaresArgs{
+				EdgeContextImpl:                    bp.EdgeContextImpl(),
+				ErrorSpanSuppressor:                cfg.ErrorSpanSuppressor,
+				ReportPayloadSizeMetricsSampleRate: cfg.ReportPayloadSizeMetricsSampleRate,
+			},
+		)
+		cfg.Middlewares = append(middlewares, cfg.Middlewares...)
+
+		return cfg
+	}
+}
+
+func serverOptLogger(bp baseplate.Baseplate) ServerOpt {
+	return func(cfg ServerConfig) ServerConfig {
 		cfg.Logger = log.ZapWrapper(log.ZapWrapperArgs{
 			Level: bp.GetConfig().Log.Level,
 			KVPairs: map[string]interface{}{
 				"from": "thrift",
 			},
 		}).ToThriftLogger()
+
+		return cfg
 	}
-	cfg.Addr = bp.GetConfig().Addr
-	cfg.Socket = nil
+}
+
+func serverOptAddress(bp baseplate.Baseplate) ServerOpt {
+	return func(cfg ServerConfig) ServerConfig {
+		cfg.Addr = bp.GetConfig().Addr
+
+		return cfg
+	}
+}
+
+func serverOptSocket(bp baseplate.Baseplate) ServerOpt {
+	return func(cfg ServerConfig) ServerConfig {
+		cfg.Socket = nil
+		return cfg
+	}
 }
 
 // ApplyBaseplate returns the given TSimpleServer as a baseplate Server with the
