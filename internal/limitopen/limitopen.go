@@ -49,15 +49,19 @@ func Open(path string) (r io.ReadCloser, size int64, err error) {
 	}
 
 	size = stats.Size()
-	return readCloser{
+	return ReadCloser{
 		Reader: io.LimitReader(f, size),
 		Closer: f,
+		Path:   path,
 	}, size, err
 }
 
-type readCloser struct {
+// ReadCloser is an extension of the io.ReadCloser class that also
+// includes the path to the file it reads from
+type ReadCloser struct {
 	io.Reader
 	io.Closer
+	Path string
 }
 
 // OpenWithLimit calls Open with limit checks.

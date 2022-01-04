@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/internal/limitopen"
 )
 
 const (
@@ -343,6 +344,7 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 
 // NewCSISecret parses and validates the secret JSON provided by the reader.
 func NewCSISecret(r io.Reader) (secrets *Secrets, err error) {
+	reader := r.(limitopen.ReadCloser)
 	var secretFile CSIFile
 	err = json.NewDecoder(r).Decode(&secretFile)
 	if err != nil {
@@ -358,6 +360,6 @@ func NewCSISecret(r io.Reader) (secrets *Secrets, err error) {
 		versionedSecrets:  make(map[string]VersionedSecret),
 		credentialSecrets: make(map[string]CredentialSecret),
 	}
-	secrets.AddSecret("hold", secretFile.Secret) // how to get secret name?
+	secrets.AddSecret(reader.Path, secretFile.Secret)
 	return
 }
