@@ -69,7 +69,7 @@ type ServerConfig struct {
 // and protocol to serve the given TProcessor which is wrapped with the
 // given ProcessorMiddlewares.
 func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
-	var transport *thrift.TServerSocket
+	var transport thrift.TServerTransport
 	if cfg.Socket == nil {
 		var err error
 		transport, err = thrift.NewTServerSocket(cfg.Addr)
@@ -97,6 +97,17 @@ func NewBaseplateServer(
 	bp baseplate.Baseplate,
 	cfg ServerConfig,
 ) (baseplate.Server, error) {
+	ApplyConfigDefaults(bp, cfg)
+	srv, err := NewServer(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return ApplyBaseplate(bp, srv), nil
+}
+
+// ApplyConfigDefaults initializes the default configuration values
+// used for creating a baseplate server.
+func ApplyConfigDefaults(bp baseplate.Baseplate, cfg ServerConfig) {
 	middlewares := BaseplateDefaultProcessorMiddlewares(
 		DefaultProcessorMiddlewaresArgs{
 			EdgeContextImpl:                    bp.EdgeContextImpl(),
@@ -116,11 +127,6 @@ func NewBaseplateServer(
 	}
 	cfg.Addr = bp.GetConfig().Addr
 	cfg.Socket = nil
-	srv, err := NewServer(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return ApplyBaseplate(bp, srv), nil
 }
 
 // ApplyBaseplate returns the given TSimpleServer as a baseplate Server with the
