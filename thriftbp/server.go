@@ -99,7 +99,7 @@ func NewBaseplateServer(
 ) (baseplate.Server, error) {
 
 	opts := []ServerOpt{
-		func(optCfg ServerConfig) ServerConfig {
+		func(_ ServerConfig) ServerConfig {
 			return cfg
 		},
 	}
@@ -122,8 +122,12 @@ func NewBaseplateServerFromOpts(
 	return ApplyBaseplate(bp, srv), nil
 }
 
+// ServerOpt is a type used for defining configuration arguments
+// needed for creating a baseplate server.
 type ServerOpt func(cfg ServerConfig) ServerConfig
 
+// BuildConfig creates a new ServerConfig instance and applies
+// all the supplied configuration options to it.
 func BuildConfig(opts ...ServerOpt) ServerConfig {
 	cfg := ServerConfig{}
 	for _, opt := range opts {
@@ -133,6 +137,8 @@ func BuildConfig(opts ...ServerOpt) ServerConfig {
 	return cfg
 }
 
+// DefaultServerOpts builds and returns a slice of the default
+// baseplate server config options.
 func DefaultServerOpts(bp baseplate.Baseplate) []ServerOpt {
 	return []ServerOpt{
 		serverOptMiddleware(bp),
