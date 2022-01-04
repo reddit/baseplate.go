@@ -53,6 +53,12 @@ type Config struct {
 	//
 	// Optional, defaults to false.
 	RunSysStats bool `yaml:"runSysStats"`
+
+	// ReportServerConnectionCount indicates that you want to publish
+	// a counter for the number of clients connected to the server
+	//
+	// Optional, defaults to false.
+	ReportServerConnectionCount bool `yaml:"ReportServerConnectionCount"`
 }
 
 // InitFromConfig initializes the global metricsbp.M with the given context and
