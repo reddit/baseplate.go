@@ -39,8 +39,11 @@ func (m MonitoredTTransport) Close() error {
 }
 
 func (m MonitoredTTransport) Open() error {
-	defer metricsbp.M.
-		Counter(meterNameTransportConnCounter).
-		Add(1)
-	return m.TTransport.Open()
+	err := m.TTransport.Open()
+	if err == nil {
+		metricsbp.M.
+			Counter(meterNameTransportConnCounter).
+			Add(1)
+	}
+	return err
 }
