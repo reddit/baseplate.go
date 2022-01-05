@@ -1,8 +1,11 @@
 package thriftbp
 
 import (
+	"sync"
+
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/go-kit/kit/metrics"
+
 	"github.com/reddit/baseplate.go/metricsbp"
 )
 
@@ -19,27 +22,31 @@ func (m *CountedTServerTransport) Accept() (thrift.TTransport, error) {
 		return nil, err
 	}
 
-	return NewCountedTTransport(transport), nil
+	return newCountedTTransport(transport), nil
 }
 
-type CountedTTransport struct {
+type countedTTransport struct {
 	thrift.TTransport
-	counter metrics.Counter
+
+	counter   metrics.Counter
+	closeOnce sync.Once
 }
 
-func NewCountedTTransport(transport thrift.TTransport) thrift.TTransport {
-	return &CountedTTransport{
+func newCountedTTransport(transport thrift.TTransport) thrift.TTransport {
+	return &countedTTransport{
 		TTransport: transport,
 		counter:    metricsbp.M.Counter(meterNameTransportConnCounter),
 	}
 }
 
-func (m *CountedTTransport) Close() error {
-	m.counter.Add(-1)
+func (m *countedTTransport) Close() error {
+	m.closeOnce.Do(func() {
+		m.counter.Add(-1)
+	})
 	return m.TTransport.Close()
 }
 
-func (m *CountedTTransport) Open() error {
+func (m *countedTTransport) Open() error {
 	if err := m.TTransport.Open(); err != nil {
 		return err
 	}
