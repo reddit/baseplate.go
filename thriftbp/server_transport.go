@@ -6,8 +6,7 @@ import (
 	"github.com/reddit/baseplate.go/metricsbp"
 )
 
-// TODO(marco.ferrer):1/4/22 Replace with metric name that conforms to bp conventions
-const meterNameTransportConnCounter = "thrift.conn.count"
+const meterNameTransportConnCounter = "thrift.connections"
 
 type CountedTServerTransport struct {
 	thrift.TServerTransport
@@ -41,9 +40,9 @@ func (m *CountedTTransport) Close() error {
 }
 
 func (m *CountedTTransport) Open() error {
-	err := m.TTransport.Open()
-	if err == nil {
-		m.counter.Add(1)
+	if err := m.TTransport.Open(); err != nil {
+		return err
 	}
-	return err
+	m.counter.Add(1)
+	return nil
 }
