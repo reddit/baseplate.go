@@ -98,12 +98,10 @@ func NewBaseplateServer(
 	cfg ServerConfig,
 ) (baseplate.Server, error) {
 
-	opts := []ServerOpt{
-		func(_ ServerConfig) ServerConfig {
-			return cfg
-		},
-	}
-	opts = append(opts, DefaultServerOpts(bp)...)
+	opts := append(
+		[]ServerOpt{ServerOptFrom(cfg)},
+		DefaultServerOpts(bp)...,
+	)
 
 	return NewBaseplateServerFromOpts(bp, opts...)
 }
@@ -115,26 +113,47 @@ func NewBaseplateServerFromOpts(
 	opts ...ServerOpt,
 ) (baseplate.Server, error) {
 
-	srv, err := NewServer(BuildConfig(opts...))
+	cfg, err := BuildConfig(opts...)
 	if err != nil {
 		return nil, err
 	}
+
+	srv, err := NewServer(*cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	return ApplyBaseplate(bp, srv), nil
 }
 
 // ServerOpt is a type used for defining configuration arguments
-// needed for creating a baseplate server.
-type ServerOpt func(cfg ServerConfig) ServerConfig
+// needed for creating a baseplate server. It allows returning
+// an error to signal that a configuration value was invalid
+// or failed to be set.
+type ServerOpt func(cfg *ServerConfig) error
 
 // BuildConfig creates a new ServerConfig instance and applies
 // all the supplied configuration options to it.
-func BuildConfig(opts ...ServerOpt) ServerConfig {
-	cfg := ServerConfig{}
+func BuildConfig(opts ...ServerOpt) (*ServerConfig, error) {
+	cfg := &ServerConfig{}
 	for _, opt := range opts {
-		cfg = opt(cfg)
+		err := opt(cfg)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return cfg
+	return cfg, nil
+}
+
+// ServerOptFrom returns a server option that overwrites the
+// any existing values in a ServerConfig with those defined
+// in src.
+func ServerOptFrom(src ServerConfig) ServerOpt {
+	return func(dst *ServerConfig) error {
+		*dst = src
+		return nil
+	}
 }
 
 // DefaultServerOpts builds and returns a slice of the default
@@ -143,13 +162,12 @@ func DefaultServerOpts(bp baseplate.Baseplate) []ServerOpt {
 	return []ServerOpt{
 		serverOptMiddleware(bp),
 		serverOptLogger(bp),
-		serverOptAddress(bp),
 		serverOptSocket(bp),
 	}
 }
 
 func serverOptMiddleware(bp baseplate.Baseplate) ServerOpt {
-	return func(cfg ServerConfig) ServerConfig {
+	return func(cfg *ServerConfig) error {
 		middlewares := BaseplateDefaultProcessorMiddlewares(
 			DefaultProcessorMiddlewaresArgs{
 				EdgeContextImpl:                    bp.EdgeContextImpl(),
@@ -159,12 +177,12 @@ func serverOptMiddleware(bp baseplate.Baseplate) ServerOpt {
 		)
 		cfg.Middlewares = append(middlewares, cfg.Middlewares...)
 
-		return cfg
+		return nil
 	}
 }
 
 func serverOptLogger(bp baseplate.Baseplate) ServerOpt {
-	return func(cfg ServerConfig) ServerConfig {
+	return func(cfg *ServerConfig) error {
 		cfg.Logger = log.ZapWrapper(log.ZapWrapperArgs{
 			Level: bp.GetConfig().Log.Level,
 			KVPairs: map[string]interface{}{
@@ -172,22 +190,19 @@ func serverOptLogger(bp baseplate.Baseplate) ServerOpt {
 			},
 		}).ToThriftLogger()
 
-		return cfg
-	}
-}
-
-func serverOptAddress(bp baseplate.Baseplate) ServerOpt {
-	return func(cfg ServerConfig) ServerConfig {
-		cfg.Addr = bp.GetConfig().Addr
-
-		return cfg
+		return nil
 	}
 }
 
 func serverOptSocket(bp baseplate.Baseplate) ServerOpt {
-	return func(cfg ServerConfig) ServerConfig {
-		cfg.Socket = nil
-		return cfg
+	return func(cfg *ServerConfig) error {
+		socket, err := thrift.NewTServerSocket(bp.GetConfig().Addr)
+		if err != nil {
+			return err
+		}
+
+		cfg.Socket = socket
+		return nil
 	}
 }
 
