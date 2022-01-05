@@ -69,26 +69,41 @@ type ServerConfig struct {
 // and protocol to serve the given TProcessor which is wrapped with the
 // given ProcessorMiddlewares.
 func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
-	var transport thrift.TServerTransport
+
+	// Leaving this default socket initialization intact so that we
+	// don't break existing usages of NewServer. Ideally, by the time
+	// we've reached NewServer, all necessary configuration should
+	// be completed. If we are ever able to deprecate this use case
+	// we will be able to fully remove cfg.Addr and serverOptAddress
+	// as well.
 	if cfg.Socket == nil {
-		var err error
-		transport, err = thrift.NewTServerSocket(cfg.Addr)
-		if err != nil {
+		if err := ServerOptSocket(cfg.Addr)(&cfg); err != nil {
 			return nil, err
 		}
-	} else {
-		transport = cfg.Socket
 	}
 
 	server := thrift.NewTSimpleServer4(
 		thrift.WrapProcessor(cfg.Processor, cfg.Middlewares...),
-		transport,
+		cfg.Socket,
 		thrift.NewTHeaderTransportFactoryConf(nil, nil),
 		thrift.NewTHeaderProtocolFactoryConf(nil),
 	)
 	server.SetForwardHeaders(HeadersToForward)
 	server.SetLogger(cfg.Logger)
 	return server, nil
+}
+
+// NewServerFromOpts creates a new ServerConfig instance and
+// delegates to NewServer so that it can instantiate a
+// new thrift.TSimpleServer.
+func NewServerFromOpts(opts ...ServerOpt) (*thrift.TSimpleServer, error) {
+
+	cfg, err := BuildConfig(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewServer(*cfg)
 }
 
 // NewBaseplateServer returns a new Thrift implementation of a Baseplate
@@ -113,12 +128,7 @@ func NewBaseplateServerFromOpts(
 	opts ...ServerOpt,
 ) (baseplate.Server, error) {
 
-	cfg, err := BuildConfig(opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	srv, err := NewServer(*cfg)
+	srv, err := NewServerFromOpts(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +172,7 @@ func DefaultServerOpts(bp baseplate.Baseplate) []ServerOpt {
 	return []ServerOpt{
 		serverOptMiddleware(bp),
 		serverOptLogger(bp),
+		serverOptAddress(bp),
 		serverOptSocket(bp),
 	}
 }
@@ -194,9 +205,26 @@ func serverOptLogger(bp baseplate.Baseplate) ServerOpt {
 	}
 }
 
-func serverOptSocket(bp baseplate.Baseplate) ServerOpt {
+// serverOptAddress is used to copy the address config from the
+// baseplate config to the server config. Currently, it's only
+// needed to guarantee backwards compatibility in NewServer
+func serverOptAddress(bp baseplate.Baseplate) ServerOpt {
 	return func(cfg *ServerConfig) error {
-		socket, err := thrift.NewTServerSocket(bp.GetConfig().Addr)
+		cfg.Addr = bp.GetConfig().Addr
+
+		return nil
+	}
+}
+
+func serverOptSocket(bp baseplate.Baseplate) ServerOpt {
+	return ServerOptSocket(bp.GetConfig().Addr)
+}
+
+// ServerOptSocket creates a server option that initializes a
+// thrift.TServerSocket listening on the address supplied.
+func ServerOptSocket(address string) ServerOpt {
+	return func(cfg *ServerConfig) error {
+		socket, err := thrift.NewTServerSocket(address)
 		if err != nil {
 			return err
 		}
