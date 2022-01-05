@@ -58,7 +58,7 @@ type Config struct {
 	// a counter for the number of clients connected to the server
 	//
 	// Optional, defaults to false.
-	ReportServerConnectionCount bool `yaml:"ReportServerConnectionCount"`
+	ReportServerConnectionCount bool `yaml:"reportServerConnectionCount"`
 }
 
 // InitFromConfig initializes the global metricsbp.M with the given context and

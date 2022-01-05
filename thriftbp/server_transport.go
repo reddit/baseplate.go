@@ -2,48 +2,48 @@ package thriftbp
 
 import (
 	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/go-kit/kit/metrics"
 	"github.com/reddit/baseplate.go/metricsbp"
 )
 
 // TODO(marco.ferrer):1/4/22 Replace with metric name that conforms to bp conventions
 const meterNameTransportConnCounter = "thrift.conn.count"
 
-type BaseplateWrapperTServerTransport struct {
+type CountedTServerTransport struct {
 	thrift.TServerTransport
-	reportConnectionCountMetrics bool
 }
 
-func (m BaseplateWrapperTServerTransport) Accept() (thrift.TTransport, error) {
+func (m *CountedTServerTransport) Accept() (thrift.TTransport, error) {
 
 	transport, err := m.TServerTransport.Accept()
 	if err != nil {
 		return nil, err
 	}
 
-	if m.reportConnectionCountMetrics {
-		transport = MonitoredTTransport{transport}
-	}
-
-	return transport, nil
+	return NewCountedTTransport(transport), nil
 }
 
-type MonitoredTTransport struct {
+type CountedTTransport struct {
 	thrift.TTransport
+	counter metrics.Counter
 }
 
-func (m MonitoredTTransport) Close() error {
-	defer metricsbp.M.
-		Counter(meterNameTransportConnCounter).
-		Add(-1)
+func NewCountedTTransport(transport thrift.TTransport) thrift.TTransport {
+	return &CountedTTransport{
+		TTransport: transport,
+		counter:    metricsbp.M.Counter(meterNameTransportConnCounter),
+	}
+}
+
+func (m *CountedTTransport) Close() error {
+	m.counter.Add(-1)
 	return m.TTransport.Close()
 }
 
-func (m MonitoredTTransport) Open() error {
+func (m *CountedTTransport) Open() error {
 	err := m.TTransport.Open()
 	if err == nil {
-		metricsbp.M.
-			Counter(meterNameTransportConnCounter).
-			Add(1)
+		m.counter.Add(1)
 	}
 	return err
 }

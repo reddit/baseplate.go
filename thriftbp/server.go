@@ -85,8 +85,8 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 		transport = cfg.Socket
 	}
 
-	transport = BaseplateWrapperTServerTransport{
-		transport, cfg.ReportServerConnectionCount,
+	if cfg.ReportServerConnectionCount {
+		transport = &CountedTServerTransport{transport}
 	}
 
 	server := thrift.NewTSimpleServer4(
