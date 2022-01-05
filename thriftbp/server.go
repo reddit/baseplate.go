@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	ErrInvalidListenerAddress = errors.New("invalid listener address")
+	errInvalidListenerAddress = errors.New("invalid listener address")
 )
 
 // ServerConfig is the arg struct for both NewServer and NewBaseplateServer.
@@ -75,13 +75,12 @@ type ServerConfig struct {
 // and protocol to serve the given TProcessor which is wrapped with the
 // given ProcessorMiddlewares.
 func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
-
 	// Leaving this default socket initialization intact so that we
 	// don't break existing usages of NewServer. Ideally, by the time
 	// we've reached NewServer, all necessary configuration should
 	// be completed.
 	if cfg.Socket == nil {
-		if err := WithDefaultSocket()(&cfg); err != nil {
+		if err := withDefaultSocket()(&cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -97,15 +96,14 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 	return server, nil
 }
 
-// NewServerFromOpts creates a new ServerConfig instance and
+// NewServerFromOptions creates a new ServerConfig instance and
 // delegates to NewServer so that it can instantiate a
 // new thrift.TSimpleServer.
-func NewServerFromOpts(opts ...ServerOption) (*thrift.TSimpleServer, error) {
+func NewServerFromOptions(opts ...ServerOption) (*thrift.TSimpleServer, error) {
 	cfg, err := buildConfig(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build server config: %w", err)
 	}
-
 	return NewServer(cfg)
 }
 
@@ -115,27 +113,23 @@ func NewBaseplateServer(
 	bp baseplate.Baseplate,
 	cfg ServerConfig,
 ) (baseplate.Server, error) {
-
-	opts := append(
+	options := append(
 		[]ServerOption{WithConfigFrom(cfg)},
 		DefaultServerOptions(bp)...,
 	)
-
-	return NewBaseplateServerFromOpts(bp, opts...)
+	return NewBaseplateServerFromOptions(bp, options...)
 }
 
-// NewBaseplateServerFromOpts returns a new Thrift implementation of a Baseplate
+// NewBaseplateServerFromOptions returns a new Thrift implementation of a Baseplate
 // server using a config built from the supplied opts ServerOption.
-func NewBaseplateServerFromOpts(
+func NewBaseplateServerFromOptions(
 	bp baseplate.Baseplate,
 	opts ...ServerOption,
 ) (baseplate.Server, error) {
-
-	srv, err := NewServerFromOpts(opts...)
+	srv, err := NewServerFromOptions(opts...)
 	if err != nil {
 		return nil, err
 	}
-
 	return ApplyBaseplate(bp, srv), nil
 }
 
@@ -147,10 +141,10 @@ type ServerOption func(cfg *ServerConfig) error
 
 // buildConfig creates a new ServerConfig instance and applies
 // all the supplied configuration options to it.
-func buildConfig(opts ...ServerOption) (ServerConfig, error) {
+func buildConfig(options ...ServerOption) (ServerConfig, error) {
 	cfg := &ServerConfig{}
-	for _, opt := range opts {
-		err := opt(cfg)
+	for _, option := range options {
+		err := option(cfg)
 		if err != nil {
 			return ServerConfig{}, err
 		}
@@ -176,7 +170,7 @@ func DefaultServerOptions(bp baseplate.Baseplate) []ServerOption {
 		withDefaultMiddleware(bp),
 		withDefaultLogger(bp),
 		withDefaultListenerAddress(bp),
-		WithDefaultSocket(),
+		withDefaultSocket(),
 	}
 }
 
@@ -275,12 +269,12 @@ func WithSocket(socket *thrift.TServerSocket) ServerOption {
 	}
 }
 
-// WithDefaultSocket initializes a socket listening at the
+// withDefaultSocket initializes a socket listening at the
 // configured address.
-func WithDefaultSocket() ServerOption {
+func withDefaultSocket() ServerOption {
 	return func(cfg *ServerConfig) error {
 		if cfg.Addr == "" {
-			return fmt.Errorf("listener address is empty, %w", ErrInvalidListenerAddress)
+			return fmt.Errorf("listener address is empty, %w", errInvalidListenerAddress)
 		}
 
 		socket, err := thrift.NewTServerSocket(cfg.Addr)
