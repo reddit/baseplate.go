@@ -16,7 +16,6 @@ type CountedTServerTransport struct {
 }
 
 func (m *CountedTServerTransport) Accept() (thrift.TTransport, error) {
-
 	transport, err := m.TServerTransport.Accept()
 	if err != nil {
 		return nil, err
