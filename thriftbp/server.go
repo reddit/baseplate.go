@@ -1,6 +1,8 @@
 package thriftbp
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -8,6 +10,10 @@ import (
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
+)
+
+var (
+	ErrInvalidListenerAddress = errors.New("invalid listener address")
 )
 
 // ServerConfig is the arg struct for both NewServer and NewBaseplateServer.
@@ -73,11 +79,9 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 	// Leaving this default socket initialization intact so that we
 	// don't break existing usages of NewServer. Ideally, by the time
 	// we've reached NewServer, all necessary configuration should
-	// be completed. If we are ever able to deprecate this use case
-	// we will be able to fully remove cfg.Addr and serverOptAddress
-	// as well.
+	// be completed.
 	if cfg.Socket == nil {
-		if err := ServerOptSocket(cfg.Addr)(&cfg); err != nil {
+		if err := WithDefaultSocket()(&cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -96,14 +100,13 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 // NewServerFromOpts creates a new ServerConfig instance and
 // delegates to NewServer so that it can instantiate a
 // new thrift.TSimpleServer.
-func NewServerFromOpts(opts ...ServerOpt) (*thrift.TSimpleServer, error) {
-
-	cfg, err := BuildConfig(opts...)
+func NewServerFromOpts(opts ...ServerOption) (*thrift.TSimpleServer, error) {
+	cfg, err := buildConfig(opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build server config: %w", err)
 	}
 
-	return NewServer(*cfg)
+	return NewServer(cfg)
 }
 
 // NewBaseplateServer returns a new Thrift implementation of a Baseplate
@@ -114,18 +117,18 @@ func NewBaseplateServer(
 ) (baseplate.Server, error) {
 
 	opts := append(
-		[]ServerOpt{ServerOptFrom(cfg)},
-		DefaultServerOpts(bp)...,
+		[]ServerOption{WithConfigFrom(cfg)},
+		DefaultServerOptions(bp)...,
 	)
 
 	return NewBaseplateServerFromOpts(bp, opts...)
 }
 
 // NewBaseplateServerFromOpts returns a new Thrift implementation of a Baseplate
-// server using a config built from the supplied opts ServerOpt.
+// server using a config built from the supplied opts ServerOption.
 func NewBaseplateServerFromOpts(
 	bp baseplate.Baseplate,
-	opts ...ServerOpt,
+	opts ...ServerOption,
 ) (baseplate.Server, error) {
 
 	srv, err := NewServerFromOpts(opts...)
@@ -136,101 +139,156 @@ func NewBaseplateServerFromOpts(
 	return ApplyBaseplate(bp, srv), nil
 }
 
-// ServerOpt is a type used for defining configuration arguments
+// ServerOption is a type used for defining configuration arguments
 // needed for creating a baseplate server. It allows returning
 // an error to signal that a configuration value was invalid
 // or failed to be set.
-type ServerOpt func(cfg *ServerConfig) error
+type ServerOption func(cfg *ServerConfig) error
 
-// BuildConfig creates a new ServerConfig instance and applies
+// buildConfig creates a new ServerConfig instance and applies
 // all the supplied configuration options to it.
-func BuildConfig(opts ...ServerOpt) (*ServerConfig, error) {
+func buildConfig(opts ...ServerOption) (ServerConfig, error) {
 	cfg := &ServerConfig{}
 	for _, opt := range opts {
 		err := opt(cfg)
 		if err != nil {
-			return nil, err
+			return ServerConfig{}, err
 		}
 	}
 
-	return cfg, nil
+	return *cfg, nil
 }
 
-// ServerOptFrom returns a server option that overwrites the
+// WithConfigFrom returns a server option that overwrites the
 // any existing values in a ServerConfig with those defined
 // in src.
-func ServerOptFrom(src ServerConfig) ServerOpt {
+func WithConfigFrom(src ServerConfig) ServerOption {
 	return func(dst *ServerConfig) error {
 		*dst = src
 		return nil
 	}
 }
 
-// DefaultServerOpts builds and returns a slice of the default
+// DefaultServerOptions builds and returns a slice of the default
 // baseplate server config options.
-func DefaultServerOpts(bp baseplate.Baseplate) []ServerOpt {
-	return []ServerOpt{
-		serverOptMiddleware(bp),
-		serverOptLogger(bp),
-		serverOptAddress(bp),
-		serverOptSocket(bp),
+func DefaultServerOptions(bp baseplate.Baseplate) []ServerOption {
+	return []ServerOption{
+		withDefaultMiddleware(bp),
+		withDefaultLogger(bp),
+		withDefaultListenerAddress(bp),
+		WithDefaultSocket(),
 	}
 }
 
-func serverOptMiddleware(bp baseplate.Baseplate) ServerOpt {
+// withDefaultMiddleware will prepend the default middleware so
+// we can maintain backwards compatibility with the old logic of
+// NewBaseplateServer.
+func withDefaultMiddleware(bp baseplate.Baseplate) ServerOption {
 	return func(cfg *ServerConfig) error {
-		middlewares := BaseplateDefaultProcessorMiddlewares(
+		existingMiddleware := cfg.Middlewares
+
+		if err := WithDefaultMiddleware(bp)(cfg); err != nil {
+			return err
+		}
+
+		// Prepend defaults to existing values
+		cfg.Middlewares = append(cfg.Middlewares, existingMiddleware...)
+		return nil
+	}
+}
+
+// WithDefaultMiddleware will append the default baseplate middleware to the
+// server config. When depending on specific features such as ErrorSpanSuppressor,
+// the ServerOption configuring the setting needs to be invoked before this method.
+func WithDefaultMiddleware(bp baseplate.Baseplate) ServerOption {
+	return func(cfg *ServerConfig) error {
+		return WithMiddleware(BaseplateDefaultProcessorMiddlewares(
 			DefaultProcessorMiddlewaresArgs{
 				EdgeContextImpl:                    bp.EdgeContextImpl(),
 				ErrorSpanSuppressor:                cfg.ErrorSpanSuppressor,
 				ReportPayloadSizeMetricsSampleRate: cfg.ReportPayloadSizeMetricsSampleRate,
 			},
-		)
-		cfg.Middlewares = append(middlewares, cfg.Middlewares...)
-
-		return nil
+		)...)(cfg)
 	}
 }
 
-func serverOptLogger(bp baseplate.Baseplate) ServerOpt {
-	return func(cfg *ServerConfig) error {
-		cfg.Logger = log.ZapWrapper(log.ZapWrapperArgs{
-			Level: bp.GetConfig().Log.Level,
-			KVPairs: map[string]interface{}{
-				"from": "thrift",
-			},
-		}).ToThriftLogger()
-
-		return nil
-	}
+func withDefaultLogger(bp baseplate.Baseplate) ServerOption {
+	return WithDefaultLogger(bp.GetConfig().Log.Level)
 }
 
-// serverOptAddress is used to copy the address config from the
+// withDefaultListenerAddress is used to copy the address config from the
 // baseplate config to the server config. Currently, it's only
 // needed to guarantee backwards compatibility in NewServer
-func serverOptAddress(bp baseplate.Baseplate) ServerOpt {
-	return func(cfg *ServerConfig) error {
-		cfg.Addr = bp.GetConfig().Addr
+func withDefaultListenerAddress(bp baseplate.Baseplate) ServerOption {
+	return WithListenerAddress(bp.GetConfig().Addr)
+}
 
+// WithMiddleware appends the arg middleware to the end of
+// the cfg.Middleware slice
+func WithMiddleware(middleware ...thrift.ProcessorMiddleware) ServerOption {
+	return func(cfg *ServerConfig) error {
+		cfg.Middlewares = append(cfg.Middlewares, middleware...)
 		return nil
 	}
 }
 
-func serverOptSocket(bp baseplate.Baseplate) ServerOpt {
-	return ServerOptSocket(bp.GetConfig().Addr)
+// WithLogger configures the thrift.Logger that will be used by the server
+// to log connection errors.
+func WithLogger(logger thrift.Logger) ServerOption {
+	return func(cfg *ServerConfig) error {
+		cfg.Logger = logger
+		return nil
+	}
 }
 
-// ServerOptSocket creates a server option that initializes a
-// thrift.TServerSocket listening on the address supplied.
-func ServerOptSocket(address string) ServerOpt {
+// WithDefaultLogger initializes the logger that will be used by the thrift
+// server to log connection errors. The logger will be configured with the
+// level supplied.
+func WithDefaultLogger(level log.Level) ServerOption {
+	return WithLogger(
+		log.ZapWrapper(
+			log.ZapWrapperArgs{
+				Level: level,
+				KVPairs: map[string]interface{}{
+					"from": "thrift",
+				},
+			},
+		).ToThriftLogger(),
+	)
+}
+
+// WithListenerAddress is defined to provide backwards compatibility with
+// existing usages of NewServer. Use WithDefaultSocket instead.
+func WithListenerAddress(address string) ServerOption {
 	return func(cfg *ServerConfig) error {
-		socket, err := thrift.NewTServerSocket(address)
+		cfg.Addr = address
+		return nil
+	}
+}
+
+// WithSocket creates a server option that initializes a
+// thrift.TServerSocket listening on the address supplied.
+func WithSocket(socket *thrift.TServerSocket) ServerOption {
+	return func(cfg *ServerConfig) error {
+		cfg.Socket = socket
+		return nil
+	}
+}
+
+// WithDefaultSocket initializes a socket listening at the
+// configured address.
+func WithDefaultSocket() ServerOption {
+	return func(cfg *ServerConfig) error {
+		if cfg.Addr == "" {
+			return fmt.Errorf("listener address is empty, %w", ErrInvalidListenerAddress)
+		}
+
+		socket, err := thrift.NewTServerSocket(cfg.Addr)
 		if err != nil {
 			return err
 		}
 
-		cfg.Socket = socket
-		return nil
+		return WithSocket(socket)(cfg)
 	}
 }
 
