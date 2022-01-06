@@ -372,8 +372,7 @@ func statusCodeFamily(code int) string {
 // isSuccessStatusCode takes an http status code and returns true if its in the
 // success status code family, i.e "2xx".
 func isSuccessStatusCode(code int) bool {
-	const successFamily = "2xx"
-	return statusCodeFamily(code) == successFamily
+	return code/100 == 2
 }
 
 // counterGenerator is used by recordStatusCode to create counters for recording
@@ -449,7 +448,7 @@ func PrometheusServerMetrics(serverSlug string) Middleware {
 
 			wrapped := &responseRecorder{ResponseWriter: w}
 			defer func() {
-				code := wrapped.getCode(err)
+				code := processCodeErr(err, wrapped.responseCode)
 				success := isRequestSuccessful(code, err)
 
 				labels := prometheus.Labels{
@@ -471,12 +470,9 @@ func PrometheusServerMetrics(serverSlug string) Middleware {
 				serverActiveRequests.With(activeRequestLabels).Dec()
 			}()
 
-			n := next(ctx, wrapped, r)
-			wrapped.setContentLength()
-			return n
+			return next(ctx, wrapped, r)
 		}
 	}
-
 }
 
 // isRequestSuccessful returns the success of an HTTP request as a string, i.e. "true" or "false".
@@ -512,18 +508,11 @@ type responseRecorder struct {
 func (rr *responseRecorder) Write(b []byte) (n int, err error) {
 	n, err = rr.ResponseWriter.Write(b)
 	rr.bytesWritten += n
+	rr.ResponseWriter.Header().Set(contentLengthHeader, strconv.Itoa(rr.bytesWritten))
 	return n, err
 }
 
 func (rr *responseRecorder) WriteHeader(code int) {
 	rr.ResponseWriter.WriteHeader(code)
 	rr.responseCode = code
-}
-
-func (r *responseRecorder) setContentLength() {
-	r.ResponseWriter.Header().Set(contentLengthHeader, strconv.Itoa(r.bytesWritten))
-}
-
-func (r *responseRecorder) getCode(err error) int {
-	return processCodeErr(err, r.responseCode)
 }
