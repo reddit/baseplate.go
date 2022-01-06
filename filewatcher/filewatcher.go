@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -128,94 +127,6 @@ func (r *Result) watcherLoop(
 	}
 }
 
-func (r *Result) dirWatcherLoop(
-	watcher *fsnotify.Watcher,
-	path string,
-	parser Parser,
-	softLimit, hardLimit int64,
-	logger log.Wrapper,
-) {
-	file := filepath.Base(path)
-	for {
-		select {
-		case <-r.ctx.Done():
-			watcher.Close()
-			return
-
-		case err := <-watcher.Errors:
-			logger.Log(context.Background(), "filewatcher: watcher error: "+err.Error())
-
-		case ev := <-watcher.Events:
-			if filepath.Base(ev.Name) != file {
-				continue
-			}
-
-			isDir, err := isDirectory(path)
-			if err != nil {
-				logger.Log(context.Background(), "filewatcher: watcher error: "+err.Error())
-			}
-
-			switch ev.Op {
-			default:
-				// Ignore uninterested events.
-			case fsnotify.Create: // add to watcher, parse if file
-				// Wrap with an anonymous function to make sure that defer works.
-				func() {
-					if isDir {
-						watcher.Add(path)
-					} else {
-						f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
-						if err != nil {
-							logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
-							return
-						}
-						defer f.Close()
-						d, err := parser(f)
-						if err != nil {
-							logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
-						} else {
-							folder := r.data.Load().(Folder)
-							folder.Files[path] = d
-							r.data.Store(folder) //merge?
-						}
-					}
-				}()
-			case fsnotify.Rename, fsnotify.Remove: // remove from watcher
-				// Wrap with an anonymous function to make sure that defer works.
-				func() {
-					if isDir {
-						watcher.Remove(path)
-					} else {
-						// remove data related to path?
-					}
-				}()
-			case fsnotify.Write, fsnotify.Chmod: //parse
-				// Wrap with an anonymous function to make sure that defer works.
-				func() {
-					if isDir {
-						// do nothing
-					} else {
-						f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
-						if err != nil {
-							logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
-							return
-						}
-						defer f.Close()
-						d, err := parser(f)
-						if err != nil {
-							logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
-						} else {
-							folder := r.data.Load().(Folder)
-							folder.Files[path] = d
-							r.data.Store(folder) //merge?
-						}
-					}
-				}()
-			}
-		}
-	}
-}
-
 var (
 	_ FileWatcher = (*Result)(nil)
 )
@@ -250,19 +161,6 @@ type Config struct {
 	// The loading of the file will fail immediately.
 	MaxFileSize int64 `yaml:"maxFileSize"`
 }
-
-// Folder is a construct to sort data parsed from a filewatcher by its file path
-type Folder struct {
-	Files map[string]interface{}
-}
-
-// func (folder *Folder) AddFile(path string, file interface{}) error {
-// 	return nil
-// }
-
-// func (folder *Folder) RemoveFile(path string) error {
-// 	return nil
-// }
 
 // New creates a new file watcher.
 //
@@ -333,75 +231,6 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	return res, nil
 }
 
-// NewDirWatcher initializes a filewatcher designed for recursivly
-// looking through a directory instead of a file
-func NewDirWatcher(ctx context.Context, cfg Config) (*Result, error) {
-	limit := cfg.MaxFileSize
-	if limit <= 0 {
-		limit = DefaultMaxFileSize
-	}
-	hardLimit := limit * HardLimitMultiplier
-
-	var watcher *fsnotify.Watcher
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
-	}
-
-	var d interface{}
-	res := &Result{}
-	res.data.Store(Folder{
-		Files: make(map[string]interface{}),
-	})
-	// Need to walk recursively because the watcher
-	// doesnt support recursion by itself
-	secretPath := filepath.Clean(cfg.Path)
-	err = filepath.WalkDir(secretPath, func(path string, info fs.DirEntry, err error) error {
-		if info.IsDir() {
-			return watcher.Add(path)
-		}
-
-		// Parse file if you find it
-		return func() error {
-			// fmt.Println("yo!!!!!!!!!!!!!!!!!!!!!!!!!")
-			// fmt.Println(path)
-			var f io.ReadCloser
-
-			select {
-			default:
-			case <-ctx.Done():
-				return fmt.Errorf("filewatcher: context cancelled while waiting for file under %q to load. %w", cfg.Path, ctx.Err())
-			}
-
-			var err error
-			f, err = limitopen.OpenWithLimit(path, limit, hardLimit)
-			if err != nil {
-				return err
-			}
-			d, err = cfg.Parser(f)
-			if err != nil {
-				watcher.Close()
-				return err
-			}
-			folder := res.data.Load().(Folder)
-			folder.Files[path] = d
-			res.data.Store(folder) //merge?
-
-			f.Close()
-
-			return nil
-		}()
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	res.ctx, res.cancel = context.WithCancel(context.Background())
-	go res.dirWatcherLoop(watcher, cfg.Path, cfg.Parser, limit, hardLimit, cfg.Logger)
-
-	return res, nil
-}
-
 // NewMockFilewatcher returns a pointer to a new MockFileWatcher object
 // initialized with the given io.Reader and Parser.
 func NewMockFilewatcher(r io.Reader, parser Parser) (*MockFileWatcher, error) {
@@ -443,12 +272,3 @@ func (fw *MockFileWatcher) Get() interface{} {
 func (fw *MockFileWatcher) Stop() {}
 
 var _ FileWatcher = (*MockFileWatcher)(nil)
-
-func isDirectory(path string) (bool, error) {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return false, err
-	}
-
-	return fileInfo.IsDir(), err
-}

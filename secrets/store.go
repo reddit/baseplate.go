@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/reddit/baseplate.go/dirwatcher"
 	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
 )
@@ -38,14 +39,14 @@ type Store struct {
 // Context should come with a timeout otherwise this might block forever, i.e.
 // if the path never becomes available.
 func NewStore(ctx context.Context, path string, provider string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
+	store := &Store{
+		secretHandlerFunc: nopSecretHandlerFunc,
+	}
+	store.secretHandler(middlewares...)
 	switch provider {
 	case "vault_csi":
-		store := &Store{
-			secretHandlerFunc: nopSecretHandlerFunc,
-		}
-		store.secretHandler(middlewares...)
 
-		result, err := filewatcher.NewDirWatcher(
+		result, err := dirwatcher.New(
 			ctx,
 			filewatcher.Config{
 				Path:   path,
@@ -60,11 +61,6 @@ func NewStore(ctx context.Context, path string, provider string, logger log.Wrap
 		store.watcher = result
 		return store, nil
 	default:
-		store := &Store{
-			secretHandlerFunc: nopSecretHandlerFunc,
-		}
-		store.secretHandler(middlewares...)
-
 		result, err := filewatcher.New(
 			ctx,
 			filewatcher.Config{
