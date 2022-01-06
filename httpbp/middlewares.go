@@ -15,7 +15,6 @@ import (
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
-	"github.com/reddit/baseplate.go/iobp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/tracing"
@@ -327,9 +326,13 @@ func (r *statusCodeRecorder) WriteHeader(code int) {
 }
 
 func (r *statusCodeRecorder) getCode(err error) int {
-	if r.code != 0 {
+	return processCodeErr(err, r.code)
+}
+
+func processCodeErr(err error, code int) int {
+	if code != 0 {
 		// WriteHeader was called explicitly, use that
-		return r.code
+		return code
 	}
 	if err != nil {
 		// something went wrong, check if err is an HTTPErr where we can extract
@@ -444,9 +447,7 @@ func PrometheusServerMetrics(serverSlug string) Middleware {
 			}
 			serverActiveRequests.With(activeRequestLabels).Inc()
 
-			var sink iobp.CountingSink
-			reqLenRecorder := &contentLengthRecorder{ResponseWriter: w, CountingSink: sink}
-			wrapped := &statusCodeRecorder{ResponseWriter: reqLenRecorder}
+			wrapped := &responseRecorder{ResponseWriter: w}
 			defer func() {
 				code := wrapped.getCode(err)
 				success := isRequestSuccessful(code, err)
@@ -471,7 +472,7 @@ func PrometheusServerMetrics(serverSlug string) Middleware {
 			}()
 
 			n := next(ctx, wrapped, r)
-			reqLenRecorder.setContentLength()
+			wrapped.setContentLength()
 			return n
 		}
 	}
@@ -498,21 +499,31 @@ func getContentLength(w http.ResponseWriter) int64 {
 	return 0
 }
 
-// contentLengthRecorder is used to record the content length of whats written via the ResponseWriter.
-type contentLengthRecorder struct {
+// responeRecorder records the following:
+//   1. HTTP response code passed to a call to WriteHeader.
+//   2. the content length of whats written.
+type responseRecorder struct {
 	http.ResponseWriter
 
-	iobp.CountingSink
+	bytesWritten int
+	responseCode int
 }
 
-func (r *contentLengthRecorder) Write(b []byte) (int, error) {
-	_, err := r.CountingSink.Write(b)
-	if err != nil {
-		log.Warnf("err CountingSink.Write(b) %w\n", err)
-	}
-	return r.ResponseWriter.Write(b)
+func (rr *responseRecorder) Write(b []byte) (n int, err error) {
+	n, err = rr.ResponseWriter.Write(b)
+	rr.bytesWritten += n
+	return n, err
 }
 
-func (r *contentLengthRecorder) setContentLength() {
-	r.ResponseWriter.Header().Set(contentLengthHeader, strconv.Itoa(int(r.Size())))
+func (rr *responseRecorder) WriteHeader(code int) {
+	rr.ResponseWriter.WriteHeader(code)
+	rr.responseCode = code
+}
+
+func (r *responseRecorder) setContentLength() {
+	r.ResponseWriter.Header().Set(contentLengthHeader, strconv.Itoa(r.bytesWritten))
+}
+
+func (r *responseRecorder) getCode(err error) int {
+	return processCodeErr(err, r.responseCode)
 }
