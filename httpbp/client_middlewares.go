@@ -280,7 +280,7 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 			clientActiveRequests.With(activeRequestLabels).Inc()
 
 			defer func() {
-				success := strconv.FormatBool(err == nil && resp.StatusCode == http.StatusOK)
+				success := isRequestSuccessful(resp.StatusCode, err)
 
 				latencyLabels := prometheus.Labels{
 					methodLabel:            method,

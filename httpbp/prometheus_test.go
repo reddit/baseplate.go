@@ -31,7 +31,8 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 		success  string
 		method   string
 		endpoint string
-		size     int
+		reqSize  int
+		respSize int
 	}{
 		{
 			name:     "success get",
@@ -46,7 +47,8 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 			success:  "false",
 			method:   http.MethodPost,
 			endpoint: "/error2",
-			size:     16,
+			reqSize:  16,
+			respSize: 29,
 		},
 		{
 			name:     "internal err get",
@@ -157,8 +159,8 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatency, serverSizeLabels).CheckExists()
 			defer promtest.NewPrometheusMetricTest(t, "server total requests", serverTotalRequests, serverTotalRequestLabels).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels).CheckDelta(0)
-			defer promtest.NewPrometheusMetricTest(t, "server request size", serverRequestSize, serverSizeLabels).CheckDelta(float64(tt.size))
-			defer promtest.NewPrometheusMetricTest(t, "server response size", serverResponseSize, serverSizeLabels).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "server request size", serverRequestSize, serverSizeLabels).CheckDelta(float64(tt.reqSize))
+			defer promtest.NewPrometheusMetricTest(t, "server response size", serverResponseSize, serverSizeLabels).CheckDelta(float64(tt.respSize))
 			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatency, clientLatencyLabels).CheckExists()
 			defer promtest.NewPrometheusMetricTest(t, "client total requests", clientTotalRequests, clientTotalRequestLabels).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientActiveRequestLabels).CheckDelta(0)

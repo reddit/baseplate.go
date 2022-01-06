@@ -24,7 +24,7 @@ var (
 
 	serverLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_latency_seconds",
-		Help:    "RPC latencies",
+		Help:    "HTTP server request latencies",
 		Buckets: prometheusbp.DefaultBuckets,
 	}, serverLabels)
 
@@ -85,7 +85,7 @@ var (
 
 	clientLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_client_latency_seconds",
-		Help:    "HTTP latencies",
+		Help:    "HTTP client request latencies",
 		Buckets: prometheusbp.DefaultBuckets,
 	}, clientLatencyLabels)
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/iobp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/tracing"
@@ -365,6 +366,13 @@ func statusCodeFamily(code int) string {
 	return families[family]
 }
 
+// isSuccessStatusCode takes an http status code and returns true if its in the
+// success status code family, i.e "2xx".
+func isSuccessStatusCode(code int) bool {
+	const successFamily = "2xx"
+	return statusCodeFamily(code) == successFamily
+}
+
 // counterGenerator is used by recordStatusCode to create counters for recording
 // http response codes set by the server.
 //
@@ -436,10 +444,12 @@ func PrometheusServerMetrics(serverSlug string) Middleware {
 			}
 			serverActiveRequests.With(activeRequestLabels).Inc()
 
-			wrapped := &statusCodeRecorder{ResponseWriter: w}
+			var sink iobp.CountingSink
+			reqLenRecorder := &contentLengthRecorder{ResponseWriter: w, CountingSink: sink}
+			wrapped := &statusCodeRecorder{ResponseWriter: reqLenRecorder}
 			defer func() {
 				code := wrapped.getCode(err)
-				success := strconv.FormatBool(err == nil && code == http.StatusOK)
+				success := isRequestSuccessful(code, err)
 
 				labels := prometheus.Labels{
 					methodLabel:   method,
@@ -460,17 +470,49 @@ func PrometheusServerMetrics(serverSlug string) Middleware {
 				serverActiveRequests.With(activeRequestLabels).Dec()
 			}()
 
-			return next(ctx, wrapped, r)
+			n := next(ctx, wrapped, r)
+			reqLenRecorder.setContentLength()
+			return n
 		}
 	}
+
 }
 
+// isRequestSuccessful returns the success of an HTTP request as a string, i.e. "true" or "false".
+// A HTTP request is successful when:
+//   1) no error is returned from the request and
+//   2) the HTTP status code is in the form 2xx.
+func isRequestSuccessful(httpStatusCode int, requestErr error) string {
+	return strconv.FormatBool(requestErr == nil && isSuccessStatusCode(httpStatusCode))
+}
+
+const contentLengthHeader = "Content-Length"
+
 func getContentLength(w http.ResponseWriter) int64 {
-	if cl := w.Header().Get("Content-Length"); cl != "" {
+	if cl := w.Header().Get(contentLengthHeader); cl != "" {
 		v, err := strconv.ParseInt(cl, 10, 64)
 		if err == nil && v >= 0 {
 			return v
 		}
 	}
 	return 0
+}
+
+// contentLengthRecorder is used to record the content length of whats written via the ResponseWriter.
+type contentLengthRecorder struct {
+	http.ResponseWriter
+
+	iobp.CountingSink
+}
+
+func (r *contentLengthRecorder) Write(b []byte) (int, error) {
+	_, err := r.CountingSink.Write(b)
+	if err != nil {
+		log.Warnf("err CountingSink.Write(b) %w\n", err)
+	}
+	return r.ResponseWriter.Write(b)
+}
+
+func (r *contentLengthRecorder) setContentLength() {
+	r.ResponseWriter.Header().Set(contentLengthHeader, strconv.Itoa(int(r.Size())))
 }
