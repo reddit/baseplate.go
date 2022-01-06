@@ -96,9 +96,11 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 	return server, nil
 }
 
-// NewServerFromOptions creates a new ServerConfig instance and
-// delegates to NewServer so that it can instantiate a
-// new thrift.TSimpleServer.
+// NewServerFromOptions creates a new ServerConfig instance and delegates
+// to NewServer so that it can instantiate a new thrift.TSimpleServer.
+// This is a low level api and should only be used at the recommendation
+// of the baseplate maintainers. Most application implementations should
+// rely on NewBaseplateServer.
 func NewServerFromOptions(opts ...ServerOption) (*thrift.TSimpleServer, error) {
 	cfg, err := buildConfig(opts...)
 	if err != nil {
@@ -108,20 +110,23 @@ func NewServerFromOptions(opts ...ServerOption) (*thrift.TSimpleServer, error) {
 }
 
 // NewBaseplateServer returns a new Thrift implementation of a Baseplate
-// server with the given config.
+// server with the given config. This is the primary constructor that
+// should be used when building a baseplate server.
 func NewBaseplateServer(
 	bp baseplate.Baseplate,
 	cfg ServerConfig,
 ) (baseplate.Server, error) {
 	options := append(
-		[]ServerOption{WithConfigFrom(cfg)},
+		[]ServerOption{withConfigFrom(cfg)},
 		DefaultServerOptions(bp)...,
 	)
 	return NewBaseplateServerFromOptions(bp, options...)
 }
 
 // NewBaseplateServerFromOptions returns a new Thrift implementation of a Baseplate
-// server using a config built from the supplied opts ServerOption.
+// server using a config built from the supplied opts ServerOption. This is a low
+// level api and should  only be used at the recommendation of the baseplate maintainers.
+// Most application implementations should rely on NewBaseplateServer.
 func NewBaseplateServerFromOptions(
 	bp baseplate.Baseplate,
 	opts ...ServerOption,
@@ -153,10 +158,11 @@ func buildConfig(options ...ServerOption) (ServerConfig, error) {
 	return *cfg, nil
 }
 
-// WithConfigFrom returns a server option that overwrites the
+// withConfigFrom returns a server option that overwrites the
 // any existing values in a ServerConfig with those defined
-// in src.
-func WithConfigFrom(src ServerConfig) ServerOption {
+// in src. This is meant to be used from NewBaseplateServer
+// for mapping the supplied ServerConfig into a ServerOption
+func withConfigFrom(src ServerConfig) ServerOption {
 	return func(dst *ServerConfig) error {
 		*dst = src
 		return nil
@@ -164,7 +170,8 @@ func WithConfigFrom(src ServerConfig) ServerOption {
 }
 
 // DefaultServerOptions builds and returns a slice of the default
-// baseplate server config options.
+// baseplate server config options. This method is meant to support
+// advanced use cases when building a custom baseplate server.
 func DefaultServerOptions(bp baseplate.Baseplate) []ServerOption {
 	return []ServerOption{
 		withDefaultMiddleware(bp),
@@ -222,6 +229,35 @@ func withDefaultListenerAddress(bp baseplate.Baseplate) ServerOption {
 func WithMiddleware(middleware ...thrift.ProcessorMiddleware) ServerOption {
 	return func(cfg *ServerConfig) error {
 		cfg.Middlewares = append(cfg.Middlewares, middleware...)
+		return nil
+	}
+}
+
+// WithProcessor configures the TProcessor that will be used by
+// the server to handle and respond to thrift api requests.
+func WithProcessor(processor thrift.TProcessor) ServerOption {
+	return func(cfg *ServerConfig) error {
+		cfg.Processor = processor
+		return nil
+	}
+}
+
+// WithErrorSpanSuppressor configures the suppressor that will
+// be used when constructing the InjectServerSpan middleware.
+// This option must be set before any calls to WithDefaultMiddleware.
+func WithErrorSpanSuppressor(suppressor errorsbp.Suppressor) ServerOption {
+	return func(cfg *ServerConfig) error {
+		cfg.ErrorSpanSuppressor = suppressor
+		return nil
+	}
+}
+
+// WithPayloadSizeMetricsSampleRate configures the sample rate used
+// to report the payload size metrics for requests. This option must
+// be set before any calls to WithDefaultMiddleware.
+func WithPayloadSizeMetricsSampleRate(rate float64) ServerOption {
+	return func(cfg *ServerConfig) error {
+		cfg.ReportPayloadSizeMetricsSampleRate = rate
 		return nil
 	}
 }
