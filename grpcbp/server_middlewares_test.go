@@ -186,13 +186,13 @@ func (t *mockService) PingStream(c pb.TestService_PingStreamServer) error {
 
 func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 	const (
-		serviceName = "testSvc"
+		serviceName = "mwitkow.testproto.TestService"
 		serverName  = "testServer"
 		method      = "Ping"
 	)
 	// create test server with InjectPrometheusUnaryServerInterceptor
 	l, service := setupServer(t, grpc.UnaryInterceptor(
-		InjectPrometheusUnaryServerInterceptor(serviceName),
+		InjectPrometheusUnaryServerInterceptor(),
 	))
 
 	// create test client
