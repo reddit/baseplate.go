@@ -113,7 +113,7 @@ func ForwardEdgeContextStreaming(ecImpl ecinterface.Interface) grpc.StreamClient
 //
 // * grpc_client_active_requests gauge with labels:
 //
-//   - grpc_service: the fully qualified name of the gRPC service, serviceSlug arg
+//   - grpc_service: the fully qualified name of the gRPC service, the serviceName arg
 //   - grpc_method: the name of the method called on the gRPC service
 //   - grpc_slug: an arbitray short string representing the backend the client is connecting to
 //
@@ -124,7 +124,7 @@ func ForwardEdgeContextStreaming(ecImpl ecinterface.Interface) grpc.StreamClient
 //   - grpc_success: "true" if status is OK, "false" otherwise
 //   - grpc_type: type of request, i.e unary
 //   - grpc_code: the human-readable status code, e.g. OK, Internal, etc
-func PrometheusUnaryClientInterceptor(serviceSlug, serverSlug string) grpc.UnaryClientInterceptor {
+func PrometheusUnaryClientInterceptor(serviceName, serverSlug string) grpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
 		method string,
@@ -137,7 +137,7 @@ func PrometheusUnaryClientInterceptor(serviceSlug, serverSlug string) grpc.Unary
 		start := time.Now()
 		m := methodSlug(method)
 		activeRequestLabels := prometheus.Labels{
-			serviceLabel:           serviceSlug,
+			serviceLabel:           serviceName,
 			methodLabel:            m,
 			remoteServiceSlugLabel: serverSlug,
 		}
@@ -148,7 +148,7 @@ func PrometheusUnaryClientInterceptor(serviceSlug, serverSlug string) grpc.Unary
 			status, _ := status.FromError(err)
 
 			latencyLabels := prometheus.Labels{
-				serviceLabel:           serviceSlug,
+				serviceLabel:           serviceName,
 				methodLabel:            m,
 				typeLabel:              unary,
 				successLabel:           success,
@@ -158,7 +158,7 @@ func PrometheusUnaryClientInterceptor(serviceSlug, serverSlug string) grpc.Unary
 			clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 			rpcCountLabels := prometheus.Labels{
-				serviceLabel:           serviceSlug,
+				serviceLabel:           serviceName,
 				methodLabel:            m,
 				typeLabel:              unary,
 				successLabel:           success,

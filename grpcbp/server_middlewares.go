@@ -154,7 +154,7 @@ func StartSpanFromGRPCContext(ctx context.Context, name string) (context.Context
 //
 // * grpc_server_active_requests gauge with labels:
 //
-//   - grpc_service: the fully qualified name of the gRPC service, serviceSlug arg
+//   - grpc_service: the fully qualified name of the gRPC service, the serviceName arg
 //   - grpc_method: the name of the method called on the gRPC service
 //
 // * grpc_server_latency_seconds histogram and grpc_server_requests_total
@@ -164,13 +164,13 @@ func StartSpanFromGRPCContext(ctx context.Context, name string) (context.Context
 //   - grpc_success: "true" if status is OK, "false" otherwise
 //   - grpc_type: type of request, i.e unary
 //   - grpc_code: the human-readable status code, e.g. OK, Internal, etc
-func InjectPrometheusUnaryServerInterceptor(serviceSlug string) grpc.UnaryServerInterceptor {
+func InjectPrometheusUnaryServerInterceptor(serviceName string) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
 		start := time.Now()
 
 		method := methodSlug(info.FullMethod)
 		activeRequestLabels := prometheus.Labels{
-			serviceLabel: serviceSlug,
+			serviceLabel: serviceName,
 			methodLabel:  method,
 		}
 		serverActiveRequests.With(activeRequestLabels).Inc()
@@ -180,7 +180,7 @@ func InjectPrometheusUnaryServerInterceptor(serviceSlug string) grpc.UnaryServer
 			status, _ := status.FromError(err)
 
 			latencyLabels := prometheus.Labels{
-				serviceLabel: serviceSlug,
+				serviceLabel: serviceName,
 				methodLabel:  method,
 				typeLabel:    unary,
 				successLabel: success,
@@ -188,7 +188,7 @@ func InjectPrometheusUnaryServerInterceptor(serviceSlug string) grpc.UnaryServer
 			serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 			rpcCountLabels := prometheus.Labels{
-				serviceLabel: serviceSlug,
+				serviceLabel: serviceName,
 				methodLabel:  method,
 				typeLabel:    unary,
 				successLabel: success,
