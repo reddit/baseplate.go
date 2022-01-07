@@ -30,6 +30,8 @@ type Store struct {
 	watcher filewatcher.FileWatcher
 
 	secretHandlerFunc SecretHandlerFunc
+
+	provider string
 }
 
 // NewStore returns a new instance of Store by configuring it
@@ -41,6 +43,7 @@ type Store struct {
 func NewStore(ctx context.Context, path string, provider string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
 	store := &Store{
 		secretHandlerFunc: nopSecretHandlerFunc,
+		provider:          provider,
 	}
 	store.secretHandler(middlewares...)
 	switch provider {
@@ -137,7 +140,13 @@ func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
 }
 
 func (s *Store) getSecrets() *Secrets {
-	return s.watcher.Get().(*Secrets)
+	switch s.provider {
+	case "vault_csi":
+		secrets := s.watcher.Get().(Secrets)
+		return &secrets
+	default:
+		return s.watcher.Get().(*Secrets)
+	}
 }
 
 // Close closes the underlying filewatcher and release associated resources.
