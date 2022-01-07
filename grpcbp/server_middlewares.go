@@ -154,7 +154,7 @@ func StartSpanFromGRPCContext(ctx context.Context, name string) (context.Context
 //
 // * grpc_server_active_requests gauge with labels:
 //
-//   - grpc_service: the fully qualified name of the gRPC service, the serviceName arg
+//   - grpc_service: the fully qualified name of the gRPC service
 //   - grpc_method: the name of the method called on the gRPC service
 //
 // * grpc_server_latency_seconds histogram and grpc_server_requests_total
