@@ -34,6 +34,7 @@ type Secrets struct {
 	simpleSecrets     map[string]SimpleSecret
 	versionedSecrets  map[string]VersionedSecret
 	credentialSecrets map[string]CredentialSecret
+	genericSecrets    map[string]GenericSecret
 	vault             Vault
 }
 
@@ -343,23 +344,21 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 }
 
 // NewCSISecret parses and validates the secret JSON provided by the reader.
-func NewCSISecret(r io.Reader) (secrets *Secrets, err error) {
+func NewCSISecret(r io.Reader) (secrets Secrets, err error) {
 	reader := r.(limitopen.ReadCloser)
 	var secretFile CSIFile
 	err = json.NewDecoder(r).Decode(&secretFile)
 	if err != nil {
-		return nil, err
+		return Secrets{}, err
 	}
 
 	// err = secretFile.Validate()
 	// if err != nil {
 	// 	return
 	// }
-	secrets = &Secrets{
-		simpleSecrets:     make(map[string]SimpleSecret),
-		versionedSecrets:  make(map[string]VersionedSecret),
-		credentialSecrets: make(map[string]CredentialSecret),
+	secrets = Secrets{
+		genericSecrets: make(map[string]GenericSecret),
 	}
-	secrets.AddSecret(reader.Path, secretFile.Secret)
+	secrets.genericSecrets[reader.Path] = secretFile.Secret
 	return
 }

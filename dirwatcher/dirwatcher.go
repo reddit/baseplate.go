@@ -32,12 +32,55 @@ type DirWatcher interface {
 	Stop()
 }
 
+// AddFile is a type of function that should be ran to handle
+// adding data after a file has been parsed
+type AddFile func(d interface{}, file interface{}) (data interface{}, err error)
+
+// RemoveFile is a type of function that should be ran to handle removing
+// data after a file has been removed from the watcher
+type RemoveFile func(d interface{}, path string) (data interface{}, err error)
+
 // Result is the return type of New. Use Get function to get the actual data.
 type Result struct {
 	data atomic.Value
 
 	ctx    context.Context
 	cancel context.CancelFunc
+}
+
+// Config defines the config to be used in New function.
+//
+// Can be deserialized from YAML.
+type Config struct {
+	// The path to the file to be watched, required.
+	Path string `yaml:"path"`
+
+	// The parser to parse the data load, required.
+	Parser filewatcher.Parser
+
+	Adder AddFile
+
+	Remover RemoveFile
+
+	// Optional. When non-nil, it will be used to log errors,
+	// either returned by parser or by the underlying file system watcher.
+	// Please note that this does not include errors returned by the first parser
+	// call, which will be returned directly.
+	Logger log.Wrapper `yaml:"logger"`
+
+	// Optional. When <=0 DefaultMaxFileSize will be used instead.
+	//
+	// This is the soft limit,
+	// we will also auto add a hard limit which is 10x (see HardLimitMultiplier)
+	// of soft limit.
+	//
+	// If the soft limit is violated,
+	// the violation will be reported via log.ErrorWithSentry,
+	// but it does not stop the normal parsing process.
+	//
+	// If the hard limit is violated,
+	// The loading of the file will fail immediately.
+	MaxFileSize int64 `yaml:"maxFileSize"`
 }
 
 // Get returns the latest parsed data from the file watcher.
@@ -63,6 +106,8 @@ func (r *Result) watcherLoop(
 	watcher *fsnotify.Watcher,
 	path string,
 	parser filewatcher.Parser,
+	add AddFile,
+	remove RemoveFile,
 	softLimit, hardLimit int64,
 	logger log.Wrapper,
 ) {
@@ -105,10 +150,9 @@ func (r *Result) watcherLoop(
 						if err != nil {
 							logger.Log(context.Background(), "dirwatcher: parser error: "+err.Error())
 						} else {
-							// folder := r.data.Load().(Folder)
-							// folder.Files[path] = d
-							// r.data.Store(folder) //merge?
-							r.data.Store(d)
+							data := r.data.Load()
+							data, err = add(data, d)
+							r.data.Store(data)
 						}
 					}
 				}()
@@ -137,10 +181,9 @@ func (r *Result) watcherLoop(
 						if err != nil {
 							logger.Log(context.Background(), "dirwatcher: parser error: "+err.Error())
 						} else {
-							// folder := r.data.Load().(Folder)
-							// folder.Files[path] = d
-							// r.data.Store(folder) //merge?
-							r.data.Store(d)
+							data := r.data.Load()
+							data, err = add(data, d)
+							r.data.Store(data)
 						}
 					}
 				}()
@@ -153,22 +196,9 @@ var (
 	_ DirWatcher = (*Result)(nil)
 )
 
-// Folder is a construct to sort data parsed from a dirwatcher by its file path
-type Folder struct {
-	Files map[string]interface{}
-}
-
-// func (folder *Folder) AddFile(path string, file interface{}) error {
-// 	return nil
-// }
-
-// func (folder *Folder) RemoveFile(path string) error {
-// 	return nil
-// }
-
 // New initializes a dirwatcher designed for recursivly
 // looking through a directory instead of a file
-func New(ctx context.Context, cfg filewatcher.Config) (*Result, error) {
+func New(ctx context.Context, cfg Config) (*Result, error) {
 	limit := cfg.MaxFileSize
 	if limit <= 0 {
 		limit = filewatcher.DefaultMaxFileSize
@@ -214,18 +244,9 @@ func New(ctx context.Context, cfg filewatcher.Config) (*Result, error) {
 				watcher.Close()
 				return err
 			}
-			// folder := res.data.Load().(Folder)
-			// folder.Files[path] = d
-			// res.data.Store(folder) //merge?
-
-			// data := res.data.Load()
-			// if err := mergo.MergeWithOverwrite(&data, d); err != nil {
-			// 	watcher.Close()
-			// 	return err
-			// }
-			// res.data.Store(data)
-
-			res.data.Store(d)
+			data := res.data.Load()
+			data, err = cfg.Adder(data, d)
+			res.data.Store(data)
 
 			f.Close()
 
@@ -237,7 +258,7 @@ func New(ctx context.Context, cfg filewatcher.Config) (*Result, error) {
 	}
 
 	res.ctx, res.cancel = context.WithCancel(context.Background())
-	go res.watcherLoop(watcher, cfg.Path, cfg.Parser, limit, hardLimit, cfg.Logger)
+	go res.watcherLoop(watcher, cfg.Path, cfg.Parser, cfg.Adder, cfg.Remover, limit, hardLimit, cfg.Logger)
 
 	return res, nil
 }

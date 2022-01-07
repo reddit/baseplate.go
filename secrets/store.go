@@ -48,10 +48,12 @@ func NewStore(ctx context.Context, path string, provider string, logger log.Wrap
 
 		result, err := dirwatcher.New(
 			ctx,
-			filewatcher.Config{
-				Path:   path,
-				Parser: store.csiParser,
-				Logger: logger,
+			dirwatcher.Config{
+				Path:    path,
+				Parser:  store.csiParser,
+				Adder:   csiAdder,
+				Remover: csiRemover,
+				Logger:  logger,
 			},
 		)
 		if err != nil {
@@ -95,9 +97,36 @@ func (s *Store) csiParser(r io.Reader) (interface{}, error) {
 		return nil, err
 	}
 
-	s.secretHandlerFunc(secret)
+	s.secretHandlerFunc(&secret)
 
 	return secret, nil
+}
+
+func csiAdder(d interface{}, f interface{}) (interface{}, error) {
+	var secrets Secrets
+	file := f.(Secrets)
+
+	if d == nil {
+		secrets = Secrets{
+			simpleSecrets:     make(map[string]SimpleSecret),
+			versionedSecrets:  make(map[string]VersionedSecret),
+			credentialSecrets: make(map[string]CredentialSecret),
+		}
+	} else {
+		secrets = d.(Secrets)
+	}
+
+	for path, secret := range file.genericSecrets {
+		secrets.AddSecret(path, secret)
+	}
+
+	//
+	return secrets, nil
+}
+
+func csiRemover(d interface{}, path string) (data interface{}, err error) {
+	secrets := d.(Secrets)
+	return secrets, nil
 }
 
 // secretHandler creates the middleware chain.
