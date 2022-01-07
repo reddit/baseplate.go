@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	localServiceLabel      = "grpc_service"
+	serviceLabel           = "grpc_service"
 	methodLabel            = "grpc_method"
 	typeLabel              = "grpc_type"
 	successLabel           = "grpc_success"
@@ -24,7 +24,7 @@ const (
 
 var (
 	serverLatencyLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		typeLabel,
 		successLabel,
@@ -37,7 +37,7 @@ var (
 	}, serverLatencyLabels)
 
 	serverRequestLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		typeLabel,
 		successLabel,
@@ -50,7 +50,7 @@ var (
 	}, serverRequestLabels)
 
 	serverActiveRequestsLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 	}
 
@@ -62,7 +62,7 @@ var (
 
 var (
 	clientLatencyLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		typeLabel,
 		successLabel,
@@ -76,7 +76,7 @@ var (
 	}, clientLatencyLabels)
 
 	clientRequestLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		typeLabel,
 		successLabel,
@@ -90,7 +90,7 @@ var (
 	}, clientRequestLabels)
 
 	clientActiveRequestsLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		remoteServiceSlugLabel,
 	}

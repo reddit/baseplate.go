@@ -326,9 +326,9 @@ var (
 //
 // * thrift_client_active_requests gauge with labels:
 //
-//   - thrift_service: the serviceSlug arg
+//   - thrift_service: the fully qualified name of the thrift service, the serviceSlug arg
 //   - thrift_method: the method of the endpoint called
-//   - thrift_slug: the service being contacted
+//   - thrift_slug: an arbitray short string representing the backend the client is connecting to, the remoteServiceSlug arg
 //
 // * thrift_client_latency_seconds histogram with labels above plus:
 //
@@ -342,13 +342,13 @@ var (
 //     as a string if present (e.g. 404), or the empty string
 //   - thrift_baseplate_status_code: the human-readable status code, e.g.
 //     NOT_FOUND, or the empty string
-func PrometheusClientMiddleware(localServiceSlug, remoteServiceSlug string) thrift.ClientMiddleware {
+func PrometheusClientMiddleware(serviceSlug, remoteServiceSlug string) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (_ thrift.ResponseMeta, err error) {
 				start := time.Now()
 				activeRequestLabels := prometheus.Labels{
-					localServiceLabel:      localServiceSlug,
+					serviceLabel:           serviceSlug,
 					methodLabel:            method,
 					remoteServiceSlugLabel: remoteServiceSlug,
 				}
@@ -371,7 +371,7 @@ func PrometheusClientMiddleware(localServiceSlug, remoteServiceSlug string) thri
 					}
 
 					latencyLabels := prometheus.Labels{
-						localServiceLabel:      localServiceSlug,
+						serviceLabel:           serviceSlug,
 						methodLabel:            method,
 						successLabel:           success,
 						remoteServiceSlugLabel: remoteServiceSlug,
@@ -379,7 +379,7 @@ func PrometheusClientMiddleware(localServiceSlug, remoteServiceSlug string) thri
 					clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 					rpcCountLabels := prometheus.Labels{
-						localServiceLabel:        localServiceSlug,
+						serviceLabel:             serviceSlug,
 						methodLabel:              method,
 						successLabel:             success,
 						exceptionLabel:           exceptionTypeLabel,

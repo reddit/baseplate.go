@@ -113,9 +113,9 @@ func ForwardEdgeContextStreaming(ecImpl ecinterface.Interface) grpc.StreamClient
 //
 // * grpc_client_active_requests gauge with labels:
 //
-//   - grpc_service: the local service slug, serviceSlug arg
+//   - grpc_service: the fully qualified name of the gRPC service, serviceSlug arg
 //   - grpc_method: the name of the method called on the gRPC service
-//   - grpc_slug: the name of the remote server the client connects to
+//   - grpc_slug: an arbitray short string representing the backend the client is connecting to
 //
 // * grpc_client_latency_seconds histogram and grpc_client_requests_total
 //   counter with labels:
@@ -137,7 +137,7 @@ func PrometheusUnaryClientInterceptor(serviceSlug, serverSlug string) grpc.Unary
 		start := time.Now()
 		m := methodSlug(method)
 		activeRequestLabels := prometheus.Labels{
-			localServiceLabel:      serviceSlug,
+			serviceLabel:           serviceSlug,
 			methodLabel:            m,
 			remoteServiceSlugLabel: serverSlug,
 		}
@@ -148,7 +148,7 @@ func PrometheusUnaryClientInterceptor(serviceSlug, serverSlug string) grpc.Unary
 			status, _ := status.FromError(err)
 
 			latencyLabels := prometheus.Labels{
-				localServiceLabel:      serviceSlug,
+				serviceLabel:           serviceSlug,
 				methodLabel:            m,
 				typeLabel:              unary,
 				successLabel:           success,
@@ -158,7 +158,7 @@ func PrometheusUnaryClientInterceptor(serviceSlug, serverSlug string) grpc.Unary
 			clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 			rpcCountLabels := prometheus.Labels{
-				localServiceLabel:      serviceSlug,
+				serviceLabel:           serviceSlug,
 				methodLabel:            m,
 				typeLabel:              unary,
 				successLabel:           success,

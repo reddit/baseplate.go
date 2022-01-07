@@ -49,7 +49,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 	}
 
 	const (
-		serviceName = "testservice"
+		serviceName = "test.testService"
 		method      = "testmethod"
 	)
 

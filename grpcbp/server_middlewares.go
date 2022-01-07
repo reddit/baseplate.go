@@ -154,7 +154,7 @@ func StartSpanFromGRPCContext(ctx context.Context, name string) (context.Context
 //
 // * grpc_server_active_requests gauge with labels:
 //
-//   - grpc_service: the local service slug, serviceSlug arg
+//   - grpc_service: the fully qualified name of the gRPC service, serviceSlug arg
 //   - grpc_method: the name of the method called on the gRPC service
 //
 // * grpc_server_latency_seconds histogram and grpc_server_requests_total
@@ -170,8 +170,8 @@ func InjectPrometheusUnaryServerInterceptor(serviceSlug string) grpc.UnaryServer
 
 		method := methodSlug(info.FullMethod)
 		activeRequestLabels := prometheus.Labels{
-			localServiceLabel: serviceSlug,
-			methodLabel:       method,
+			serviceLabel: serviceSlug,
+			methodLabel:  method,
 		}
 		serverActiveRequests.With(activeRequestLabels).Inc()
 
@@ -180,19 +180,19 @@ func InjectPrometheusUnaryServerInterceptor(serviceSlug string) grpc.UnaryServer
 			status, _ := status.FromError(err)
 
 			latencyLabels := prometheus.Labels{
-				localServiceLabel: serviceSlug,
-				methodLabel:       method,
-				typeLabel:         unary,
-				successLabel:      success,
+				serviceLabel: serviceSlug,
+				methodLabel:  method,
+				typeLabel:    unary,
+				successLabel: success,
 			}
 			serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 			rpcCountLabels := prometheus.Labels{
-				localServiceLabel: serviceSlug,
-				methodLabel:       method,
-				typeLabel:         unary,
-				successLabel:      success,
-				codeLabel:         status.Code().String(),
+				serviceLabel: serviceSlug,
+				methodLabel:  method,
+				typeLabel:    unary,
+				successLabel: success,
+				codeLabel:    status.Code().String(),
 			}
 			serverRPCRequestCounter.With(rpcCountLabels).Inc()
 			serverActiveRequests.With(activeRequestLabels).Dec()

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	localServiceLabel        = "thrift_service"
+	serviceLabel             = "thrift_service"
 	methodLabel              = "thrift_method"
 	successLabel             = "thrift_success"
 	exceptionLabel           = "thrift_exception_type"
@@ -19,7 +19,7 @@ const (
 
 var (
 	serverLatencyLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		successLabel,
 	}
@@ -31,7 +31,7 @@ var (
 	}, serverLatencyLabels)
 
 	serverRequestLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		successLabel,
 		exceptionLabel,
@@ -45,7 +45,7 @@ var (
 	}, serverRequestLabels)
 
 	serverActiveRequestsLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 	}
 
@@ -57,7 +57,7 @@ var (
 
 var (
 	clientLatencyLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		successLabel,
 		remoteServiceSlugLabel,
@@ -70,7 +70,7 @@ var (
 	}, clientLatencyLabels)
 
 	clientRequestLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		successLabel,
 		exceptionLabel,
@@ -85,7 +85,7 @@ var (
 	}, clientRequestLabels)
 
 	clientActiveRequestsLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		remoteServiceSlugLabel,
 	}
