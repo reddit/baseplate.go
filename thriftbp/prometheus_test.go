@@ -85,9 +85,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 					return tt.wantOK, tt.wantErr
 				},
 			}
-			promMiddleware := PrometheusServerMiddleware()
-			wrapped := promMiddleware(method, next)
-			gotOK, gotErr := wrapped.Process(context.Background(), 1, nil, nil)
+			gotOK, gotErr := PrometheusServerMiddleware(method, next).Process(context.Background(), 1, nil, nil)
 
 			if gotOK != tt.wantOK {
 				t.Errorf("wanted %v, got %v", tt.wantOK, gotOK)

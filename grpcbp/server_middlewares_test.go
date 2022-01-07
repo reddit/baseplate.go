@@ -187,7 +187,7 @@ func (t *mockService) PingStream(c pb.TestService_PingStreamServer) error {
 func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 	const (
 		serviceName = "mwitkow.testproto.TestService"
-		serverName  = "testServer"
+		backendSlug = "testServer"
 		method      = "Ping"
 	)
 	// create test server with InjectPrometheusUnaryServerInterceptor
@@ -197,7 +197,7 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 
 	// create test client
 	conn := setupClient(t, l, grpc.WithUnaryInterceptor(
-		PrometheusUnaryClientInterceptor(serviceName, serverName),
+		PrometheusUnaryClientInterceptor(backendSlug),
 	))
 
 	// instantiate gRPC client
@@ -254,13 +254,13 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 				unary,
 				tt.success,
 				tt.code,
-				serverName,
+				backendSlug,
 			}
 
 			clientRequestsLabelValues := []string{
 				serviceName,
 				tt.method,
-				serverName,
+				backendSlug,
 			}
 
 			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution).CheckExists()

@@ -113,9 +113,9 @@ func ForwardEdgeContextStreaming(ecImpl ecinterface.Interface) grpc.StreamClient
 //
 // * grpc_client_active_requests gauge with labels:
 //
-//   - grpc_service: the fully qualified name of the gRPC service, the serviceName arg
+//   - grpc_service: the fully qualified name of the gRPC service
 //   - grpc_method: the name of the method called on the gRPC service
-//   - grpc_slug: an arbitray short string representing the backend the client is connecting to
+//   - grpc_slug: an arbitray short string representing the backend the client is connecting to, the serverSlug arg
 //
 // * grpc_client_latency_seconds histogram and grpc_client_requests_total
 //   counter with labels:
@@ -124,7 +124,7 @@ func ForwardEdgeContextStreaming(ecImpl ecinterface.Interface) grpc.StreamClient
 //   - grpc_success: "true" if status is OK, "false" otherwise
 //   - grpc_type: type of request, i.e unary
 //   - grpc_code: the human-readable status code, e.g. OK, Internal, etc
-func PrometheusUnaryClientInterceptor(serviceName, serverSlug string) grpc.UnaryClientInterceptor {
+func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
 		method string,
@@ -135,7 +135,8 @@ func PrometheusUnaryClientInterceptor(serviceName, serverSlug string) grpc.Unary
 		opts ...grpc.CallOption,
 	) (err error) {
 		start := time.Now()
-		m := methodSlug(method)
+		serviceName, m := serviceAndMethodSlug(method)
+
 		activeRequestLabels := prometheus.Labels{
 			serviceLabel:           serviceName,
 			methodLabel:            m,
