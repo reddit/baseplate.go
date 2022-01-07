@@ -48,10 +48,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 		},
 	}
 
-	const (
-		serviceName = "test.testService"
-		method      = "testmethod"
-	)
+	const method = "testmethod"
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -67,7 +64,6 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 
 			success := strconv.FormatBool(tt.wantErr == nil)
 			labelValues := []string{
-				serviceName,
 				method,
 				success,
 				exceptionType,
@@ -76,7 +72,6 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 			}
 
 			requestLabelValues := []string{
-				serviceName,
 				method,
 			}
 
@@ -90,7 +85,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 					return tt.wantOK, tt.wantErr
 				},
 			}
-			promMiddleware := PrometheusServerMiddleware(serviceName)
+			promMiddleware := PrometheusServerMiddleware()
 			wrapped := promMiddleware(method, next)
 			gotOK, gotErr := wrapped.Process(context.Background(), 1, nil, nil)
 

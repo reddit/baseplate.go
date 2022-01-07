@@ -391,7 +391,6 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 //
 // * thrift_server_active_requests gauge with labels:
 //
-//   - thrift_service: the name of the thrift service, the serviceName arg
 //   - thrift_method: the method of the endpoint called
 //
 // * thrift_server_latency_seconds histogram with labels above plus:
@@ -406,13 +405,12 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 //     as a string if present (e.g. 404), or the empty string
 //   - thrift_baseplate_status_code: the human-readable status code, e.g.
 //     NOT_FOUND, or the empty string
-func PrometheusServerMiddleware(serviceName string) thrift.ProcessorMiddleware {
+func PrometheusServerMiddleware() thrift.ProcessorMiddleware {
 	return func(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
 			start := time.Now()
 			activeRequestLabels := prometheus.Labels{
-				serviceLabel: serviceName,
-				methodLabel:  method,
+				methodLabel: method,
 			}
 			serverActiveRequests.With(activeRequestLabels).Inc()
 
@@ -433,14 +431,12 @@ func PrometheusServerMiddleware(serviceName string) thrift.ProcessorMiddleware {
 				}
 
 				latencyLabels := prometheus.Labels{
-					serviceLabel: serviceName,
 					methodLabel:  method,
 					successLabel: success,
 				}
 				serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 				rpcCountLabels := prometheus.Labels{
-					serviceLabel:             serviceName,
 					methodLabel:              method,
 					successLabel:             success,
 					exceptionLabel:           exceptionTypeLabel,

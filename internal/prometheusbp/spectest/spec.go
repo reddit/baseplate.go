@@ -143,21 +143,18 @@ func validateLabels(name, prefix, clientOrServer string, gotLabels map[string]st
 // buildLables returns a set of expected labels for the metric name provided.
 // prefix is either thrift, http, or grpc.
 // latency_seconds metrics expect the following labels:
-//   - "<prefix>_service"
 //   - "<prefix>_method"
 //   - "<prefix>_success"
 // requests_total metrics expect the following labels:
-//   - "<prefix>_service"
 //   - "<prefix>_method"
 //   - "<prefix>_success"
 //   - "<prefix>_exception_type"
 //   - "<prefix>_baseplate_status"
 //   - "<prefix>_baseplate_status_code"
 // active_requests metrics expect the following labels:
-//   - "<prefix>_service"
 //   - "<prefix>_method"
 func buildLables(name, prefix, clientOrServer string) map[string]struct{} {
-	labelSuffixes := []string{"service", "method"}
+	labelSuffixes := []string{"method"}
 	switch {
 	case strings.HasSuffix(name, "_latency_seconds"):
 		labelSuffixes = append(labelSuffixes, "success")

@@ -154,7 +154,7 @@ func TestValidateLabels(t *testing.T) {
 			metricName:     "test_latency_seconds",
 			prefix:         "test",
 			clientOrServer: client,
-			gotLabels:      map[string]struct{}{"test_method": {}, "test_service": {}, "test_success": {}, "test_slug": {}},
+			gotLabels:      map[string]struct{}{"test_method": {}, "test_success": {}, "test_slug": {}},
 			wantErrs:       []error{},
 		},
 		{
@@ -172,7 +172,6 @@ func TestValidateLabels(t *testing.T) {
 			clientOrServer: server,
 			gotLabels: map[string]struct{}{
 				"test_method":                {},
-				"test_service":               {},
 				"test_success":               {},
 				"test_baseplate_status":      {},
 				"test_baseplate_status_code": {},
@@ -193,7 +192,7 @@ func TestValidateLabels(t *testing.T) {
 			metricName:     "test_active_requests",
 			prefix:         "test",
 			clientOrServer: server,
-			gotLabels:      map[string]struct{}{"test_method": {}, "test_service": {}},
+			gotLabels:      map[string]struct{}{"test_method": {}},
 			wantErrs:       []error{},
 		},
 		{
@@ -201,7 +200,7 @@ func TestValidateLabels(t *testing.T) {
 			metricName:     "test_active_requests",
 			prefix:         "test",
 			clientOrServer: server,
-			gotLabels:      map[string]struct{}{"test_method": {}},
+			gotLabels:      map[string]struct{}{"test_method": {}, "foo": {}},
 			wantErrs:       []error{errDiffLabels},
 		},
 	}
@@ -227,7 +226,7 @@ func TestBuildLabels(t *testing.T) {
 			metricName:     "test_latency_seconds",
 			prefix:         "test",
 			clientOrServer: server,
-			want:           map[string]struct{}{"test_method": {}, "test_service": {}, "test_success": {}},
+			want:           map[string]struct{}{"test_method": {}, "test_success": {}},
 		},
 		{
 			name:           "requests_total labels",
@@ -236,7 +235,6 @@ func TestBuildLabels(t *testing.T) {
 			clientOrServer: client,
 			want: map[string]struct{}{
 				"test_method":                {},
-				"test_service":               {},
 				"test_success":               {},
 				"test_baseplate_status":      {},
 				"test_baseplate_status_code": {},
@@ -249,7 +247,7 @@ func TestBuildLabels(t *testing.T) {
 			metricName:     "test_active_requests",
 			prefix:         "test",
 			clientOrServer: server,
-			want:           map[string]struct{}{"test_method": {}, "test_service": {}},
+			want:           map[string]struct{}{"test_method": {}},
 		},
 		{
 			name:           "none",
@@ -271,7 +269,6 @@ func TestValidateSpec(t *testing.T) {
 	var (
 		testLabels = []string{
 			"thrift_method",
-			"thrift_service",
 			"thrift_success",
 			"thrift_baseplate_status",
 		}
@@ -284,7 +281,6 @@ func TestValidateSpec(t *testing.T) {
 
 	labels := prometheus.Labels{
 		"thrift_method":           "foo",
-		"thrift_service":          "foo",
 		"thrift_success":          "foo",
 		"thrift_baseplate_status": "foo",
 	}
