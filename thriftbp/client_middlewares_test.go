@@ -462,7 +462,7 @@ func TestSetClientName(t *testing.T) {
 }
 
 const (
-	remoteSvr       = "remotesvr"
+	remoteServer    = "remoteServer"
 	methodIsHealthy = "is_healthy"
 )
 
@@ -495,12 +495,12 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 				tt.exceptionType,
 				"",
 				"",
-				remoteSvr,
+				remoteServer,
 			}
 
 			requestLabelValues := []string{
 				methodIsHealthy,
-				remoteSvr,
+				remoteServer,
 			}
 
 			defer thriftbp.PrometheusClientMetricsTest(t, labelValues, requestLabelValues).CheckMetrics()
@@ -541,7 +541,7 @@ func (srv mockBaseplateService) IsHealthy(ctx context.Context, req *baseplatethr
 func setupFake(ctx context.Context, t *testing.T, handler baseplatethrift.BaseplateServiceV2) thriftbp.ClientPool {
 	srv, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
 		Processor:         baseplatethrift.NewBaseplateServiceV2Processor(handler),
-		ClientMiddlewares: []thrift.ClientMiddleware{thriftbp.PrometheusClientMiddleware(remoteSvr)},
+		ClientMiddlewares: []thrift.ClientMiddleware{thriftbp.PrometheusClientMiddleware(remoteServer)},
 	})
 	if err != nil {
 		t.Fatalf("SETUP: Setting up baseplate server: %s", err)

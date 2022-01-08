@@ -13,7 +13,7 @@ const (
 	exceptionLabel           = "thrift_exception_type"
 	baseplateStatusLabel     = "thrift_baseplate_status"
 	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
-	remoteServiceSlugLabel   = "thrift_slug"
+	remoteServerSlugLabel    = "thrift_slug"
 )
 
 var (
@@ -55,7 +55,7 @@ var (
 	clientLatencyLabels = []string{
 		methodLabel,
 		successLabel,
-		remoteServiceSlugLabel,
+		remoteServerSlugLabel,
 	}
 
 	clientLatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -70,7 +70,7 @@ var (
 		exceptionLabel,
 		baseplateStatusLabel,
 		baseplateStatusCodeLabel,
-		remoteServiceSlugLabel,
+		remoteServerSlugLabel,
 	}
 
 	clientRPCRequestCounter = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -80,7 +80,7 @@ var (
 
 	clientActiveRequestsLabels = []string{
 		methodLabel,
-		remoteServiceSlugLabel,
+		remoteServerSlugLabel,
 	}
 
 	clientActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{

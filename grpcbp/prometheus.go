@@ -1,6 +1,8 @@
 package grpcbp
 
 import (
+	"strings"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -100,3 +102,16 @@ var (
 		Help: "The number of in-flight requests",
 	}, clientActiveRequestsLabels)
 )
+
+// serviceAndMethodSlug splits the UnaryServerInfo.FullMethod and returns
+// the package.service part separate from the method part.
+// ref: https://pkg.go.dev/google.golang.org/grpc#UnaryServerInfo
+func serviceAndMethodSlug(fullMethod string) (service string, method string) {
+	split := strings.SplitN(fullMethod, "/", 3)
+	if len(split) < 2 {
+		return "", ""
+	}
+	method = split[len(split)-1]
+	service = strings.Join(split[:len(split)-1], "")
+	return service, method
+}
