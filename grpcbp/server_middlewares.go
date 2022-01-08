@@ -207,7 +207,7 @@ func InjectPrometheusUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 // Prometheus metrics.
 //
 // This is not implemented yet.
-func InjectPrometheusStreamServerInterceptor(serviceSlug string) grpc.StreamServerInterceptor {
+func InjectPrometheusStreamServerInterceptor(serverSlug string) grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 		return errors.New("InjectPrometheusStreamServerInterceptor: not implemented")
 	}

@@ -138,9 +138,9 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 		serviceName, m := serviceAndMethodSlug(method)
 
 		activeRequestLabels := prometheus.Labels{
-			serviceLabel:           serviceName,
-			methodLabel:            m,
-			remoteServiceSlugLabel: serverSlug,
+			serviceLabel:          serviceName,
+			methodLabel:           m,
+			remoteServerSlugLabel: serverSlug,
 		}
 		clientActiveRequests.With(activeRequestLabels).Inc()
 
@@ -149,22 +149,22 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 			status, _ := status.FromError(err)
 
 			latencyLabels := prometheus.Labels{
-				serviceLabel:           serviceName,
-				methodLabel:            m,
-				typeLabel:              unary,
-				successLabel:           success,
-				remoteServiceSlugLabel: serverSlug,
+				serviceLabel:          serviceName,
+				methodLabel:           m,
+				typeLabel:             unary,
+				successLabel:          success,
+				remoteServerSlugLabel: serverSlug,
 			}
 
 			clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 			rpcCountLabels := prometheus.Labels{
-				serviceLabel:           serviceName,
-				methodLabel:            m,
-				typeLabel:              unary,
-				successLabel:           success,
-				remoteServiceSlugLabel: serverSlug,
-				codeLabel:              status.Code().String(),
+				serviceLabel:          serviceName,
+				methodLabel:           m,
+				typeLabel:             unary,
+				successLabel:          success,
+				remoteServerSlugLabel: serverSlug,
+				codeLabel:             status.Code().String(),
 			}
 			clientRPCRequestCounter.With(rpcCountLabels).Inc()
 			clientActiveRequests.With(activeRequestLabels).Dec()
@@ -177,7 +177,7 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 // monitoring for Streaming RPCs.
 //
 // This is not implemented yet.
-func PrometheusStreamClientInterceptor(serviceSlug, serverSlug string) grpc.StreamClientInterceptor {
+func PrometheusStreamClientInterceptor(serverSlug string) grpc.StreamClientInterceptor {
 	return func(
 		ctx context.Context,
 		desc *grpc.StreamDesc,
