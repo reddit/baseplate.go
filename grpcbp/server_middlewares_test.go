@@ -8,6 +8,7 @@ import (
 	"time"
 
 	pb "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -187,7 +188,7 @@ func (t *mockService) PingStream(c pb.TestService_PingStreamServer) error {
 func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 	const (
 		serviceName = "mwitkow.testproto.TestService"
-		backendSlug = "testServer"
+		serverSlug  = "example-preference-server"
 		method      = "Ping"
 	)
 	// create test server with InjectPrometheusUnaryServerInterceptor
@@ -197,7 +198,7 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 
 	// create test client
 	conn := setupClient(t, l, grpc.WithUnaryInterceptor(
-		PrometheusUnaryClientInterceptor(backendSlug),
+		PrometheusUnaryClientInterceptor(serverSlug),
 	))
 
 	// instantiate gRPC client
@@ -235,40 +236,55 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 			clientRPCRequestCounter.Reset()
 			clientActiveRequests.Reset()
 
-			serverLabelValues := []string{
-				serviceName,
-				tt.method,
-				unary,
-				tt.success,
-				tt.code,
+			serverLatencyLabels := prometheus.Labels{
+				serviceLabel: serviceName,
+				methodLabel:  tt.method,
+				typeLabel:    unary,
+				successLabel: tt.success,
 			}
 
-			serverRequestsLabelValues := []string{
-				serviceName,
-				tt.method,
+			serverTotalRequestLabels := prometheus.Labels{
+				serviceLabel: serviceName,
+				methodLabel:  tt.method,
+				typeLabel:    unary,
+				successLabel: tt.success,
+				codeLabel:    tt.code,
 			}
 
-			clientLabelValues := []string{
-				serviceName,
-				tt.method,
-				unary,
-				tt.success,
-				tt.code,
-				backendSlug,
+			serverActiveRequestLabels := prometheus.Labels{
+				serviceLabel: serviceName,
+				methodLabel:  tt.method,
 			}
 
-			clientRequestsLabelValues := []string{
-				serviceName,
-				tt.method,
-				backendSlug,
+			clientLatencyLabels := prometheus.Labels{
+				serviceLabel:    serviceName,
+				methodLabel:     tt.method,
+				typeLabel:       unary,
+				successLabel:    tt.success,
+				serverSlugLabel: serverSlug,
 			}
 
-			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution).CheckExists()
-			defer promtest.NewPrometheusMetricTest(t, "server rpc count", serverRPCRequestCounter, serverLabelValues...).CheckDelta(1)
-			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverRequestsLabelValues...).CheckDelta(0)
-			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution).CheckExists()
-			defer promtest.NewPrometheusMetricTest(t, "client rpc count", clientRPCRequestCounter, clientLabelValues...).CheckDelta(1)
-			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientRequestsLabelValues...).CheckDelta(0)
+			clientTotalRequestLabels := prometheus.Labels{
+				serviceLabel:    serviceName,
+				methodLabel:     tt.method,
+				typeLabel:       unary,
+				successLabel:    tt.success,
+				serverSlugLabel: serverSlug,
+				codeLabel:       tt.code,
+			}
+
+			clientActiveRequestLabels := prometheus.Labels{
+				serviceLabel:    serviceName,
+				methodLabel:     tt.method,
+				serverSlugLabel: serverSlug,
+			}
+
+			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution, serverLatencyLabels).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "server rpc count", serverRPCRequestCounter, serverTotalRequestLabels).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution, clientLatencyLabels).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "client rpc count", clientRPCRequestCounter, clientTotalRequestLabels).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientActiveRequestLabels).CheckDelta(0)
 
 			ctx := context.Background()
 			if tt.success == "true" {

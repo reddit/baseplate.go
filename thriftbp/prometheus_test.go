@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
@@ -17,34 +18,34 @@ import (
 
 func TestPrometheusServerMiddleware(t *testing.T) {
 	testCases := []struct {
-		name          string
-		wantErr       thrift.TException
-		wantOK        bool
-		baseplateCode string
+		name                string
+		wantErr             thrift.TException
+		wantOK              bool
+		baseplateStatusCode string
 	}{
 		{
-			name:          "bp error",
-			wantErr:       thrift.NewTProtocolExceptionWithType(thrift.PROTOCOL_ERROR, WrapBaseplateError(errors.New("test"))),
-			wantOK:        false,
-			baseplateCode: "",
+			name:                "bp error",
+			wantErr:             thrift.NewTProtocolExceptionWithType(thrift.PROTOCOL_ERROR, WrapBaseplateError(errors.New("test"))),
+			wantOK:              false,
+			baseplateStatusCode: "",
 		},
 		{
-			name:          "application error",
-			wantErr:       thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "unknown err msg"),
-			wantOK:        false,
-			baseplateCode: "",
+			name:                "application error",
+			wantErr:             thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "unknown err msg"),
+			wantOK:              false,
+			baseplateStatusCode: "",
 		},
 		{
-			name:          "compile error",
-			wantErr:       baseplate.NewError(),
-			wantOK:        false,
-			baseplateCode: "0",
+			name:                "compile error",
+			wantErr:             baseplate.NewError(),
+			wantOK:              false,
+			baseplateStatusCode: "0",
 		},
 		{
-			name:          "success",
-			wantErr:       nil,
-			wantOK:        true,
-			baseplateCode: "",
+			name:                "success",
+			wantErr:             nil,
+			wantOK:              true,
+			baseplateStatusCode: "",
 		},
 	}
 
@@ -56,28 +57,34 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 			serverRPCRequestCounter.Reset()
 			serverActiveRequests.Reset()
 
-			var baseplateCodeStatus string
+			var baseplateStatus string
 			var exceptionType string
 			if tt.wantErr != nil {
 				exceptionType = strings.TrimPrefix(fmt.Sprintf("%T", tt.wantErr), "*")
 			}
 
 			success := strconv.FormatBool(tt.wantErr == nil)
-			labelValues := []string{
-				method,
-				success,
-				exceptionType,
-				baseplateCodeStatus,
-				tt.baseplateCode,
+
+			activeRequestLabels := prometheus.Labels{
+				methodLabel: method,
 			}
 
-			requestLabelValues := []string{
-				method,
+			latencyLabels := prometheus.Labels{
+				methodLabel:  method,
+				successLabel: success,
 			}
 
-			defer promtest.NewPrometheusMetricTest(t, "latency", serverLatencyDistribution).CheckExists()
-			defer promtest.NewPrometheusMetricTest(t, "rpc count", serverRPCRequestCounter, labelValues...).CheckDelta(1)
-			defer promtest.NewPrometheusMetricTest(t, "active requests", serverActiveRequests, requestLabelValues...).CheckDelta(0)
+			rpcCountLabels := prometheus.Labels{
+				methodLabel:              method,
+				successLabel:             success,
+				exceptionLabel:           exceptionType,
+				baseplateStatusLabel:     baseplateStatus,
+				baseplateStatusCodeLabel: tt.baseplateStatusCode,
+			}
+
+			defer promtest.NewPrometheusMetricTest(t, "latency", serverLatencyDistribution, latencyLabels).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "rpc count", serverRPCRequestCounter, rpcCountLabels).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "active requests", serverActiveRequests, activeRequestLabels).CheckDelta(0)
 			defer spectest.ValidateSpec(t, "thrift", "server")
 
 			next := thrift.WrappedTProcessorFunction{
@@ -107,14 +114,14 @@ type PromClientMetricsTest struct {
 
 // PrometheusClientMetricsTest resets the Thrift client Prometheus metrics and
 // setups the test to track the client metrics.
-func PrometheusClientMetricsTest(t *testing.T, requestCountLabelValues, activeRequestsLabelValues []string) PromClientMetricsTest {
+func PrometheusClientMetricsTest(t *testing.T, latencyLabelValues, requestCountLabelValues, activeRequestsLabelValues prometheus.Labels) PromClientMetricsTest {
 	clientLatencyDistribution.Reset()
 	clientRPCRequestCounter.Reset()
 	clientActiveRequests.Reset()
 	return PromClientMetricsTest{
-		latency:        promtest.NewPrometheusMetricTest(t, "latency", clientLatencyDistribution),
-		rpcCount:       promtest.NewPrometheusMetricTest(t, "rpc count", clientRPCRequestCounter, requestCountLabelValues...),
-		activeRequests: promtest.NewPrometheusMetricTest(t, "active requests", clientActiveRequests, activeRequestsLabelValues...),
+		latency:        promtest.NewPrometheusMetricTest(t, "latency", clientLatencyDistribution, latencyLabelValues),
+		rpcCount:       promtest.NewPrometheusMetricTest(t, "rpc count", clientRPCRequestCounter, requestCountLabelValues),
+		activeRequests: promtest.NewPrometheusMetricTest(t, "active requests", clientActiveRequests, activeRequestsLabelValues),
 	}
 }
 

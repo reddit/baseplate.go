@@ -19,6 +19,7 @@ const (
 
 	thriftPrefix = "thrift"
 	grpcPrefix   = "grpc"
+	httpPrefix   = "http"
 
 	partsCount = 3
 )
@@ -152,6 +153,8 @@ func buildLabels(name, prefix, clientOrServer string) map[string]struct{} {
 		labelSuffixes = thriftSpecificLabels(name)
 	case grpcPrefix:
 		labelSuffixes = grpcSpecificLabels(name)
+	case httpPrefix:
+		labelSuffixes = httpSpecificLabels(name)
 	}
 
 	if clientOrServer == client {
@@ -214,6 +217,36 @@ func grpcSpecificLabels(name string) []string {
 		labelSuffixes = append(labelSuffixes, "type", "success")
 	case strings.HasSuffix(name, "_requests_total"):
 		labelSuffixes = append(labelSuffixes, "type", "success", "code")
+	case strings.HasSuffix(name, "_active_requests"):
+		// no op
+	default:
+		return nil
+	}
+	return labelSuffixes
+}
+
+// httpSpecificLabels returns the following labels:
+// latency_seconds, server_request_size_bytes, server_response_size_bytes metrics expect the following labels:
+//   - "method"
+//   - "success"
+// requests_total metrics expect the following labels:
+//   - "method"
+//   - "success"
+//   - "response_code"
+// active_requests metrics expect the following labels:
+//   - "service"
+//   - "method"
+func httpSpecificLabels(name string) []string {
+	labelSuffixes := []string{"method"}
+	switch {
+	case strings.HasSuffix(name, "_latency_seconds"):
+		labelSuffixes = append(labelSuffixes, "success")
+	case strings.HasSuffix(name, "_server_request_size_bytes"):
+		labelSuffixes = append(labelSuffixes, "success")
+	case strings.HasSuffix(name, "_server_response_size_bytes"):
+		labelSuffixes = append(labelSuffixes, "success")
+	case strings.HasSuffix(name, "_requests_total"):
+		labelSuffixes = append(labelSuffixes, "success", "response_code")
 	case strings.HasSuffix(name, "_active_requests"):
 		// no op
 	default:

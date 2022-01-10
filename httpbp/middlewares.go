@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
@@ -323,15 +326,19 @@ func (r *statusCodeRecorder) WriteHeader(code int) {
 }
 
 func (r *statusCodeRecorder) getCode(err error) int {
-	if r.code != 0 {
+	return errorCodeForMetrics(r.code, err)
+}
+
+func errorCodeForMetrics(explicitCode int, requestError error) int {
+	if explicitCode != 0 {
 		// WriteHeader was called explicitly, use that
-		return r.code
+		return explicitCode
 	}
-	if err != nil {
+	if requestError != nil {
 		// something went wrong, check if err is an HTTPErr where we can extract
 		// the code, otherwise assume InternalServerError
 		var httpErr HTTPError
-		if errors.As(err, &httpErr) {
+		if errors.As(requestError, &httpErr) {
 			return httpErr.Response().Code
 		}
 		return http.StatusInternalServerError
@@ -360,6 +367,12 @@ func statusCodeFamily(code int) string {
 		return families[0]
 	}
 	return families[family]
+}
+
+// isSuccessStatusCode takes an http status code and returns true if the code is <400.
+// ref: https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
+func isSuccessStatusCode(code int) bool {
+	return code >= 100 && code < 400
 }
 
 // counterGenerator is used by recordStatusCode to create counters for recording
@@ -403,4 +416,85 @@ func recordStatusCode(counters counterGenerator) Middleware {
 // as one of the Middlewares to wrap your handlers in.
 func RecordStatusCode() Middleware {
 	return recordStatusCode(metricsbp.M)
+}
+
+// PrometheusServerMetrics returns a middleware that tracks Prometheus metrics for client http.
+//
+// It emits the following prometheus metrics:
+//
+// * http_server_active_requests gauge with labels:
+//
+//   - http_method: method of the HTTP request
+//
+// * http_server_latency_seconds, http_server_request_size_bytes, http_server_response_size_bytes histograms with labels above plus:
+//
+//   - http_success: true if the status code is 2xx or 3xx, false otherwise
+//
+// * http_server_requests_total counter with all labels above plus:
+//
+//   - http_response_code: numeric status code as a string, e.g. 200
+func PrometheusServerMetrics(serverSlug string) Middleware {
+	return func(name string, next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+			start := time.Now()
+			method := r.Method
+			activeRequestLabels := prometheus.Labels{
+				methodLabel: method,
+			}
+			serverActiveRequests.With(activeRequestLabels).Inc()
+
+			wrapped := &responseRecorder{ResponseWriter: w}
+			defer func() {
+				code := errorCodeForMetrics(wrapped.responseCode, err)
+				success := isRequestSuccessful(code, err)
+
+				labels := prometheus.Labels{
+					methodLabel:  method,
+					successLabel: success,
+				}
+				serverLatency.With(labels).Observe(time.Since(start).Seconds())
+				serverRequestSize.With(labels).Observe(float64(r.ContentLength))
+				serverResponseSize.With(labels).Observe(float64(wrapped.bytesWritten))
+
+				totalRequestLabels := prometheus.Labels{
+					methodLabel:  method,
+					successLabel: success,
+					codeLabel:    strconv.Itoa(code),
+				}
+				serverTotalRequests.With(totalRequestLabels).Inc()
+				serverActiveRequests.With(activeRequestLabels).Dec()
+			}()
+
+			return next(ctx, wrapped, r)
+		}
+	}
+}
+
+// isRequestSuccessful returns the success of an HTTP request as a string, i.e. "true" or "false".
+// A HTTP request is successful when:
+//   1) no error is returned from the request and
+//   2) the HTTP status code is in the form 2xx.
+func isRequestSuccessful(httpStatusCode int, requestErr error) string {
+	return strconv.FormatBool(requestErr == nil && isSuccessStatusCode(httpStatusCode))
+}
+
+// responeRecorder records the following:
+//   1. HTTP response code passed to a call to WriteHeader.
+//   2. how many bytes were written if any.
+type responseRecorder struct {
+	http.ResponseWriter
+
+	bytesWritten int
+	responseCode int
+}
+
+func (rr *responseRecorder) Write(b []byte) (n int, err error) {
+	n, err = rr.ResponseWriter.Write(b)
+	rr.bytesWritten += n
+	return n, err
+}
+
+func (rr *responseRecorder) WriteHeader(code int) {
+	rr.ResponseWriter.WriteHeader(code)
+	rr.responseCode = code
 }
