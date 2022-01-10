@@ -370,9 +370,9 @@ func statusCodeFamily(code int) string {
 }
 
 // isSuccessStatusCode takes an http status code and returns true if its in the
-// success status code family, i.e "2xx".
+// success status code family, i.e "2xx" or "3xx".
 func isSuccessStatusCode(code int) bool {
-	return code/100 == 2
+	return code/100 == 2 || code/100 == 3
 }
 
 // counterGenerator is used by recordStatusCode to create counters for recording
@@ -425,7 +425,6 @@ func RecordStatusCode() Middleware {
 // * http_server_active_requests gauge with labels:
 //
 //   - http_method: method of the HTTP request
-//   - http_endpoint: path to identify the endpoint handler, may be empty
 //
 // * http_server_latency_seconds, http_server_request_size_bytes, http_server_response_size_bytes histograms with labels above plus:
 //
@@ -439,10 +438,8 @@ func PrometheusServerMetrics(serverSlug string) Middleware {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			start := time.Now()
 			method := r.Method
-			endpoint := r.URL.Path
 			activeRequestLabels := prometheus.Labels{
-				methodLabel:   method,
-				endpointLabel: endpoint,
+				methodLabel: method,
 			}
 			serverActiveRequests.With(activeRequestLabels).Inc()
 
@@ -452,19 +449,17 @@ func PrometheusServerMetrics(serverSlug string) Middleware {
 				success := isRequestSuccessful(code, err)
 
 				labels := prometheus.Labels{
-					methodLabel:   method,
-					successLabel:  success,
-					endpointLabel: endpoint,
+					methodLabel:  method,
+					successLabel: success,
 				}
 				serverLatency.With(labels).Observe(time.Since(start).Seconds())
 				serverRequestSize.With(labels).Observe(float64(r.ContentLength))
-				serverResponseSize.With(labels).Observe(float64(getContentLength(w)))
+				serverResponseSize.With(labels).Observe(float64(wrapped.bytesWritten))
 
 				totalRequestLabels := prometheus.Labels{
-					methodLabel:   method,
-					successLabel:  success,
-					endpointLabel: endpoint,
-					codeLabel:     strconv.Itoa(code),
+					methodLabel:  method,
+					successLabel: success,
+					codeLabel:    strconv.Itoa(code),
 				}
 				serverTotalRequests.With(totalRequestLabels).Inc()
 				serverActiveRequests.With(activeRequestLabels).Dec()
@@ -483,21 +478,9 @@ func isRequestSuccessful(httpStatusCode int, requestErr error) string {
 	return strconv.FormatBool(requestErr == nil && isSuccessStatusCode(httpStatusCode))
 }
 
-const contentLengthHeader = "Content-Length"
-
-func getContentLength(w http.ResponseWriter) int64 {
-	if cl := w.Header().Get(contentLengthHeader); cl != "" {
-		v, err := strconv.ParseInt(cl, 10, 64)
-		if err == nil && v >= 0 {
-			return v
-		}
-	}
-	return 0
-}
-
 // responeRecorder records the following:
 //   1. HTTP response code passed to a call to WriteHeader.
-//   2. the content length of whats written.
+//   2. how many bytes were written if any.
 type responseRecorder struct {
 	http.ResponseWriter
 
@@ -508,7 +491,6 @@ type responseRecorder struct {
 func (rr *responseRecorder) Write(b []byte) (n int, err error) {
 	n, err = rr.ResponseWriter.Write(b)
 	rr.bytesWritten += n
-	rr.ResponseWriter.Header().Set(contentLengthHeader, strconv.Itoa(rr.bytesWritten))
 	return n, err
 }
 

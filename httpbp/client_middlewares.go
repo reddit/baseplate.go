@@ -256,8 +256,7 @@ func MonitorClient(slug string) ClientMiddleware {
 // * http_client_active_requests gauge with labels:
 //
 //   - http_method: method of the HTTP request
-//   - http_endpoint: path to identify the endpoint handler, may be empty
-//   - http_slug: the remote service being contacted
+//   - http_slug: the remote service being contacted, the serverSlug arg
 //
 // * http_client_latency_seconds histogram with labels above plus:
 //
@@ -271,11 +270,9 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
 			start := time.Now()
 			method := req.Method
-			endpoint := req.URL.Path
 			activeRequestLabels := prometheus.Labels{
-				methodLabel:            method,
-				endpointLabel:          endpoint,
-				remoteServiceSlugLabel: serverSlug,
+				methodLabel:           method,
+				remoteServerSlugLabel: serverSlug,
 			}
 			clientActiveRequests.With(activeRequestLabels).Inc()
 
@@ -283,21 +280,20 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 				success := isRequestSuccessful(resp.StatusCode, err)
 
 				latencyLabels := prometheus.Labels{
-					methodLabel:            method,
-					successLabel:           success,
-					endpointLabel:          endpoint,
-					remoteServiceSlugLabel: serverSlug,
+					methodLabel:           method,
+					successLabel:          success,
+					remoteServerSlugLabel: serverSlug,
 				}
 
 				clientLatency.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 				totalRequestLabels := prometheus.Labels{
-					methodLabel:            method,
-					successLabel:           success,
-					endpointLabel:          endpoint,
-					codeLabel:              strconv.Itoa(resp.StatusCode),
-					remoteServiceSlugLabel: serverSlug,
+					methodLabel:           method,
+					successLabel:          success,
+					codeLabel:             strconv.Itoa(resp.StatusCode),
+					remoteServerSlugLabel: serverSlug,
 				}
+
 				clientTotalRequests.With(totalRequestLabels).Inc()
 				clientActiveRequests.With(activeRequestLabels).Dec()
 			}()

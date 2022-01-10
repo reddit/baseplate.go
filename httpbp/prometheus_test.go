@@ -31,31 +31,32 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 		success  string
 		method   string
 		endpoint string
+		route    string
 		reqSize  int
 		respSize int
 	}{
 		{
-			name:     "success get",
-			code:     "200",
-			success:  "true",
-			method:   http.MethodGet,
-			endpoint: "/test",
+			name:    "success get",
+			code:    "200",
+			success: "true",
+			method:  http.MethodGet,
+			route:   "/test",
 		},
 		{
 			name:     "err post",
 			code:     "401",
 			success:  "false",
 			method:   http.MethodPost,
-			endpoint: "/error2",
+			route:    "/error2",
 			reqSize:  16,
 			respSize: 29,
 		},
 		{
-			name:     "internal err get",
-			code:     "500",
-			success:  "false",
-			method:   http.MethodGet,
-			endpoint: "/error",
+			name:    "internal err get",
+			code:    "500",
+			success: "false",
+			method:  http.MethodGet,
+			route:   "/error",
 		},
 	}
 
@@ -118,42 +119,36 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 			clientActiveRequests.Reset()
 
 			serverSizeLabels := prometheus.Labels{
-				methodLabel:   tt.method,
-				successLabel:  tt.success,
-				endpointLabel: tt.endpoint,
+				methodLabel:  tt.method,
+				successLabel: tt.success,
 			}
 
 			serverTotalRequestLabels := prometheus.Labels{
-				methodLabel:   tt.method,
-				successLabel:  tt.success,
-				endpointLabel: tt.endpoint,
-				codeLabel:     tt.code,
+				methodLabel:  tt.method,
+				successLabel: tt.success,
+				codeLabel:    tt.code,
 			}
 
 			serverActiveRequestLabels := prometheus.Labels{
-				methodLabel:   tt.method,
-				endpointLabel: tt.endpoint,
+				methodLabel: tt.method,
 			}
 
 			clientLatencyLabels := prometheus.Labels{
-				methodLabel:            tt.method,
-				successLabel:           tt.success,
-				endpointLabel:          tt.endpoint,
-				remoteServiceSlugLabel: serverSlug,
+				methodLabel:           tt.method,
+				successLabel:          tt.success,
+				remoteServerSlugLabel: serverSlug,
 			}
 
 			clientTotalRequestLabels := prometheus.Labels{
-				methodLabel:            tt.method,
-				successLabel:           tt.success,
-				endpointLabel:          tt.endpoint,
-				codeLabel:              tt.code,
-				remoteServiceSlugLabel: serverSlug,
+				methodLabel:           tt.method,
+				successLabel:          tt.success,
+				codeLabel:             tt.code,
+				remoteServerSlugLabel: serverSlug,
 			}
 
 			clientActiveRequestLabels := prometheus.Labels{
-				methodLabel:            tt.method,
-				endpointLabel:          tt.endpoint,
-				remoteServiceSlugLabel: serverSlug,
+				methodLabel:           tt.method,
+				remoteServerSlugLabel: serverSlug,
 			}
 
 			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatency, serverSizeLabels).CheckExists()
@@ -166,7 +161,7 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientActiveRequestLabels).CheckDelta(0)
 
 			if tt.method == http.MethodGet {
-				_, err = client.Get(ts.URL + tt.endpoint)
+				_, err = client.Get(ts.URL + tt.route)
 				if err != nil {
 					t.Fatal("client.Get", err)
 				}
@@ -179,7 +174,7 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				if _, err := client.Post(ts.URL+tt.endpoint, "", &body); err != nil {
+				if _, err := client.Post(ts.URL+tt.route, "", &body); err != nil {
 					t.Fatal("client.Post", err)
 				}
 			}
