@@ -258,7 +258,7 @@ func TestBuildLabelsThrift(t *testing.T) {
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, want := buildLables(tt.metricName, tt.prefix, tt.clientOrServer), tt.want; !reflect.DeepEqual(got, want) {
+			if got, want := buildLabels(tt.metricName, tt.prefix, tt.clientOrServer), tt.want; !reflect.DeepEqual(got, want) {
 				t.Fatalf("got %v, want %v", got, want)
 			}
 		})
@@ -315,7 +315,7 @@ func TestBuildLabelsGPRC(t *testing.T) {
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, want := buildLables(tt.metricName, tt.prefix, tt.clientOrServer), tt.want; !reflect.DeepEqual(got, want) {
+			if got, want := buildLabels(tt.metricName, tt.prefix, tt.clientOrServer), tt.want; !reflect.DeepEqual(got, want) {
 				t.Fatalf("got %v, want %v", got, want)
 			}
 		})

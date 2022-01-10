@@ -136,31 +136,29 @@ func validateName(name, prefix, clientOrServer string) error {
 }
 
 func validateLabels(name, prefix, clientOrServer string, gotLabels map[string]struct{}) error {
-	wantLabels := buildLables(name, prefix, clientOrServer)
+	wantLabels := buildLabels(name, prefix, clientOrServer)
 	if diff := cmp.Diff(gotLabels, wantLabels); diff != "" {
 		return fmt.Errorf("%w: (-got +want)\n%s", errDiffLabels, diff)
 	}
 	return nil
 }
 
-// buildLables returns a set of expected labels for the metric name provided.
+// buildLabels returns a set of expected labels for the metric name provided.
 // prefix is either thrift, http, or grpc.
-func buildLables(name, prefix, clientOrServer string) map[string]struct{} {
-	var labelSuffixes = []string{}
+func buildLabels(name, prefix, clientOrServer string) map[string]struct{} {
+	var labelSuffixes []string
 	switch prefix {
 	case thriftPrefix:
 		labelSuffixes = thriftSpecificLabels(name)
 	case grpcPrefix:
 		labelSuffixes = grpcSpecificLabels(name)
-	default:
-		labelSuffixes = []string{}
 	}
 
 	if clientOrServer == client {
 		labelSuffixes = append(labelSuffixes, "slug")
 	}
 
-	var wantLabels = map[string]struct{}{}
+	wantLabels := make(map[string]struct{}, len(labelSuffixes))
 	for _, label := range labelSuffixes {
 		wantLabels[prefix+"_"+label] = struct{}{}
 	}
@@ -189,7 +187,7 @@ func thriftSpecificLabels(name string) []string {
 	case strings.HasSuffix(name, "_active_requests"):
 		// no op
 	default:
-		labelSuffixes = []string{}
+		return nil
 	}
 	return labelSuffixes
 }
@@ -219,7 +217,7 @@ func grpcSpecificLabels(name string) []string {
 	case strings.HasSuffix(name, "_active_requests"):
 		// no op
 	default:
-		labelSuffixes = []string{}
+		return nil
 	}
 	return labelSuffixes
 }
