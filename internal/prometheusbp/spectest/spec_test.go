@@ -151,56 +151,56 @@ func TestValidateLabels(t *testing.T) {
 		},
 		{
 			name:           "latency success",
-			metricName:     "test_latency_seconds",
-			prefix:         "test",
+			metricName:     "thrift_latency_seconds",
+			prefix:         thriftPrefix,
 			clientOrServer: client,
-			gotLabels:      map[string]struct{}{"test_method": {}, "test_success": {}, "test_slug": {}},
+			gotLabels:      map[string]struct{}{"thrift_method": {}, "thrift_success": {}, "thrift_slug": {}},
 			wantErrs:       []error{},
 		},
 		{
 			name:           "latency wrong labels",
-			metricName:     "test_latency_seconds",
-			prefix:         "test",
+			metricName:     "thrift_latency_seconds",
+			prefix:         thriftPrefix,
 			clientOrServer: server,
-			gotLabels:      map[string]struct{}{"test_method": {}},
+			gotLabels:      map[string]struct{}{"thrift_method": {}},
 			wantErrs:       []error{errDiffLabels},
 		},
 		{
 			name:           "request total success",
-			metricName:     "test_requests_total",
-			prefix:         "test",
+			metricName:     "thrift_requests_total",
+			prefix:         thriftPrefix,
 			clientOrServer: server,
 			gotLabels: map[string]struct{}{
-				"test_method":                {},
-				"test_success":               {},
-				"test_baseplate_status":      {},
-				"test_baseplate_status_code": {},
-				"test_exception_type":        {},
+				"thrift_method":                {},
+				"thrift_success":               {},
+				"thrift_baseplate_status":      {},
+				"thrift_baseplate_status_code": {},
+				"thrift_exception_type":        {},
 			},
 			wantErrs: []error{},
 		},
 		{
 			name:           "request total labels",
-			metricName:     "test_requests_total",
-			prefix:         "test",
+			metricName:     "thrift_requests_total",
+			prefix:         thriftPrefix,
 			clientOrServer: server,
-			gotLabels:      map[string]struct{}{"test_method": {}},
+			gotLabels:      map[string]struct{}{"thrift_method": {}},
 			wantErrs:       []error{errDiffLabels},
 		},
 		{
 			name:           "active_requests success",
-			metricName:     "test_active_requests",
-			prefix:         "test",
+			metricName:     "thrift_active_requests",
+			prefix:         thriftPrefix,
 			clientOrServer: server,
-			gotLabels:      map[string]struct{}{"test_method": {}},
+			gotLabels:      map[string]struct{}{"thrift_method": {}},
 			wantErrs:       []error{},
 		},
 		{
 			name:           "active_requests wrong labels",
-			metricName:     "test_active_requests",
-			prefix:         "test",
+			metricName:     "thrift_active_requests",
+			prefix:         thriftPrefix,
 			clientOrServer: server,
-			gotLabels:      map[string]struct{}{"test_method": {}, "foo": {}},
+			gotLabels:      map[string]struct{}{"thrift_method": {}, "foo": {}},
 			wantErrs:       []error{errDiffLabels},
 		},
 	}
@@ -213,7 +213,7 @@ func TestValidateLabels(t *testing.T) {
 	}
 }
 
-func TestBuildLabels(t *testing.T) {
+func TestBuildLabelsThrift(t *testing.T) {
 	testCases := []struct {
 		name           string
 		metricName     string
@@ -223,35 +223,92 @@ func TestBuildLabels(t *testing.T) {
 	}{
 		{
 			name:           "latency_seconds labels",
-			metricName:     "test_latency_seconds",
-			prefix:         "test",
+			metricName:     "thrift_latency_seconds",
+			prefix:         thriftPrefix,
 			clientOrServer: server,
-			want:           map[string]struct{}{"test_method": {}, "test_success": {}},
+			want:           map[string]struct{}{"thrift_method": {}, "thrift_success": {}},
 		},
 		{
 			name:           "requests_total labels",
-			metricName:     "test_requests_total",
-			prefix:         "test",
+			metricName:     "thrift_requests_total",
+			prefix:         thriftPrefix,
 			clientOrServer: client,
 			want: map[string]struct{}{
-				"test_method":                {},
-				"test_success":               {},
-				"test_baseplate_status":      {},
-				"test_baseplate_status_code": {},
-				"test_exception_type":        {},
-				"test_slug":                  {},
+				"thrift_method":                {},
+				"thrift_success":               {},
+				"thrift_baseplate_status":      {},
+				"thrift_baseplate_status_code": {},
+				"thrift_exception_type":        {},
+				"thrift_slug":                  {},
 			},
 		},
 		{
 			name:           "active_requests labels",
-			metricName:     "test_active_requests",
-			prefix:         "test",
+			metricName:     "thrift_active_requests",
+			prefix:         thriftPrefix,
 			clientOrServer: server,
-			want:           map[string]struct{}{"test_method": {}},
+			want:           map[string]struct{}{"thrift_method": {}},
 		},
 		{
 			name:           "none",
-			prefix:         "test",
+			prefix:         thriftPrefix,
+			clientOrServer: server,
+			want:           map[string]struct{}{},
+		},
+	}
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, want := buildLables(tt.metricName, tt.prefix, tt.clientOrServer), tt.want; !reflect.DeepEqual(got, want) {
+				t.Fatalf("got %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+func TestBuildLabelsGPRC(t *testing.T) {
+	testCases := []struct {
+		name           string
+		metricName     string
+		prefix         string
+		clientOrServer string
+		want           map[string]struct{}
+	}{
+		{
+			name:           "latency_seconds labels",
+			metricName:     "grpc_latency_seconds",
+			prefix:         grpcPrefix,
+			clientOrServer: server,
+			want: map[string]struct{}{
+				"grpc_service": {},
+				"grpc_method":  {},
+				"grpc_type":    {},
+				"grpc_success": {},
+			},
+		},
+		{
+			name:           "requests_total labels",
+			metricName:     "grpc_requests_total",
+			prefix:         grpcPrefix,
+			clientOrServer: client,
+			want: map[string]struct{}{
+				"grpc_service": {},
+				"grpc_method":  {},
+				"grpc_type":    {},
+				"grpc_success": {},
+				"grpc_code":    {},
+				"grpc_slug":    {},
+			},
+		},
+		{
+			name:           "active_requests labels",
+			metricName:     "grpc_active_requests",
+			prefix:         grpcPrefix,
+			clientOrServer: server,
+			want:           map[string]struct{}{"grpc_method": {}, "grpc_service": {}},
+		},
+		{
+			name:           "none",
+			prefix:         grpcPrefix,
 			clientOrServer: server,
 			want:           map[string]struct{}{},
 		},
@@ -297,14 +354,14 @@ func TestValidateSpec(t *testing.T) {
 		{
 			name:           "not found server",
 			metric:         testMetric,
-			prefix:         "thrift",
+			prefix:         thriftPrefix,
 			clientOrServer: "server",
 			wantErrs:       []error{errNotFound},
 		},
 		{
 			name:           "multi errs client",
 			metric:         testMetric,
-			prefix:         "thrift",
+			prefix:         thriftPrefix,
 			clientOrServer: "client",
 			wantErrs:       []error{errPrometheusLint, errDiffLabels, errNotFound},
 		},

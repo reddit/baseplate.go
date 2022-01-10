@@ -106,12 +106,11 @@ var (
 // serviceAndMethodSlug splits the UnaryServerInfo.FullMethod and returns
 // the package.service part separate from the method part.
 // ref: https://pkg.go.dev/google.golang.org/grpc#UnaryServerInfo
-func serviceAndMethodSlug(fullMethod string) (service string, method string) {
-	split := strings.SplitN(fullMethod, "/", 3)
+func serviceAndMethodSlug(fullMethod string) (service, method string) {
+	fullMethod = strings.TrimPrefix(fullMethod, "/")
+	split := strings.SplitN(fullMethod, "/", 2)
 	if len(split) < 2 {
-		return "", ""
+		return "", fullMethod
 	}
-	method = split[len(split)-1]
-	service = strings.Join(split[:len(split)-1], "")
-	return service, method
+	return split[0], split[1]
 }

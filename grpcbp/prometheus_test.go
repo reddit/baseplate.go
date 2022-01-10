@@ -33,7 +33,7 @@ func TestServiceAndMethodSlug(t *testing.T) {
 			name:        "no /",
 			fullMethod:  "package.service.method",
 			wantService: "",
-			wantMethod:  "",
+			wantMethod:  "package.service.method",
 		},
 		{
 			name:        "empty input",
@@ -47,10 +47,10 @@ func TestServiceAndMethodSlug(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotService, gotMethod := serviceAndMethodSlug(tt.fullMethod)
 			if got, want := gotService, tt.wantService; got != want {
-				t.Errorf("got %v, want %v", got, want)
+				t.Errorf("serviceAndMethodSlug(%q).service = %v, want %v", tt.fullMethod, got, want)
 			}
 			if got, want := gotMethod, tt.wantMethod; got != want {
-				t.Errorf("got %v, want %v", got, want)
+				t.Errorf("serviceAndMethodSlug(%q).method = %v, want %v", tt.fullMethod, got, want)
 			}
 		})
 	}
