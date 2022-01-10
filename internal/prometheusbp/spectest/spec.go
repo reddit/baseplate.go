@@ -17,6 +17,9 @@ const (
 	client = "client"
 	server = "server"
 
+	thriftPrefix = "thrift"
+	grpcPrefix   = "grpc"
+
 	partsCount = 3
 )
 
@@ -133,31 +136,49 @@ func validateName(name, prefix, clientOrServer string) error {
 }
 
 func validateLabels(name, prefix, clientOrServer string, gotLabels map[string]struct{}) error {
-	wantLabels := buildLables(name, prefix, clientOrServer)
+	wantLabels := buildLabels(name, prefix, clientOrServer)
 	if diff := cmp.Diff(gotLabels, wantLabels); diff != "" {
 		return fmt.Errorf("%w: (-got +want)\n%s", errDiffLabels, diff)
 	}
 	return nil
 }
 
-// buildLables returns a set of expected labels for the metric name provided.
+// buildLabels returns a set of expected labels for the metric name provided.
 // prefix is either thrift, http, or grpc.
+func buildLabels(name, prefix, clientOrServer string) map[string]struct{} {
+	var labelSuffixes []string
+	switch prefix {
+	case thriftPrefix:
+		labelSuffixes = thriftSpecificLabels(name)
+	case grpcPrefix:
+		labelSuffixes = grpcSpecificLabels(name)
+	}
+
+	if clientOrServer == client {
+		labelSuffixes = append(labelSuffixes, "slug")
+	}
+
+	wantLabels := make(map[string]struct{}, len(labelSuffixes))
+	for _, label := range labelSuffixes {
+		wantLabels[prefix+"_"+label] = struct{}{}
+	}
+	return wantLabels
+}
+
+// thriftSpecificLabels returns the following labels:
 // latency_seconds metrics expect the following labels:
-//   - "<prefix>_service"
-//   - "<prefix>_method"
-//   - "<prefix>_success"
+//   - "method"
+//   - "success"
 // requests_total metrics expect the following labels:
-//   - "<prefix>_service"
-//   - "<prefix>_method"
-//   - "<prefix>_success"
-//   - "<prefix>_exception_type"
-//   - "<prefix>_baseplate_status"
-//   - "<prefix>_baseplate_status_code"
+//   - "method"
+//   - "success"
+//   - "exception_type"
+//   - "baseplate_status"
+//   - "baseplate_status_code"
 // active_requests metrics expect the following labels:
-//   - "<prefix>_service"
-//   - "<prefix>_method"
-func buildLables(name, prefix, clientOrServer string) map[string]struct{} {
-	labelSuffixes := []string{"service", "method"}
+//   - "method"
+func thriftSpecificLabels(name string) []string {
+	labelSuffixes := []string{"method"}
 	switch {
 	case strings.HasSuffix(name, "_latency_seconds"):
 		labelSuffixes = append(labelSuffixes, "success")
@@ -166,18 +187,39 @@ func buildLables(name, prefix, clientOrServer string) map[string]struct{} {
 	case strings.HasSuffix(name, "_active_requests"):
 		// no op
 	default:
-		labelSuffixes = []string{}
+		return nil
 	}
+	return labelSuffixes
+}
 
-	if clientOrServer == client {
-		labelSuffixes = append(labelSuffixes, "slug")
+// grpcSpecificLabels returns the following labels:
+// latency_seconds metrics expect the following labels:
+//   - "service"
+//   - "method"
+//   - "success"
+//   - "type"
+// requests_total metrics expect the following labels:
+//   - "service"
+//   - "method"
+//   - "success"
+//   - "type"
+//   - "code"
+// active_requests metrics expect the following labels:
+//   - "service"
+//   - "method"
+func grpcSpecificLabels(name string) []string {
+	labelSuffixes := []string{"service", "method"}
+	switch {
+	case strings.HasSuffix(name, "_latency_seconds"):
+		labelSuffixes = append(labelSuffixes, "type", "success")
+	case strings.HasSuffix(name, "_requests_total"):
+		labelSuffixes = append(labelSuffixes, "type", "success", "code")
+	case strings.HasSuffix(name, "_active_requests"):
+		// no op
+	default:
+		return nil
 	}
-
-	var wantLabels = map[string]struct{}{}
-	for _, label := range labelSuffixes {
-		wantLabels[prefix+"_"+label] = struct{}{}
-	}
-	return wantLabels
+	return labelSuffixes
 }
 
 func lintMetric(metricName string) error {

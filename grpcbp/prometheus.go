@@ -1,6 +1,8 @@
 package grpcbp
 
 import (
+	"strings"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -8,12 +10,12 @@ import (
 )
 
 const (
-	localServiceLabel      = "grpc_service"
-	methodLabel            = "grpc_method"
-	typeLabel              = "grpc_type"
-	successLabel           = "grpc_success"
-	codeLabel              = "grpc_code"
-	remoteServiceSlugLabel = "grpc_slug"
+	serviceLabel    = "grpc_service"
+	methodLabel     = "grpc_method"
+	typeLabel       = "grpc_type"
+	successLabel    = "grpc_success"
+	codeLabel       = "grpc_code"
+	serverSlugLabel = "grpc_slug"
 )
 
 const (
@@ -24,7 +26,7 @@ const (
 
 var (
 	serverLatencyLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		typeLabel,
 		successLabel,
@@ -37,7 +39,7 @@ var (
 	}, serverLatencyLabels)
 
 	serverRequestLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		typeLabel,
 		successLabel,
@@ -50,7 +52,7 @@ var (
 	}, serverRequestLabels)
 
 	serverActiveRequestsLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 	}
 
@@ -62,11 +64,11 @@ var (
 
 var (
 	clientLatencyLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		typeLabel,
 		successLabel,
-		remoteServiceSlugLabel,
+		serverSlugLabel,
 	}
 
 	clientLatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -76,12 +78,12 @@ var (
 	}, clientLatencyLabels)
 
 	clientRequestLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
 		typeLabel,
 		successLabel,
 		codeLabel,
-		remoteServiceSlugLabel,
+		serverSlugLabel,
 	}
 
 	clientRPCRequestCounter = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -90,9 +92,9 @@ var (
 	}, clientRequestLabels)
 
 	clientActiveRequestsLabels = []string{
-		localServiceLabel,
+		serviceLabel,
 		methodLabel,
-		remoteServiceSlugLabel,
+		serverSlugLabel,
 	}
 
 	clientActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -100,3 +102,15 @@ var (
 		Help: "The number of in-flight requests",
 	}, clientActiveRequestsLabels)
 )
+
+// serviceAndMethodSlug splits the UnaryServerInfo.FullMethod and returns
+// the package.service part separate from the method part.
+// ref: https://pkg.go.dev/google.golang.org/grpc#UnaryServerInfo
+func serviceAndMethodSlug(fullMethod string) (service, method string) {
+	fullMethod = strings.TrimPrefix(fullMethod, "/")
+	split := strings.SplitN(fullMethod, "/", 2)
+	if len(split) < 2 {
+		return "", fullMethod
+	}
+	return split[0], split[1]
+}

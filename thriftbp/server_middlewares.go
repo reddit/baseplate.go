@@ -391,7 +391,6 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 //
 // * thrift_server_active_requests gauge with labels:
 //
-//   - thrift_service: the serviceSlug arg
 //   - thrift_method: the method of the endpoint called
 //
 // * thrift_server_latency_seconds histogram with labels above plus:
@@ -406,53 +405,48 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 //     as a string if present (e.g. 404), or the empty string
 //   - thrift_baseplate_status_code: the human-readable status code, e.g.
 //     NOT_FOUND, or the empty string
-func PrometheusServerMiddleware(serviceSlug string) thrift.ProcessorMiddleware {
-	return func(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
-		process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
-			start := time.Now()
-			activeRequestLabels := prometheus.Labels{
-				localServiceLabel: serviceSlug,
-				methodLabel:       method,
-			}
-			serverActiveRequests.With(activeRequestLabels).Inc()
+func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+	process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
+		start := time.Now()
+		activeRequestLabels := prometheus.Labels{
+			methodLabel: method,
+		}
+		serverActiveRequests.With(activeRequestLabels).Inc()
 
-			defer func() {
-				var exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
-				success := strconv.FormatBool(err == nil)
-				if err != nil {
-					exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
+		defer func() {
+			var exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
+			success := strconv.FormatBool(err == nil)
+			if err != nil {
+				exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
 
-					var bpErr baseplateError
-					if errors.As(err, &bpErr) {
-						code := bpErr.GetCode()
-						baseplateStatusCode = strconv.FormatInt(int64(code), 10)
-						if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
-							baseplateStatus = status
-						}
+				var bpErr baseplateError
+				if errors.As(err, &bpErr) {
+					code := bpErr.GetCode()
+					baseplateStatusCode = strconv.FormatInt(int64(code), 10)
+					if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
+						baseplateStatus = status
 					}
 				}
+			}
 
-				latencyLabels := prometheus.Labels{
-					localServiceLabel: serviceSlug,
-					methodLabel:       method,
-					successLabel:      success,
-				}
-				serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+			latencyLabels := prometheus.Labels{
+				methodLabel:  method,
+				successLabel: success,
+			}
+			serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
-				rpcCountLabels := prometheus.Labels{
-					localServiceLabel:        serviceSlug,
-					methodLabel:              method,
-					successLabel:             success,
-					exceptionLabel:           exceptionTypeLabel,
-					baseplateStatusLabel:     baseplateStatus,
-					baseplateStatusCodeLabel: baseplateStatusCode,
-				}
-				serverRPCRequestCounter.With(rpcCountLabels).Inc()
-				serverActiveRequests.With(activeRequestLabels).Dec()
-			}()
+			rpcCountLabels := prometheus.Labels{
+				methodLabel:              method,
+				successLabel:             success,
+				exceptionLabel:           exceptionTypeLabel,
+				baseplateStatusLabel:     baseplateStatus,
+				baseplateStatusCodeLabel: baseplateStatusCode,
+			}
+			serverRPCRequestCounter.With(rpcCountLabels).Inc()
+			serverActiveRequests.With(activeRequestLabels).Dec()
+		}()
 
-			return next.Process(ctx, seqID, in, out)
-		}
-		return thrift.WrappedTProcessorFunction{Wrapped: process}
+		return next.Process(ctx, seqID, in, out)
 	}
+	return thrift.WrappedTProcessorFunction{Wrapped: process}
 }
