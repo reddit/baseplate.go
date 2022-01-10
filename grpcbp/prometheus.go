@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	serviceLabel          = "grpc_service"
-	methodLabel           = "grpc_method"
-	typeLabel             = "grpc_type"
-	successLabel          = "grpc_success"
-	codeLabel             = "grpc_code"
-	remoteServerSlugLabel = "grpc_slug"
+	serviceLabel    = "grpc_service"
+	methodLabel     = "grpc_method"
+	typeLabel       = "grpc_type"
+	successLabel    = "grpc_success"
+	codeLabel       = "grpc_code"
+	serverSlugLabel = "grpc_slug"
 )
 
 const (
@@ -68,7 +68,7 @@ var (
 		methodLabel,
 		typeLabel,
 		successLabel,
-		remoteServerSlugLabel,
+		serverSlugLabel,
 	}
 
 	clientLatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -83,7 +83,7 @@ var (
 		typeLabel,
 		successLabel,
 		codeLabel,
-		remoteServerSlugLabel,
+		serverSlugLabel,
 	}
 
 	clientRPCRequestCounter = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -94,7 +94,7 @@ var (
 	clientActiveRequestsLabels = []string{
 		serviceLabel,
 		methodLabel,
-		remoteServerSlugLabel,
+		serverSlugLabel,
 	}
 
 	clientActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{

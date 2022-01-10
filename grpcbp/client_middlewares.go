@@ -138,9 +138,9 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 		serviceName, m := serviceAndMethodSlug(method)
 
 		activeRequestLabels := prometheus.Labels{
-			serviceLabel:          serviceName,
-			methodLabel:           m,
-			remoteServerSlugLabel: serverSlug,
+			serviceLabel:    serviceName,
+			methodLabel:     m,
+			serverSlugLabel: serverSlug,
 		}
 		clientActiveRequests.With(activeRequestLabels).Inc()
 
@@ -149,22 +149,22 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 			status, _ := status.FromError(err)
 
 			latencyLabels := prometheus.Labels{
-				serviceLabel:          serviceName,
-				methodLabel:           m,
-				typeLabel:             unary,
-				successLabel:          success,
-				remoteServerSlugLabel: serverSlug,
+				serviceLabel:    serviceName,
+				methodLabel:     m,
+				typeLabel:       unary,
+				successLabel:    success,
+				serverSlugLabel: serverSlug,
 			}
 
 			clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 			rpcCountLabels := prometheus.Labels{
-				serviceLabel:          serviceName,
-				methodLabel:           m,
-				typeLabel:             unary,
-				successLabel:          success,
-				remoteServerSlugLabel: serverSlug,
-				codeLabel:             status.Code().String(),
+				serviceLabel:    serviceName,
+				methodLabel:     m,
+				typeLabel:       unary,
+				successLabel:    success,
+				serverSlugLabel: serverSlug,
+				codeLabel:       status.Code().String(),
 			}
 			clientRPCRequestCounter.With(rpcCountLabels).Inc()
 			clientActiveRequests.With(activeRequestLabels).Dec()
