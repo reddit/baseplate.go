@@ -38,7 +38,7 @@ var (
 		Buckets: prometheusbp.DefaultBuckets,
 	}, serverLatencyLabels)
 
-	serverRequestLabels = []string{
+	serverTotalRequestLabels = []string{
 		serviceLabel,
 		methodLabel,
 		typeLabel,
@@ -46,10 +46,10 @@ var (
 		codeLabel,
 	}
 
-	serverRPCRequestCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	serverTotalRequests = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "grpc_server_requests_total",
 		Help: "Total RPC request count",
-	}, serverRequestLabels)
+	}, serverTotalRequestLabels)
 
 	serverActiveRequestsLabels = []string{
 		serviceLabel,
@@ -77,7 +77,7 @@ var (
 		Buckets: prometheusbp.DefaultBuckets,
 	}, clientLatencyLabels)
 
-	clientRequestLabels = []string{
+	clientTotalRequestLabels = []string{
 		serviceLabel,
 		methodLabel,
 		typeLabel,
@@ -86,10 +86,10 @@ var (
 		serverSlugLabel,
 	}
 
-	clientRPCRequestCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	clientTotalRequests = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "grpc_client_requests_total",
 		Help: "Total RPC request count",
-	}, clientRequestLabels)
+	}, clientTotalRequestLabels)
 
 	clientActiveRequestsLabels = []string{
 		serviceLabel,

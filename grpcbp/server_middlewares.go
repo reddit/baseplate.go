@@ -188,14 +188,14 @@ func InjectPrometheusUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 			}
 			serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
-			rpcCountLabels := prometheus.Labels{
+			totalRequestLabels := prometheus.Labels{
 				serviceLabel: serviceName,
 				methodLabel:  method,
 				typeLabel:    unary,
 				successLabel: success,
 				codeLabel:    status.Code().String(),
 			}
-			serverRPCRequestCounter.With(rpcCountLabels).Inc()
+			serverTotalRequests.With(totalRequestLabels).Inc()
 			serverActiveRequests.With(activeRequestLabels).Dec()
 		}()
 

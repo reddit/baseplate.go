@@ -54,7 +54,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			serverLatencyDistribution.Reset()
-			serverRPCRequestCounter.Reset()
+			serverTotalRequests.Reset()
 			serverActiveRequests.Reset()
 
 			var baseplateStatus string
@@ -74,7 +74,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 				successLabel: success,
 			}
 
-			rpcCountLabels := prometheus.Labels{
+			totalRequestLabels := prometheus.Labels{
 				methodLabel:              method,
 				successLabel:             success,
 				exceptionLabel:           exceptionType,
@@ -83,7 +83,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 			}
 
 			defer promtest.NewPrometheusMetricTest(t, "latency", serverLatencyDistribution, latencyLabels).CheckExists()
-			defer promtest.NewPrometheusMetricTest(t, "rpc count", serverRPCRequestCounter, rpcCountLabels).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "rpc count", serverTotalRequests, totalRequestLabels).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "active requests", serverActiveRequests, activeRequestLabels).CheckDelta(0)
 			defer spectest.ValidateSpec(t, "thrift", "server")
 
@@ -108,7 +108,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 // during testing.
 type PromClientMetricsTest struct {
 	latency        *promtest.PrometheusMetricTest
-	rpcCount       *promtest.PrometheusMetricTest
+	totalRequests  *promtest.PrometheusMetricTest
 	activeRequests *promtest.PrometheusMetricTest
 }
 
@@ -116,11 +116,11 @@ type PromClientMetricsTest struct {
 // setups the test to track the client metrics.
 func PrometheusClientMetricsTest(t *testing.T, latencyLabelValues, requestCountLabelValues, activeRequestsLabelValues prometheus.Labels) PromClientMetricsTest {
 	clientLatencyDistribution.Reset()
-	clientRPCRequestCounter.Reset()
+	clientTotalRequests.Reset()
 	clientActiveRequests.Reset()
 	return PromClientMetricsTest{
 		latency:        promtest.NewPrometheusMetricTest(t, "latency", clientLatencyDistribution, latencyLabelValues),
-		rpcCount:       promtest.NewPrometheusMetricTest(t, "rpc count", clientRPCRequestCounter, requestCountLabelValues),
+		totalRequests:  promtest.NewPrometheusMetricTest(t, "rpc count", clientTotalRequests, requestCountLabelValues),
 		activeRequests: promtest.NewPrometheusMetricTest(t, "active requests", clientActiveRequests, activeRequestsLabelValues),
 	}
 }
@@ -129,6 +129,6 @@ func PrometheusClientMetricsTest(t *testing.T, latencyLabelValues, requestCountL
 // for Thrift client Prometheus metrics.
 func (p PromClientMetricsTest) CheckMetrics() {
 	p.latency.CheckExists()
-	p.rpcCount.CheckDelta(1)
+	p.totalRequests.CheckDelta(1)
 	p.activeRequests.CheckDelta(0)
 }
