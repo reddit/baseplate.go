@@ -265,6 +265,88 @@ func TestBuildLabelsThrift(t *testing.T) {
 	}
 }
 
+func TestBuildLabelsHTTP(t *testing.T) {
+	testCases := []struct {
+		name           string
+		metricName     string
+		prefix         string
+		clientOrServer string
+		want           map[string]struct{}
+	}{
+		{
+			name:           "latency_seconds labels",
+			metricName:     "http_latency_seconds",
+			prefix:         httpPrefix,
+			clientOrServer: server,
+			want: map[string]struct{}{
+				"http_method":  {},
+				"http_success": {},
+			},
+		},
+		{
+			name:           "http_server_response_size_bytes labels",
+			metricName:     "http_server_response_size_bytes",
+			prefix:         httpPrefix,
+			clientOrServer: server,
+			want: map[string]struct{}{
+				"http_method":  {},
+				"http_success": {},
+			},
+		},
+		{
+			name:           "http_server_request_size_bytes labels",
+			metricName:     "http_server_request_size_bytes",
+			prefix:         httpPrefix,
+			clientOrServer: server,
+			want: map[string]struct{}{
+				"http_method":  {},
+				"http_success": {},
+			},
+		},
+		{
+			name:           "http_client_request_size_bytes client labels",
+			metricName:     "http_client_request_size_bytes",
+			prefix:         httpPrefix,
+			clientOrServer: client,
+			want: map[string]struct{}{
+				"http_slug": {},
+			},
+		},
+		{
+			name:           "requests_total labels",
+			metricName:     "http_requests_total",
+			prefix:         httpPrefix,
+			clientOrServer: client,
+			want: map[string]struct{}{
+				"http_method":        {},
+				"http_success":       {},
+				"http_response_code": {},
+				"http_slug":          {},
+			},
+		},
+		{
+			name:           "active_requests labels",
+			metricName:     "http_active_requests",
+			prefix:         httpPrefix,
+			clientOrServer: server,
+			want:           map[string]struct{}{"http_method": {}},
+		},
+		{
+			name:           "none",
+			prefix:         httpPrefix,
+			clientOrServer: server,
+			want:           map[string]struct{}{},
+		},
+	}
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, want := buildLabels(tt.metricName, tt.prefix, tt.clientOrServer), tt.want; !reflect.DeepEqual(got, want) {
+				t.Fatalf("got %v, want %v", got, want)
+			}
+		})
+	}
+}
+
 func TestBuildLabelsGPRC(t *testing.T) {
 	testCases := []struct {
 		name           string
