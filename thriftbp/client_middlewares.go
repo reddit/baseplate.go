@@ -347,8 +347,8 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (_ thrift.ResponseMeta, err error) {
 				start := time.Now()
 				activeRequestLabels := prometheus.Labels{
-					methodLabel:           method,
-					remoteServerSlugLabel: remoteServerSlug,
+					methodLabel:     method,
+					serverSlugLabel: remoteServerSlug,
 				}
 				clientActiveRequests.With(activeRequestLabels).Inc()
 
@@ -369,9 +369,9 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 					}
 
 					latencyLabels := prometheus.Labels{
-						methodLabel:           method,
-						successLabel:          success,
-						remoteServerSlugLabel: remoteServerSlug,
+						methodLabel:     method,
+						successLabel:    success,
+						serverSlugLabel: remoteServerSlug,
 					}
 					clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
@@ -381,7 +381,7 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 						exceptionLabel:           exceptionTypeLabel,
 						baseplateStatusCodeLabel: baseplateStatusCode,
 						baseplateStatusLabel:     baseplateStatus,
-						remoteServerSlugLabel:    remoteServerSlug,
+						serverSlugLabel:          remoteServerSlug,
 					}
 					clientRPCRequestCounter.With(rpcCountLabels).Inc()
 					clientActiveRequests.With(activeRequestLabels).Dec()
