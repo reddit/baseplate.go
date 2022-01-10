@@ -64,7 +64,7 @@ func TestNewStore(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				store, err := NewStore(context.Background(), tmpPath, log.TestWrapper(t))
+				store, err := NewStore(context.Background(), tmpPath, "vault", log.TestWrapper(t))
 				if err != nil {
 					t.Fatal(err)
 				}

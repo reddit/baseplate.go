@@ -71,7 +71,10 @@ func (s *Secrets) AddSecret(path string, g GenericSecret) error {
 
 // RemoveSecret removes a secret object based on its path
 func (s *Secrets) RemoveSecret(path string) error {
-	// TODO implement
+	delete(s.simpleSecrets, path)
+	delete(s.versionedSecrets, path)
+	delete(s.credentialSecrets, path)
+	delete(s.genericSecrets, path)
 	return nil
 }
 

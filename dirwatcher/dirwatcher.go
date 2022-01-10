@@ -152,6 +152,10 @@ func (r *Result) watcherLoop(
 						} else {
 							data := r.data.Load()
 							data, err = add(data, d)
+							if err != nil {
+								logger.Log(context.Background(), "dirwatcher: add file error: "+err.Error())
+								return
+							}
 							r.data.Store(data)
 						}
 					}
@@ -163,6 +167,13 @@ func (r *Result) watcherLoop(
 						watcher.Remove(path)
 					} else {
 						// remove data related to path?
+						data := r.data.Load()
+						data, err = remove(data, path)
+						if err != nil {
+							logger.Log(context.Background(), "dirwatcher: remove file error: "+err.Error())
+							return
+						}
+						r.data.Store(data)
 					}
 				}()
 			case fsnotify.Write, fsnotify.Chmod: //parse
@@ -183,6 +194,10 @@ func (r *Result) watcherLoop(
 						} else {
 							data := r.data.Load()
 							data, err = add(data, d)
+							if err != nil {
+								logger.Log(context.Background(), "dirwatcher: add file error: "+err.Error())
+								return
+							}
 							r.data.Store(data)
 						}
 					}

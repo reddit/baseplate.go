@@ -123,12 +123,12 @@ func csiAdder(d interface{}, f interface{}) (interface{}, error) {
 		secrets.AddSecret(path, secret)
 	}
 
-	//
 	return secrets, nil
 }
 
 func csiRemover(d interface{}, path string) (data interface{}, err error) {
 	secrets := d.(Secrets)
+	secrets.RemoveSecret(path)
 	return secrets, nil
 }
 

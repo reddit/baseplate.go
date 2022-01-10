@@ -70,7 +70,7 @@ func TestGetSimpleSecret(t *testing.T) {
 		t.Run(
 			tt.name,
 			func(t *testing.T) {
-				store, err := secrets.NewStore(context.Background(), tmpPath, log.TestWrapper(t))
+				store, err := secrets.NewStore(context.Background(), tmpPath, "vault", log.TestWrapper(t))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -128,7 +128,7 @@ func TestGetVersionedSecret(t *testing.T) {
 		t.Run(
 			tt.name,
 			func(t *testing.T) {
-				store, err := secrets.NewStore(context.Background(), tmpPath, log.TestWrapper(t))
+				store, err := secrets.NewStore(context.Background(), tmpPath, "vault", log.TestWrapper(t))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -186,7 +186,7 @@ func TestGetCredentialSecret(t *testing.T) {
 		t.Run(
 			tt.name,
 			func(t *testing.T) {
-				store, err := secrets.NewStore(context.Background(), tmpPath, log.TestWrapper(t))
+				store, err := secrets.NewStore(context.Background(), tmpPath, "vault", log.TestWrapper(t))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -219,7 +219,7 @@ func TestSecretFileIsUpdated(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store, err := secrets.NewStore(context.Background(), tmpPath, log.TestWrapper(t))
+	store, err := secrets.NewStore(context.Background(), tmpPath, "vault", log.TestWrapper(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -363,7 +363,7 @@ func TestNewStoreMiddleware(t *testing.T) {
 		},
 	}
 
-	store, err := secrets.NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t), m.middleware, m.middleware)
+	store, err := secrets.NewStore(context.Background(), tmpFile.Name(), "vault", log.TestWrapper(t), m.middleware, m.middleware)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,7 +404,7 @@ func TestAddMiddleware(t *testing.T) {
 		},
 	}
 
-	store, err := secrets.NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(t), initial.middleware)
+	store, err := secrets.NewStore(context.Background(), tmpFile.Name(), "vault", log.TestWrapper(t), initial.middleware)
 	if err != nil {
 		t.Fatal(err)
 	}

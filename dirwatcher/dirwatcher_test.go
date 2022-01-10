@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/reddit/baseplate.go/dirwatcher"
+	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
 )
 
@@ -39,7 +40,7 @@ func compareBytesData(t *testing.T, data interface{}, expected []byte) {
 
 func TestDirWatcher(t *testing.T) {
 	interval := time.Millisecond
-	dirwatcher.InitialReadInterval = interval
+	filewatcher.InitialReadInterval = interval
 	writeDelay := interval * 10
 	timeout := writeDelay * 20
 
@@ -96,7 +97,7 @@ func TestDirWatcher(t *testing.T) {
 
 func TestDirWatcherTimeout(t *testing.T) {
 	interval := time.Millisecond
-	dirwatcher.InitialReadInterval = interval
+	filewatcher.InitialReadInterval = interval
 	round := interval * 20
 	timeout := round * 4
 
@@ -127,7 +128,7 @@ func TestDirWatcherTimeout(t *testing.T) {
 
 func TestDirWatcherRename(t *testing.T) {
 	interval := time.Millisecond
-	dirwatcher.InitialReadInterval = interval
+	filewatcher.InitialReadInterval = interval
 	writeDelay := interval * 10
 	timeout := writeDelay * 20
 
@@ -278,7 +279,7 @@ func TestParserFailure(t *testing.T) {
 	}
 }
 
-func limitedParser(t *testing.T, expectedSize int64) dirwatcher.Parser {
+func limitedParser(t *testing.T, expectedSize int64) filewatcher.Parser {
 	return func(f io.Reader) (interface{}, error) {
 		var buf bytes.Buffer
 		size, err := io.Copy(&buf, f)
@@ -316,7 +317,7 @@ func (w *logWrapper) getCalled() int64 {
 
 func TestParserSizeLimit(t *testing.T) {
 	interval := time.Millisecond
-	dirwatcher.InitialReadInterval = interval
+	filewatcher.InitialReadInterval = interval
 	writeDelay := interval * 10
 	timeout := writeDelay * 20
 
@@ -325,10 +326,10 @@ func TestParserSizeLimit(t *testing.T) {
 		content2 = "Bye bye, world!"
 		limit    = int64(len(content1))
 	)
-	payload1 := bytes.Repeat([]byte(content1), dirwatcher.HardLimitMultiplier)
+	payload1 := bytes.Repeat([]byte(content1), filewatcher.HardLimitMultiplier)
 	size := int64(len(payload1))
 	expectedPayload := payload1
-	payload2 := bytes.Repeat([]byte(content2), dirwatcher.HardLimitMultiplier)
+	payload2 := bytes.Repeat([]byte(content2), filewatcher.HardLimitMultiplier)
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "foo")
