@@ -134,21 +134,21 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 			}
 
 			clientLatencyLabels := prometheus.Labels{
-				methodLabel:           tt.method,
-				successLabel:          tt.success,
-				remoteServerSlugLabel: serverSlug,
+				methodLabel:     tt.method,
+				successLabel:    tt.success,
+				serverSlugLabel: serverSlug,
 			}
 
 			clientTotalRequestLabels := prometheus.Labels{
-				methodLabel:           tt.method,
-				successLabel:          tt.success,
-				codeLabel:             tt.code,
-				remoteServerSlugLabel: serverSlug,
+				methodLabel:     tt.method,
+				successLabel:    tt.success,
+				codeLabel:       tt.code,
+				serverSlugLabel: serverSlug,
 			}
 
 			clientActiveRequestLabels := prometheus.Labels{
-				methodLabel:           tt.method,
-				remoteServerSlugLabel: serverSlug,
+				methodLabel:     tt.method,
+				serverSlugLabel: serverSlug,
 			}
 
 			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatency, serverSizeLabels).CheckExists()

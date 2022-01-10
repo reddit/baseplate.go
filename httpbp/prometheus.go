@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	methodLabel           = "http_method"
-	successLabel          = "http_success"
-	codeLabel             = "http_response_code"
-	remoteServerSlugLabel = "http_slug"
+	methodLabel     = "http_method"
+	successLabel    = "http_success"
+	codeLabel       = "http_response_code"
+	serverSlugLabel = "http_slug"
 )
 
 var (
@@ -75,7 +75,7 @@ var (
 	clientLatencyLabels = []string{
 		methodLabel,
 		successLabel,
-		remoteServerSlugLabel,
+		serverSlugLabel,
 	}
 
 	clientLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -88,7 +88,7 @@ var (
 		methodLabel,
 		successLabel,
 		codeLabel,
-		remoteServerSlugLabel,
+		serverSlugLabel,
 	}
 
 	clientTotalRequests = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -98,7 +98,7 @@ var (
 
 	clientActiveRequestsLabels = []string{
 		methodLabel,
-		remoteServerSlugLabel,
+		serverSlugLabel,
 	}
 
 	clientActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{

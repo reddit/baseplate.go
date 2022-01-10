@@ -271,8 +271,8 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 			start := time.Now()
 			method := req.Method
 			activeRequestLabels := prometheus.Labels{
-				methodLabel:           method,
-				remoteServerSlugLabel: serverSlug,
+				methodLabel:     method,
+				serverSlugLabel: serverSlug,
 			}
 			clientActiveRequests.With(activeRequestLabels).Inc()
 
@@ -280,18 +280,18 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 				success := isRequestSuccessful(resp.StatusCode, err)
 
 				latencyLabels := prometheus.Labels{
-					methodLabel:           method,
-					successLabel:          success,
-					remoteServerSlugLabel: serverSlug,
+					methodLabel:     method,
+					successLabel:    success,
+					serverSlugLabel: serverSlug,
 				}
 
 				clientLatency.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 				totalRequestLabels := prometheus.Labels{
-					methodLabel:           method,
-					successLabel:          success,
-					codeLabel:             strconv.Itoa(resp.StatusCode),
-					remoteServerSlugLabel: serverSlug,
+					methodLabel:     method,
+					successLabel:    success,
+					codeLabel:       strconv.Itoa(resp.StatusCode),
+					serverSlugLabel: serverSlug,
 				}
 
 				clientTotalRequests.With(totalRequestLabels).Inc()

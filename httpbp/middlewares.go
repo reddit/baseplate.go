@@ -326,19 +326,19 @@ func (r *statusCodeRecorder) WriteHeader(code int) {
 }
 
 func (r *statusCodeRecorder) getCode(err error) int {
-	return processCodeErr(err, r.code)
+	return errorCodeForMetrics(r.code, err)
 }
 
-func processCodeErr(err error, code int) int {
-	if code != 0 {
+func errorCodeForMetrics(explicitCode int, requestError error) int {
+	if explicitCode != 0 {
 		// WriteHeader was called explicitly, use that
-		return code
+		return explicitCode
 	}
-	if err != nil {
+	if requestError != nil {
 		// something went wrong, check if err is an HTTPErr where we can extract
 		// the code, otherwise assume InternalServerError
 		var httpErr HTTPError
-		if errors.As(err, &httpErr) {
+		if errors.As(requestError, &httpErr) {
 			return httpErr.Response().Code
 		}
 		return http.StatusInternalServerError
@@ -369,10 +369,10 @@ func statusCodeFamily(code int) string {
 	return families[family]
 }
 
-// isSuccessStatusCode takes an http status code and returns true if its in the
-// success status code family, i.e "2xx" or "3xx".
+// isSuccessStatusCode takes an http status code and returns true if the code is <400.
+// ref: https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
 func isSuccessStatusCode(code int) bool {
-	return code/100 == 2 || code/100 == 3
+	return code >= 100 && code < 400
 }
 
 // counterGenerator is used by recordStatusCode to create counters for recording
@@ -445,7 +445,7 @@ func PrometheusServerMetrics(serverSlug string) Middleware {
 
 			wrapped := &responseRecorder{ResponseWriter: w}
 			defer func() {
-				code := processCodeErr(err, wrapped.responseCode)
+				code := errorCodeForMetrics(wrapped.responseCode, err)
 				success := isRequestSuccessful(code, err)
 
 				labels := prometheus.Labels{
