@@ -326,9 +326,8 @@ var (
 //
 // * thrift_client_active_requests gauge with labels:
 //
-//   - thrift_service: the serviceSlug arg
 //   - thrift_method: the method of the endpoint called
-//   - thrift_slug: the service being contacted
+//   - thrift_slug: an arbitray short string representing the backend the client is connecting to, the remoteServerSlug arg
 //
 // * thrift_client_latency_seconds histogram with labels above plus:
 //
@@ -342,15 +341,14 @@ var (
 //     as a string if present (e.g. 404), or the empty string
 //   - thrift_baseplate_status_code: the human-readable status code, e.g.
 //     NOT_FOUND, or the empty string
-func PrometheusClientMiddleware(localServiceSlug, remoteServiceSlug string) thrift.ClientMiddleware {
+func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (_ thrift.ResponseMeta, err error) {
 				start := time.Now()
 				activeRequestLabels := prometheus.Labels{
-					localServiceLabel:      localServiceSlug,
-					methodLabel:            method,
-					remoteServiceSlugLabel: remoteServiceSlug,
+					methodLabel:           method,
+					remoteServerSlugLabel: remoteServerSlug,
 				}
 				clientActiveRequests.With(activeRequestLabels).Inc()
 
@@ -371,21 +369,19 @@ func PrometheusClientMiddleware(localServiceSlug, remoteServiceSlug string) thri
 					}
 
 					latencyLabels := prometheus.Labels{
-						localServiceLabel:      localServiceSlug,
-						methodLabel:            method,
-						successLabel:           success,
-						remoteServiceSlugLabel: remoteServiceSlug,
+						methodLabel:           method,
+						successLabel:          success,
+						remoteServerSlugLabel: remoteServerSlug,
 					}
 					clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 					rpcCountLabels := prometheus.Labels{
-						localServiceLabel:        localServiceSlug,
 						methodLabel:              method,
 						successLabel:             success,
 						exceptionLabel:           exceptionTypeLabel,
 						baseplateStatusCodeLabel: baseplateStatusCode,
 						baseplateStatusLabel:     baseplateStatus,
-						remoteServiceSlugLabel:   remoteServiceSlug,
+						remoteServerSlugLabel:    remoteServerSlug,
 					}
 					clientRPCRequestCounter.With(rpcCountLabels).Inc()
 					clientActiveRequests.With(activeRequestLabels).Dec()
