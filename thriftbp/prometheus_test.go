@@ -49,10 +49,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 		},
 	}
 
-	const (
-		serviceSlug = "testservice"
-		method      = "testmethod"
-	)
+	const method = "testmethod"
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -69,18 +66,15 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 			success := strconv.FormatBool(tt.wantErr == nil)
 
 			activeRequestLabels := prometheus.Labels{
-				localServiceLabel: serviceSlug,
-				methodLabel:       method,
+				methodLabel: method,
 			}
 
 			latencyLabels := prometheus.Labels{
-				localServiceLabel: serviceSlug,
-				methodLabel:       method,
-				successLabel:      success,
+				methodLabel:  method,
+				successLabel: success,
 			}
 
 			rpcCountLabels := prometheus.Labels{
-				localServiceLabel:        serviceSlug,
 				methodLabel:              method,
 				successLabel:             success,
 				exceptionLabel:           exceptionType,
@@ -98,9 +92,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 					return tt.wantOK, tt.wantErr
 				},
 			}
-			promMiddleware := PrometheusServerMiddleware(serviceSlug)
-			wrapped := promMiddleware(method, next)
-			gotOK, gotErr := wrapped.Process(context.Background(), 1, nil, nil)
+			gotOK, gotErr := PrometheusServerMiddleware(method, next).Process(context.Background(), 1, nil, nil)
 
 			if gotOK != tt.wantOK {
 				t.Errorf("wanted %v, got %v", tt.wantOK, gotOK)

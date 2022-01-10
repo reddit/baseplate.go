@@ -8,18 +8,16 @@ import (
 )
 
 const (
-	localServiceLabel        = "thrift_service"
 	methodLabel              = "thrift_method"
 	successLabel             = "thrift_success"
 	exceptionLabel           = "thrift_exception_type"
 	baseplateStatusLabel     = "thrift_baseplate_status"
 	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
-	remoteServiceSlugLabel   = "thrift_slug"
+	remoteServerSlugLabel    = "thrift_slug"
 )
 
 var (
 	serverLatencyLabels = []string{
-		localServiceLabel,
 		methodLabel,
 		successLabel,
 	}
@@ -31,7 +29,6 @@ var (
 	}, serverLatencyLabels)
 
 	serverRequestLabels = []string{
-		localServiceLabel,
 		methodLabel,
 		successLabel,
 		exceptionLabel,
@@ -45,7 +42,6 @@ var (
 	}, serverRequestLabels)
 
 	serverActiveRequestsLabels = []string{
-		localServiceLabel,
 		methodLabel,
 	}
 
@@ -57,10 +53,9 @@ var (
 
 var (
 	clientLatencyLabels = []string{
-		localServiceLabel,
 		methodLabel,
 		successLabel,
-		remoteServiceSlugLabel,
+		remoteServerSlugLabel,
 	}
 
 	clientLatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -70,13 +65,12 @@ var (
 	}, clientLatencyLabels)
 
 	clientRequestLabels = []string{
-		localServiceLabel,
 		methodLabel,
 		successLabel,
 		exceptionLabel,
 		baseplateStatusLabel,
 		baseplateStatusCodeLabel,
-		remoteServiceSlugLabel,
+		remoteServerSlugLabel,
 	}
 
 	clientRPCRequestCounter = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -85,9 +79,8 @@ var (
 	}, clientRequestLabels)
 
 	clientActiveRequestsLabels = []string{
-		localServiceLabel,
 		methodLabel,
-		remoteServiceSlugLabel,
+		remoteServerSlugLabel,
 	}
 
 	clientActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{

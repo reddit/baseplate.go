@@ -187,18 +187,18 @@ func (t *mockService) PingStream(c pb.TestService_PingStreamServer) error {
 
 func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 	const (
-		serviceName = "com.example.reddit.preference.PreferenceService"
-		serverName  = "example-preference-server"
+		serviceName = "mwitkow.testproto.TestService"
+		serverSlug  = "example-preference-server"
 		method      = "Ping"
 	)
 	// create test server with InjectPrometheusUnaryServerInterceptor
 	l, service := setupServer(t, grpc.UnaryInterceptor(
-		InjectPrometheusUnaryServerInterceptor(serviceName),
+		InjectPrometheusUnaryServerInterceptor(),
 	))
 
 	// create test client
 	conn := setupClient(t, l, grpc.WithUnaryInterceptor(
-		PrometheusUnaryClientInterceptor(serviceName, serverName),
+		PrometheusUnaryClientInterceptor(serverSlug),
 	))
 
 	// instantiate gRPC client
@@ -237,46 +237,46 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 			clientActiveRequests.Reset()
 
 			serverLatencyLabels := prometheus.Labels{
-				localServiceLabel: serviceName,
-				methodLabel:       tt.method,
-				typeLabel:         unary,
-				successLabel:      tt.success,
+				serviceLabel: serviceName,
+				methodLabel:  tt.method,
+				typeLabel:    unary,
+				successLabel: tt.success,
 			}
 
 			serverTotalRequestLabels := prometheus.Labels{
-				localServiceLabel: serviceName,
-				methodLabel:       tt.method,
-				typeLabel:         unary,
-				successLabel:      tt.success,
-				codeLabel:         tt.code,
+				serviceLabel: serviceName,
+				methodLabel:  tt.method,
+				typeLabel:    unary,
+				successLabel: tt.success,
+				codeLabel:    tt.code,
 			}
 
 			serverActiveRequestLabels := prometheus.Labels{
-				localServiceLabel: serviceName,
-				methodLabel:       tt.method,
+				serviceLabel: serviceName,
+				methodLabel:  tt.method,
 			}
 
 			clientLatencyLabels := prometheus.Labels{
-				localServiceLabel:      serviceName,
-				methodLabel:            tt.method,
-				typeLabel:              unary,
-				successLabel:           tt.success,
-				remoteServiceSlugLabel: serverName,
+				serviceLabel:    serviceName,
+				methodLabel:     tt.method,
+				typeLabel:       unary,
+				successLabel:    tt.success,
+				serverSlugLabel: serverSlug,
 			}
 
 			clientTotalRequestLabels := prometheus.Labels{
-				localServiceLabel:      serviceName,
-				methodLabel:            tt.method,
-				typeLabel:              unary,
-				successLabel:           tt.success,
-				remoteServiceSlugLabel: serverName,
-				codeLabel:              tt.code,
+				serviceLabel:    serviceName,
+				methodLabel:     tt.method,
+				typeLabel:       unary,
+				successLabel:    tt.success,
+				serverSlugLabel: serverSlug,
+				codeLabel:       tt.code,
 			}
 
 			clientActiveRequestLabels := prometheus.Labels{
-				localServiceLabel:      serviceName,
-				methodLabel:            tt.method,
-				remoteServiceSlugLabel: serverName,
+				serviceLabel:    serviceName,
+				methodLabel:     tt.method,
+				serverSlugLabel: serverSlug,
 			}
 
 			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution, serverLatencyLabels).CheckExists()

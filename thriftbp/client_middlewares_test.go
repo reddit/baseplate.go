@@ -463,9 +463,8 @@ func TestSetClientName(t *testing.T) {
 }
 
 const (
-	localService      = "localsvr"
-	remoteServiceSlug = "remotesvr"
-	methodIsHealthy   = "is_healthy"
+	serverName      = "serverName"
+	methodIsHealthy = "is_healthy"
 )
 
 const (
@@ -503,26 +502,23 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			latencyLabels := prometheus.Labels{
-				localServiceLabel:      localService,
 				methodLabel:            methodIsHealthy,
 				successLabel:           strconv.FormatBool(!tt.wantFail),
-				remoteServiceSlugLabel: remoteServiceSlug,
+				remoteServiceSlugLabel: serverName,
 			}
 
 			rpcCountLabels := prometheus.Labels{
-				localServiceLabel:        localService,
 				methodLabel:              methodIsHealthy,
 				successLabel:             strconv.FormatBool(!tt.wantFail),
 				exceptionLabel:           tt.exceptionType,
 				baseplateStatusCodeLabel: "",
 				baseplateStatusLabel:     "",
-				remoteServiceSlugLabel:   remoteServiceSlug,
+				remoteServiceSlugLabel:   serverName,
 			}
 
 			activeRequestLabels := prometheus.Labels{
-				localServiceLabel:      localService,
 				methodLabel:            methodIsHealthy,
-				remoteServiceSlugLabel: remoteServiceSlug,
+				remoteServiceSlugLabel: serverName,
 			}
 
 			defer thriftbp.PrometheusClientMetricsTest(t, latencyLabels, rpcCountLabels, activeRequestLabels).CheckMetrics()
@@ -563,7 +559,7 @@ func (srv mockBaseplateService) IsHealthy(ctx context.Context, req *baseplatethr
 func setupFake(ctx context.Context, t *testing.T, handler baseplatethrift.BaseplateServiceV2) thriftbp.ClientPool {
 	srv, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
 		Processor:         baseplatethrift.NewBaseplateServiceV2Processor(handler),
-		ClientMiddlewares: []thrift.ClientMiddleware{thriftbp.PrometheusClientMiddleware(localService, remoteServiceSlug)},
+		ClientMiddlewares: []thrift.ClientMiddleware{thriftbp.PrometheusClientMiddleware(serverName)},
 	})
 	if err != nil {
 		t.Fatalf("SETUP: Setting up baseplate server: %s", err)
