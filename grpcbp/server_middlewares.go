@@ -154,7 +154,7 @@ func StartSpanFromGRPCContext(ctx context.Context, name string) (context.Context
 //
 // * grpc_server_active_requests gauge with labels:
 //
-//   - grpc_service: the local service slug, serviceSlug arg
+//   - grpc_service: the fully qualified name of the gRPC service
 //   - grpc_method: the name of the method called on the gRPC service
 //
 // * grpc_server_latency_seconds histogram and grpc_server_requests_total
@@ -164,14 +164,15 @@ func StartSpanFromGRPCContext(ctx context.Context, name string) (context.Context
 //   - grpc_success: "true" if status is OK, "false" otherwise
 //   - grpc_type: type of request, i.e unary
 //   - grpc_code: the human-readable status code, e.g. OK, Internal, etc
-func InjectPrometheusUnaryServerInterceptor(serviceSlug string) grpc.UnaryServerInterceptor {
+func InjectPrometheusUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
 		start := time.Now()
 
-		method := methodSlug(info.FullMethod)
+		serviceName, method := serviceAndMethodSlug(info.FullMethod)
+
 		activeRequestLabels := prometheus.Labels{
-			localServiceLabel: serviceSlug,
-			methodLabel:       method,
+			serviceLabel: serviceName,
+			methodLabel:  method,
 		}
 		serverActiveRequests.With(activeRequestLabels).Inc()
 
@@ -180,19 +181,19 @@ func InjectPrometheusUnaryServerInterceptor(serviceSlug string) grpc.UnaryServer
 			status, _ := status.FromError(err)
 
 			latencyLabels := prometheus.Labels{
-				localServiceLabel: serviceSlug,
-				methodLabel:       method,
-				typeLabel:         unary,
-				successLabel:      success,
+				serviceLabel: serviceName,
+				methodLabel:  method,
+				typeLabel:    unary,
+				successLabel: success,
 			}
 			serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 			rpcCountLabels := prometheus.Labels{
-				localServiceLabel: serviceSlug,
-				methodLabel:       method,
-				typeLabel:         unary,
-				successLabel:      success,
-				codeLabel:         status.Code().String(),
+				serviceLabel: serviceName,
+				methodLabel:  method,
+				typeLabel:    unary,
+				successLabel: success,
+				codeLabel:    status.Code().String(),
 			}
 			serverRPCRequestCounter.With(rpcCountLabels).Inc()
 			serverActiveRequests.With(activeRequestLabels).Dec()
@@ -206,7 +207,7 @@ func InjectPrometheusUnaryServerInterceptor(serviceSlug string) grpc.UnaryServer
 // Prometheus metrics.
 //
 // This is not implemented yet.
-func InjectPrometheusStreamServerInterceptor(serviceSlug string) grpc.StreamServerInterceptor {
+func InjectPrometheusStreamServerInterceptor(serverSlug string) grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 		return errors.New("InjectPrometheusStreamServerInterceptor: not implemented")
 	}
