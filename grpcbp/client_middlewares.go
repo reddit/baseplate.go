@@ -117,12 +117,14 @@ func ForwardEdgeContextStreaming(ecImpl ecinterface.Interface) grpc.StreamClient
 //   - grpc_method: the name of the method called on the gRPC service
 //   - grpc_slug: an arbitray short string representing the backend the client is connecting to, the serverSlug arg
 //
-// * grpc_client_latency_seconds histogram and grpc_client_requests_total
-//   counter with labels:
+// * grpc_client_latency_seconds histogram with labels:
 //
-//   - grpc_service, grpc_method, grpc_slug
+//   - all above labels plus
 //   - grpc_success: "true" if status is OK, "false" otherwise
 //   - grpc_type: type of request, i.e unary
+//
+// * grpc_client_requests_total counter with labels
+//   - all above labels plus
 //   - grpc_code: the human-readable status code, e.g. OK, Internal, etc
 func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterceptor {
 	return func(
@@ -181,7 +183,7 @@ func PrometheusStreamClientInterceptor(serverSlug string) grpc.StreamClientInter
 	return func(
 		ctx context.Context,
 		desc *grpc.StreamDesc,
-		cc *grpc.ClientConn,
+		conn *grpc.ClientConn,
 		method string,
 		streamer grpc.Streamer,
 		opts ...grpc.CallOption,

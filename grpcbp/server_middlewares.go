@@ -157,12 +157,14 @@ func StartSpanFromGRPCContext(ctx context.Context, name string) (context.Context
 //   - grpc_service: the fully qualified name of the gRPC service
 //   - grpc_method: the name of the method called on the gRPC service
 //
-// * grpc_server_latency_seconds histogram and grpc_server_requests_total
-//   counter with labels:
+// * grpc_server_latency_seconds histogram with labels:
 //
-//   - grpc_service and grpc_method
+//   - all above labels plus
 //   - grpc_success: "true" if status is OK, "false" otherwise
 //   - grpc_type: type of request, i.e unary
+//
+// * grpc_server_requests_total counter with labels
+//   - all above labels plus
 //   - grpc_code: the human-readable status code, e.g. OK, Internal, etc
 func InjectPrometheusUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
