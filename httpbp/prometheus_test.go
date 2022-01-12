@@ -13,6 +13,7 @@ import (
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
+	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
 	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 )
 
@@ -114,7 +115,7 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 			serverLatency.Reset()
 			serverTotalRequests.Reset()
 			serverActiveRequests.Reset()
-			clientLatency.Reset()
+			clientLatencyDistribution.Reset()
 			clientTotalRequests.Reset()
 			clientActiveRequests.Reset()
 
@@ -156,9 +157,11 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels).CheckDelta(0)
 			defer promtest.NewPrometheusMetricTest(t, "server request size", serverRequestSize, serverSizeLabels).CheckDelta(float64(tt.reqSize))
 			defer promtest.NewPrometheusMetricTest(t, "server response size", serverResponseSize, serverSizeLabels).CheckDelta(float64(tt.respSize))
-			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatency, clientLatencyLabels).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution, clientLatencyLabels).CheckExists()
 			defer promtest.NewPrometheusMetricTest(t, "client total requests", clientTotalRequests, clientTotalRequestLabels).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientActiveRequestLabels).CheckDelta(0)
+			defer spectest.ValidateSpec(t, "http", "server")
+			defer spectest.ValidateSpec(t, "http", "client")
 
 			if tt.method == http.MethodGet {
 				_, err = client.Get(ts.URL + tt.route)

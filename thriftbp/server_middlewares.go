@@ -435,14 +435,14 @@ func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) t
 			}
 			serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
-			rpcCountLabels := prometheus.Labels{
+			totalRequestLabels := prometheus.Labels{
 				methodLabel:              method,
 				successLabel:             success,
 				exceptionLabel:           exceptionTypeLabel,
 				baseplateStatusLabel:     baseplateStatus,
 				baseplateStatusCodeLabel: baseplateStatusCode,
 			}
-			serverRPCRequestCounter.With(rpcCountLabels).Inc()
+			serverTotalRequests.With(totalRequestLabels).Inc()
 			serverActiveRequests.With(activeRequestLabels).Dec()
 		}()
 

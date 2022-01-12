@@ -506,7 +506,7 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 				remoteServiceSlugLabel: serverSlug,
 			}
 
-			rpcCountLabels := prometheus.Labels{
+			totalRequestLabels := prometheus.Labels{
 				methodLabel:              methodIsHealthy,
 				successLabel:             strconv.FormatBool(!tt.wantFail),
 				exceptionLabel:           tt.exceptionType,
@@ -520,7 +520,7 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 				remoteServiceSlugLabel: serverSlug,
 			}
 
-			defer thriftbp.PrometheusClientMetricsTest(t, latencyLabels, rpcCountLabels, activeRequestLabels).CheckMetrics()
+			defer thriftbp.PrometheusClientMetricsTest(t, latencyLabels, totalRequestLabels, activeRequestLabels).CheckMetrics()
 			defer spectest.ValidateSpec(t, "thrift", "client")
 
 			ctx := context.Background()

@@ -50,7 +50,7 @@ var (
 		Buckets: prometheusbp.DefaultBuckets,
 	}, serverLabels)
 
-	serverRequestLabels = []string{
+	serverTotalRequestLabels = []string{
 		methodLabel,
 		successLabel,
 		codeLabel,
@@ -59,7 +59,7 @@ var (
 	serverTotalRequests = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "http_server_requests_total",
 		Help: "Total request count",
-	}, serverRequestLabels)
+	}, serverTotalRequestLabels)
 
 	serverActiveRequestsLabels = []string{
 		methodLabel,
@@ -78,13 +78,13 @@ var (
 		serverSlugLabel,
 	}
 
-	clientLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	clientLatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_client_latency_seconds",
 		Help:    "HTTP client request latencies",
 		Buckets: prometheusbp.DefaultBuckets,
 	}, clientLatencyLabels)
 
-	clientRequestLabels = []string{
+	clientTotalRequestLabels = []string{
 		methodLabel,
 		successLabel,
 		codeLabel,
@@ -94,7 +94,7 @@ var (
 	clientTotalRequests = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "http_client_requests_total",
 		Help: "Total request count",
-	}, clientRequestLabels)
+	}, clientTotalRequestLabels)
 
 	clientActiveRequestsLabels = []string{
 		methodLabel,
@@ -106,3 +106,10 @@ var (
 		Help: "The number of in-flight requests",
 	}, clientActiveRequestsLabels)
 )
+
+// PerformanceMonitoringMiddleware returns optional Prometheus historgram metrics for monitoring the following:
+//    1) http server time to write header in seconds
+//    2) http server time to write header in seconds
+func PerformanceMonitoringMiddleware() (timeToWriteHeader, timeToFirstByte *prometheus.HistogramVec) {
+	return serverTimeToWriteHeader, serverTimeToFirstByte
+}
