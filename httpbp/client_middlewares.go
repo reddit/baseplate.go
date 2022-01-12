@@ -285,7 +285,7 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 					serverSlugLabel: serverSlug,
 				}
 
-				clientLatency.With(latencyLabels).Observe(time.Since(start).Seconds())
+				clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
 				totalRequestLabels := prometheus.Labels{
 					methodLabel:     method,

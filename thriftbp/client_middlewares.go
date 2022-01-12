@@ -375,7 +375,7 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 					}
 					clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
-					rpcCountLabels := prometheus.Labels{
+					totalRequestLabels := prometheus.Labels{
 						methodLabel:              method,
 						successLabel:             success,
 						exceptionLabel:           exceptionTypeLabel,
@@ -383,7 +383,7 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 						baseplateStatusLabel:     baseplateStatus,
 						serverSlugLabel:          remoteServerSlug,
 					}
-					clientRPCRequestCounter.With(rpcCountLabels).Inc()
+					clientTotalRequests.With(totalRequestLabels).Inc()
 					clientActiveRequests.With(activeRequestLabels).Dec()
 				}()
 

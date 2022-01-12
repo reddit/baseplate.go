@@ -117,29 +117,31 @@ func ForwardEdgeContextStreaming(ecImpl ecinterface.Interface) grpc.StreamClient
 //   - grpc_method: the name of the method called on the gRPC service
 //   - grpc_slug: an arbitray short string representing the backend the client is connecting to, the serverSlug arg
 //
-// * grpc_client_latency_seconds histogram and grpc_client_requests_total
-//   counter with labels:
+// * grpc_client_latency_seconds histogram with labels:
 //
-//   - grpc_service, grpc_method, grpc_slug
+//   - all above labels plus
 //   - grpc_success: "true" if status is OK, "false" otherwise
 //   - grpc_type: type of request, i.e unary
+//
+// * grpc_client_requests_total counter with labels
+//   - all above labels plus
 //   - grpc_code: the human-readable status code, e.g. OK, Internal, etc
 func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
-		method string,
+		fullMethod string,
 		req interface{},
 		reply interface{},
-		cc *grpc.ClientConn,
+		conn *grpc.ClientConn,
 		invoker grpc.UnaryInvoker,
 		opts ...grpc.CallOption,
 	) (err error) {
 		start := time.Now()
-		serviceName, m := serviceAndMethodSlug(method)
+		serviceName, method := serviceAndMethodSlug(fullMethod)
 
 		activeRequestLabels := prometheus.Labels{
 			serviceLabel:    serviceName,
-			methodLabel:     m,
+			methodLabel:     method,
 			serverSlugLabel: serverSlug,
 		}
 		clientActiveRequests.With(activeRequestLabels).Inc()
@@ -150,7 +152,7 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 
 			latencyLabels := prometheus.Labels{
 				serviceLabel:    serviceName,
-				methodLabel:     m,
+				methodLabel:     method,
 				typeLabel:       unary,
 				successLabel:    success,
 				serverSlugLabel: serverSlug,
@@ -158,18 +160,18 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 
 			clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
 
-			rpcCountLabels := prometheus.Labels{
+			totalRequestLabels := prometheus.Labels{
 				serviceLabel:    serviceName,
-				methodLabel:     m,
+				methodLabel:     method,
 				typeLabel:       unary,
 				successLabel:    success,
 				serverSlugLabel: serverSlug,
 				codeLabel:       status.Code().String(),
 			}
-			clientRPCRequestCounter.With(rpcCountLabels).Inc()
+			clientTotalRequests.With(totalRequestLabels).Inc()
 			clientActiveRequests.With(activeRequestLabels).Dec()
 		}()
-		return invoker(ctx, method, req, reply, cc, opts...)
+		return invoker(ctx, fullMethod, req, reply, conn, opts...)
 	}
 }
 
@@ -181,7 +183,7 @@ func PrometheusStreamClientInterceptor(serverSlug string) grpc.StreamClientInter
 	return func(
 		ctx context.Context,
 		desc *grpc.StreamDesc,
-		cc *grpc.ClientConn,
+		conn *grpc.ClientConn,
 		method string,
 		streamer grpc.Streamer,
 		opts ...grpc.CallOption,

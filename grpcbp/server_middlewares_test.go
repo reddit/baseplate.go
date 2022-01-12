@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/reddit/baseplate.go/ecinterface"
+	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 	"github.com/reddit/baseplate.go/tracing"
@@ -230,10 +231,10 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			serverLatencyDistribution.Reset()
-			serverRPCRequestCounter.Reset()
+			serverTotalRequests.Reset()
 			serverActiveRequests.Reset()
 			clientLatencyDistribution.Reset()
-			clientRPCRequestCounter.Reset()
+			clientTotalRequests.Reset()
 			clientActiveRequests.Reset()
 
 			serverLatencyLabels := prometheus.Labels{
@@ -280,11 +281,13 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 			}
 
 			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution, serverLatencyLabels).CheckExists()
-			defer promtest.NewPrometheusMetricTest(t, "server rpc count", serverRPCRequestCounter, serverTotalRequestLabels).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "server rpc count", serverTotalRequests, serverTotalRequestLabels).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels).CheckDelta(0)
 			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution, clientLatencyLabels).CheckExists()
-			defer promtest.NewPrometheusMetricTest(t, "client rpc count", clientRPCRequestCounter, clientTotalRequestLabels).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "client rpc count", clientTotalRequests, clientTotalRequestLabels).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientActiveRequestLabels).CheckDelta(0)
+			defer spectest.ValidateSpec(t, "grpc", "server")
+			defer spectest.ValidateSpec(t, "grpc", "client")
 
 			ctx := context.Background()
 			if tt.success == "true" {
@@ -293,7 +296,7 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 				}
 			} else {
 				if _, err := client.PingError(ctx, &pb.PingRequest{}); err == nil {
-					t.Fatalf("Ping: expected err got nil")
+					t.Fatalf("PingError: expected err got nil")
 				}
 			}
 
