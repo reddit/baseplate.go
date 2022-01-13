@@ -1,13 +1,19 @@
 package thriftbp
 
 import (
+	"strings"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/reddit/baseplate.go/metricsbp"
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
+)
+
+const (
+	meterNameThriftSocketErrorCounter = "thrift.socket.timeout"
 )
 
 // ServerConfig is the arg struct for both NewServer and NewBaseplateServer.
@@ -57,6 +63,16 @@ type ServerConfig struct {
 	// Deprecated: No-op for now, will be removed in a future release.
 	Timeout time.Duration
 
+	// Optional, This duration is used to set both the read and write idle timeouts
+	// for the thrift.TServerSocket used by the baseplate server.
+	//
+	// This is an experimental configuration and is subject to change or deprecation
+	// without notice. Setting a socket timeout will also override the default thrift
+	// server logger to one that emits metrics instead of logs in the event of a
+	// socket disconnect. A zero value means I/O read or write operations
+	// will not time out.
+	ThriftSocketTimeout time.Duration
+
 	// Optional, used only by NewServer.
 	// In NewBaseplateServer the address and timeout set in bp.Config() will be
 	// used instead.
@@ -72,7 +88,7 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 	var transport *thrift.TServerSocket
 	if cfg.Socket == nil {
 		var err error
-		transport, err = thrift.NewTServerSocket(cfg.Addr)
+		transport, err = thrift.NewTServerSocketTimeout(cfg.Addr, cfg.ThriftSocketTimeout)
 		if err != nil {
 			return nil, err
 		}
@@ -106,12 +122,7 @@ func NewBaseplateServer(
 	)
 	middlewares = append(middlewares, cfg.Middlewares...)
 	cfg.Middlewares = middlewares
-	cfg.Logger = log.ZapWrapper(log.ZapWrapperArgs{
-		Level: bp.GetConfig().Log.Level,
-		KVPairs: map[string]interface{}{
-			"from": "thrift",
-		},
-	}).ToThriftLogger()
+	cfg.Logger = buildTServerLogger(bp.GetConfig().Log.Level, cfg.ThriftSocketTimeout > 0)
 	cfg.Addr = bp.GetConfig().Addr
 	cfg.Socket = nil
 	srv, err := NewServer(cfg)
@@ -119,6 +130,29 @@ func NewBaseplateServer(
 		return nil, err
 	}
 	return ApplyBaseplate(bp, srv), nil
+}
+
+func buildTServerLogger(level log.Level, useMetricsLogger bool) thrift.Logger {
+	defaultLogger := log.ZapWrapper(log.ZapWrapperArgs{
+		Level: level,
+		KVPairs: map[string]interface{}{
+			"from": "thrift",
+		},
+	}).ToThriftLogger()
+
+	if useMetricsLogger {
+		c := metricsbp.M.Counter(meterNameThriftSocketErrorCounter)
+		return func(msg string) {
+			if strings.Contains(msg, "i/o timeout") {
+				c.Add(1)
+				return
+			}
+
+			defaultLogger(msg)
+		}
+	}
+
+	return defaultLogger
 }
 
 // ApplyBaseplate returns the given TSimpleServer as a baseplate Server with the
