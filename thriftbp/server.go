@@ -67,10 +67,10 @@ type ServerConfig struct {
 	// for the thrift.TServerSocket used by the baseplate server.
 	//
 	// This is an experimental configuration and is subject to change or deprecation
-	// without notice. Setting a socket timeout will also override the default thrift
-	// server logger to one that emits metrics instead of logs in the event of a
-	// socket disconnect. A zero value means I/O read or write operations
-	// will not time out.
+	// without notice. When using NewBaseplateServer, setting a socket timeout will
+	// also override the default thrift server logger to one that emits metrics
+	// instead of logs in the event of a socket disconnect. A zero value means I/O
+	// read or write operations will not time out.
 	ThriftSocketTimeout time.Duration
 
 	// Optional, used only by NewServer.
@@ -85,15 +85,17 @@ type ServerConfig struct {
 // and protocol to serve the given TProcessor which is wrapped with the
 // given ProcessorMiddlewares.
 func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
-	var transport *thrift.TServerSocket
-	if cfg.Socket == nil {
+	transport := cfg.Socket
+	if transport == nil {
 		var err error
-		transport, err = thrift.NewTServerSocketTimeout(cfg.Addr, cfg.ThriftSocketTimeout)
+		if cfg.ThriftSocketTimeout > 0 {
+			transport, err = thrift.NewTServerSocketTimeout(cfg.Addr, cfg.ThriftSocketTimeout)
+		} else {
+			transport, err = thrift.NewTServerSocket(cfg.Addr)
+		}
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		transport = cfg.Socket
 	}
 
 	server := thrift.NewTSimpleServer4(
