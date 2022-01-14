@@ -71,7 +71,7 @@ type ServerConfig struct {
 	// also override the default thrift server logger to one that emits metrics
 	// instead of logs in the event of a socket disconnect. A zero value means I/O
 	// read or write operations will not time out.
-	ThriftSocketTimeout time.Duration
+	SocketTimeout time.Duration
 
 	// Optional, used only by NewServer.
 	// In NewBaseplateServer the address and timeout set in bp.Config() will be
@@ -88,8 +88,8 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 	transport := cfg.Socket
 	if transport == nil {
 		var err error
-		if cfg.ThriftSocketTimeout > 0 {
-			transport, err = thrift.NewTServerSocketTimeout(cfg.Addr, cfg.ThriftSocketTimeout)
+		if cfg.SocketTimeout > 0 {
+			transport, err = thrift.NewTServerSocketTimeout(cfg.Addr, cfg.SocketTimeout)
 		} else {
 			transport, err = thrift.NewTServerSocket(cfg.Addr)
 		}
@@ -132,7 +132,7 @@ func NewBaseplateServer(
 		},
 	}).ToThriftLogger()
 
-	if cfg.ThriftSocketTimeout > 0 {
+	if cfg.SocketTimeout > 0 {
 		cfg.Logger = suppressTimeoutLogger(cfg.Logger)
 	}
 
