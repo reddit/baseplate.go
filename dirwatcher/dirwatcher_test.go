@@ -3,7 +3,9 @@ package dirwatcher_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,11 +16,36 @@ import (
 
 	"github.com/reddit/baseplate.go/dirwatcher"
 	"github.com/reddit/baseplate.go/filewatcher"
+	"github.com/reddit/baseplate.go/internal/limitopen"
 	"github.com/reddit/baseplate.go/log"
 )
 
 func parser(f io.Reader) (interface{}, error) {
-	return io.ReadAll(f)
+	reader := f.(limitopen.ReadCloser)
+	var data map[string]interface{}
+	folder := make(map[string]interface{})
+	err := json.NewDecoder(f).Decode(&data)
+
+	folder[reader.Path] = data
+	return folder, err
+}
+
+// a function that knows how to add a files data from the interface
+func adder(d interface{}, file interface{}) (interface{}, error) {
+	folder := d.(map[string]interface{})
+
+	for key, value := range file.(map[string]interface{}) {
+		folder[key] = value
+	}
+	return folder, nil
+
+}
+
+// a function that can clean up the data based on path name
+func remover(d interface{}, path string) (interface{}, error) {
+	folder := d.(map[string]interface{})
+	delete(folder, path)
+	return folder, nil
 }
 
 func compareBytesData(t *testing.T, data interface{}, expected []byte) {
@@ -69,15 +96,20 @@ func TestDirWatcher(t *testing.T) {
 	data, err := dirwatcher.New(
 		ctx,
 		dirwatcher.Config{
-			Path:   path,
-			Parser: parser,
-			Logger: log.TestWrapper(t),
+			Path:    dir,
+			Parser:  parser,
+			Adder:   adder,
+			Remover: remover,
+			Logger:  log.TestWrapper(t),
 		},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer data.Stop()
+	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+	fmt.Printf("%+v\n", data)
+	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	compareBytesData(t, data.Get(), payload1)
 
 	func() {
@@ -102,7 +134,7 @@ func TestDirWatcherTimeout(t *testing.T) {
 	timeout := round * 4
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, "foo")
+	_ = filepath.Join(dir, "foo")
 
 	before := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -110,9 +142,11 @@ func TestDirWatcherTimeout(t *testing.T) {
 	_, err := dirwatcher.New(
 		ctx,
 		dirwatcher.Config{
-			Path:   path,
-			Parser: parser,
-			Logger: log.TestWrapper(t),
+			Path:    dir,
+			Parser:  parser,
+			Adder:   adder,
+			Remover: remover,
+			Logger:  log.TestWrapper(t),
 		},
 	)
 	if err == nil {
@@ -157,9 +191,11 @@ func TestDirWatcherRename(t *testing.T) {
 	data, err := dirwatcher.New(
 		ctx,
 		dirwatcher.Config{
-			Path:   path,
-			Parser: parser,
-			Logger: log.TestWrapper(t),
+			Path:    dir,
+			Parser:  parser,
+			Adder:   adder,
+			Remover: remover,
+			Logger:  log.TestWrapper(t),
 		},
 	)
 	if err != nil {
@@ -222,9 +258,11 @@ func TestParserFailure(t *testing.T) {
 	data, err := dirwatcher.New(
 		context.Background(),
 		dirwatcher.Config{
-			Path:   path,
-			Parser: parser,
-			Logger: logger,
+			Path:    dir,
+			Parser:  parser,
+			Adder:   adder,
+			Remover: remover,
+			Logger:  logger,
 		},
 	)
 	if err != nil {
@@ -356,6 +394,8 @@ func TestParserSizeLimit(t *testing.T) {
 		dirwatcher.Config{
 			Path:        path,
 			Parser:      limitedParser(t, size),
+			Adder:       adder,
+			Remover:     remover,
 			Logger:      wrapper.wrapper(t),
 			MaxFileSize: limit,
 		},

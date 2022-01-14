@@ -234,6 +234,8 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	// Need to walk recursively because the watcher
 	// doesnt support recursion by itself
 	secretPath := filepath.Clean(cfg.Path)
+
+	// TODO: this panic if the path provided is just a file, capture error
 	err = filepath.WalkDir(secretPath, func(path string, info fs.DirEntry, err error) error {
 		if info.IsDir() {
 			return watcher.Add(path)
