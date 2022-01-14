@@ -14,8 +14,8 @@ import (
 // This example demonstrates how to use dirwatcher.
 func Example() {
 	const (
-		// The path to the file.
-		path = "/opt/data.json"
+		// The path to the directory.
+		dir = "/opt"
 		// Timeout on the initial read.
 		timeout = time.Second * 30
 	)
@@ -57,7 +57,7 @@ func Example() {
 	data, err := dirwatcher.New(
 		ctx,
 		dirwatcher.Config{
-			Path:    path,
+			Path:    dir,
 			Parser:  parser,
 			Adder:   adder,
 			Remover: remover,

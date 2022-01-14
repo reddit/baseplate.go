@@ -104,14 +104,12 @@ func (r *Result) Stop() {
 
 func (r *Result) watcherLoop(
 	watcher *fsnotify.Watcher,
-	path string,
 	parser filewatcher.Parser,
 	add AddFile,
 	remove RemoveFile,
 	softLimit, hardLimit int64,
 	logger log.Wrapper,
 ) {
-	file := filepath.Base(path)
 	for {
 		select {
 		case <-r.ctx.Done():
@@ -122,11 +120,8 @@ func (r *Result) watcherLoop(
 			logger.Log(context.Background(), "dirwatcher: watcher error: "+err.Error())
 
 		case ev := <-watcher.Events:
-			if filepath.Base(ev.Name) != file {
-				continue
-			}
 
-			isDir, err := isDirectory(path)
+			isDir, err := isDirectory(ev.Name)
 			if err != nil {
 				logger.Log(context.Background(), "dirwatcher: watcher error: "+err.Error())
 			}
@@ -138,9 +133,9 @@ func (r *Result) watcherLoop(
 				// Wrap with an anonymous function to make sure that defer works.
 				func() {
 					if isDir {
-						watcher.Add(path)
+						watcher.Add(ev.Name)
 					} else {
-						f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
+						f, err := limitopen.OpenWithLimit(ev.Name, softLimit, hardLimit)
 						if err != nil {
 							logger.Log(context.Background(), "dirwatcher: I/O error: "+err.Error())
 							return
@@ -164,11 +159,11 @@ func (r *Result) watcherLoop(
 				// Wrap with an anonymous function to make sure that defer works.
 				func() {
 					if isDir {
-						watcher.Remove(path)
+						watcher.Remove(ev.Name)
 					} else {
-						// remove data related to path?
+						// remove data related to file
 						data := r.data.Load()
-						data, err = remove(data, path)
+						data, err = remove(data, ev.Name)
 						if err != nil {
 							logger.Log(context.Background(), "dirwatcher: remove file error: "+err.Error())
 							return
@@ -182,7 +177,7 @@ func (r *Result) watcherLoop(
 					if isDir {
 						// do nothing
 					} else {
-						f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
+						f, err := limitopen.OpenWithLimit(ev.Name, softLimit, hardLimit)
 						if err != nil {
 							logger.Log(context.Background(), "dirwatcher: I/O error: "+err.Error())
 							return
@@ -233,10 +228,16 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	// })
 	// Need to walk recursively because the watcher
 	// doesnt support recursion by itself
-	secretPath := filepath.Clean(cfg.Path)
+	dirPath := filepath.Clean(cfg.Path)
 
-	// TODO: this panic if the path provided is just a file, capture error
-	err = filepath.WalkDir(secretPath, func(path string, info fs.DirEntry, err error) error {
+	isDir, err := isDirectory(dirPath)
+	if !isDir {
+		return nil, fmt.Errorf("dirwatcher: %q is not a directory", dirPath)
+	} else if err != nil {
+		return nil, err
+	}
+
+	err = filepath.WalkDir(dirPath, func(path string, info fs.DirEntry, err error) error {
 		if info.IsDir() {
 			return watcher.Add(path)
 		}
@@ -275,52 +276,10 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	}
 
 	res.ctx, res.cancel = context.WithCancel(context.Background())
-	go res.watcherLoop(watcher, cfg.Path, cfg.Parser, cfg.Adder, cfg.Remover, limit, hardLimit, cfg.Logger)
+	go res.watcherLoop(watcher, cfg.Parser, cfg.Adder, cfg.Remover, limit, hardLimit, cfg.Logger)
 
 	return res, nil
 }
-
-// NewMockDirwatcher returns a pointer to a new MockDirWatcher object
-// initialized with the given io.Reader and Parser.
-func NewMockDirwatcher(r io.Reader, parser filewatcher.Parser) (*MockDirWatcher, error) {
-	fw := &MockDirWatcher{parser: parser}
-	if err := fw.Update(r); err != nil {
-		return nil, err
-	}
-	return fw, nil
-}
-
-// MockDirWatcher is an implementation of DirWatcher that does not actually read
-// from a file, it simply returns the data given to it when it was initialized
-// with NewMockDirwatcher. It provides an additional Update method that allows
-// you to update this data after it has been created.
-type MockDirWatcher struct {
-	data   atomic.Value
-	parser filewatcher.Parser
-}
-
-// Update updates the data of the MockDirWatcher using the given io.Reader and
-// the Parser used to initialize the file watcher.
-//
-// This method is not threadsafe.
-func (fw *MockDirWatcher) Update(r io.Reader) error {
-	data, err := fw.parser(r)
-	if err != nil {
-		return err
-	}
-	fw.data.Store(data)
-	return nil
-}
-
-// Get returns the parsed data.
-func (fw *MockDirWatcher) Get() interface{} {
-	return fw.data.Load()
-}
-
-// Stop is a no-op.
-func (fw *MockDirWatcher) Stop() {}
-
-var _ DirWatcher = (*MockDirWatcher)(nil)
 
 func isDirectory(path string) (bool, error) {
 	fileInfo, err := os.Stat(path)
