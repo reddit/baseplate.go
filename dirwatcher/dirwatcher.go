@@ -121,14 +121,11 @@ func (r *Result) watcherLoop(
 
 		case ev := <-watcher.Events:
 
-			isDir, err := isDirectory(ev.Name)
-			if err != nil {
-				logger.Log(context.Background(), "dirwatcher: watcher error: "+err.Error())
-			}
+			isDir, _ := isDirectory(ev.Name)
 
 			switch ev.Op {
 			default:
-				// Ignore uninterested events.
+				// do nothing.
 			case fsnotify.Create: // add to watcher, parse if file
 				// Wrap with an anonymous function to make sure that defer works.
 				func() {
@@ -155,21 +152,17 @@ func (r *Result) watcherLoop(
 						}
 					}
 				}()
-			case fsnotify.Rename, fsnotify.Remove: // remove from watcher
+			case fsnotify.Rename, fsnotify.Remove: // remove
 				// Wrap with an anonymous function to make sure that defer works.
 				func() {
-					if isDir {
-						watcher.Remove(ev.Name)
-					} else {
-						// remove data related to file
-						data := r.data.Load()
-						data, err = remove(data, ev.Name)
-						if err != nil {
-							logger.Log(context.Background(), "dirwatcher: remove file error: "+err.Error())
-							return
-						}
-						r.data.Store(data)
+					// remove data related to file
+					data := r.data.Load()
+					data, err := remove(data, ev.Name)
+					if err != nil {
+						logger.Log(context.Background(), "dirwatcher: remove file error: "+err.Error())
+						return
 					}
+					r.data.Store(data)
 				}()
 			case fsnotify.Write, fsnotify.Chmod: //parse
 				// Wrap with an anonymous function to make sure that defer works.

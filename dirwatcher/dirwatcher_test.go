@@ -3,7 +3,6 @@ package dirwatcher_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -82,8 +81,6 @@ func TestDirWatcher(t *testing.T) {
 	if f1 == nil { //make sure it got data
 		t.Error("data is nil")
 	}
-	fmt.Println("????????")
-	fmt.Printf("%+v\n", f1)
 
 	////////////////////////
 	path2 := filepath.Join(dir, "bar")
@@ -93,8 +90,6 @@ func TestDirWatcher(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	f2 := data.Get().(map[string]interface{})
-	fmt.Println("????????")
-	fmt.Printf("%+v\n", f2)
 	if _, ok := f2[path1]; ok {
 		t.Error("old data is still present")
 	}
