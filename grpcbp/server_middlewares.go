@@ -3,10 +3,14 @@ package grpcbp
 import (
 	"context"
 	"errors"
+	"strconv"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/tracing"
@@ -141,4 +145,72 @@ func StartSpanFromGRPCContext(ctx context.Context, name string) (context.Context
 	}
 
 	return tracing.StartSpanFromHeaders(ctx, name, headers)
+}
+
+// InjectPrometheusUnaryServerInterceptor is a server middleware that tracks
+// Prometheus metrics.
+//
+// It emits the following metrics:
+//
+// * grpc_server_active_requests gauge with labels:
+//
+//   - grpc_service: the fully qualified name of the gRPC service
+//   - grpc_method: the name of the method called on the gRPC service
+//
+// * grpc_server_latency_seconds histogram with labels:
+//
+//   - all above labels plus
+//   - grpc_success: "true" if status is OK, "false" otherwise
+//   - grpc_type: type of request, i.e unary
+//
+// * grpc_server_requests_total counter with labels
+//   - all above labels plus
+//   - grpc_code: the human-readable status code, e.g. OK, Internal, etc
+func InjectPrometheusUnaryServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
+		start := time.Now()
+
+		serviceName, method := serviceAndMethodSlug(info.FullMethod)
+
+		activeRequestLabels := prometheus.Labels{
+			serviceLabel: serviceName,
+			methodLabel:  method,
+		}
+		serverActiveRequests.With(activeRequestLabels).Inc()
+
+		defer func() {
+			success := strconv.FormatBool(err == nil)
+			status, _ := status.FromError(err)
+
+			latencyLabels := prometheus.Labels{
+				serviceLabel: serviceName,
+				methodLabel:  method,
+				typeLabel:    unary,
+				successLabel: success,
+			}
+			serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+			totalRequestLabels := prometheus.Labels{
+				serviceLabel: serviceName,
+				methodLabel:  method,
+				typeLabel:    unary,
+				successLabel: success,
+				codeLabel:    status.Code().String(),
+			}
+			serverTotalRequests.With(totalRequestLabels).Inc()
+			serverActiveRequests.With(activeRequestLabels).Dec()
+		}()
+
+		return handler(ctx, req)
+	}
+}
+
+// InjectPrometheusStreamServerInterceptor is a server middleware that tracks
+// Prometheus metrics.
+//
+// This is not implemented yet.
+func InjectPrometheusStreamServerInterceptor(serverSlug string) grpc.StreamServerInterceptor {
+	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+		return errors.New("InjectPrometheusStreamServerInterceptor: not implemented")
+	}
 }

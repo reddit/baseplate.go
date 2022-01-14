@@ -2,13 +2,21 @@ package httpbp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
+
+	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/ecinterface"
+	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -32,7 +40,7 @@ type Middleware func(name string, next HandlerFunc) HandlerFunc
 //		N. Middlewares[n]
 //
 // Wrap is provided for clarity and testing purposes and should not generally be
-// called directly.  Instead use one of the provided Handler constructors which
+// called directly. Instead use one of the provided Handler constructors which
 // will Wrap the HandlerFunc you pass it for you.
 func Wrap(name string, handle HandlerFunc, middlewares ...Middleware) HandlerFunc {
 	for i := len(middlewares) - 1; i >= 0; i-- {
@@ -56,8 +64,12 @@ type DefaultMiddlewareArgs struct {
 	EdgeContextImpl ecinterface.Interface
 }
 
-// DefaultMiddleware returns a slice of all of the default Middleware for a
-// Baseplate HTTP server.
+// DefaultMiddleware returns a slice of all the default Middleware for a
+// Baseplate HTTP server. The default middleware are (in order):
+//
+//	1. InjectServerSpan
+//	2. InjectEdgeRequestContext
+//	3. RecordStatusCode
 func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	if args.TrustHandler == nil {
 		args.TrustHandler = NeverTrustHeaders{}
@@ -65,6 +77,7 @@ func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	return []Middleware{
 		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
+		RecordStatusCode(),
 	}
 }
 
@@ -108,21 +121,39 @@ func StartSpanFromTrustedRequest(
 	return tracing.StartSpanFromHeaders(ctx, name, spanHeaders)
 }
 
+// httpErrorSuppressor is an errorsbp.Suppressor that can be used to suppress
+// HTTPErrors that have a response code under 500. It is used by InjectServerSpan
+// to not mark non 5xx or higher errors as failures.
+func httpErrorSuppressor(err error) bool {
+	var httpErr HTTPError
+	if errors.As(err, &httpErr) {
+		return httpErr.Response().Code < 500
+	}
+	return false
+}
+
 // InjectServerSpan returns a Middleware that will automatically wrap the
-// HansderFunc in a new server span and stop the span after the function
+// HandlerFunc in a new server span and stop the span after the function
 // returns.
+//
+// Starts the server span before calling the `next` HandlerFunc and stops
+// the span after it finishes.
+// If the function returns an error that's an HTTPError with a status code < 500,
+// then it will not be passed to span.Stop, otherwise it will.
 //
 // InjectServerSpan should generally not be used directly, instead use the
 // NewBaseplateServer function which will automatically include InjectServerSpan
 // as one of the Middlewares to wrap your handlers in.
 func InjectServerSpan(truster HeaderTrustHandler) Middleware {
+	// TODO: make a breaking change to allow us to pass in a Suppressor
+	var suppressor errorsbp.Suppressor = httpErrorSuppressor
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			ctx, span := StartSpanFromTrustedRequest(ctx, name, truster, r)
 			defer func() {
 				span.FinishWithOptions(tracing.FinishOptions{
 					Ctx: ctx,
-					Err: err,
+					Err: suppressor.Wrap(err),
 				}.Convert())
 			}()
 
@@ -245,4 +276,225 @@ func SupportedMethods(method string, additional ...string) Middleware {
 			return next(ctx, w, r)
 		}
 	}
+}
+
+// recoverPanic recovers from any panics, logs them, and sets the returned error
+// to a generic 500 error. recoverPanic is always the last middleware in the
+// middleware chain, so it is the first one when returning which lets the error
+// bubble up into other middlewares. Since it is always added to the middleware
+// chain is a specific position, it is not exported.
+func recoverPanic(name string, next HandlerFunc) HandlerFunc {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				var rErr error
+				if asErr, ok := r.(error); ok {
+					rErr = asErr
+				} else {
+					rErr = fmt.Errorf("panic in %q: %+v", name, r)
+				}
+				log.C(ctx).Errorw(
+					"recovered from panic:",
+					"err", rErr,
+					"endpoint", name,
+				)
+				metricsbp.M.Counter("panic.recover").With(
+					"name", name,
+				).Add(1)
+
+				// change named return value to a generic 500 error
+				err = RawError(InternalServerError(), rErr, PlainTextContentType)
+			}
+		}()
+		return next(ctx, w, r)
+	}
+}
+
+// statusCodeRecorder is used by RecordStatusCode to record the code passed to
+// a call to WriteHeader.
+type statusCodeRecorder struct {
+	http.ResponseWriter
+
+	code int
+}
+
+func (r *statusCodeRecorder) WriteHeader(code int) {
+	r.ResponseWriter.WriteHeader(code)
+	if r.code == 0 {
+		r.code = code
+	}
+}
+
+func (r *statusCodeRecorder) getCode(err error) int {
+	return errorCodeForMetrics(r.code, err)
+}
+
+func errorCodeForMetrics(explicitCode int, requestError error) int {
+	if explicitCode != 0 {
+		// WriteHeader was called explicitly, use that
+		return explicitCode
+	}
+	if requestError != nil {
+		// something went wrong, check if err is an HTTPErr where we can extract
+		// the code, otherwise assume InternalServerError
+		var httpErr HTTPError
+		if errors.As(requestError, &httpErr) {
+			return httpErr.Response().Code
+		}
+		return http.StatusInternalServerError
+
+	}
+	// if there's no error returned and no call to WriteHeader, Go will
+	// return OK.
+	// https://pkg.go.dev/net/http#ResponseWriter.WriteHeader
+	return http.StatusOK
+}
+
+var families = [...]string{
+	"nan",
+	"1xx",
+	"2xx",
+	"3xx",
+	"4xx",
+	"5xx",
+}
+
+// statusCodeFamily takes an http status code and returns it as an "Nxx"
+// string. Returns "nan" if code < 100 or code > 599.
+func statusCodeFamily(code int) string {
+	family := code / 100
+	if family < 0 || family >= len(families) {
+		return families[0]
+	}
+	return families[family]
+}
+
+// isSuccessStatusCode takes an http status code and returns true if the code is <400.
+// ref: https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
+func isSuccessStatusCode(code int) bool {
+	return code >= 100 && code < 400
+}
+
+// counterGenerator is used by recordStatusCode to create counters for recording
+// http response codes set by the server.
+//
+// this was added purely to make it easier to test the middleware.
+type counterGenerator interface {
+	Counter(name string) metrics.Counter
+}
+
+func recordStatusCode(counters counterGenerator) Middleware {
+	return func(name string, next HandlerFunc) HandlerFunc {
+		counter := counters.Counter("baseplate.http." + name + ".response")
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+			wrapped := &statusCodeRecorder{ResponseWriter: w}
+			defer func() {
+				code := wrapped.getCode(err)
+				counter.With("status", statusCodeFamily(code)).Add(1)
+			}()
+
+			return next(ctx, wrapped, r)
+		}
+	}
+}
+
+// RecordStatusCode extracts the status code set on the request in the following
+// order:
+//	1. Check if WriteHeader was called on the ResponseWriter and use that code
+//	if it was.
+//	2. If an error was returned, check if it is an HTTPError. If it is, use the
+//	code from the error, otherwise assume 500.
+//	3. Assume 200.
+//
+// If it sees an invalid status code (<100 or >599), it will record the status
+// as "-nan" for codes <100 and "nan" for codes >599. Note that a code that is
+// <100 or >599 is unlikely to appear here and will cause a  panic if passed to
+// WriteHeader.
+//
+// RecordStatusCode should generally not be used directly, instead use the
+// NewBaseplateServer function which will automatically include RecordStatusCode
+// as one of the Middlewares to wrap your handlers in.
+func RecordStatusCode() Middleware {
+	return recordStatusCode(metricsbp.M)
+}
+
+// PrometheusServerMetrics returns a middleware that tracks Prometheus metrics for client http.
+//
+// It emits the following prometheus metrics:
+//
+// * http_server_active_requests gauge with labels:
+//
+//   - http_method: method of the HTTP request
+//
+// * http_server_latency_seconds, http_server_request_size_bytes, http_server_response_size_bytes histograms with labels above plus:
+//
+//   - http_success: true if the status code is 2xx or 3xx, false otherwise
+//
+// * http_server_requests_total counter with all labels above plus:
+//
+//   - http_response_code: numeric status code as a string, e.g. 200
+func PrometheusServerMetrics(serverSlug string) Middleware {
+	return func(name string, next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+			start := time.Now()
+			method := r.Method
+			activeRequestLabels := prometheus.Labels{
+				methodLabel: method,
+			}
+			serverActiveRequests.With(activeRequestLabels).Inc()
+
+			wrapped := &responseRecorder{ResponseWriter: w}
+			defer func() {
+				code := errorCodeForMetrics(wrapped.responseCode, err)
+				success := isRequestSuccessful(code, err)
+
+				labels := prometheus.Labels{
+					methodLabel:  method,
+					successLabel: success,
+				}
+				serverLatency.With(labels).Observe(time.Since(start).Seconds())
+				serverRequestSize.With(labels).Observe(float64(r.ContentLength))
+				serverResponseSize.With(labels).Observe(float64(wrapped.bytesWritten))
+
+				totalRequestLabels := prometheus.Labels{
+					methodLabel:  method,
+					successLabel: success,
+					codeLabel:    strconv.Itoa(code),
+				}
+				serverTotalRequests.With(totalRequestLabels).Inc()
+				serverActiveRequests.With(activeRequestLabels).Dec()
+			}()
+
+			return next(ctx, wrapped, r)
+		}
+	}
+}
+
+// isRequestSuccessful returns the success of an HTTP request as a string, i.e. "true" or "false".
+// A HTTP request is successful when:
+//   1) no error is returned from the request and
+//   2) the HTTP status code is in the form 2xx.
+func isRequestSuccessful(httpStatusCode int, requestErr error) string {
+	return strconv.FormatBool(requestErr == nil && isSuccessStatusCode(httpStatusCode))
+}
+
+// responeRecorder records the following:
+//   1. HTTP response code passed to a call to WriteHeader.
+//   2. how many bytes were written if any.
+type responseRecorder struct {
+	http.ResponseWriter
+
+	bytesWritten int
+	responseCode int
+}
+
+func (rr *responseRecorder) Write(b []byte) (n int, err error) {
+	n, err = rr.ResponseWriter.Write(b)
+	rr.bytesWritten += n
+	return n, err
+}
+
+func (rr *responseRecorder) WriteHeader(code int) {
+	rr.ResponseWriter.WriteHeader(code)
+	rr.responseCode = code
 }

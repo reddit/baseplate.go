@@ -5,12 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/iobp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
@@ -346,8 +349,9 @@ func tHeaderProtocol2String(proto thrift.THeaderProtocolID) string {
 	}
 }
 
-// RecoverPanic recovers from panics raised in the TProccessorFunction chain, reports them
-// to sentry, and records a metric indicating that the endpoint recovered from a panic.
+// RecoverPanic recovers from panics raised in the TProccessorFunction chain,
+// logs them, and records a metric indicating that the endpoint recovered from a
+// panic.
 func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 	return thrift.WrappedTProcessorFunction{
 		Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (ok bool, err thrift.TException) {
@@ -359,10 +363,9 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 					} else {
 						rErr = fmt.Errorf("panic in %q: %+v", name, r)
 					}
-					log.ErrorWithSentry(
-						ctx,
+					log.C(ctx).Errorw(
 						"recovered from panic:",
-						rErr,
+						"err", rErr,
 						"endpoint", name,
 					)
 					metricsbp.M.Counter("panic.recover").With(
@@ -379,4 +382,71 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 			return next.Process(ctx, seqId, in, out)
 		},
 	}
+}
+
+// PrometheusServerMiddleware returns middleware to track Prometheus metrics
+// specific to the Thrift service.
+//
+// It emits the following prometheus metrics:
+//
+// * thrift_server_active_requests gauge with labels:
+//
+//   - thrift_method: the method of the endpoint called
+//
+// * thrift_server_latency_seconds histogram with labels above plus:
+//
+//   - thrift_success: "true" if err == nil, "false" otherwise
+//
+// * thrift_server_requests_total counter with all labels above plus:
+//
+//   - thrift_exception_type: the human-readable exception type, e.g.
+//     baseplate.Error, etc
+//   - thrift_baseplate_status: the numeric status code from a baseplate.Error
+//     as a string if present (e.g. 404), or the empty string
+//   - thrift_baseplate_status_code: the human-readable status code, e.g.
+//     NOT_FOUND, or the empty string
+func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+	process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
+		start := time.Now()
+		activeRequestLabels := prometheus.Labels{
+			methodLabel: method,
+		}
+		serverActiveRequests.With(activeRequestLabels).Inc()
+
+		defer func() {
+			var exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
+			success := strconv.FormatBool(err == nil)
+			if err != nil {
+				exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
+
+				var bpErr baseplateError
+				if errors.As(err, &bpErr) {
+					code := bpErr.GetCode()
+					baseplateStatusCode = strconv.FormatInt(int64(code), 10)
+					if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
+						baseplateStatus = status
+					}
+				}
+			}
+
+			latencyLabels := prometheus.Labels{
+				methodLabel:  method,
+				successLabel: success,
+			}
+			serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+			totalRequestLabels := prometheus.Labels{
+				methodLabel:              method,
+				successLabel:             success,
+				exceptionLabel:           exceptionTypeLabel,
+				baseplateStatusLabel:     baseplateStatus,
+				baseplateStatusCodeLabel: baseplateStatusCode,
+			}
+			serverTotalRequests.With(totalRequestLabels).Inc()
+			serverActiveRequests.With(activeRequestLabels).Dec()
+		}()
+
+		return next.Process(ctx, seqID, in, out)
+	}
+	return thrift.WrappedTProcessorFunction{Wrapped: process}
 }

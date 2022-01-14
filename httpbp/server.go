@@ -45,10 +45,15 @@ type httpHandlerFactory struct {
 }
 
 func (f httpHandlerFactory) NewHandler(endpoint Endpoint) http.Handler {
-	wrappers := make([]Middleware, 0, len(f.middlewares)+len(endpoint.Middlewares)+1)
-	wrappers = append(wrappers, SupportedMethods(endpoint.Methods[0], endpoint.Methods[1:]...))
+	// +2 because we always add SupportedMethods and recoverPanic
+	wrappers := make([]Middleware, 0, len(f.middlewares)+len(endpoint.Middlewares)+2)
 	wrappers = append(wrappers, f.middlewares...)
+	wrappers = append(wrappers, SupportedMethods(endpoint.Methods[0], endpoint.Methods[1:]...))
 	wrappers = append(wrappers, endpoint.Middlewares...)
+	// Always inject recoverPanic as the final middleware in the chain. This
+	// allows it to capture any panics before other middlewares return and bubble
+	// up the panic as an error to those middlewares.
+	wrappers = append(wrappers, recoverPanic)
 	return NewHandler(endpoint.Name, endpoint.Handle, wrappers...)
 }
 
@@ -205,7 +210,8 @@ func (args ServerArgs) SetupEndpoints() (ServerArgs, error) {
 //
 // The Endpoints given in the ServerArgs will be wrapped using the
 // default Baseplate Middleware as well as any additional Middleware
-// passed in.
+// passed in. In addition, panics will be automatically recovered from, reported,
+// and passed up the middleware chain as an HTTPError with the status code 500.
 func NewBaseplateServer(args ServerArgs) (baseplate.Server, error) {
 	args, err := args.SetupEndpoints()
 	if err != nil {
