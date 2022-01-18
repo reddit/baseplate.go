@@ -70,6 +70,7 @@ type DefaultMiddlewareArgs struct {
 //	1. InjectServerSpan
 //	2. InjectEdgeRequestContext
 //	3. RecordStatusCode
+//  4. PrometheusServerMetrics
 func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	if args.TrustHandler == nil {
 		args.TrustHandler = NeverTrustHeaders{}
@@ -78,7 +79,7 @@ func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
 		RecordStatusCode(),
-		PrometheusServerMetrics(),
+		PrometheusServerMetrics(""),
 	}
 }
 
@@ -434,7 +435,9 @@ func RecordStatusCode() Middleware {
 // * http_server_requests_total counter with all labels above plus:
 //
 //   - http_response_code: numeric status code as a string, e.g. 200
-func PrometheusServerMetrics() Middleware {
+// TODO: we accidentally added this arg and it is not needed, therefore we need to
+// remove the arg from this function, but we cannot remove now since its a breaking change.
+func PrometheusServerMetrics(_ string) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			start := time.Now()

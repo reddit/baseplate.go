@@ -122,6 +122,8 @@ type DefaultClientMiddlewareArgs struct {
 // 7. BaseplateErrorWrapper
 //
 // 8. SetDeadlineBudget
+//
+// 9. PrometheusClientMiddleware
 func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
