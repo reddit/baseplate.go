@@ -79,6 +79,7 @@ func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) 
 		AbandonCanceledRequests,
 		ReportPayloadSizeMetrics(args.ReportPayloadSizeMetricsSampleRate),
 		RecoverPanic,
+		PrometheusServerMiddleware,
 	}
 }
 

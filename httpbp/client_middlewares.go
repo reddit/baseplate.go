@@ -64,6 +64,7 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 	defaults := []ClientMiddleware{
 		MonitorClient(config.Slug),
 		Retries(config.MaxErrorReadAhead, config.RetryOptions...),
+		PrometheusClientMetrics(config.Slug),
 	}
 
 	// prepend middleware to ensure Retires with ClientErrorWrapper is still

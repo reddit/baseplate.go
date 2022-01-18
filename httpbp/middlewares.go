@@ -78,6 +78,7 @@ func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
 		RecordStatusCode(),
+		PrometheusServerMetrics(),
 	}
 }
 
@@ -433,7 +434,7 @@ func RecordStatusCode() Middleware {
 // * http_server_requests_total counter with all labels above plus:
 //
 //   - http_response_code: numeric status code as a string, e.g. 200
-func PrometheusServerMetrics(serverSlug string) Middleware {
+func PrometheusServerMetrics() Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			start := time.Now()

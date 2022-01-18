@@ -96,7 +96,6 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 				},
 			},
 		},
-		Middlewares: []Middleware{PrometheusServerMetrics(serverSlug)},
 	}
 
 	server, ts, err := NewTestBaseplateServer(args)

@@ -149,6 +149,7 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 		SetClientName(args.ClientName),
 		BaseplateErrorWrapper,
 		SetDeadlineBudget,
+		PrometheusClientMiddleware(args.ServiceSlug),
 	)
 	return middlewares
 }
