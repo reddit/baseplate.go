@@ -38,8 +38,8 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 
 // NewClient returns a standard HTTP client wrapped with the default middleware
 // plus any additional client middleware passed into this function. Default
-// middlewares are: MonitorClient and Retries. ClientErrorWrapper is included
-// as transitive middleware through Retries.
+// middlewares are: MonitorClient, Retries, and PrometheusClientMetrics.
+// ClientErrorWrapper is included as transitive middleware through Retries.
 func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Client, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
@@ -64,6 +64,7 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 	defaults := []ClientMiddleware{
 		MonitorClient(config.Slug),
 		Retries(config.MaxErrorReadAhead, config.RetryOptions...),
+		PrometheusClientMetrics(config.Slug),
 	}
 
 	// prepend middleware to ensure Retires with ClientErrorWrapper is still

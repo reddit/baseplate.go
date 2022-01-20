@@ -463,7 +463,6 @@ func TestSetClientName(t *testing.T) {
 }
 
 const (
-	serverSlug      = "serverSlug"
 	methodIsHealthy = "is_healthy"
 )
 
@@ -503,7 +502,7 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 			latencyLabels := prometheus.Labels{
 				methodLabel:            methodIsHealthy,
 				successLabel:           strconv.FormatBool(!tt.wantFail),
-				remoteServiceSlugLabel: serverSlug,
+				remoteServiceSlugLabel: thrifttest.DefaultServiceSlug,
 			}
 
 			totalRequestLabels := prometheus.Labels{
@@ -512,12 +511,12 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 				exceptionLabel:           tt.exceptionType,
 				baseplateStatusCodeLabel: "",
 				baseplateStatusLabel:     "",
-				remoteServiceSlugLabel:   serverSlug,
+				remoteServiceSlugLabel:   thrifttest.DefaultServiceSlug,
 			}
 
 			activeRequestLabels := prometheus.Labels{
 				methodLabel:            methodIsHealthy,
-				remoteServiceSlugLabel: serverSlug,
+				remoteServiceSlugLabel: thrifttest.DefaultServiceSlug,
 			}
 
 			defer thriftbp.PrometheusClientMetricsTest(t, latencyLabels, totalRequestLabels, activeRequestLabels).CheckMetrics()
@@ -557,8 +556,7 @@ func (srv mockBaseplateService) IsHealthy(ctx context.Context, req *baseplatethr
 
 func setupFake(ctx context.Context, t *testing.T, handler baseplatethrift.BaseplateServiceV2) thriftbp.ClientPool {
 	srv, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
-		Processor:         baseplatethrift.NewBaseplateServiceV2Processor(handler),
-		ClientMiddlewares: []thrift.ClientMiddleware{thriftbp.PrometheusClientMiddleware(serverSlug)},
+		Processor: baseplatethrift.NewBaseplateServiceV2Processor(handler),
 	})
 	if err != nil {
 		t.Fatalf("SETUP: Setting up baseplate server: %s", err)
