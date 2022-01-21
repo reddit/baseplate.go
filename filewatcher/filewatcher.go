@@ -207,7 +207,6 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	// Note: We need to watch the parent directory instead of the file itself,
 	// because only watching the file won't give us CREATE events,
 	// which will happen with atomic renames.
