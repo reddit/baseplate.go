@@ -257,6 +257,10 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 			}
 			data := res.data.Load()
 			data, err = cfg.Adder(data, d)
+			if err != nil {
+				watcher.Close()
+				return err
+			}
 			res.data.Store(data)
 
 			f.Close()
