@@ -1,4 +1,4 @@
-package dirwatcher_test
+package directorywatcher_test
 
 import (
 	"context"
@@ -9,20 +9,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/reddit/baseplate.go/dirwatcher"
+	"github.com/reddit/baseplate.go/directorywatcher"
 	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/internal/limitopen"
 	"github.com/reddit/baseplate.go/log"
 )
 
-func TestDirWatcher(t *testing.T) {
+func TestDirectoryWatcher(t *testing.T) {
 	dir := t.TempDir()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
-	data, err := dirwatcher.New(
+	data, err := directorywatcher.New(
 		ctx,
-		dirwatcher.Config{
+		directorywatcher.Config{
 			Path: dir,
 			Parser: func(f io.Reader) (interface{}, error) {
 				reader := f.(limitopen.ReadCloser)
@@ -99,7 +99,7 @@ func TestDirWatcher(t *testing.T) {
 
 }
 
-func TestDirWatcherPathError(t *testing.T) {
+func TestDirectoryWatcherPathError(t *testing.T) {
 	interval := time.Millisecond
 	filewatcher.InitialReadInterval = interval
 	round := interval * 20
@@ -109,9 +109,9 @@ func TestDirWatcherPathError(t *testing.T) {
 	path := filepath.Join(dir, "foo")
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	_, err := dirwatcher.New(
+	_, err := directorywatcher.New(
 		ctx,
-		dirwatcher.Config{
+		directorywatcher.Config{
 			Path: path,
 			Parser: func(f io.Reader) (interface{}, error) {
 				reader := f.(limitopen.ReadCloser)
@@ -142,6 +142,6 @@ func TestDirWatcherPathError(t *testing.T) {
 		},
 	)
 	if err == nil {
-		t.Error("Expected dirwatcher path error, got nil.")
+		t.Error("Expected directorywatcher path error, got nil.")
 	}
 }

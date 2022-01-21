@@ -1,4 +1,4 @@
-package dirwatcher
+package directorywatcher
 
 import (
 	"context"
@@ -16,13 +16,13 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
-// DirWatcher loads and parses data from a file and watches for changes to that
+// DirectoryWatcher loads and parses data from a file and watches for changes to that
 // file in order to refresh it's stored data.
-type DirWatcher interface {
-	// Get returns the latest, parsed data from the DirWatcher.
+type DirectoryWatcher interface {
+	// Get returns the latest, parsed data from the DirectoryWatcher.
 	Get() interface{}
 
-	// Stop stops the DirWatcher.
+	// Stop stops the DirectoryWatcher.
 	//
 	// After Stop is called you won't get any updates on the file content,
 	// but you can still call Get to get the last content before stopping.
@@ -117,7 +117,7 @@ func (r *Result) watcherLoop(
 			return
 
 		case err := <-watcher.Errors:
-			logger.Log(context.Background(), "dirwatcher: watcher error: "+err.Error())
+			logger.Log(context.Background(), "directorywatcher: watcher error: "+err.Error())
 
 		case ev := <-watcher.Events:
 
@@ -134,18 +134,18 @@ func (r *Result) watcherLoop(
 					} else {
 						f, err := limitopen.OpenWithLimit(ev.Name, softLimit, hardLimit)
 						if err != nil {
-							logger.Log(context.Background(), "dirwatcher: I/O error: "+err.Error())
+							logger.Log(context.Background(), "directorywatcher: I/O error: "+err.Error())
 							return
 						}
 						defer f.Close()
 						d, err := parser(f)
 						if err != nil {
-							logger.Log(context.Background(), "dirwatcher: parser error: "+err.Error())
+							logger.Log(context.Background(), "directorywatcher: parser error: "+err.Error())
 						} else {
 							data := r.data.Load()
 							data, err = add(data, d)
 							if err != nil {
-								logger.Log(context.Background(), "dirwatcher: add file error: "+err.Error())
+								logger.Log(context.Background(), "directorywatcher: add file error: "+err.Error())
 								return
 							}
 							r.data.Store(data)
@@ -159,7 +159,7 @@ func (r *Result) watcherLoop(
 					data := r.data.Load()
 					data, err := remove(data, ev.Name)
 					if err != nil {
-						logger.Log(context.Background(), "dirwatcher: remove file error: "+err.Error())
+						logger.Log(context.Background(), "directorywatcher: remove file error: "+err.Error())
 						return
 					}
 					r.data.Store(data)
@@ -172,18 +172,18 @@ func (r *Result) watcherLoop(
 					} else {
 						f, err := limitopen.OpenWithLimit(ev.Name, softLimit, hardLimit)
 						if err != nil {
-							logger.Log(context.Background(), "dirwatcher: I/O error: "+err.Error())
+							logger.Log(context.Background(), "directorywatcher: I/O error: "+err.Error())
 							return
 						}
 						defer f.Close()
 						d, err := parser(f)
 						if err != nil {
-							logger.Log(context.Background(), "dirwatcher: parser error: "+err.Error())
+							logger.Log(context.Background(), "directorywatcher: parser error: "+err.Error())
 						} else {
 							data := r.data.Load()
 							data, err = add(data, d)
 							if err != nil {
-								logger.Log(context.Background(), "dirwatcher: add file error: "+err.Error())
+								logger.Log(context.Background(), "directorywatcher: add file error: "+err.Error())
 								return
 							}
 							r.data.Store(data)
@@ -196,10 +196,10 @@ func (r *Result) watcherLoop(
 }
 
 var (
-	_ DirWatcher = (*Result)(nil)
+	_ DirectoryWatcher = (*Result)(nil)
 )
 
-// New initializes a dirwatcher designed for recursivly
+// New initializes a directorywatcher designed for recursivly
 // looking through a directory instead of a file
 func New(ctx context.Context, cfg Config) (*Result, error) {
 	limit := cfg.MaxFileSize
@@ -225,7 +225,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 
 	isDir, err := isDirectory(dirPath)
 	if !isDir {
-		return nil, fmt.Errorf("dirwatcher: %q is not a directory", dirPath)
+		return nil, fmt.Errorf("directorywatcher: %q is not a directory", dirPath)
 	} else if err != nil {
 		return nil, err
 	}
@@ -242,7 +242,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 			select {
 			default:
 			case <-ctx.Done():
-				return fmt.Errorf("dirwatcher: context cancelled while waiting for file under %q to load. %w", cfg.Path, ctx.Err())
+				return fmt.Errorf("directorywatcher: context cancelled while waiting for file under %q to load. %w", cfg.Path, ctx.Err())
 			}
 
 			var err error

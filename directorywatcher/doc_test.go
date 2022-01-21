@@ -1,4 +1,4 @@
-package dirwatcher_test
+package directorywatcher_test
 
 import (
 	"context"
@@ -6,12 +6,12 @@ import (
 	"io"
 	"time"
 
-	"github.com/reddit/baseplate.go/dirwatcher"
+	"github.com/reddit/baseplate.go/directorywatcher"
 	"github.com/reddit/baseplate.go/internal/limitopen"
 	"github.com/reddit/baseplate.go/log"
 )
 
-// This example demonstrates how to use dirwatcher.
+// This example demonstrates how to use directorywatcher.
 func Example() {
 	const (
 		// The path to the directory.
@@ -54,9 +54,9 @@ func Example() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	data, err := dirwatcher.New(
+	data, err := directorywatcher.New(
 		ctx,
-		dirwatcher.Config{
+		directorywatcher.Config{
 			Path:    dir,
 			Parser:  parser,
 			Adder:   adder,

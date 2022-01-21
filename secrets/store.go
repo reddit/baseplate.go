@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/reddit/baseplate.go/dirwatcher"
+	"github.com/reddit/baseplate.go/directorywatcher"
 	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
 )
@@ -49,9 +49,9 @@ func NewStore(ctx context.Context, path string, provider string, logger log.Wrap
 	switch provider {
 	case "vault_csi":
 
-		result, err := dirwatcher.New(
+		result, err := directorywatcher.New(
 			ctx,
-			dirwatcher.Config{
+			directorywatcher.Config{
 				Path:    path,
 				Parser:  store.csiParser,
 				Adder:   csiAdder,
