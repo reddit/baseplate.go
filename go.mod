@@ -69,5 +69,3 @@ require (
 	google.golang.org/protobuf v1.26.0-rc.1 // indirect
 	honnef.co/go/tools v0.2.0 // indirect
 )
-
-replace github.com/reddit/baseplate.go/internal/limitopen => ./internal/limitopen
