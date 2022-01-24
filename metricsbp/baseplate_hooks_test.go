@@ -60,7 +60,9 @@ func foundHistogram(histograms []string, pattern *regexp.Regexp) bool {
 func TestOnCreateServerSpan(t *testing.T) {
 	st := metricsbp.NewStatsd(
 		context.Background(),
-		metricsbp.Config{},
+		metricsbp.Config{
+			BufferInMemoryForTesting: true,
+		},
 	)
 
 	hook := metricsbp.CreateServerSpanHook{Metrics: st}
@@ -292,7 +294,9 @@ func TestWithStartAndFinishTimes(t *testing.T) {
 
 	st := metricsbp.NewStatsd(
 		context.Background(),
-		metricsbp.Config{},
+		metricsbp.Config{
+			BufferInMemoryForTesting: true,
+		},
 	)
 
 	hook := metricsbp.CreateServerSpanHook{Metrics: st}
