@@ -80,7 +80,7 @@ func TestDirectoryWatcher(t *testing.T) {
 	}
 
 	select {
-	case _ = <-addChan:
+	case <-addChan:
 		f1 := data.Get()
 		if f1 == nil { //make sure it got data
 			t.Error("data is nil")
@@ -96,7 +96,7 @@ func TestDirectoryWatcher(t *testing.T) {
 	}
 
 	select {
-	case _ = <-addChan:
+	case <-addChan:
 		f2 := data.Get().(map[string]interface{})
 		if _, ok := f2[path2]; !ok {
 			t.Error("new data is not present")
@@ -107,7 +107,7 @@ func TestDirectoryWatcher(t *testing.T) {
 	}
 
 	select {
-	case _ = <-removeChan:
+	case <-removeChan:
 		f2 := data.Get().(map[string]interface{})
 		if _, ok := f2[path1]; ok {
 			t.Error("old data is still present")
