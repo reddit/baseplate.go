@@ -117,7 +117,7 @@ func (r *Result) watcherLoop(
 			return
 
 		case err := <-watcher.Errors:
-			logger.Log(context.Background(), "directorywatcher: watcher error: "+err.Error())
+			logger.Log(r.ctx, "directorywatcher: watcher error: "+err.Error())
 
 		case ev := <-watcher.Events:
 
@@ -221,7 +221,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		return nil, err
 	}
 
-	res.ctx, res.cancel = context.WithCancel(context.Background())
+	res.ctx, res.cancel = context.WithCancel(ctx)
 	go res.watcherLoop(watcher, cfg.Parser, cfg.Adder, cfg.Remover, limit, hardLimit, cfg.Logger)
 
 	return res, nil
@@ -253,18 +253,18 @@ func writeEvent(
 	} else {
 		f, err := limitopen.OpenWithLimit(ev.Name, softLimit, hardLimit)
 		if err != nil {
-			logger.Log(context.Background(), "directorywatcher: I/O error: "+err.Error())
+			logger.Log(r.ctx, "directorywatcher: I/O error: "+err.Error())
 			return
 		}
 		defer f.Close()
 		d, err := parser(f)
 		if err != nil {
-			logger.Log(context.Background(), "directorywatcher: parser error: "+err.Error())
+			logger.Log(r.ctx, "directorywatcher: parser error: "+err.Error())
 		} else {
 			data := r.data.Load()
 			data, err = add(data, d)
 			if err != nil {
-				logger.Log(context.Background(), "directorywatcher: add file error: "+err.Error())
+				logger.Log(r.ctx, "directorywatcher: add file error: "+err.Error())
 				return
 			}
 			r.data.Store(data)
@@ -281,7 +281,7 @@ func removeEvent(
 	data := r.data.Load()
 	data, err := remove(data, ev.Name)
 	if err != nil {
-		logger.Log(context.Background(), "directorywatcher: remove file error: "+err.Error())
+		logger.Log(r.ctx, "directorywatcher: remove file error: "+err.Error())
 		return
 	}
 	r.data.Store(data)
