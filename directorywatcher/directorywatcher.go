@@ -121,75 +121,26 @@ func (r *Result) watcherLoop(
 
 		case ev := <-watcher.Events:
 
-			isDir, _ := isDirectory(ev.Name)
-
 			switch ev.Op {
 			default:
 				// do nothing.
-			case fsnotify.Create: // add to watcher, parse if file
-				// Wrap with an anonymous function to make sure that defer works.
-				func() {
-					if isDir {
-						watcher.Add(ev.Name)
-					} else {
-						f, err := limitopen.OpenWithLimit(ev.Name, softLimit, hardLimit)
-						if err != nil {
-							logger.Log(context.Background(), "directorywatcher: I/O error: "+err.Error())
-							return
-						}
-						defer f.Close()
-						d, err := parser(f)
-						if err != nil {
-							logger.Log(context.Background(), "directorywatcher: parser error: "+err.Error())
-						} else {
-							data := r.data.Load()
-							data, err = add(data, d)
-							if err != nil {
-								logger.Log(context.Background(), "directorywatcher: add file error: "+err.Error())
-								return
-							}
-							r.data.Store(data)
-						}
-					}
-				}()
-			case fsnotify.Rename, fsnotify.Remove: // remove
-				// Wrap with an anonymous function to make sure that defer works.
-				func() {
-					// remove data related to file
-					data := r.data.Load()
-					data, err := remove(data, ev.Name)
-					if err != nil {
-						logger.Log(context.Background(), "directorywatcher: remove file error: "+err.Error())
-						return
-					}
-					r.data.Store(data)
-				}()
-			case fsnotify.Write, fsnotify.Chmod: //parse
-				// Wrap with an anonymous function to make sure that defer works.
-				func() {
-					if isDir {
-						// do nothing
-					} else {
-						f, err := limitopen.OpenWithLimit(ev.Name, softLimit, hardLimit)
-						if err != nil {
-							logger.Log(context.Background(), "directorywatcher: I/O error: "+err.Error())
-							return
-						}
-						defer f.Close()
-						d, err := parser(f)
-						if err != nil {
-							logger.Log(context.Background(), "directorywatcher: parser error: "+err.Error())
-						} else {
-							data := r.data.Load()
-							data, err = add(data, d)
-							if err != nil {
-								logger.Log(context.Background(), "directorywatcher: add file error: "+err.Error())
-								return
-							}
-							r.data.Store(data)
-						}
-					}
-				}()
+			case fsnotify.Create, fsnotify.Write, fsnotify.Chmod:
+				writeEvent(
+					ev,
+					watcher,
+					parser,
+					add,
+					r,
+					softLimit, hardLimit,
+					logger,
+				)
+			case fsnotify.Rename, fsnotify.Remove:
+				removeEvent(
+					ev,
+					remove,
+					r,
+					logger,
+				)
 			}
 		}
 	}
@@ -216,9 +167,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 
 	var d interface{}
 	res := &Result{}
-	// res.data.Store(Folder{
-	// 	Files: make(map[string]interface{}),
-	// })
+
 	// Need to walk recursively because the watcher
 	// doesnt support recursion by itself
 	dirPath := filepath.Clean(cfg.Path)
@@ -285,4 +234,55 @@ func isDirectory(path string) (bool, error) {
 	}
 
 	return fileInfo.IsDir(), err
+}
+
+func writeEvent(
+	ev fsnotify.Event,
+	watcher *fsnotify.Watcher,
+	parser filewatcher.Parser,
+	add AddFile,
+	r *Result,
+	softLimit, hardLimit int64,
+	logger log.Wrapper,
+) {
+	isDir, _ := isDirectory(ev.Name)
+	if isDir && ev.Op == fsnotify.Create {
+		watcher.Add(ev.Name)
+	} else if isDir {
+		// do nothing
+	} else {
+		f, err := limitopen.OpenWithLimit(ev.Name, softLimit, hardLimit)
+		if err != nil {
+			logger.Log(context.Background(), "directorywatcher: I/O error: "+err.Error())
+			return
+		}
+		defer f.Close()
+		d, err := parser(f)
+		if err != nil {
+			logger.Log(context.Background(), "directorywatcher: parser error: "+err.Error())
+		} else {
+			data := r.data.Load()
+			data, err = add(data, d)
+			if err != nil {
+				logger.Log(context.Background(), "directorywatcher: add file error: "+err.Error())
+				return
+			}
+			r.data.Store(data)
+		}
+	}
+}
+
+func removeEvent(
+	ev fsnotify.Event,
+	remove RemoveFile,
+	r *Result,
+	logger log.Wrapper,
+) {
+	data := r.data.Load()
+	data, err := remove(data, ev.Name)
+	if err != nil {
+		logger.Log(context.Background(), "directorywatcher: remove file error: "+err.Error())
+		return
+	}
+	r.data.Store(data)
 }
