@@ -20,7 +20,8 @@ func TestDirectoryWatcher(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
-	channel := make(chan string, 1)
+	addChan := make(chan bool, 1)
+	removeChan := make(chan bool, 1)
 
 	data, err := directorywatcher.New(
 		ctx,
@@ -49,7 +50,7 @@ func TestDirectoryWatcher(t *testing.T) {
 				for key, value := range file.(map[string]interface{}) {
 					folder[key] = value
 				}
-				channel <- "added"
+				addChan <- true
 				return folder, nil
 
 			},
@@ -58,7 +59,7 @@ func TestDirectoryWatcher(t *testing.T) {
 			Remover: func(d interface{}, path string) (interface{}, error) {
 				folder := d.(map[string]interface{})
 				delete(folder, path)
-				channel <- "removed"
+				removeChan <- true
 				return folder, nil
 			},
 
@@ -79,12 +80,8 @@ func TestDirectoryWatcher(t *testing.T) {
 	}
 
 	select {
-	case res := <-channel:
+	case _ = <-addChan:
 		f1 := data.Get()
-		if res != "added" { //verify there was an Add event
-			t.Errorf("Did not record add event after adding file, got %s", res)
-		}
-
 		if f1 == nil { //make sure it got data
 			t.Error("data is nil")
 		}
@@ -99,11 +96,8 @@ func TestDirectoryWatcher(t *testing.T) {
 	}
 
 	select {
-	case res := <-channel:
+	case _ = <-addChan:
 		f2 := data.Get().(map[string]interface{})
-		if res != "added" { //verify there was an Add event
-			t.Errorf("Did not record add event after adding file, got %s", res)
-		}
 		if _, ok := f2[path2]; !ok {
 			t.Error("new data is not present")
 		}
@@ -113,12 +107,8 @@ func TestDirectoryWatcher(t *testing.T) {
 	}
 
 	select {
-	case res := <-channel:
+	case _ = <-removeChan:
 		f2 := data.Get().(map[string]interface{})
-		if res != "removed" { //verify there was a remove event
-			t.Errorf("Did not record remove event after adding file, got %s", res)
-		}
-
 		if _, ok := f2[path1]; ok {
 			t.Error("old data is still present")
 		}
