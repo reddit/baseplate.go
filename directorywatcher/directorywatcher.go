@@ -75,14 +75,14 @@ func (r *Result) Get() interface{} {
 	return r.data.Load()
 }
 
-// Stop stops the directory watcher.
+// Close stops the directory watcher.
 //
-// After Stop is called you won't get any updates on the directory,
+// After Close is called you won't get any updates on the directory,
 // but you can still call Get to get the last content before stopping.
 //
-// It's OK to call Stop multiple times.
+// It's OK to call Close multiple times.
 // Calls after the first one are essentially no-op.
-func (r *Result) Stop() {
+func (r *Result) Close() {
 	r.cancel()
 }
 

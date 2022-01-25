@@ -68,7 +68,7 @@ func TestDirectoryWatcher(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Stop()
+	defer data.Close()
 
 	path1 := filepath.Join(dir, "foo")
 	if _, err = os.Create(path1); err != nil {
