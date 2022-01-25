@@ -158,7 +158,7 @@ func (s *Store) getSecrets() *Secrets {
 //
 // Close doesn't return non-nil errors, but implements io.Closer.
 func (s *Store) Close() error {
-	s.watcher.Stop()
+	s.watcher.Close()
 	return nil
 }
 

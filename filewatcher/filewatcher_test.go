@@ -88,7 +88,7 @@ func TestFileWatcher(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Stop()
+	defer data.Close()
 	compareBytesData(t, data.Get(), payload1)
 
 	writeFile(t, path, payload2)
@@ -159,7 +159,7 @@ func TestFileWatcherRename(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Stop()
+	defer data.Close()
 	compareBytesData(t, data.Get(), payload1)
 
 	func() {
@@ -209,7 +209,7 @@ func TestParserFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Stop()
+	defer data.Close()
 	expected := int64(1)
 	value := data.Get().(int64)
 	if value != expected {
@@ -322,7 +322,7 @@ func TestParserSizeLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Stop()
+	defer data.Close()
 	compareBytesData(t, data.Get(), expectedPayload)
 
 	writeFile(t, path, payload2)
