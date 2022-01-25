@@ -16,15 +16,15 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
-// DirectoryWatcher loads and parses data from a file and watches for changes to that
-// file in order to refresh it's stored data.
+// DirectoryWatcher loads and parses data from a directory and recursivelywatches for changes to that
+// directory and in order to refresh it's stored data.
 type DirectoryWatcher interface {
 	// Get returns the latest, parsed data from the DirectoryWatcher.
 	Get() interface{}
 
 	// Stop stops the DirectoryWatcher.
 	//
-	// After Stop is called you won't get any updates on the file content,
+	// After Stop is called you won't get any updates on the directory content,
 	// but you can still call Get to get the last content before stopping.
 	//
 	// It's OK to call Stop multiple times.
@@ -52,7 +52,7 @@ type Result struct {
 //
 // Can be deserialized from YAML.
 type Config struct {
-	// The path to the file to be watched, required.
+	// The path to the directory to be watched, required.
 	Path string `yaml:"path"`
 
 	// The parser to parse the data load, required.

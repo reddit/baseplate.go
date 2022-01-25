@@ -20,6 +20,8 @@ func TestDirectoryWatcher(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
+	channel := make(chan string, 1)
+
 	data, err := directorywatcher.New(
 		ctx,
 		directorywatcher.Config{
@@ -47,6 +49,7 @@ func TestDirectoryWatcher(t *testing.T) {
 				for key, value := range file.(map[string]interface{}) {
 					folder[key] = value
 				}
+				channel <- "added"
 				return folder, nil
 
 			},
@@ -55,6 +58,7 @@ func TestDirectoryWatcher(t *testing.T) {
 			Remover: func(d interface{}, path string) (interface{}, error) {
 				folder := d.(map[string]interface{})
 				delete(folder, path)
+				channel <- "removed"
 				return folder, nil
 			},
 
@@ -70,31 +74,57 @@ func TestDirectoryWatcher(t *testing.T) {
 	if _, err = os.Create(path1); err != nil {
 		t.Fatal(err)
 	}
-	if err = os.WriteFile(path1, []byte("{\"number\":17}"), 0644); err != nil {
+	if err := os.WriteFile(path1, []byte("{\"number\":17}"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	time.Sleep(1 * time.Second) // give the watcher time to parse
+	select {
+	case res := <-channel:
+		f1 := data.Get()
+		if res != "added" { //verify there was an Add event
+			t.Errorf("Did not record add event after adding file, got %s", res)
+		}
 
-	/////////////////////////
-	f1 := data.Get()
-	if f1 == nil { //make sure it got data
-		t.Error("data is nil")
+		if f1 == nil { //make sure it got data
+			t.Error("data is nil")
+		}
+
+	case <-time.After(1 * time.Second):
+		t.Error("timeout waiting for add")
 	}
 
-	////////////////////////
 	path2 := filepath.Join(dir, "bar")
-	if err = os.Rename(path1, path2); err != nil {
+	if err := os.Rename(path1, path2); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(1 * time.Second)
 
-	f2 := data.Get().(map[string]interface{})
-	if _, ok := f2[path1]; ok {
-		t.Error("old data is still present")
+	select {
+	case res := <-channel:
+		f2 := data.Get().(map[string]interface{})
+		if res != "added" { //verify there was an Add event
+			t.Errorf("Did not record add event after adding file, got %s", res)
+		}
+		if _, ok := f2[path2]; !ok {
+			t.Error("new data is not present")
+		}
+
+	case <-time.After(1 * time.Second):
+		t.Error("timeout waiting for add")
 	}
-	if _, ok := f2[path2]; !ok {
-		t.Error("new data is not present")
+
+	select {
+	case res := <-channel:
+		f2 := data.Get().(map[string]interface{})
+		if res != "removed" { //verify there was a remove event
+			t.Errorf("Did not record remove event after adding file, got %s", res)
+		}
+
+		if _, ok := f2[path1]; ok {
+			t.Error("old data is still present")
+		}
+
+	case <-time.After(1 * time.Second):
+		t.Error("timeout waiting for remove")
 	}
 
 }
