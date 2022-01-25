@@ -16,22 +16,6 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
-// DirectoryWatcher loads and parses data from a directory and recursivelywatches for changes to that
-// directory and in order to refresh it's stored data.
-type DirectoryWatcher interface {
-	// Get returns the latest, parsed data from the DirectoryWatcher.
-	Get() interface{}
-
-	// Stop stops the DirectoryWatcher.
-	//
-	// After Stop is called you won't get any updates on the directory content,
-	// but you can still call Get to get the last content before stopping.
-	//
-	// It's OK to call Stop multiple times.
-	// Calls after the first one are essentially no-op.
-	Stop()
-}
-
 // AddFile is a type of function that should be ran to handle
 // adding data after a file has been parsed
 type AddFile func(d interface{}, file interface{}) (data interface{}, err error)
@@ -91,9 +75,9 @@ func (r *Result) Get() interface{} {
 	return r.data.Load()
 }
 
-// Stop stops the file watcher.
+// Stop stops the directory watcher.
 //
-// After Stop is called you won't get any updates on the file content,
+// After Stop is called you won't get any updates on the directory,
 // but you can still call Get to get the last content before stopping.
 //
 // It's OK to call Stop multiple times.
@@ -145,10 +129,6 @@ func (r *Result) watcherLoop(
 		}
 	}
 }
-
-var (
-	_ DirectoryWatcher = (*Result)(nil)
-)
 
 // New initializes a directorywatcher designed for recursivly
 // looking through a directory instead of a file
