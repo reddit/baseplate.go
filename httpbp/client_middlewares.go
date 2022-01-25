@@ -4,11 +4,14 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/avast/retry-go"
 	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/retrybp"
@@ -35,8 +38,8 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 
 // NewClient returns a standard HTTP client wrapped with the default middleware
 // plus any additional client middleware passed into this function. Default
-// middlewares are: MonitorClient and Retries. ClientErrorWrapper is included
-// as transitive middleware through Retries.
+// middlewares are: MonitorClient, Retries, and PrometheusClientMetrics.
+// ClientErrorWrapper is included as transitive middleware through Retries.
 func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Client, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
@@ -61,6 +64,7 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 	defaults := []ClientMiddleware{
 		MonitorClient(config.Slug),
 		Retries(config.MaxErrorReadAhead, config.RetryOptions...),
+		PrometheusClientMetrics(config.Slug),
 	}
 
 	// prepend middleware to ensure Retires with ClientErrorWrapper is still
@@ -242,6 +246,60 @@ func MonitorClient(slug string) ClientMiddleware {
 				}.Convert())
 			}()
 			return next.RoundTrip(req.WithContext(ctx))
+		})
+	}
+}
+
+// PrometheusClientMetrics returns a middleware that tracks Prometheus metrics for client http.
+//
+// It emits the following prometheus metrics:
+//
+// * http_client_active_requests gauge with labels:
+//
+//   - http_method: method of the HTTP request
+//   - http_slug: the remote service being contacted, the serverSlug arg
+//
+// * http_client_latency_seconds histogram with labels above plus:
+//
+//   - http_success: true if the status code is 2xx or 3xx, false otherwise
+//
+// * http_client_requests_total counter with all labels above plus:
+//
+//   - http_response_code: numeric status code as a string, e.g. 200
+func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
+	return func(next http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
+			start := time.Now()
+			method := req.Method
+			activeRequestLabels := prometheus.Labels{
+				methodLabel:     method,
+				serverSlugLabel: serverSlug,
+			}
+			clientActiveRequests.With(activeRequestLabels).Inc()
+
+			defer func() {
+				success := isRequestSuccessful(resp.StatusCode, err)
+
+				latencyLabels := prometheus.Labels{
+					methodLabel:     method,
+					successLabel:    success,
+					serverSlugLabel: serverSlug,
+				}
+
+				clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+				totalRequestLabels := prometheus.Labels{
+					methodLabel:     method,
+					successLabel:    success,
+					codeLabel:       strconv.Itoa(resp.StatusCode),
+					serverSlugLabel: serverSlug,
+				}
+
+				clientTotalRequests.With(totalRequestLabels).Inc()
+				clientActiveRequests.With(activeRequestLabels).Dec()
+			}()
+
+			return next.RoundTrip(req)
 		})
 	}
 }

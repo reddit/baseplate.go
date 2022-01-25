@@ -2,16 +2,21 @@ package thriftbp
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
 	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
@@ -117,6 +122,8 @@ type DefaultClientMiddlewareArgs struct {
 // 7. BaseplateErrorWrapper
 //
 // 8. SetDeadlineBudget
+//
+// 9. PrometheusClientMiddleware
 func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
@@ -144,6 +151,7 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 		SetClientName(args.ClientName),
 		BaseplateErrorWrapper,
 		SetDeadlineBudget,
+		PrometheusClientMiddleware(args.ServiceSlug),
 	)
 	return middlewares
 }
@@ -313,3 +321,77 @@ var (
 	_ thrift.ClientMiddleware = SetDeadlineBudget
 	_ thrift.ClientMiddleware = BaseplateErrorWrapper
 )
+
+// PrometheusClientMiddleware returns middleware to track Prometheus metrics
+// specific to the Thrift client.
+//
+// It emits the following prometheus metrics:
+//
+// * thrift_client_active_requests gauge with labels:
+//
+//   - thrift_method: the method of the endpoint called
+//   - thrift_slug: an arbitray short string representing the backend the client is connecting to, the remoteServerSlug arg
+//
+// * thrift_client_latency_seconds histogram with labels above plus:
+//
+//   - thrift_success: "true" if err == nil, "false" otherwise
+//
+// * thrift_client_requests_total counter with all labels above plus:
+//
+//   - thrift_exception_type: the human-readable exception type, e.g.
+//     baseplate.Error, etc
+//   - thrift_baseplate_status: the numeric status code from a baseplate.Error
+//     as a string if present (e.g. 404), or the empty string
+//   - thrift_baseplate_status_code: the human-readable status code, e.g.
+//     NOT_FOUND, or the empty string
+func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware {
+	return func(next thrift.TClient) thrift.TClient {
+		return thrift.WrappedTClient{
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (_ thrift.ResponseMeta, err error) {
+				start := time.Now()
+				activeRequestLabels := prometheus.Labels{
+					methodLabel:     method,
+					serverSlugLabel: remoteServerSlug,
+				}
+				clientActiveRequests.With(activeRequestLabels).Inc()
+
+				defer func() {
+					var exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
+					success := strconv.FormatBool(err == nil)
+					if err != nil {
+						exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
+
+						var bpErr baseplateError
+						if errors.As(err, &bpErr) {
+							code := bpErr.GetCode()
+							baseplateStatusCode = strconv.FormatInt(int64(code), 10)
+							if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
+								baseplateStatus = status
+							}
+						}
+					}
+
+					latencyLabels := prometheus.Labels{
+						methodLabel:     method,
+						successLabel:    success,
+						serverSlugLabel: remoteServerSlug,
+					}
+					clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+					totalRequestLabels := prometheus.Labels{
+						methodLabel:              method,
+						successLabel:             success,
+						exceptionLabel:           exceptionTypeLabel,
+						baseplateStatusCodeLabel: baseplateStatusCode,
+						baseplateStatusLabel:     baseplateStatus,
+						serverSlugLabel:          remoteServerSlug,
+					}
+					clientTotalRequests.With(totalRequestLabels).Inc()
+					clientActiveRequests.With(activeRequestLabels).Dec()
+				}()
+
+				return next.Call(ctx, method, args, result)
+			},
+		}
+	}
+}

@@ -4,16 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
 	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/thriftbp"
@@ -457,4 +460,116 @@ func TestSetClientName(t *testing.T) {
 			}
 		},
 	)
+}
+
+const (
+	methodIsHealthy = "is_healthy"
+)
+
+const (
+	methodLabel              = "thrift_method"
+	successLabel             = "thrift_success"
+	exceptionLabel           = "thrift_exception_type"
+	baseplateStatusLabel     = "thrift_baseplate_status"
+	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
+	remoteServiceSlugLabel   = "thrift_slug"
+)
+
+func TestPrometheusClientMiddleware(t *testing.T) {
+	testCases := []struct {
+		name          string
+		wantErr       error
+		wantFail      bool
+		exceptionType string
+	}{
+		{
+			name:          "error",
+			wantErr:       errors.New("test"),
+			wantFail:      true,
+			exceptionType: "thrift.tApplicationException",
+		},
+		{
+			name:          "success",
+			wantErr:       nil,
+			wantFail:      false,
+			exceptionType: "",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+
+			latencyLabels := prometheus.Labels{
+				methodLabel:            methodIsHealthy,
+				successLabel:           strconv.FormatBool(!tt.wantFail),
+				remoteServiceSlugLabel: thrifttest.DefaultServiceSlug,
+			}
+
+			totalRequestLabels := prometheus.Labels{
+				methodLabel:              methodIsHealthy,
+				successLabel:             strconv.FormatBool(!tt.wantFail),
+				exceptionLabel:           tt.exceptionType,
+				baseplateStatusCodeLabel: "",
+				baseplateStatusLabel:     "",
+				remoteServiceSlugLabel:   thrifttest.DefaultServiceSlug,
+			}
+
+			activeRequestLabels := prometheus.Labels{
+				methodLabel:            methodIsHealthy,
+				remoteServiceSlugLabel: thrifttest.DefaultServiceSlug,
+			}
+
+			defer thriftbp.PrometheusClientMetricsTest(t, latencyLabels, totalRequestLabels, activeRequestLabels).CheckMetrics()
+			defer spectest.ValidateSpec(t, "thrift", "client")
+
+			ctx := context.Background()
+			handler := mockBaseplateService{fail: tt.wantFail, err: tt.wantErr}
+			client := setupFake(ctx, t, handler)
+			bpClient := baseplatethrift.NewBaseplateServiceV2Client(client.TClient())
+			result, err := bpClient.IsHealthy(
+				ctx,
+				&baseplatethrift.IsHealthyRequest{
+					Probe: baseplatethrift.IsHealthyProbePtr(baseplatethrift.IsHealthyProbe_READINESS),
+				},
+			)
+			if tt.wantErr != nil && err == nil {
+				t.Error("expected an error, got nil")
+			} else if tt.wantErr == nil && err != nil {
+				t.Errorf("expected no error, got %v", err)
+			}
+
+			if result == tt.wantFail {
+				t.Errorf("result mismatch, expected %v, got %v", tt.wantFail, result)
+			}
+		})
+	}
+}
+
+type mockBaseplateService struct {
+	fail bool
+	err  error
+}
+
+func (srv mockBaseplateService) IsHealthy(ctx context.Context, req *baseplatethrift.IsHealthyRequest) (r bool, err error) {
+	return !srv.fail, srv.err
+}
+
+func setupFake(ctx context.Context, t *testing.T, handler baseplatethrift.BaseplateServiceV2) thriftbp.ClientPool {
+	srv, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
+		Processor: baseplatethrift.NewBaseplateServiceV2Processor(handler),
+	})
+	if err != nil {
+		t.Fatalf("SETUP: Setting up baseplate server: %s", err)
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	t.Cleanup(cancel)
+
+	// Shut down the start goroutine when the test completes
+	srv.Start(ctx)
+
+	// The thrift server doesn't shut down cleanly, so we have to close it in a goroutine :(
+	t.Cleanup(func() { go srv.Close() })
+
+	return srv.ClientPool
 }

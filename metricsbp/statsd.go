@@ -33,33 +33,7 @@ var ReporterTickerInterval = time.Minute
 // M is short for "Metrics".
 //
 // This is the global Statsd to use.
-// It's pre-initialized with one that does not send metrics anywhere,
-// so it won't cause panic even if you don't initialize it before using it
-// (for example, it's safe to be used in test code).
-//
-// But in production code you should still properly initialize it to actually
-// send your metrics to your statsd collector,
-// usually early in your main function:
-//
-//     func main() {
-//       flag.Parse()
-//       ctx, cancel := context.WithCancel(context.Background())
-//       defer cancel()
-//       metricsbp.M = metricsbp.NewStatsd{
-//         ctx,
-//         metricsbp.Config{
-//           ...
-//         },
-//       }
-//       metricsbp.M.RunSysStats()
-//       ...
-//     }
-//
-//     func someOtherFunction() {
-//       ...
-//       metricsbp.M.Counter("my-counter").Add(1)
-//       ...
-//     }
+// It's pre-initialized with one that sends all metrics to a blackhole.
 var M = NewStatsd(context.Background(), Config{})
 
 // Statsd defines a statsd reporter (with influx extension) and the root of the
@@ -124,14 +98,17 @@ func NewStatsd(ctx context.Context, cfg Config) *Statsd {
 	}
 	st.ctx, st.cancel = context.WithCancel(ctx)
 
+	var sink io.Writer
 	if cfg.Endpoint != "" {
+		sink = conn.NewDefaultManager("udp", cfg.Endpoint, kitlogger)
+	} else if !cfg.BufferInMemoryForTesting {
+		sink = io.Discard
+	}
+	if sink != nil {
 		if cfg.BufferSize == 0 {
 			cfg.BufferSize = DefaultBufferSize
 		}
-		st.writer = newBufferedWriter(
-			conn.NewDefaultManager("udp", cfg.Endpoint, kitlogger),
-			cfg.BufferSize,
-		)
+		st.writer = newBufferedWriter(sink, cfg.BufferSize)
 		st.wg.Add(1)
 		go func() {
 			defer st.wg.Done()
@@ -354,6 +331,9 @@ func (st *Statsd) Close() error {
 // so in most cases you shouldn't be using it in production code.
 // But it's useful in unit tests to verify that you have the correct metrics you
 // want to report.
+//
+// When you use this in test code you also want to set BufferInMemoryForTesting
+// to true in the statsd Config, otherwise your test could become flaky.
 func (st *Statsd) WriteTo(w io.Writer) (n int64, err error) {
 	return st.fallback().statsd.WriteTo(w)
 }

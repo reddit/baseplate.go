@@ -1,0 +1,90 @@
+package thriftbp
+
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/reddit/baseplate.go/prometheusbp"
+)
+
+const (
+	methodLabel              = "thrift_method"
+	successLabel             = "thrift_success"
+	exceptionLabel           = "thrift_exception_type"
+	baseplateStatusLabel     = "thrift_baseplate_status"
+	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
+	serverSlugLabel          = "thrift_slug"
+)
+
+var (
+	serverLatencyLabels = []string{
+		methodLabel,
+		successLabel,
+	}
+
+	serverLatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "thrift_server_latency_seconds",
+		Help:    "RPC latencies",
+		Buckets: prometheusbp.DefaultBuckets,
+	}, serverLatencyLabels)
+
+	serverTotalRequestLabels = []string{
+		methodLabel,
+		successLabel,
+		exceptionLabel,
+		baseplateStatusLabel,
+		baseplateStatusCodeLabel,
+	}
+
+	serverTotalRequests = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "thrift_server_requests_total",
+		Help: "Total RPC request count",
+	}, serverTotalRequestLabels)
+
+	serverActiveRequestsLabels = []string{
+		methodLabel,
+	}
+
+	serverActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "thrift_server_active_requests",
+		Help: "The number of in-flight requests being handled by the service",
+	}, serverActiveRequestsLabels)
+)
+
+var (
+	clientLatencyLabels = []string{
+		methodLabel,
+		successLabel,
+		serverSlugLabel,
+	}
+
+	clientLatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "thrift_client_latency_seconds",
+		Help:    "RPC latencies",
+		Buckets: prometheusbp.DefaultBuckets,
+	}, clientLatencyLabels)
+
+	clientTotalRequestLabels = []string{
+		methodLabel,
+		successLabel,
+		exceptionLabel,
+		baseplateStatusLabel,
+		baseplateStatusCodeLabel,
+		serverSlugLabel,
+	}
+
+	clientTotalRequests = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "thrift_client_requests_total",
+		Help: "Total RPC request count",
+	}, clientTotalRequestLabels)
+
+	clientActiveRequestsLabels = []string{
+		methodLabel,
+		serverSlugLabel,
+	}
+
+	clientActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "thrift_client_active_requests",
+		Help: "The number of in-flight requests",
+	}, clientActiveRequestsLabels)
+)
