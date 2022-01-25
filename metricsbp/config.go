@@ -59,7 +59,7 @@ type Config struct {
 	//
 	// Optional, defaults to false.
 	ReportServerConnectionCount bool `yaml:"reportServerConnectionCount"`
-  
+
 	// By default, when Endpoint is empty,
 	// the Statsd uses a blackhole sink to send statsd metrics to.
 	// Set this to true to buffer all statsd metrics in memory until they are read
