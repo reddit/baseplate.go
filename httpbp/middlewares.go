@@ -477,7 +477,7 @@ func PrometheusServerMetrics(_ string) Middleware {
 // isRequestSuccessful returns the success of an HTTP request as a string, i.e. "true" or "false".
 // A HTTP request is successful when:
 //   1) no error is returned from the request and
-//   2) the HTTP status code is in the form 2xx.
+//   2) the HTTP status code is in the range [100, 400).
 func isRequestSuccessful(httpStatusCode int, requestErr error) string {
 	return strconv.FormatBool(requestErr == nil && isSuccessStatusCode(httpStatusCode))
 }

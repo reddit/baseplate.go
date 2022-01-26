@@ -724,7 +724,7 @@ func (ce ClientError) Retryable() int {
 
 // ClientErrorFromResponse creates ClientError from http response.
 //
-// It returns nil error when the response code are in range of [200, 400),
+// It returns nil error when the response code are in range of [100, 400),
 // or non-nil error otherwise (including response being nil).
 // When the returned error is non-nil,
 // it's guaranteed to be of type *ClientError.
@@ -741,7 +741,7 @@ func ClientErrorFromResponse(resp *http.Response) error {
 	if resp == nil {
 		return &ClientError{}
 	}
-	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
+	if isSuccessStatusCode(resp.StatusCode) {
 		return nil
 	}
 	ce := &ClientError{

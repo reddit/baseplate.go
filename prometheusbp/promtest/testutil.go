@@ -19,6 +19,8 @@ type PrometheusMetricTest struct {
 
 // CheckDelta checks that the metric value changes exactly delta from when Helper was called.
 func (p *PrometheusMetricTest) CheckDelta(delta float64) {
+	p.tb.Helper()
+
 	got := p.getValue()
 	got -= float64(p.initValue)
 	if got != delta {
@@ -26,11 +28,26 @@ func (p *PrometheusMetricTest) CheckDelta(delta float64) {
 	}
 }
 
-// CheckExists confirms that the metric exists and returns the count of metrics.
+// CheckExists confirms that the metric exists and returns exactly 1 metrics.
+//
+// It's a shorthand for CheckExistsN(1)
 func (p *PrometheusMetricTest) CheckExists() {
+	p.tb.Helper()
+	p.CheckExistsN(1)
+}
+
+// CheckExistsN confirms that the metric exists and returns the count of metrics.
+//
+// Please note that due to the limitation of upstream API,
+// neither CheckExistsN nor CheckExists will limit the counts to the specified
+// labels, so they will check against the number of metrics reported with all
+// label values.
+func (p *PrometheusMetricTest) CheckExistsN(count int) {
+	p.tb.Helper()
+
 	got := testutil.CollectAndCount(p.metric)
-	if got != 1 {
-		p.tb.Errorf("%s metric count: wanted %v, got %v", p.name, 1, got)
+	if got != count {
+		p.tb.Errorf("%s metric count: wanted %v, got %v", p.name, count, got)
 	}
 }
 
