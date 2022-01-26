@@ -86,7 +86,7 @@ func TestDirectoryWatcher(t *testing.T) {
 			t.Error("data is nil")
 		}
 
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("timeout waiting for add")
 	}
 
@@ -102,7 +102,7 @@ func TestDirectoryWatcher(t *testing.T) {
 			t.Error("new data is not present")
 		}
 
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("timeout waiting for add")
 	}
 
@@ -113,7 +113,7 @@ func TestDirectoryWatcher(t *testing.T) {
 			t.Error("old data is still present")
 		}
 
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("timeout waiting for remove")
 	}
 
