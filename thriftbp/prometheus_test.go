@@ -107,6 +107,8 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 // PromClientMetricsTest keeps track of the Thrift client Prometheus metrics
 // during testing.
 type PromClientMetricsTest struct {
+	tb testing.TB
+
 	latency        *promtest.PrometheusMetricTest
 	totalRequests  *promtest.PrometheusMetricTest
 	activeRequests *promtest.PrometheusMetricTest
@@ -114,21 +116,26 @@ type PromClientMetricsTest struct {
 
 // PrometheusClientMetricsTest resets the Thrift client Prometheus metrics and
 // setups the test to track the client metrics.
-func PrometheusClientMetricsTest(t *testing.T, latencyLabelValues, requestCountLabelValues, activeRequestsLabelValues prometheus.Labels) PromClientMetricsTest {
+func PrometheusClientMetricsTest(tb testing.TB, latencyLabelValues, requestCountLabelValues, activeRequestsLabelValues prometheus.Labels) PromClientMetricsTest {
+	tb.Helper()
+
 	clientLatencyDistribution.Reset()
 	clientTotalRequests.Reset()
 	clientActiveRequests.Reset()
 	return PromClientMetricsTest{
-		latency:        promtest.NewPrometheusMetricTest(t, "latency", clientLatencyDistribution, latencyLabelValues),
-		totalRequests:  promtest.NewPrometheusMetricTest(t, "rpc count", clientTotalRequests, requestCountLabelValues),
-		activeRequests: promtest.NewPrometheusMetricTest(t, "active requests", clientActiveRequests, activeRequestsLabelValues),
+		tb:             tb,
+		latency:        promtest.NewPrometheusMetricTest(tb, "latency", clientLatencyDistribution, latencyLabelValues),
+		totalRequests:  promtest.NewPrometheusMetricTest(tb, "rpc count", clientTotalRequests, requestCountLabelValues),
+		activeRequests: promtest.NewPrometheusMetricTest(tb, "active requests", clientActiveRequests, activeRequestsLabelValues),
 	}
 }
 
 // CheckMetrics ensure the correct client metrics were registered and tracked
 // for Thrift client Prometheus metrics.
-func (p PromClientMetricsTest) CheckMetrics() {
-	p.latency.CheckExists()
+func (p PromClientMetricsTest) CheckMetrics(requests int) {
+	p.tb.Helper()
+
+	p.latency.CheckExistsN(requests)
 	p.totalRequests.CheckDelta(1)
 	p.activeRequests.CheckDelta(0)
 }
