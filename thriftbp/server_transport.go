@@ -27,20 +27,20 @@ func (m *CountedTServerTransport) Accept() (thrift.TTransport, error) {
 type countedTTransport struct {
 	thrift.TTransport
 
-	counter   metrics.Counter
+	gauge     metrics.Gauge
 	closeOnce sync.Once
 }
 
 func newCountedTTransport(transport thrift.TTransport) thrift.TTransport {
 	return &countedTTransport{
 		TTransport: transport,
-		counter:    metricsbp.M.Counter(meterNameTransportConnCounter),
+		gauge:      metricsbp.M.RuntimeGauge(meterNameTransportConnCounter),
 	}
 }
 
 func (m *countedTTransport) Close() error {
 	m.closeOnce.Do(func() {
-		m.counter.Add(-1)
+		m.gauge.Add(-1)
 	})
 	return m.TTransport.Close()
 }
@@ -49,6 +49,6 @@ func (m *countedTTransport) Open() error {
 	if err := m.TTransport.Open(); err != nil {
 		return err
 	}
-	m.counter.Add(1)
+	m.gauge.Add(1)
 	return nil
 }
