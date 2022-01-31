@@ -69,3 +69,6 @@ require (
 	google.golang.org/protobuf v1.26.0-rc.1 // indirect
 	honnef.co/go/tools v0.2.0 // indirect
 )
+
+// Please use v0.9.3 or later versions instead.
+retract v0.9.2
