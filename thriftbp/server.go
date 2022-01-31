@@ -122,7 +122,6 @@ func NewBaseplateServer(
 		},
 	}).ToThriftLogger()
 	cfg.Addr = bp.GetConfig().Addr
-	cfg.ReportServerConnectionCount = bp.GetConfig().Metrics.ReportServerConnectionCount
 	cfg.Socket = nil
 	srv, err := NewServer(cfg)
 	if err != nil {

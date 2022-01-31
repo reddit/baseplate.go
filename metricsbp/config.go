@@ -54,12 +54,6 @@ type Config struct {
 	// Optional, default to false.
 	RunSysStats bool `yaml:"runSysStats"`
 
-	// ReportServerConnectionCount indicates that you want to publish
-	// a counter for the number of clients connected to the server
-	//
-	// Optional, defaults to false.
-	ReportServerConnectionCount bool `yaml:"reportServerConnectionCount"`
-
 	// By default, when Endpoint is empty,
 	// the Statsd uses a blackhole sink to send statsd metrics to.
 	// Set this to true to buffer all statsd metrics in memory until they are read
