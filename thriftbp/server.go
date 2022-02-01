@@ -46,6 +46,12 @@ type ServerConfig struct {
 	// If not set none of the requests will be sampled.
 	ReportPayloadSizeMetricsSampleRate float64
 
+	// Optional, used by NewBaseplateServer and NewServer.
+	//
+	// Report the number of clients connected to the server as a runtime gauge
+	// with metric name of 'thrift.connections'
+	ReportConnectionCount bool
+
 	// Optional, used only by NewServer.
 	// In NewBaseplateServer the address set in bp.Config() will be used instead.
 	//
@@ -69,7 +75,7 @@ type ServerConfig struct {
 // and protocol to serve the given TProcessor which is wrapped with the
 // given ProcessorMiddlewares.
 func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
-	var transport *thrift.TServerSocket
+	var transport thrift.TServerTransport
 	if cfg.Socket == nil {
 		var err error
 		transport, err = thrift.NewTServerSocket(cfg.Addr)
@@ -78,6 +84,10 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 		}
 	} else {
 		transport = cfg.Socket
+	}
+
+	if cfg.ReportConnectionCount {
+		transport = &CountedTServerTransport{transport}
 	}
 
 	server := thrift.NewTSimpleServer4(
