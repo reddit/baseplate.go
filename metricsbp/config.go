@@ -51,8 +51,21 @@ type Config struct {
 
 	// RunSysStats indicates that you want to publish system stats.
 	//
-	// Optional, defaults to false.
+	// Optional, default to false.
 	RunSysStats bool `yaml:"runSysStats"`
+
+	// By default, when Endpoint is empty,
+	// the Statsd uses a blackhole sink to send statsd metrics to.
+	// Set this to true to buffer all statsd metrics in memory until they are read
+	// explicitly (via Statsd.WriteTo).
+	//
+	// This is provided only for tests to verify the statsd metrics.
+	// Using it in production code with empty Endpoint will cause the memory used
+	// by Statsd to grow unbounded over the time.
+	// It also has no effects when Endpoint is non-empty.
+	//
+	// Optional, default to false.
+	BufferInMemoryForTesting bool `yaml:"-"`
 }
 
 // InitFromConfig initializes the global metricsbp.M with the given context and

@@ -16,6 +16,7 @@ import (
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
+	"github.com/reddit/baseplate.go/transport"
 )
 
 const (
@@ -38,17 +39,28 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 
 // NewClient returns a standard HTTP client wrapped with the default middleware
 // plus any additional client middleware passed into this function. Default
-// middlewares are: MonitorClient and Retries. ClientErrorWrapper is included
-// as transitive middleware through Retries.
+// middlewares are:
+//
+// * MonitorClient with transport.WithRetrySlugSuffix
+//
+// * PrometheusClientMetrics with transport.WithRetrySlugSuffix
+//
+// * Retries
+//
+// * MonitorClient
+//
+// * PrometheusClientMetrics
+//
+// ClientErrorWrapper is included as transitive middleware through Retries.
 func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Client, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
 
 	// set max connections per host if set
-	var transport http.Transport
+	var httpTransport http.Transport
 	if config.MaxConnections > 0 {
-		transport.MaxConnsPerHost = config.MaxConnections
+		httpTransport.MaxConnsPerHost = config.MaxConnections
 	}
 
 	// apply default if not set
@@ -62,8 +74,11 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 	}
 
 	defaults := []ClientMiddleware{
-		MonitorClient(config.Slug),
+		MonitorClient(config.Slug + transport.WithRetrySlugSuffix),
+		PrometheusClientMetrics(config.Slug + transport.WithRetrySlugSuffix),
 		Retries(config.MaxErrorReadAhead, config.RetryOptions...),
+		MonitorClient(config.Slug),
+		PrometheusClientMetrics(config.Slug),
 	}
 
 	// prepend middleware to ensure Retires with ClientErrorWrapper is still
@@ -74,7 +89,7 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 	middleware = append(middleware, defaults...)
 
 	return &http.Client{
-		Transport: WrapTransport(&transport, middleware...),
+		Transport: WrapTransport(&httpTransport, middleware...),
 	}, nil
 }
 
@@ -277,7 +292,18 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 			clientActiveRequests.With(activeRequestLabels).Inc()
 
 			defer func() {
-				success := isRequestSuccessful(resp.StatusCode, err)
+				// the Retries middleware might return nil resp with an error,
+				// in such case, try to get it from ClientError instead,
+				// but fallback to a 5xx error code if nothing is available.
+				code := 599
+				var ce *ClientError
+				if errors.As(err, &ce) {
+					code = ce.StatusCode
+				}
+				if resp != nil {
+					code = resp.StatusCode
+				}
+				success := isRequestSuccessful(code, err)
 
 				latencyLabels := prometheus.Labels{
 					methodLabel:     method,
@@ -290,7 +316,7 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 				totalRequestLabels := prometheus.Labels{
 					methodLabel:     method,
 					successLabel:    success,
-					codeLabel:       strconv.Itoa(resp.StatusCode),
+					codeLabel:       strconv.Itoa(code),
 					serverSlugLabel: serverSlug,
 				}
 
