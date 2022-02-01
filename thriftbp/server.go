@@ -92,8 +92,7 @@ type ServerConfig struct {
 // given ProcessorMiddlewares.
 func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 	var transport thrift.TServerTransport
-	transport = cfg.Socket
-	if transport == nil {
+	if cfg.Socket == nil {
 		var err error
 		if cfg.SocketTimeout > 0 {
 			transport, err = thrift.NewTServerSocketTimeout(cfg.Addr, cfg.SocketTimeout)
@@ -103,6 +102,8 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		transport = cfg.Socket
 	}
 
 	if cfg.ReportConnectionCount {
