@@ -11,17 +11,23 @@ import (
 
 const meterNameTransportConnCounter = "thrift.connections"
 
+// CountedTServerTransport is a wrapper around thrift.TServerTransport that
+// emits a gauge of the number of client connections.
 type CountedTServerTransport struct {
 	thrift.TServerTransport
 }
 
+// Accept implements thrift.TServerTransport by retruning a thrift.TTransport
+// that counts the number of client connections.
 func (m *CountedTServerTransport) Accept() (thrift.TTransport, error) {
 	transport, err := m.TServerTransport.Accept()
 	if err != nil {
 		return nil, err
 	}
 
-	return newCountedTTransport(transport), nil
+	wrappedTransport := newCountedTTransport(transport)
+	wrappedTransport.gauge.Add(1)
+	return wrappedTransport, nil
 }
 
 type countedTTransport struct {
@@ -31,7 +37,7 @@ type countedTTransport struct {
 	closeOnce sync.Once
 }
 
-func newCountedTTransport(transport thrift.TTransport) thrift.TTransport {
+func newCountedTTransport(transport thrift.TTransport) *countedTTransport {
 	return &countedTTransport{
 		TTransport: transport,
 		gauge:      metricsbp.M.RuntimeGauge(meterNameTransportConnCounter),
