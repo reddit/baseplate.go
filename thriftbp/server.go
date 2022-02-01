@@ -91,7 +91,8 @@ type ServerConfig struct {
 // and protocol to serve the given TProcessor which is wrapped with the
 // given ProcessorMiddlewares.
 func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
-	var transport thrift.TServerTransport = cfg.Socket
+	var transport thrift.TServerTransport
+	transport = cfg.Socket
 	if transport == nil {
 		var err error
 		if cfg.SocketTimeout > 0 {
