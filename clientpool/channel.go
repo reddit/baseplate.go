@@ -60,6 +60,14 @@ func (cp *channelPool) Get() (client Client, err error) {
 		if c.IsOpen() {
 			return c, nil
 		}
+		// For thrift connections, IsOpen could return false in both explicit and
+		// implicit closed situations.
+		// In implicit closed situation, IsOpen does a connectivity check and
+		// returns false if that check fails. In such case we should still close the
+		// connection explicitly to avoid resource leak.
+		// In explicit situation, calling Close again will just return an already
+		// closed error, which is harmless here.
+		c.Close()
 	default:
 	}
 
@@ -85,6 +93,11 @@ func (cp *channelPool) Release(c Client) error {
 	defer atomic.AddInt32(&cp.numActive, -1)
 
 	if !c.IsOpen() {
+		// Even when c.IsOpen reported false, still call Close explicitly to avoid
+		// connection leaks. At worst case scenario it just returns an already
+		// closed error, which is still harmless.
+		c.Close()
+
 		newC, err := cp.opener()
 		if err != nil {
 			return err
