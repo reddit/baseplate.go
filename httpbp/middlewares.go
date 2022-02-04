@@ -303,6 +303,9 @@ func recoverPanic(name string, next HandlerFunc) HandlerFunc {
 				metricsbp.M.Counter("panic.recover").With(
 					"name", name,
 				).Add(1)
+				panicRecoverCounter.With(prometheus.Labels{
+					methodLabel: name,
+				}).Inc()
 
 				// change named return value to a generic 500 error
 				err = RawError(InternalServerError(), rErr, PlainTextContentType)

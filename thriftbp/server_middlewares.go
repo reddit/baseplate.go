@@ -271,7 +271,7 @@ func ReportPayloadSizeMetrics(rate float64) thrift.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
 			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
-				if randbp.ShouldSampleWithRate(rate) {
+				if rate > 0 {
 					// Only report for THeader requests
 					if ht, ok := in.Transport().(*thrift.THeaderTransport); ok {
 						protoID := ht.Protocol()
@@ -297,18 +297,29 @@ func ReportPayloadSizeMetrics(rate float64) thrift.ProcessorMiddleware {
 						defer func() {
 							iproto.Flush(ctx)
 							oproto.Flush(ctx)
+							isize := float64(itrans.Size())
+							osize := float64(otrans.Size())
 
 							proto := "header-" + tHeaderProtocol2String(protoID)
-							metricsbp.M.HistogramWithRate(metricsbp.RateArgs{
-								Name:             "payload.size." + name + ".request",
-								Rate:             1,
-								AlreadySampledAt: metricsbp.Float64Ptr(rate),
-							}).With("proto", proto).Observe(float64(itrans.Size()))
-							metricsbp.M.HistogramWithRate(metricsbp.RateArgs{
-								Name:             "payload.size." + name + ".response",
-								Rate:             1,
-								AlreadySampledAt: metricsbp.Float64Ptr(rate),
-							}).With("proto", proto).Observe(float64(otrans.Size()))
+							labels := prometheus.Labels{
+								methodLabel: name,
+								protoLabel:  proto,
+							}
+							payloadSizeRequestBytes.With(labels).Observe(isize)
+							payloadSizeResponseBytes.With(labels).Observe(osize)
+
+							if randbp.ShouldSampleWithRate(rate) {
+								metricsbp.M.HistogramWithRate(metricsbp.RateArgs{
+									Name:             "payload.size." + name + ".request",
+									Rate:             1,
+									AlreadySampledAt: metricsbp.Float64Ptr(rate),
+								}).With("proto", proto).Observe(isize)
+								metricsbp.M.HistogramWithRate(metricsbp.RateArgs{
+									Name:             "payload.size." + name + ".response",
+									Rate:             1,
+									AlreadySampledAt: metricsbp.Float64Ptr(rate),
+								}).With("proto", proto).Observe(osize)
+							}
 						}()
 					}
 				}
@@ -374,6 +385,9 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 					metricsbp.M.Counter("panic.recover").With(
 						"name", name,
 					).Add(1)
+					panicRecoverCounter.With(prometheus.Labels{
+						methodLabel: name,
+					}).Inc()
 
 					// changed named return values to show that the request failed and
 					// return the panic value error.

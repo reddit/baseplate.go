@@ -27,6 +27,7 @@ func (m *CountedTServerTransport) Accept() (thrift.TTransport, error) {
 
 	wrappedTransport := newCountedTTransport(transport)
 	wrappedTransport.gauge.Add(1)
+	serverConnectionsGauge.Inc()
 	return wrappedTransport, nil
 }
 
@@ -47,6 +48,7 @@ func newCountedTTransport(transport thrift.TTransport) *countedTTransport {
 func (m *countedTTransport) Close() error {
 	m.closeOnce.Do(func() {
 		m.gauge.Add(-1)
+		serverConnectionsGauge.Dec()
 	})
 	return m.TTransport.Close()
 }
@@ -56,5 +58,6 @@ func (m *countedTTransport) Open() error {
 		return err
 	}
 	m.gauge.Add(1)
+	serverConnectionsGauge.Inc()
 	return nil
 }

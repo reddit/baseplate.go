@@ -6,6 +6,7 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/randbp"
@@ -47,6 +48,7 @@ type ttlClient struct {
 	ttl       time.Duration
 
 	replaceCounter metrics.Counter
+	slug           string
 
 	// state guarded by lock (buffer-1 channel)
 	state chan *ttlClientState
@@ -104,6 +106,10 @@ func (c *ttlClient) refresh() {
 		// leave client and transport be,
 		// this connection will be replaced by the pool upon next use.
 		c.replaceCounter.With("success", "False").Add(1)
+		ttlClientReplaceCounter.With(prometheus.Labels{
+			serverSlugLabel: c.slug,
+			successLabel:    "false",
+		}).Inc()
 		return
 	}
 
@@ -126,6 +132,10 @@ func (c *ttlClient) refresh() {
 	}
 	state.transport = transport
 	c.replaceCounter.With("success", "True").Add(1)
+	ttlClientReplaceCounter.With(prometheus.Labels{
+		serverSlugLabel: c.slug,
+		successLabel:    "true",
+	}).Inc()
 }
 
 // newTTLClient creates a ttlClient with a thrift TTransport and ttl+jitter.
@@ -144,6 +154,7 @@ func newTTLClient(generator ttlClientGenerator, ttl time.Duration, jitter float6
 		ttl:       duration,
 
 		replaceCounter: metricsbp.M.Counter(slug + ".connection-housekeeping").With(tags.AsStatsdTags()...),
+		slug:           slug,
 
 		state: make(chan *ttlClientState, 1),
 	}

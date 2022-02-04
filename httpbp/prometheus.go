@@ -107,6 +107,25 @@ var (
 	}, clientActiveRequestsLabels)
 )
 
+const (
+	// Note that this is not used by prometheus metrics defined in Baseplate spec.
+	promNamespace   = "httpbp"
+	subsystemServer = "server"
+)
+
+var (
+	panicRecoverLabels = []string{
+		methodLabel,
+	}
+
+	panicRecoverCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: promNamespace,
+		Subsystem: subsystemServer,
+		Name:      "panic_recover_total",
+		Help:      "The number of panics recovered from http server handlers",
+	}, panicRecoverLabels)
+)
+
 // PerformanceMonitoringMiddleware returns optional Prometheus historgram metrics for monitoring the following:
 //    1) http server time to write header in seconds
 //    2) http server time to write header in seconds
