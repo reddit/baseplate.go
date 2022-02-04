@@ -9,8 +9,28 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
+)
+
+const (
+	promNamespace = "limitopen"
+	pathLabel     = "path"
+)
+
+var (
+	sizeLabels = []string{
+		pathLabel,
+	}
+
+	sizeGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: promNamespace,
+		Name:      "file_size_bytes",
+		Help:      "The size of the file opened by limitopen.Open",
+	}, sizeLabels)
 )
 
 // Open opens a path for read.
@@ -63,7 +83,8 @@ type readCloser struct {
 // OpenWithLimit calls Open with limit checks.
 //
 // It always reports the size of the path as a runtime gauge
-// (with "limitopen.size" as the metrics path and path label).
+// (with "limitopen.size" as the metrics path and path label for statsd,
+// "limitopen_file_size_bytes" for prometheus).
 // When softLimit > 0 and the size of the path as reported by the os is larger,
 // it will also use log.ErrorWithSentry to report it.
 // When hardLimit > 0 and the size of the path as reported by the os is larger,
@@ -74,9 +95,13 @@ func OpenWithLimit(path string, softLimit, hardLimit int64) (io.ReadCloser, erro
 		return nil, err
 	}
 
+	pathValue := filepath.Base(path)
 	metricsbp.M.RuntimeGauge("limitopen.size").With(
-		"path", filepath.Base(path),
+		"path", pathValue,
 	).Set(float64(size))
+	sizeGauge.With(prometheus.Labels{
+		pathLabel: pathValue,
+	}).Set(float64(size))
 
 	if softLimit > 0 && size > softLimit {
 		const msg = "limitopen.OpenWithLimit: file size > soft limit"

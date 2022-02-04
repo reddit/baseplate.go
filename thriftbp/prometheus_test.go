@@ -11,6 +11,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/reddit/baseplate.go/clientpool"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
 	"github.com/reddit/baseplate.go/prometheusbp/promtest"
@@ -138,4 +139,26 @@ func (p PromClientMetricsTest) CheckMetrics(requests int) {
 	p.latency.CheckExistsN(requests)
 	p.totalRequests.CheckDelta(1)
 	p.activeRequests.CheckDelta(0)
+}
+
+type fakePool struct {
+	clientpool.Pool
+}
+
+func (fakePool) NumActiveClients() int32 {
+	return 1
+}
+
+func (fakePool) NumAllocated() int32 {
+	return 2
+}
+
+func TestClientPoolGaugeExporter(t *testing.T) {
+	exporter := clientPoolGaugeExporter{
+		slug: "slug",
+		pool: fakePool{},
+	}
+	// No real test here, we just want to make sure that Collect call will not
+	// panic, which would happen if we have a label mismatch.
+	exporter.Collect(make(chan prometheus.Metric, 2))
 }

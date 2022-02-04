@@ -7,9 +7,31 @@ import (
 	"sync/atomic"
 
 	"github.com/Shopify/sarama"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/tracing"
+)
+
+const (
+	promNamespace     = "kafkabp"
+	subsystemConsumer = "consumer"
+
+	successLabel = "success"
+)
+
+var (
+	rebalanceLabels = []string{
+		successLabel,
+	}
+
+	rebalanceCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: promNamespace,
+		Subsystem: subsystemConsumer,
+		Name:      "rebalance_total",
+		Help:      "The number of times consumer rebalance happened",
+	}, rebalanceLabels)
 )
 
 // ConsumeMessageFunc is a function type for consuming consumer messages.
@@ -158,10 +180,16 @@ func (kc *consumer) reset() error {
 	err := rebalance()
 	if err != nil {
 		metricsbp.M.Counter("kafka.consumer.rebalance.failure").Add(1)
+		rebalanceCounter.With(prometheus.Labels{
+			successLabel: "false",
+		}).Inc()
 		return err
 	}
 
 	metricsbp.M.Counter("kafka.consumer.rebalance.success").Add(1)
+	rebalanceCounter.With(prometheus.Labels{
+		successLabel: "true",
+	}).Inc()
 	return nil
 }
 

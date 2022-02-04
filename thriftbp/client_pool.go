@@ -11,6 +11,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
 	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/clientpool"
@@ -451,6 +452,25 @@ func newClientPool(
 			cfg.PoolGaugeInterval,
 			tags,
 		)
+
+		if err := prometheus.Register(clientPoolGaugeExporter{
+			slug: cfg.ServiceSlug,
+			pool: pool,
+		}); err != nil {
+			// prometheus.Register should never fail because
+			// clientPoolGaugeExporter.Describe is a no-op, but just in case.
+
+			var batch errorsbp.Batch
+			batch.Add(err)
+			if err := pool.Close(); err != nil {
+				batch.AddPrefix("close pool", err)
+			}
+			return nil, fmt.Errorf(
+				"thriftbp: error registering prometheus exporter for client pool %q: %w",
+				cfg.ServiceSlug,
+				batch.Compile(),
+			)
+		}
 	}
 
 	// create the base clientPool, this is not ready for use.
@@ -504,9 +524,9 @@ func newClient(
 	}, maxConnectionAge, maxConnectionAgeJitter, slug, tags)
 }
 
-func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration, tags []string) {
-	activeGauge := metricsbp.M.RuntimeGauge(prefix + ".pool-active-connections").With(tags...)
-	allocatedGauge := metricsbp.M.RuntimeGauge(prefix + ".pool-allocated-clients").With(tags...)
+func reportPoolStats(ctx context.Context, slug string, pool clientpool.Pool, tickerDuration time.Duration, tags []string) {
+	activeGauge := metricsbp.M.RuntimeGauge(slug + ".pool-active-connections").With(tags...)
+	allocatedGauge := metricsbp.M.RuntimeGauge(slug + ".pool-allocated-clients").With(tags...)
 
 	if tickerDuration <= 0 {
 		tickerDuration = DefaultPoolGaugeInterval
@@ -571,6 +591,9 @@ func (p *clientPool) pooledCall(ctx context.Context, method string, args, result
 	defer func() {
 		if shouldCloseConnection(err) {
 			p.poolClosedConnectionsCounter.Add(1)
+			clientPoolClosedConnectionsCounter.With(prometheus.Labels{
+				serverSlugLabel: p.slug,
+			}).Inc()
 			if e := client.Close(); e != nil {
 				log.C(ctx).Errorw(
 					"Failed to close client",
@@ -591,6 +614,9 @@ func (p *clientPool) getClient() (Client, error) {
 	if err != nil {
 		if errors.Is(err, clientpool.ErrExhausted) {
 			p.poolExhaustedCounter.Add(1)
+			clientPoolExhaustedCounter.With(prometheus.Labels{
+				serverSlugLabel: p.slug,
+			}).Inc()
 		}
 		log.Errorw(
 			"Failed to get client from pool",
@@ -610,6 +636,9 @@ func (p *clientPool) releaseClient(c Client) {
 			"err", err,
 		)
 		p.releaseErrorCounter.Add(1)
+		clientPoolReleaseErrorCounter.With(prometheus.Labels{
+			serverSlugLabel: p.slug,
+		}).Inc()
 	}
 }
 
