@@ -443,7 +443,8 @@ func PrometheusServerMetrics(_ string) Middleware {
 			start := time.Now()
 			method := r.Method
 			activeRequestLabels := prometheus.Labels{
-				methodLabel: method,
+				methodLabel:   method,
+				endpointLabel: name,
 			}
 			serverActiveRequests.With(activeRequestLabels).Inc()
 
@@ -453,17 +454,19 @@ func PrometheusServerMetrics(_ string) Middleware {
 				success := isRequestSuccessful(code, err)
 
 				labels := prometheus.Labels{
-					methodLabel:  method,
-					successLabel: success,
+					methodLabel:   method,
+					successLabel:  success,
+					endpointLabel: name,
 				}
 				serverLatency.With(labels).Observe(time.Since(start).Seconds())
 				serverRequestSize.With(labels).Observe(float64(r.ContentLength))
 				serverResponseSize.With(labels).Observe(float64(wrapped.bytesWritten))
 
 				totalRequestLabels := prometheus.Labels{
-					methodLabel:  method,
-					successLabel: success,
-					codeLabel:    strconv.Itoa(code),
+					methodLabel:   method,
+					successLabel:  success,
+					codeLabel:     strconv.Itoa(code),
+					endpointLabel: name,
 				}
 				serverTotalRequests.With(totalRequestLabels).Inc()
 				serverActiveRequests.With(activeRequestLabels).Dec()

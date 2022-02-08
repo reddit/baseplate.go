@@ -37,27 +37,30 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 		respSize int
 	}{
 		{
-			name:    "success get",
-			code:    "200",
-			success: "true",
-			method:  http.MethodGet,
-			route:   "/test",
+			name:     "success get",
+			code:     "200",
+			success:  "true",
+			method:   http.MethodGet,
+			endpoint: "test",
+			route:    "/test",
 		},
 		{
 			name:     "err post",
 			code:     "401",
 			success:  "false",
 			method:   http.MethodPost,
+			endpoint: "error2",
 			route:    "/error2",
 			reqSize:  16,
 			respSize: 29,
 		},
 		{
-			name:    "internal err get",
-			code:    "500",
-			success: "false",
-			method:  http.MethodGet,
-			route:   "/error",
+			name:     "internal err get",
+			code:     "500",
+			success:  "false",
+			method:   http.MethodGet,
+			endpoint: "error",
+			route:    "/error",
 		},
 	}
 
@@ -75,7 +78,7 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 				Handle:  func(ctx context.Context, w http.ResponseWriter, r *http.Request) error { return nil },
 			},
 			"/error2": {
-				Name:    "error",
+				Name:    "error2",
 				Methods: []string{http.MethodPost},
 				Handle: func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 					var req exampleRequest
@@ -119,18 +122,21 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 			clientActiveRequests.Reset()
 
 			serverSizeLabels := prometheus.Labels{
-				methodLabel:  tt.method,
-				successLabel: tt.success,
+				methodLabel:   tt.method,
+				successLabel:  tt.success,
+				endpointLabel: tt.endpoint,
 			}
 
 			serverTotalRequestLabels := prometheus.Labels{
-				methodLabel:  tt.method,
-				successLabel: tt.success,
-				codeLabel:    tt.code,
+				methodLabel:   tt.method,
+				successLabel:  tt.success,
+				codeLabel:     tt.code,
+				endpointLabel: tt.endpoint,
 			}
 
 			serverActiveRequestLabels := prometheus.Labels{
-				methodLabel: tt.method,
+				methodLabel:   tt.method,
+				endpointLabel: tt.endpoint,
 			}
 
 			clientLatencyLabels := prometheus.Labels{

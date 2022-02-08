@@ -41,7 +41,7 @@ func ValidateSpec(tb testing.TB, metricPrefix, clientOrServer string) {
 	tb.Helper()
 
 	var batch errorsbp.Batch
-	batch.AddPrefix("validate spec", validateSpec(metricPrefix, clientOrServer))
+	batch.AddPrefix("validate spec "+clientOrServer, validateSpec(metricPrefix, clientOrServer))
 
 	if err := batch.Compile(); err != nil {
 		tb.Error(err)
@@ -154,7 +154,7 @@ func buildLabels(name, prefix, clientOrServer string) map[string]struct{} {
 	case grpcPrefix:
 		labelSuffixes = grpcSpecificLabels(name)
 	case httpPrefix:
-		labelSuffixes = httpSpecificLabels(name)
+		labelSuffixes = httpSpecificLabels(name, clientOrServer)
 	}
 
 	if clientOrServer == client {
@@ -236,8 +236,12 @@ func grpcSpecificLabels(name string) []string {
 // active_requests metrics expect the following labels:
 //   - "service"
 //   - "method"
-func httpSpecificLabels(name string) []string {
+func httpSpecificLabels(name, clientOrServer string) []string {
 	labelSuffixes := []string{"method"}
+	if clientOrServer == server {
+		labelSuffixes = append(labelSuffixes, "endpoint")
+	}
+
 	switch {
 	case strings.HasSuffix(name, "_latency_seconds"):
 		labelSuffixes = append(labelSuffixes, "success")
