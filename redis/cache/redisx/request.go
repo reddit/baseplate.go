@@ -250,7 +250,8 @@ func (r Request) setStructValue(dst reflect.Value, src reflect.Value) error {
 func (r Request) convertAndSetByteSlice(dst reflect.Value, src reflect.Value) error {
 	asBytes, _ := src.Interface().([]byte)
 	asStr := string(asBytes)
-	if dst.Kind() == reflect.Int64 {
+	switch dst.Kind() {
+	case reflect.Int64:
 		asInt, err := strconv.ParseInt(asStr, 10, 64)
 		if err != nil {
 			return &InvalidInputError{
@@ -258,14 +259,16 @@ func (r Request) convertAndSetByteSlice(dst reflect.Value, src reflect.Value) er
 			}
 		}
 		dst.Set(reflect.ValueOf(asInt))
-	} else if dst.Kind() == reflect.String {
+	case reflect.String:
 		dst.Set(reflect.ValueOf(asStr))
-	} else if dst.Type() == stringPtrT {
-		dst.Set(reflect.ValueOf(&asStr))
-	} else {
-		return &ResponseInputTypeError{
-			Cmd:               r.Cmd,
-			ResponseInputType: dst.Type(),
+	default:
+		if dst.Type() == stringPtrT {
+			dst.Set(reflect.ValueOf(&asStr))
+		} else {
+			return &ResponseInputTypeError{
+				Cmd:               r.Cmd,
+				ResponseInputType: dst.Type(),
+			}
 		}
 	}
 	return nil
