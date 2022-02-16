@@ -251,6 +251,31 @@ func TestResponseTypes(t *testing.T) {
 		}
 	})
 
+	t.Run("*string", func(t *testing.T) {
+		key := "star"
+
+		var v *string
+		if err := client.Do(ctx, &v, "GET", key); err != nil {
+			t.Fatal(err)
+		}
+		if v != nil {
+			t.Errorf("expected value to not be set, got %v", v)
+		}
+
+		value := "buzz"
+		if err := client.Do(ctx, nil, "SET", key, value); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := client.Do(ctx, &v, "GET", key); err != nil {
+			t.Fatal(err)
+		}
+		if *v != value {
+			t.Errorf("*string value mismatch, expected %q, got %v", value, v)
+		}
+
+	})
+
 	t.Run("[]byte", func(t *testing.T) {
 		key := "fizz"
 

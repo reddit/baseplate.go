@@ -11,6 +11,8 @@ import (
 // BenchmarkSetValue
 // BenchmarkSetValue/string
 // BenchmarkSetValue/string-12         	14946445	        67.1 ns/op
+// BenchmarkSetValue/*string
+// BenchmarkSetValue/*string-12	         6187052	        169 ns/op
 // BenchmarkSetValue/int64
 // BenchmarkSetValue/int64-12          	31571834	        34.5 ns/op
 // BenchmarkSetValue/[]byte
@@ -22,6 +24,19 @@ func BenchmarkSetValue(b *testing.B) {
 		var v string
 		r := Req(&v, "PING")
 		res := "foo"
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			if err := r.setValue(res); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("*string", func(b *testing.B) {
+		var v *string
+		r := Req(&v, "GET", "foo")
+		res := []byte("foo")
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
