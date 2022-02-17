@@ -48,6 +48,7 @@ var (
 	intArrayT       = reflect.TypeOf([]int64{})
 	interfaceArrayT = reflect.TypeOf([]interface{}{})
 	stringPtrT      = reflect.TypeOf((*string)(nil))
+	intPtrT         = reflect.TypeOf((*int64)(nil))
 )
 
 // Req is a convenience function for creating new Request objects.
@@ -262,9 +263,18 @@ func (r Request) convertAndSetByteSlice(dst reflect.Value, src reflect.Value) er
 	case reflect.String:
 		dst.Set(reflect.ValueOf(asStr))
 	default:
-		if dst.Type() == stringPtrT {
+		switch dst.Type() {
+		case stringPtrT:
 			dst.Set(reflect.ValueOf(&asStr))
-		} else {
+		case intPtrT:
+			asInt, err := strconv.ParseInt(asStr, 10, 64)
+			if err != nil {
+				return &InvalidInputError{
+					Message: "could not parse input " + asStr + " into an int64",
+				}
+			}
+			dst.Set(reflect.ValueOf(&asInt))
+		default:
 			return &ResponseInputTypeError{
 				Cmd:               r.Cmd,
 				ResponseInputType: dst.Type(),
@@ -337,5 +347,6 @@ func isSupportedInput(e reflect.Value) bool {
 		e.Type() == bytesArrayT ||
 		e.Type() == intArrayT ||
 		e.Type() == interfaceArrayT ||
-		e.Type() == stringPtrT
+		e.Type() == stringPtrT ||
+		e.Type() == intPtrT
 }
