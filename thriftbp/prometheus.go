@@ -1,6 +1,11 @@
 package thriftbp
 
 import (
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -234,4 +239,19 @@ func (e clientPoolGaugeExporter) Collect(ch chan<- prometheus.Metric) {
 		float64(e.pool.NumAllocated()),
 		e.slug,
 	)
+}
+
+func stringifyErrorType(err error) string {
+	if err == nil {
+		return ""
+	}
+	var te thrift.TException
+	if errors.As(err, &te) && te.TExceptionType() == thrift.TExceptionTypeUnknown {
+		// This usually means the error was wrapped by thrift.WrapTException,
+		// try unwrap it.
+		if unwrapped := errors.Unwrap(te); unwrapped != nil {
+			err = unwrapped
+		}
+	}
+	return strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
 }
