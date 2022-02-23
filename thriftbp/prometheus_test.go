@@ -162,3 +162,84 @@ func TestClientPoolGaugeExporter(t *testing.T) {
 	// panic, which would happen if we have a label mismatch.
 	exporter.Collect(make(chan prometheus.Metric, 2))
 }
+
+// This is an thrift.TException implementation that does not wrap any error.
+type customTException struct{}
+
+func (customTException) TExceptionType() thrift.TExceptionType {
+	return thrift.TExceptionTypeUnknown
+}
+
+func (customTException) Error() string {
+	return "error"
+}
+
+var _ thrift.TException = customTException{}
+
+func TestStringifyErrorType(t *testing.T) {
+	for _, c := range []struct {
+		label string
+		want  string
+		err   error
+	}{
+		{
+			label: "nil",
+			want:  "",
+			err:   nil,
+		},
+		{
+			label: "typed-nil",
+			want:  "",
+			err:   thrift.TException(nil),
+		},
+		{
+			label: "plain",
+			want:  "errors.errorString",
+			err:   errors.New("foo"),
+		},
+		{
+			label: "WrapTException",
+			want:  "errors.errorString",
+			err:   thrift.WrapTException(errors.New("foo")),
+		},
+		{
+			label: "custom",
+			want:  "thriftbp.customTException",
+			err:   customTException{},
+		},
+		{
+			label: "custom-pointer",
+			want:  "thriftbp.customTException",
+			err:   new(customTException),
+		},
+		{
+			label: "baseplate.Error",
+			want:  "baseplate.Error",
+			err: &baseplate.Error{
+				Code: thrift.Int32Ptr(10),
+			},
+		},
+		{
+			label: "TTransportException",
+			want:  "thrift.tTransportException",
+			err:   thrift.NewTTransportException(thrift.TIMED_OUT, "foo"),
+		},
+		{
+			label: "TProtocolException",
+			want:  "thrift.tProtocolException",
+			err:   thrift.NewTProtocolException(errors.New("foo")),
+		},
+		{
+			label: "TApplicationExceptino",
+			want:  "thrift.tApplicationException",
+			err:   thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "foo"),
+		},
+	} {
+		t.Run(c.label, func(t *testing.T) {
+			got := stringifyErrorType(c.err)
+			if got != c.want {
+				t.Errorf("want %q, got %q", c.want, got)
+			}
+		})
+	}
+}

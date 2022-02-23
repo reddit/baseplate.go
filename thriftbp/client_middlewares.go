@@ -3,9 +3,7 @@ package thriftbp
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -361,11 +359,10 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 				clientActiveRequests.With(activeRequestLabels).Inc()
 
 				defer func() {
-					var exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
+					var baseplateStatusCode, baseplateStatus string
+					exceptionTypeLabel := stringifyErrorType(err)
 					success := strconv.FormatBool(err == nil)
 					if err != nil {
-						exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
-
 						var bpErr baseplateError
 						if errors.As(err, &bpErr) {
 							code := bpErr.GetCode()
