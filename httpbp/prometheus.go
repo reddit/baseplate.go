@@ -12,12 +12,14 @@ const (
 	successLabel    = "http_success"
 	codeLabel       = "http_response_code"
 	serverSlugLabel = "http_slug"
+	endpointLabel   = "http_endpoint"
 )
 
 var (
 	serverLabels = []string{
 		methodLabel,
 		successLabel,
+		endpointLabel,
 	}
 
 	serverLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -54,6 +56,7 @@ var (
 		methodLabel,
 		successLabel,
 		codeLabel,
+		endpointLabel,
 	}
 
 	serverTotalRequests = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -63,6 +66,7 @@ var (
 
 	serverActiveRequestsLabels = []string{
 		methodLabel,
+		endpointLabel,
 	}
 
 	serverActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
