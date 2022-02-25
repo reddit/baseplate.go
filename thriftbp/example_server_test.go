@@ -43,6 +43,6 @@ func ExampleNewBaseplateServer() {
 	}
 
 	adminServer := admin.NewServer(&admin.ServerArgs{})
-	adminServer.Serve()
+	go adminServer.Serve()
 	log.Info(baseplate.Serve(ctx, baseplate.ServeArgs{Server: server}))
 }

@@ -132,6 +132,6 @@ func ExampleNewBaseplateServer() {
 		panic(err)
 	}
 	adminServer := admin.NewServer(&admin.ServerArgs{HealthCheckFn: svc.IsHealthy})
-	adminServer.Serve()
+	go adminServer.Serve()
 	log.Info(baseplate.Serve(ctx, baseplate.ServeArgs{Server: server}))
 }
