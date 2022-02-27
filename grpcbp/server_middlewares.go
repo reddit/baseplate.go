@@ -18,6 +18,30 @@ import (
 	"github.com/reddit/baseplate.go/transport"
 )
 
+// DefaultMiddlewaresArgs are the arguments to be passed into
+// BaseplateDefaultMiddlewares function to create default middlewares.
+type DefaultMiddlewaresArgs struct {
+	EdgeContextImpl ecinterface.Interface
+}
+
+// BaseplateDefaultMiddlewares returns the default middlewares that should be
+// used by a baseplate gRPC service.
+//
+// Currently they are (in order):
+//
+// 1. Inject server span
+//
+// 2. Inject edge context
+//
+// 3. Track Prometheus metric
+func BaseplateDefaultMiddlewares(args DefaultMiddlewaresArgs) grpc.ServerOption {
+	return grpc.ChainUnaryInterceptor(
+		InjectServerSpanInterceptorUnary(),
+		InjectEdgeContextInterceptorUnary(args.EdgeContextImpl),
+		InjectPrometheusUnaryServerInterceptor(),
+	)
+}
+
 // InjectServerSpanInterceptorUnary is a server middleware that injects a server
 // span into the `next` context.
 //
