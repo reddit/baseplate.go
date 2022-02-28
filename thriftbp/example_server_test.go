@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/reddit/baseplate.go"
-	"github.com/reddit/baseplate.go/admin"
 	"github.com/reddit/baseplate.go/ecinterface"
 	bpgen "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/log"
@@ -42,7 +41,7 @@ func ExampleNewBaseplateServer() {
 		log.Fatal(err)
 	}
 
-	adminServer := admin.NewServer(&admin.ServerArgs{})
+	adminServer := thriftbp.NewAdminServer(&thriftbp.AdminServerArgs{})
 	go adminServer.Serve()
 	log.Info(baseplate.Serve(ctx, baseplate.ServeArgs{Server: server}))
 }

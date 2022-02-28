@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/reddit/baseplate.go"
-	"github.com/reddit/baseplate.go/admin"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
@@ -131,7 +130,7 @@ func ExampleNewBaseplateServer() {
 	if err != nil {
 		panic(err)
 	}
-	adminServer := admin.NewServer(&admin.ServerArgs{HealthCheckFn: svc.IsHealthy})
+	adminServer := httpbp.NewAdminServer(&httpbp.AdminServerArgs{HealthCheckFn: svc.IsHealthy})
 	go adminServer.Serve()
 	log.Info(baseplate.Serve(ctx, baseplate.ServeArgs{Server: server}))
 }
