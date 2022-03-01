@@ -245,6 +245,10 @@ func stringifyErrorType(err error) string {
 	if err == nil {
 		return ""
 	}
+	return strings.TrimPrefix(fmt.Sprintf("%T", unwrapTException(err)), "*")
+}
+
+func unwrapTException(err error) error {
 	var te thrift.TException
 	if errors.As(err, &te) && te.TExceptionType() == thrift.TExceptionTypeUnknown {
 		// This usually means the error was wrapped by thrift.WrapTException,
@@ -253,5 +257,5 @@ func stringifyErrorType(err error) string {
 			err = unwrapped
 		}
 	}
-	return strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
+	return err
 }

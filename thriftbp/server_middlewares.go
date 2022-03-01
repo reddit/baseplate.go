@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -430,12 +431,14 @@ func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) t
 		serverActiveRequests.With(activeRequestLabels).Inc()
 
 		defer func() {
-			var baseplateStatusCode, baseplateStatus string
-			exceptionTypeLabel := stringifyErrorType(err)
+			var exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
+			unwrappedErr := unwrapTException(err)
 			success := strconv.FormatBool(err == nil)
 			if err != nil {
+				exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", unwrappedErr), "*")
+
 				var bpErr baseplateError
-				if errors.As(err, &bpErr) {
+				if errors.As(unwrappedErr, &bpErr) {
 					code := bpErr.GetCode()
 					baseplateStatusCode = strconv.FormatInt(int64(code), 10)
 					if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
