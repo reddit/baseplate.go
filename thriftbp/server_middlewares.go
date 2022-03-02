@@ -434,7 +434,7 @@ func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) t
 			exceptionTypeLabel := stringifyErrorType(err)
 			success := strconv.FormatBool(err == nil)
 			if err != nil {
-				var bpErr baseplateErrorCode
+				var bpErr baseplateErrorCoder
 				if errors.As(err, &bpErr) {
 					code := bpErr.GetCode()
 					baseplateStatusCode = strconv.FormatInt(int64(code), 10)

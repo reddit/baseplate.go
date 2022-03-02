@@ -32,6 +32,15 @@ type baseplateError interface {
 	GetDetails() map[string]string
 }
 
+// We create this interface instead of using baseplateError because we want it to always match
+// regardless of the version of the thrift file the user has put in their repository.
+type baseplateErrorCoder interface {
+	thrift.TException
+
+	IsSetCode() bool
+	GetCode() int32
+}
+
 var (
 	_ baseplateError = (*baseplatethrift.Error)(nil)
 )
@@ -69,7 +78,7 @@ func BaseplateErrorFilter(codes ...int32) retrybp.Filter {
 		codeMap[code] = true
 	}
 	return func(err error, next retry.RetryIfFunc) bool {
-		var bpErr baseplateError
+		var bpErr baseplateErrorCoder
 		if errors.As(err, &bpErr) {
 			return codeMap[bpErr.GetCode()]
 		}
@@ -87,7 +96,7 @@ func IDLExceptionSuppressor(err error) bool {
 	if !errors.As(err, &te) {
 		return false
 	}
-	var bpErr baseplateError
+	var bpErr baseplateErrorCoder
 	if errors.As(err, &bpErr) {
 		// If this is also baseplate.Error,
 		// only suppress it if the error code is outside of [500, 600).
