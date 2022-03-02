@@ -2,7 +2,6 @@ package redisxtest
 
 import (
 	"context"
-	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/joomcode/redispipe/redis"
@@ -14,23 +13,23 @@ import (
 // MockRedisCluster wraps a local version of redis
 type MockRedisCluster struct {
 	redisCluster *miniredis.Miniredis
-	teardown     func()
 }
 
-func NewMockRedisCluster() (MockRedisCluster, error) {
+func NewMockRedisCluster() (mockRedisCluster MockRedisCluster, teardown func(), err error) {
 	redisCluster, err := miniredis.Run()
 	if err != nil {
-		return MockRedisCluster{}, err
+		return MockRedisCluster{}, nil, err
 	}
 
-	teardown := func() {
-		redisCluster.Close()
-	}
-
-	return MockRedisCluster{
+	mockRedisCluster = MockRedisCluster{
 		redisCluster: redisCluster,
-		teardown:     teardown,
-	}, nil
+	}
+
+	teardown = func() {
+		mockRedisCluster.Close()
+	}
+
+	return mockRedisCluster, teardown, nil
 }
 
 // Addr returns address of mock redis cluster e.g. '127.0.0.1:12345'.
@@ -44,18 +43,22 @@ func (mrc *MockRedisCluster) Close() {
 }
 
 // NewMockRedisClient sets up a client and sender to a mock redis cluster
-func NewMockRedisClient(ctx context.Context, redisCluster MockRedisCluster, timeout time.Duration) (client redisx.Syncx, teardown func(), err error) {
+func NewMockRedisClient(
+	ctx context.Context,
+	redisCluster MockRedisCluster,
+	opts redisconn.Opts,
+) (client redisx.BaseSync, teardown func(), err error) {
 
 	// Create connection
-	conn, err := redisconn.Connect(ctx, redisCluster.Addr(), redisconn.Opts{IOTimeout: timeout})
+	conn, err := redisconn.Connect(ctx, redisCluster.Addr(), opts)
 	if err != nil {
 		redisCluster.Close()
-		return redisx.Syncx{}, nil, err
+		return redisx.BaseSync{}, nil, err
 	}
 
 	// Create client
-	client = redisx.Syncx{
-		Sync: redisx.BaseSync{SyncCtx: redis.SyncCtx{S: conn}},
+	client = redisx.BaseSync{
+		SyncCtx: redis.SyncCtx{S: conn},
 	}
 
 	// Teardown closure

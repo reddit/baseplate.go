@@ -13,6 +13,7 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 
 	"github.com/reddit/baseplate.go/redis/cache/redisx"
+	"github.com/reddit/baseplate.go/redis/cache/redisx/redisxtest"
 )
 
 var (
@@ -44,6 +45,12 @@ func TestMain(m *testing.M) {
 	}
 	defer s.Close()
 
+	redisCluster, clusterTeardown, err := redisxtest.NewMockRedisCluster()
+	if err != nil {
+		panic(err)
+	}
+	defer clusterTeardown()
+
 	sender, err := redisconn.Connect(context.TODO(), s.Addr(), redisconn.Opts{})
 	if err != nil {
 		panic(err)
@@ -53,7 +60,9 @@ func TestMain(m *testing.M) {
 	client = redisx.BaseSync{
 		SyncCtx: redis.SyncCtx{S: sender},
 	}
-
+	var clientTeardown func()
+	client, clientTeardown, err = redisxtest.NewMockRedisClient(context.TODO(), redisCluster, redisconn.Opts{})
+	defer clientTeardown()
 	flushRedis()
 	os.Exit(m.Run())
 }
