@@ -16,13 +16,13 @@ import (
 func NewMockRedisClient(ctx context.Context, timeout time.Duration) (client redisx.Syncx, teardown func(), err error) {
 	redisCluster, err := miniredis.Run()
 	if err != nil {
-		return redisx.Syncx{}, func() {}, err
+		return redisx.Syncx{}, nil, err
 	}
 
 	conn, err := redisconn.Connect(ctx, redisCluster.Addr(), redisconn.Opts{IOTimeout: timeout})
 	if err != nil {
 		redisCluster.Close()
-		return redisx.Syncx{}, func() {}, err
+		return redisx.Syncx{}, nil, err
 	}
 
 	client = redisx.Syncx{
