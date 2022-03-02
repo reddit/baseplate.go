@@ -11,6 +11,7 @@ import (
 	"github.com/reddit/baseplate.go/redis/cache/redisx"
 )
 
+// MockRedisCluster wraps a local version of redis
 type MockRedisCluster struct {
 	redisCluster *miniredis.Miniredis
 	teardown     func()
@@ -32,10 +33,12 @@ func NewMockRedisCluster() (MockRedisCluster, error) {
 	}, nil
 }
 
+// Addr returns address of mock redis cluster e.g. '127.0.0.1:12345'.
 func (mrc *MockRedisCluster) Addr() string {
 	return mrc.redisCluster.Addr()
 }
 
+// Close shuts down the MockRedisCluster
 func (mrc *MockRedisCluster) Close() {
 	mrc.redisCluster.Close()
 }
@@ -57,7 +60,6 @@ func NewMockRedisClient(ctx context.Context, redisCluster MockRedisCluster, time
 
 	// Teardown closure
 	teardown = func() {
-		redisCluster.Close()
 		conn.Close()
 	}
 
