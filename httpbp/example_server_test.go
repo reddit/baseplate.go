@@ -130,7 +130,6 @@ func ExampleNewBaseplateServer() {
 	if err != nil {
 		panic(err)
 	}
-	adminServer := httpbp.NewAdminServer(&httpbp.AdminServerArgs{HealthCheckFn: svc.IsHealthy})
-	go adminServer.Serve()
+	go httpbp.ServeAdmin(svc.IsHealthy)
 	log.Info(baseplate.Serve(ctx, baseplate.ServeArgs{Server: server}))
 }
