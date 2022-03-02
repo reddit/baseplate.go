@@ -51,18 +51,13 @@ func TestMain(m *testing.M) {
 	}
 	defer clusterTeardown()
 
-	sender, err := redisconn.Connect(context.TODO(), s.Addr(), redisconn.Opts{})
+	var clientTeardown func()
+	client, clientTeardown, err = redisxtest.NewMockRedisClient(context.TODO(), redisCluster, redisconn.Opts{})
 	if err != nil {
 		panic(err)
 	}
-	defer sender.Close()
-
-	client = redisx.BaseSync{
-		SyncCtx: redis.SyncCtx{S: sender},
-	}
-	var clientTeardown func()
-	client, clientTeardown, err = redisxtest.NewMockRedisClient(context.TODO(), redisCluster, redisconn.Opts{})
 	defer clientTeardown()
+
 	flushRedis()
 	os.Exit(m.Run())
 }
