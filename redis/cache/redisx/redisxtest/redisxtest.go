@@ -37,7 +37,3 @@ func NewMockRedisClient(ctx context.Context, timeout time.Duration) (client redi
 
 	return client, teardown, nil
 }
-
-func FlushRedis(ctx context.Context, client redisx.Syncx) error {
-	return client.Send(ctx, redisx.Req(nil, "FLUSHALL"))
-}
