@@ -255,3 +255,12 @@ func stringifyErrorType(err error) string {
 	}
 	return strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
 }
+
+// We create this interface instead of using baseplateError because we want it to always match
+// regardless of the version of the thrift file the user has put in their repository.
+type baseplateErrorCode interface {
+	thrift.TException
+
+	IsSetCode() bool
+	GetCode() int32
+}

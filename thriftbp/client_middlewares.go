@@ -363,7 +363,7 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 					exceptionTypeLabel := stringifyErrorType(err)
 					success := strconv.FormatBool(err == nil)
 					if err != nil {
-						var bpErr baseplateError
+						var bpErr baseplateErrorCode
 						if errors.As(err, &bpErr) {
 							code := bpErr.GetCode()
 							baseplateStatusCode = strconv.FormatInt(int64(code), 10)
