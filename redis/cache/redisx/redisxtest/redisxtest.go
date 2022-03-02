@@ -52,7 +52,6 @@ func NewMockRedisClient(
 	// Create connection
 	conn, err := redisconn.Connect(ctx, redisCluster.Addr(), opts)
 	if err != nil {
-		redisCluster.Close()
 		return redisx.BaseSync{}, nil, err
 	}
 
