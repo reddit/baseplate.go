@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/joomcode/redispipe/redis"
 	"github.com/joomcode/redispipe/redisconn"
 
@@ -39,20 +38,14 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	s, err := miniredis.Run()
+	redisCluster, err := redisxtest.NewMockRedisCluster()
 	if err != nil {
 		panic(err)
 	}
-	defer s.Close()
-
-	redisCluster, clusterTeardown, err := redisxtest.NewMockRedisCluster()
-	if err != nil {
-		panic(err)
-	}
-	defer clusterTeardown()
+	defer redisCluster.Close()
 
 	var clientTeardown func()
-	client, clientTeardown, err = redisxtest.NewMockRedisClient(context.TODO(), redisCluster, redisconn.Opts{})
+	client, clientTeardown, err = redisxtest.NewMockRedisClient(context.TODO(), redisCluster.Addr(), redisconn.Opts{})
 	if err != nil {
 		panic(err)
 	}

@@ -15,21 +15,15 @@ type MockRedisCluster struct {
 	redisCluster *miniredis.Miniredis
 }
 
-func NewMockRedisCluster() (mockRedisCluster MockRedisCluster, teardown func(), err error) {
+func NewMockRedisCluster() (mockRedisCluster MockRedisCluster, err error) {
 	redisCluster, err := miniredis.Run()
 	if err != nil {
-		return MockRedisCluster{}, nil, err
+		return MockRedisCluster{}, err
 	}
 
-	mockRedisCluster = MockRedisCluster{
+	return MockRedisCluster{
 		redisCluster: redisCluster,
-	}
-
-	teardown = func() {
-		mockRedisCluster.Close()
-	}
-
-	return mockRedisCluster, teardown, nil
+	}, nil
 }
 
 // Addr returns address of mock redis cluster e.g. '127.0.0.1:12345'.
@@ -38,19 +32,20 @@ func (mrc *MockRedisCluster) Addr() string {
 }
 
 // Close shuts down the MockRedisCluster
-func (mrc *MockRedisCluster) Close() {
+func (mrc *MockRedisCluster) Close() error {
 	mrc.redisCluster.Close()
+	return nil
 }
 
 // NewMockRedisClient sets up a client and sender to a mock redis cluster
 func NewMockRedisClient(
 	ctx context.Context,
-	redisCluster MockRedisCluster,
+	address string,
 	opts redisconn.Opts,
 ) (client redisx.BaseSync, teardown func(), err error) {
 
 	// Create connection
-	conn, err := redisconn.Connect(ctx, redisCluster.Addr(), opts)
+	conn, err := redisconn.Connect(ctx, address, opts)
 	if err != nil {
 		return redisx.BaseSync{}, nil, err
 	}
