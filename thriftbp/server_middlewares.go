@@ -69,9 +69,9 @@ type DefaultProcessorMiddlewaresArgs struct {
 //
 // 5. ReportPayloadSizeMetrics
 //
-// 6. RecoverPanic
+// 6. PrometheusServerMiddleware
 //
-// 7. PrometheusServerMiddleware
+// 7. RecoverPanic
 func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) []thrift.ProcessorMiddleware {
 	return []thrift.ProcessorMiddleware{
 		ExtractDeadlineBudget,
@@ -79,8 +79,8 @@ func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) 
 		InjectEdgeContext(args.EdgeContextImpl),
 		AbandonCanceledRequests,
 		ReportPayloadSizeMetrics(args.ReportPayloadSizeMetricsSampleRate),
-		RecoverPanic,
 		PrometheusServerMiddleware,
+		RecoverPanic,
 	}
 }
 
