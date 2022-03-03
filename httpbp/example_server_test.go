@@ -25,27 +25,35 @@ type body struct {
 	Y int `json:"y"`
 }
 
-type Handlers struct {
+type isHealthyResponse struct {
+	Status string `json:"status,omitempty"`
+}
+
+type TestService struct {
 	secrets    *secrets.Store
 	redisAddrs []string
 }
 
-func (h Handlers) Home(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+func (s *TestService) IsHealthy(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	return httpbp.WriteJSON(w, httpbp.NewResponse(isHealthyResponse{Status: "healthy"}))
+}
+
+func (s *TestService) Home(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	return httpbp.WriteJSON(w, httpbp.NewResponse(body{X: 1, Y: 2}))
 }
 
-func (h Handlers) ServerErr(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+func (s *TestService) ServerErr(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	return httpbp.JSONError(httpbp.InternalServerError(), errors.New("example"))
 }
 
-func (h Handlers) Ratelimit(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+func (s *TestService) Ratelimit(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	return httpbp.JSONError(
 		httpbp.TooManyRequests().Retryable(w, time.Minute),
 		errors.New("rate-limit"),
 	)
 }
 
-func (h Handlers) InvalidInput(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+func (s *TestService) InvalidInput(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	return httpbp.JSONError(
 		httpbp.BadRequest().WithDetails(map[string]string{
 			"foo": "must be >= 0",
@@ -55,26 +63,26 @@ func (h Handlers) InvalidInput(ctx context.Context, w http.ResponseWriter, r *ht
 	)
 }
 
-func (h Handlers) Endpoints() map[httpbp.Pattern]httpbp.Endpoint {
+func (s *TestService) Endpoints() map[httpbp.Pattern]httpbp.Endpoint {
 	return map[httpbp.Pattern]httpbp.Endpoint{
 		"/": {
 			Name:    "home",
-			Handle:  h.Home,
+			Handle:  s.Home,
 			Methods: []string{http.MethodGet},
 		},
 		"/err": {
 			Name:    "err",
-			Handle:  h.ServerErr,
+			Handle:  s.ServerErr,
 			Methods: []string{http.MethodGet, http.MethodPost},
 		},
 		"/ratelimit": {
 			Name:    "ratelimit",
-			Handle:  h.Ratelimit,
+			Handle:  s.Ratelimit,
 			Methods: []string{http.MethodGet},
 		},
 		"/invalid-input": {
 			Name:    "invalid-input",
-			Handle:  h.InvalidInput,
+			Handle:  s.InvalidInput,
 			Methods: []string{http.MethodPost},
 		},
 	}
@@ -110,17 +118,18 @@ func ExampleNewBaseplateServer() {
 	}
 	defer bp.Close()
 
-	handlers := Handlers{
+	svc := TestService{
 		secrets:    bp.Secrets(),
 		redisAddrs: cfg.Redis.Addrs,
 	}
 	server, err := httpbp.NewBaseplateServer(httpbp.ServerArgs{
 		Baseplate:   bp,
-		Endpoints:   handlers.Endpoints(),
+		Endpoints:   svc.Endpoints(),
 		Middlewares: []httpbp.Middleware{loggingMiddleware},
 	})
 	if err != nil {
 		panic(err)
 	}
+	go httpbp.ServeAdmin(svc.IsHealthy)
 	log.Info(baseplate.Serve(ctx, baseplate.ServeArgs{Server: server}))
 }

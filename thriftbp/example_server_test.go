@@ -41,5 +41,6 @@ func ExampleNewBaseplateServer() {
 		log.Fatal(err)
 	}
 
+	go thriftbp.ServeAdmin()
 	log.Info(baseplate.Serve(ctx, baseplate.ServeArgs{Server: server}))
 }
