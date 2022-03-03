@@ -34,8 +34,8 @@ type TestService struct {
 	redisAddrs []string
 }
 
-func (s *TestService) IsHealthy(w http.ResponseWriter, r *http.Request) {
-	httpbp.NewResponse(isHealthyResponse{Status: "healthy"})
+func (s *TestService) IsHealthy(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	return httpbp.WriteJSON(w, httpbp.NewResponse(isHealthyResponse{Status: "healthy"}))
 }
 
 func (s *TestService) Home(ctx context.Context, w http.ResponseWriter, r *http.Request) error {

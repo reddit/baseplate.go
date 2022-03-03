@@ -1,8 +1,6 @@
 package httpbp
 
 import (
-	"net/http"
-
 	"github.com/reddit/baseplate.go/internal/admin"
 	"github.com/reddit/baseplate.go/log"
 )
@@ -15,7 +13,7 @@ import (
 // Default server address is admin.Addr.
 //
 // This function blocks, so it should be run as its own goroutine.
-func ServeAdmin(healthCheck http.HandlerFunc) {
-	admin.Mux.HandleFunc("/health", healthCheck)
+func ServeAdmin(healthCheck HandlerFunc) {
+	admin.Mux.Handle("/health", handler{handle: healthCheck})
 	log.Warnw("httpbp: admin serving exited", "err", admin.Serve())
 }
