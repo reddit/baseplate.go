@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -181,14 +182,14 @@ func (kc *consumer) reset() error {
 	if err != nil {
 		metricsbp.M.Counter("kafka.consumer.rebalance.failure").Add(1)
 		rebalanceCounter.With(prometheus.Labels{
-			successLabel: "false",
+			successLabel: prometheusbp.BoolString(false),
 		}).Inc()
 		return err
 	}
 
 	metricsbp.M.Counter("kafka.consumer.rebalance.success").Add(1)
 	rebalanceCounter.With(prometheus.Labels{
-		successLabel: "true",
+		successLabel: prometheusbp.BoolString(true),
 	}).Inc()
 	return nil
 }
