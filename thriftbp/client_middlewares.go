@@ -15,6 +15,7 @@ import (
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
@@ -361,7 +362,7 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 				defer func() {
 					var baseplateStatusCode, baseplateStatus string
 					exceptionTypeLabel := stringifyErrorType(err)
-					success := strconv.FormatBool(err == nil)
+					success := prometheusbp.BoolString(err == nil)
 					if err != nil {
 						var bpErr baseplateErrorCoder
 						if errors.As(err, &bpErr) {

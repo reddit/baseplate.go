@@ -98,13 +98,7 @@ func (h *spanHook) OnPreStop(span *tracing.Span, err error) error {
 	).With(tags.AsStatsdTags()...))
 	timer.OverrideStartTime(h.startTime).ObserveWithEndTime(stop)
 
-	var successResult string
-	if err != nil {
-		successResult = "False"
-	} else {
-		successResult = "True"
-	}
-	tags[tracing.TagKeySuccess] = successResult
+	tags[tracing.TagKeySuccess] = BoolString(err == nil)
 	h.metrics.Counter(fmt.Sprintf(baseplateCounter, typeStr)).With(tags.AsStatsdTags()...).Add(1)
 
 	return nil
@@ -138,3 +132,12 @@ var (
 	_ tracing.AddSpanCounterHook   = (*spanHook)(nil)
 	_ tracing.StartStopSpanHook    = countActiveRequestsHook{}
 )
+
+// BoolString returns the string version of a boolean value that should be used
+// in a statsd metric tag.
+func BoolString(b bool) string {
+	if b {
+		return "True"
+	}
+	return "False"
+}
