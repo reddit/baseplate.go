@@ -37,5 +37,5 @@ func InitFromConfig(cfg Config) {
 		min = cfg.NumProcesses.Min
 	}
 	prev, current := GOMAXPROCS(min, max)
-	fmt.Fprintf(os.Stderr, "GOMAXPROCS: %d %d\n", prev, current)
+	fmt.Fprintf(os.Stderr, "GOMAXPROCS: previous: %d current: %d\n", prev, current)
 }
