@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -153,14 +154,47 @@ func (fakePool) NumAllocated() int32 {
 	return 2
 }
 
-func TestClientPoolGaugeExporter(t *testing.T) {
+func TestClientPoolGaugeExporterRegister(t *testing.T) {
+	// This test is to make sure that a service creating more than one thrift
+	// client pool will not cause issues in prometheus metrics.
+	exporters := []clientPoolGaugeExporter{
+		{
+			slug: "foo",
+			pool: fakePool{},
+		},
+		{
+			slug: "bar",
+			pool: fakePool{},
+		},
+	}
+	for i, exporter := range exporters {
+		if err := prometheus.Register(exporter); err != nil {
+			t.Errorf("Register #%d failed: %v", i, err)
+		}
+	}
+}
+
+func TestClientPoolGaugeExporterCollect(t *testing.T) {
 	exporter := clientPoolGaugeExporter{
 		slug: "slug",
 		pool: fakePool{},
 	}
+	ch := make(chan prometheus.Metric)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Drain the channel
+		for range ch {
+		}
+	}()
+	t.Cleanup(func() {
+		close(ch)
+		wg.Wait()
+	})
 	// No real test here, we just want to make sure that Collect call will not
 	// panic, which would happen if we have a label mismatch.
-	exporter.Collect(make(chan prometheus.Metric, 2))
+	exporter.Collect(ch)
 }
 
 // This is an thrift.TException implementation that does not wrap any error.
