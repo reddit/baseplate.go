@@ -135,7 +135,7 @@ func (be *Batch) AddPrefix(prefix string, errs ...error) {
 	}
 
 	appendSingle := func(err error) {
-		be.errors = append(be.errors, prefixError(prefix, err))
+		be.errors = append(be.errors, fmt.Errorf("%s: %w", prefix, err))
 	}
 
 	for _, err := range errs {
@@ -183,36 +183,6 @@ func (be Batch) GetErrors() []error {
 	errors := make([]error, len(be.errors))
 	copy(errors, be.errors)
 	return errors
-}
-
-// NOTE: The reason we use prefixError over fmt.Errorf(prefix + ": %w", err)
-// is that prefix could contain format verbs, e.g. prefix = "foo%sbar".
-func prefixError(prefix string, err error) error {
-	if err == nil {
-		return nil
-	}
-
-	if prefix == "" {
-		return err
-	}
-
-	return &prefixedError{
-		msg: prefix + ": " + err.Error(),
-		err: err,
-	}
-}
-
-type prefixedError struct {
-	msg string
-	err error
-}
-
-func (e *prefixedError) Error() string {
-	return e.msg
-}
-
-func (e *prefixedError) Unwrap() error {
-	return e.err
 }
 
 // BatchSize returns the size of the batch for error err.
