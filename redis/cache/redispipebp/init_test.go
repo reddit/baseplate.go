@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/joomcode/redispipe/redis"
 	"github.com/joomcode/redispipe/redisconn"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 
 	"github.com/reddit/baseplate.go/redis/cache/redisx"
-	"github.com/reddit/baseplate.go/redis/cache/redisx/redisxtest"
 )
 
 var (
@@ -38,18 +38,21 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	redisCluster, err := redisxtest.NewMockRedisCluster()
+	s, err := miniredis.Run()
 	if err != nil {
 		panic(err)
 	}
-	defer redisCluster.Close()
+	defer s.Close()
 
-	var clientTeardown func()
-	client, clientTeardown, err = redisxtest.NewMockRedisClient(context.TODO(), redisCluster.Addr(), redisconn.Opts{})
+	sender, err := redisconn.Connect(context.TODO(), s.Addr(), redisconn.Opts{})
 	if err != nil {
 		panic(err)
 	}
-	defer clientTeardown()
+	defer sender.Close()
+
+	client = redisx.BaseSync{
+		SyncCtx: redis.SyncCtx{S: sender},
+	}
 
 	flushRedis()
 	os.Exit(m.Run())
