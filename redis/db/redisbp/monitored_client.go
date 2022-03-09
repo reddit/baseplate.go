@@ -27,7 +27,10 @@ func NewMonitoredClient(name string, opt *redis.Options) *redis.Client {
 	client := redis.NewClient(opt)
 	client.AddHook(SpanHook{ClientName: name})
 
-	if err := prometheus.Register(newExporter(client, name)); err != nil {
+	if err := prometheus.Register(exporter{
+		client: client,
+		name:   name,
+	}); err != nil {
 		// prometheus.Register should never fail because
 		// exporter.Describe is a no-op, but just in case.
 		return nil
@@ -42,7 +45,10 @@ func NewMonitoredFailoverClient(name string, opt *redis.FailoverOptions) *redis.
 	client := redis.NewFailoverClient(opt)
 	client.AddHook(SpanHook{ClientName: name})
 
-	if err := prometheus.Register(newExporter(client, name)); err != nil {
+	if err := prometheus.Register(exporter{
+		client: client,
+		name:   name,
+	}); err != nil {
 		// prometheus.Register should never fail because
 		// exporter.Describe is a no-op, but just in case.
 		return nil
@@ -93,7 +99,10 @@ func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *ClusterC
 	client := redis.NewClusterClient(opt)
 	client.AddHook(SpanHook{ClientName: name})
 
-	if err := prometheus.Register(newExporter(client, name)); err != nil {
+	if err := prometheus.Register(exporter{
+		client: client,
+		name:   name,
+	}); err != nil {
 		// prometheus.Register should never fail because
 		// exporter.Describe is a no-op, but just in case.
 		return nil
