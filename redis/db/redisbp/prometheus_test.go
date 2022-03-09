@@ -23,24 +23,44 @@ func (c fakeClient) PoolStats() *redis.PoolStats {
 	}
 }
 
-func TestRedisPoolExporter(t *testing.T) {
-	client := &fakeClient{}
+func TestRedisPoolExporterRegister(t *testing.T) {
+	exporters := []exporter{
+		{
+			client: fakeClient{},
+			name:   "foo",
+		},
+		{
+			client: fakeClient{},
+			name:   "bar",
+		},
+	}
+	for i, exporter := range exporters {
+		if err := prometheus.Register(exporter); err != nil {
+			t.Errorf("Register #%d failed: %v", i, err)
+		}
+	}
+}
 
-	exporter := newExporter(
-		client,
-		"test",
-	)
-	// No real test here, we just want to make sure that Collect call will not
-	// panic, which would happen if we have a label mismatch.
+func TestRedisPoolExporterCollect(t *testing.T) {
+	exporter := exporter{
+		client: fakeClient{},
+		name:   "test",
+	}
 	ch := make(chan prometheus.Metric)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		// Drain the channel
 		for range ch {
 		}
 	}()
+	t.Cleanup(func() {
+		close(ch)
+		wg.Wait()
+	})
+
+	// No real test here, we just want to make sure that Collect call will not
+	// panic, which would happen if we have a label mismatch.
 	exporter.Collect(ch)
-	close(ch)
-	wg.Wait()
 }
