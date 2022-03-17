@@ -58,9 +58,12 @@ func TestChannelPoolWithOpenerFailure(t *testing.T) {
 	t.Run(
 		"new-with-min-2-should-fail-initialization",
 		func(t *testing.T) {
-			_, err := clientpool.NewChannelPool(2, max, opener())
+			pool, err := clientpool.NewChannelPool(2, max, opener())
 			if err == nil {
 				t.Error("NewChannelPool with min = 2 should fail but did not.")
+			}
+			if pool == nil {
+				t.Error("NewChannelPool with min = 2 should return non-nil pool.")
 			}
 		},
 	)

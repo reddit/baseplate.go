@@ -17,6 +17,10 @@ type channelPool struct {
 var _ Pool = (*channelPool)(nil)
 
 // NewChannelPool creates a new client pool implemented via channel.
+//
+// Note that this function could return both non-nil Pool and error,
+// when we failed to create all asked initialClients.
+// In such case the returned Pool would have the clients we already established.
 func NewChannelPool(initialClients, maxClients int, opener ClientOpener) (Pool, error) {
 	if initialClients > maxClients {
 		return nil, &ConfigError{
@@ -25,16 +29,18 @@ func NewChannelPool(initialClients, maxClients int, opener ClientOpener) (Pool, 
 		}
 	}
 
+	var finalErr error
 	pool := make(chan Client, maxClients)
 	for i := 0; i < initialClients; i++ {
 		c, err := opener()
 		if err != nil {
-			return nil, fmt.Errorf(
-				"error creating client #%d/%d: %w",
+			finalErr = fmt.Errorf(
+				"clientpool: error creating client #%d/%d: %w",
 				i,
 				initialClients,
 				err,
 			)
+			break
 		}
 		pool <- c
 	}
@@ -44,7 +50,7 @@ func NewChannelPool(initialClients, maxClients int, opener ClientOpener) (Pool, 
 		opener:         opener,
 		initialClients: initialClients,
 		maxClients:     maxClients,
-	}, nil
+	}, finalErr
 }
 
 // Get returns a client from the pool.
