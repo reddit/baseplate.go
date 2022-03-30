@@ -46,26 +46,16 @@ func AddClientHeader(ctx context.Context, key, value string) context.Context {
 	return thrift.SetWriteHeaderList(ctx, headers)
 }
 
-// Header gets the value of a thrift header by key
+// header gets the value of a thrift header by key
 //
 // If the value is not present we fall back to a case-insensitive check
-func Header(ctx context.Context, key string) (v string, ok bool) {
-
-	// Option 1.
+func header(ctx context.Context, key string) (v string, ok bool) {
 	v, ok = thrift.GetHeader(ctx, key)
 	if !ok {
+		// We fall back to a case-insensitive check so that we can have
+		// functional parity with baseplate-py
 		v, ok = thrift.GetHeader(ctx, strings.ToLower(key))
 	}
-
-	// Option 2.
-	// We can potentially recreate the map in the context with lower-case keys
-	// then we wouldn't need to iterate over the map.
-	//for _, header := range thrift.GetReadHeaderList(ctx) {
-	//	if strings.EqualFold(header, key) {
-	//		v, ok = thrift.GetHeader(ctx, header)
-	//		break
-	//	}
-	//}
 
 	return
 }
