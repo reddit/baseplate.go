@@ -12,6 +12,7 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/getsentry/sentry-go"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // DefaultWrapper defines the default one to be used in log.Wrapper.
@@ -269,6 +270,36 @@ func ErrorWithSentryWrapper() Wrapper {
 		} else {
 			sentry.CaptureException(err)
 		}
+	}
+}
+
+// PrometheusCounterWrapper returns a Wrapper implementation that increases
+// counter by 1 then calls delegate to log the message.
+//
+// Please note that it's not possible to deserialize this Wrapper directly from
+// yaml, so you usually need to override it in your main function, after
+// baseplate.ParseConfigYAML call, for example:
+//
+//     // a global variable
+//     var tracingFailures = promauto.NewCounter(prometheus.CounterOpts{
+//       Namespace: "myservice",
+//       Subsystem: "tracing",
+//       Name:      "failures_total",
+//       Help:      "Total number of failures when sending tracing spans to the sidecar",
+//     })
+//
+//     // in main
+//     if err := baseplate.ParseConfigYAML(&cfg); err != nil {
+//       log.Fatal(err)
+//     }
+//     cfg.Config.Tracing.Logger = log.PrometheusCounterWrapper(
+//       cfg.Config.Tracing.Logger, // delegate
+//       tracingFailures,           // counter
+//     }
+func PrometheusCounterWrapper(delegate Wrapper, counter prometheus.Counter) Wrapper {
+	return func(ctx context.Context, msg string) {
+		counter.Inc()
+		delegate.Log(ctx, msg)
 	}
 }
 
