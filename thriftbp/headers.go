@@ -57,7 +57,7 @@ func header(ctx context.Context, key string) (v string, ok bool) {
 		// 
 		// 
 		// For details on this workaround, see:
-		// 	* https://github.com/reddit/baseplate.py/blob/0d189bae9bc15459b8d9d62856f31e45cbfcdb1a/baseplate/frameworks/thrift/__init__.py#L111	
+		// 	* https://github.com/reddit/baseplate.py/commit/daf1c5e32dcc019470d75f3940006bb2f7b9855e	
 		// 	* https://github.com/envoyproxy/envoy/issues/20595
 		// 	* https://github.com/reddit/baseplate.go/pull/500
 		v, ok = thrift.GetHeader(ctx, strings.ToLower(key))
