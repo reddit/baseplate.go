@@ -2,6 +2,7 @@ package thriftbp
 
 import (
 	"context"
+	"strings"
 
 	"github.com/apache/thrift/lib/go/thrift"
 
@@ -43,4 +44,28 @@ func AddClientHeader(ctx context.Context, key, value string) context.Context {
 	ctx = thrift.SetHeader(ctx, key, value)
 	headers = append(headers, key)
 	return thrift.SetWriteHeaderList(ctx, headers)
+}
+
+// Header gets the value of a thrift header by key
+//
+// If the value is not present we fall back to a case-insensitive check
+func Header(ctx context.Context, key string) (v string, ok bool) {
+
+	// Option 1.
+	v, ok = thrift.GetHeader(ctx, key)
+	if !ok {
+		v, ok = thrift.GetHeader(ctx, strings.ToLower(key))
+	}
+
+	// Option 2.
+	// We can potentially recreate the map in the context with lower-case keys
+	// then we wouldn't need to iterate over the map.
+	for _, header := range thrift.GetReadHeaderList(ctx) {
+		if strings.EqualFold(header, key) {
+			v, ok = thrift.GetHeader(ctx, header)
+			break
+		}
+	}
+
+	return
 }
