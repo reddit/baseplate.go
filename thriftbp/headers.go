@@ -60,12 +60,12 @@ func Header(ctx context.Context, key string) (v string, ok bool) {
 	// Option 2.
 	// We can potentially recreate the map in the context with lower-case keys
 	// then we wouldn't need to iterate over the map.
-	for _, header := range thrift.GetReadHeaderList(ctx) {
-		if strings.EqualFold(header, key) {
-			v, ok = thrift.GetHeader(ctx, header)
-			break
-		}
-	}
+	//for _, header := range thrift.GetReadHeaderList(ctx) {
+	//	if strings.EqualFold(header, key) {
+	//		v, ok = thrift.GetHeader(ctx, header)
+	//		break
+	//	}
+	//}
 
 	return
 }
