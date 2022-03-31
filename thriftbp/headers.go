@@ -48,7 +48,7 @@ func AddClientHeader(ctx context.Context, key, value string) context.Context {
 
 // header gets the value of a thrift header by key
 //
-// If the value is not present we fall back to a case-insensitive check
+// If the value is not present we fall back to all lowercase check to workaround a bug in envoy
 func header(ctx context.Context, key string) (v string, ok bool) {
 	v, ok = thrift.GetHeader(ctx, key)
 	if !ok {
