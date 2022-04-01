@@ -5,11 +5,26 @@ import (
 	"errors"
 	"sync/atomic"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/reddit/baseplate.go/log"
 )
 
+const (
+	promNamespace = "ecinterface"
+)
+
+var (
+	getBeforeSet = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: promNamespace,
+		Name:      "get_before_set_total",
+		Help:      "Total number of ecinterface.Get calls before Set is called",
+	})
+)
+
 // Logger is used by Get when it's called before Set is called.
-var Logger log.Wrapper = log.ErrorWithSentryWrapper()
+var Logger log.Wrapper
 
 // ErrGetBeforeSet is the error returned when Get is called before Set.
 var ErrGetBeforeSet = errors.New("ecinterface: Get called before Set is called")
@@ -38,6 +53,7 @@ func Get() Interface {
 		return impl
 	}
 	Logger.Log(context.Background(), ErrGetBeforeSet.Error())
+	getBeforeSet.Inc()
 	return nopImpl
 }
 

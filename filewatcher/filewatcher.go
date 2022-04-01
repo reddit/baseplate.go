@@ -215,7 +215,8 @@ type Config struct {
 	// of soft limit.
 	//
 	// If the soft limit is violated,
-	// the violation will be reported via log.ErrorWithSentry,
+	// the violation will be reported via log.DefaultWrapper and prometheus
+	// counter of limitopen_softlimit_violation_total,
 	// but it does not stop the normal parsing process.
 	//
 	// If the hard limit is violated,

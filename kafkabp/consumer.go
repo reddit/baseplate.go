@@ -54,12 +54,13 @@ type ConsumeMessageFunc func(ctx context.Context, msg *sarama.ConsumerMessage)
 //     consumer.Consume(
 //       consumeMessageFunc,
 //       func(err error) {
-//         log.ErrorWithSentry(
+//         log.Errorw(
 //           context.Background(),
 //           "kafka consumer error",
-//           err,
+//           "err", err,
 //           // additional key value pairs, for example topic info
 //         )
+//         // or a prometheus counter
 //         metricsbp.M.Counter("kafka.consumer.errors").With(/* key value pairs */).Add(1)
 //       },
 //     )
