@@ -10,7 +10,24 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/reddit/baseplate.go/log"
+)
+
+var (
+	awsRackFailure = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: promNamespace,
+		Name:      "aws_rack_id_failure_total",
+		Help:      "Total failures of getting rack id from AWS endpoint",
+	})
+
+	httpRackFailure = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: promNamespace,
+		Name:      "http_rack_id_failure_total",
+		Help:      "Total failures of getting rack id from http endpoint",
+	})
 )
 
 // RackIDFunc defines a function to provide the kafka rack id to use.
@@ -41,7 +58,8 @@ type RackIDFunc func() string
 // - "aws": AWSAvailabilityZoneRackID.
 //
 // - "http://url" or "https://url": SimpleHTTPRackID with
-// log.ErrorWithSentryWrapper, default timeout & limit, and given URL.
+// log.DefaultWrapper and prometheus counter of
+// kafkabp_http_rack_id_failure_total, default timeout & limit, and given URL.
 //
 // - anything else: FixedRackID with the given value. For example "foobar" is
 // the same as "fixed:foobar".
@@ -61,8 +79,11 @@ func (r *RackIDFunc) UnmarshalText(text []byte) error {
 	// http cases
 	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
 		*r = SimpleHTTPRackID(SimpleHTTPRackIDConfig{
-			URL:    s,
-			Logger: log.ErrorWithSentryWrapper(),
+			URL: s,
+			Logger: log.PrometheusCounterWrapper(
+				nil, // delegate, let it fallback to DefaultWrapper
+				httpRackFailure,
+			),
 		})
 		return nil
 	}
@@ -190,13 +211,17 @@ const awsAZurl = "http://169.254.169.254/latest/meta-data/placement/availability
 //        // other configs
 //    })
 //
-// It uses SimpleHTTPRackIDConfig underneath with log.ErrorWithSentryWrapper and
-// default Limit & Timeout.
+// It uses SimpleHTTPRackIDConfig underneath with log.DefaultWrapper with a
+// prometheus counter of kafkabp_aws_rack_id_failure_total and default
+// Limit & Timeout.
 func AWSAvailabilityZoneRackID() string {
 	awsRackIDOnce.Do(func() {
 		awsCachedRackID = SimpleHTTPRackID(SimpleHTTPRackIDConfig{
-			URL:    awsAZurl,
-			Logger: log.ErrorWithSentryWrapper(),
+			URL: awsAZurl,
+			Logger: log.PrometheusCounterWrapper(
+				nil, // delegate, let it fallback to DefaultWrapper
+				awsRackFailure,
+			),
 		})()
 	})
 	return awsCachedRackID
