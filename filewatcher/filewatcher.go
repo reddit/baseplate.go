@@ -153,6 +153,14 @@ func (r *Result) watcherLoop(
 			logger.Log(context.Background(), "filewatcher: watcher error: "+err.Error())
 
 		case ev := <-watcher.Events:
+			// When both r.ctx.Done() and watcher.Events are unblocked, there's no
+			// guarantee which case would be picked, so do an additional ctx check
+			// here to make sure we don't spam the log with i/o errors (which mainly
+			// happen in tests)
+			if r.ctx.Err() != nil {
+				continue
+			}
+
 			if filepath.Base(ev.Name) != file {
 				continue
 			}
@@ -174,6 +182,14 @@ func (r *Result) watcherLoop(
 			}
 
 		case <-tickerChan:
+			// When both r.ctx.Done() and tickerChan are unblocked, there's no
+			// guarantee which case would be picked, so do an additional ctx check
+			// here to make sure we don't spam the log with i/o errors (which mainly
+			// happen in tests)
+			if r.ctx.Err() != nil {
+				continue
+			}
+
 			reload()
 		}
 	}
