@@ -206,6 +206,7 @@ func StdWrapper(logger *stdlog.Logger) Wrapper {
 // It fails the test when called.
 func TestWrapper(tb testing.TB) Wrapper {
 	return func(_ context.Context, msg string) {
+		tb.Helper()
 		tb.Errorf("logger called with msg: %q", msg)
 	}
 }
