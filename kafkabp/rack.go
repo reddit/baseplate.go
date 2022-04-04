@@ -80,7 +80,7 @@ func (r *RackIDFunc) UnmarshalText(text []byte) error {
 	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
 		*r = SimpleHTTPRackID(SimpleHTTPRackIDConfig{
 			URL: s,
-			Logger: log.PrometheusCounterWrapper(
+			Logger: log.CounterWrapper(
 				nil, // delegate, let it fallback to DefaultWrapper
 				httpRackFailure,
 			),
@@ -218,7 +218,7 @@ func AWSAvailabilityZoneRackID() string {
 	awsRackIDOnce.Do(func() {
 		awsCachedRackID = SimpleHTTPRackID(SimpleHTTPRackIDConfig{
 			URL: awsAZurl,
-			Logger: log.PrometheusCounterWrapper(
+			Logger: log.CounterWrapper(
 				nil, // delegate, let it fallback to DefaultWrapper
 				awsRackFailure,
 			),

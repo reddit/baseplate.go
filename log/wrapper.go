@@ -12,7 +12,6 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/getsentry/sentry-go"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // DefaultWrapper defines the default one to be used in log.Wrapper.
@@ -274,7 +273,15 @@ func ErrorWithSentryWrapper() Wrapper {
 	}
 }
 
-// PrometheusCounterWrapper returns a Wrapper implementation that increases
+// Counter is a minimal interface for a counter.
+//
+// This is implemented by both prometheus counter and statsd counter from
+// metricsbp.
+type Counter interface {
+	Add(float64)
+}
+
+// CounterWrapper returns a Wrapper implementation that increases
 // counter by 1 then calls delegate to log the message.
 //
 // Please note that it's not possible to deserialize this Wrapper directly from
@@ -293,13 +300,13 @@ func ErrorWithSentryWrapper() Wrapper {
 //     if err := baseplate.ParseConfigYAML(&cfg); err != nil {
 //       log.Fatal(err)
 //     }
-//     cfg.Config.Tracing.Logger = log.PrometheusCounterWrapper(
+//     cfg.Config.Tracing.Logger = log.CounterWrapper(
 //       cfg.Config.Tracing.Logger, // delegate
 //       tracingFailures,           // counter
 //     }
-func PrometheusCounterWrapper(delegate Wrapper, counter prometheus.Counter) Wrapper {
+func CounterWrapper(delegate Wrapper, counter Counter) Wrapper {
 	return func(ctx context.Context, msg string) {
-		counter.Inc()
+		counter.Add(1)
 		delegate.Log(ctx, msg)
 	}
 }
