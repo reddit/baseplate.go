@@ -36,7 +36,7 @@ func InitFromConfig(ctx context.Context, cfg Config) (*Store, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
-	store, err := NewStore(ctx, cfg.Path, log.PrometheusCounterWrapper(
+	store, err := NewStore(ctx, cfg.Path, log.CounterWrapper(
 		nil, // delegate, let it fallback to DefaultWrapper
 		parserFailures,
 	))

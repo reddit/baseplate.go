@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/reddit/baseplate.go/log"
 )
 
@@ -99,3 +101,8 @@ func TestLogWrapperUnmarshalText(t *testing.T) {
 		})
 	}
 }
+
+var (
+	_ log.Counter = (prometheus.Counter)(nil)
+	_ log.Counter = (metrics.Counter)(nil)
+)
