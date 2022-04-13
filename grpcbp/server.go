@@ -34,60 +34,80 @@ type ServerConfig struct {
 	// pings the client to see if the transport is still alive. If set below 1s,
 	// a minimum value of 1s will be used instead. The current default value is 2
 	// hours.
-	Time time.Duration `yaml:"time"`
+	PingInactiveClientsAfter time.Duration `yaml:"pingInactiveClientsAfter"`
 
 	// After having pinged for keepalive check, the server waits for a duration
-	// of Timeout and if no activity is seen even after that the connection is
+	// of KeepAliveTimeout and if no activity is seen even after that the connection is
 	// closed. The current default value is 20 seconds.
-	Timeout time.Duration `yaml:"timeout"`
+	KeepAliveTimeout time.Duration `yaml:"keepAliveTimeout"`
 
-	// MinTime is the minimum amount of time a client should wait before sending
+	// KeepAliveMinTime is the minimum amount of time a client should wait before sending
 	// a keepalive ping.
-	MinTime time.Duration `yaml:"minTime"`
+	KeepAliveMinTime time.Duration `yaml:"keepAliveMinTime"`
 
 	// If true, server allows keepalive pings even when there are no active
 	// streams(RPCs). If false, and client sends ping when there are no active
 	// streams, server will send GOAWAY and close the connection.
-	PermitWithoutStream bool `yaml:"permitWithoutStream"`
+	KeepAlivePermitWithoutStream bool `yaml:"keepAlivePermitWithoutStream"`
+}
 
-	// RegisterServerFunc is used to pass in a generated gRPC service
-	// implementation and register it on the created gRPC.Server.
-	RegisterServerFunc func(*grpc.Server) `yaml:"-"`
+// Validate ensures all set values are within bound.
+func (s ServerConfig) Validate() error {
+	return nil
+}
+
+// GRPCServer provides passing in the generated gRPC service implementation and
+// reigster it on the created gRPC.Server.
+type GRPCServer interface {
+	RegisterOn(*grpc.Server)
 }
 
 // NewBaseplateServer returns a new gRPC implementation of a Baseplate server
 // with the given config.
-func NewBaseplateServer(bp baseplate.Baseplate, cfg ServerConfig) (baseplate.Server, error) {
+func NewBaseplateServer(bp baseplate.Baseplate, server GRPCServer, cfg ServerConfig) (baseplate.Server, error) {
 	lis, err := net.Listen("tcp", bp.GetConfig().Addr)
 	if err != nil {
 		return nil, err
 	}
+	grpcServer, err := NewServer(bp, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	server.RegisterOn(grpcServer)
+
+	return ApplyBaseplate(bp, grpcServer, lis), nil
+}
+
+// NewServer returns a new instance of grpc.Server with any baseplate-related
+// server options.
+func NewServer(bp baseplate.Baseplate, cfg ServerConfig) (*grpc.Server, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 
 	kaep := keepalive.EnforcementPolicy{
-		MinTime:             cfg.MinTime,
-		PermitWithoutStream: cfg.PermitWithoutStream,
+		MinTime:             cfg.KeepAliveMinTime,
+		PermitWithoutStream: cfg.KeepAlivePermitWithoutStream,
 	}
 
 	kasp := keepalive.ServerParameters{
 		MaxConnectionIdle:     cfg.MaxConnectionIdle,
 		MaxConnectionAge:      cfg.MaxConnectionAge,
 		MaxConnectionAgeGrace: cfg.MaxConnectionAgeGrace,
-		Time:                  cfg.Time,
-		Timeout:               cfg.Timeout,
+		Time:                  cfg.PingInactiveClientsAfter,
+		Timeout:               cfg.KeepAliveTimeout,
 	}
 
 	middlewares := BaseplateDefaultMiddlewares(DefaultMiddlewaresArgs{
 		EdgeContextImpl: bp.EdgeContextImpl(),
 	})
 
-	server := grpc.NewServer(
+	return grpc.NewServer(
 		grpc.KeepaliveEnforcementPolicy(kaep),
 		grpc.KeepaliveParams(kasp),
 		middlewares,
-	)
-	cfg.RegisterServerFunc(server)
-
-	return ApplyBaseplate(bp, server, lis), nil
+	), nil
 }
 
 // ApplyBaseplate returns the given grpc.Server as a baseplate server with the
@@ -96,33 +116,33 @@ func NewBaseplateServer(bp baseplate.Baseplate, cfg ServerConfig) (baseplate.Ser
 // You generally don't need to use this, instead use NewBaseplateServer, which
 // will take care of this for you.
 func ApplyBaseplate(bp baseplate.Baseplate, server *grpc.Server, lis net.Listener) baseplate.Server {
-	return impl{
+	return grpcServer{
 		bp:  bp,
 		lis: lis,
 		srv: server,
 	}
 }
 
-type impl struct {
+type grpcServer struct {
 	bp  baseplate.Baseplate
 	srv *grpc.Server
 	lis net.Listener
 }
 
-func (s impl) Baseplate() baseplate.Baseplate {
+func (s grpcServer) Baseplate() baseplate.Baseplate {
 	return s.bp
 }
 
-func (s impl) Serve() error {
+func (s grpcServer) Serve() error {
 	return s.srv.Serve(s.lis)
 }
 
-func (s impl) Close() error {
+func (s grpcServer) Close() error {
 	s.srv.GracefulStop()
 	return nil
 }
 
 var (
-	_ baseplate.Server = impl{}
-	_ baseplate.Server = (*impl)(nil)
+	_ baseplate.Server = grpcServer{}
+	_ baseplate.Server = (*grpcServer)(nil)
 )
