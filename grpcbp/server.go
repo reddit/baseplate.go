@@ -4,9 +4,10 @@ import (
 	"net"
 	"time"
 
-	"github.com/reddit/baseplate.go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
+
+	"github.com/reddit/baseplate.go"
 )
 
 // ServerConfig is the argument struct for NewBaseplateServer. Please refer to
@@ -51,41 +52,32 @@ type ServerConfig struct {
 	KeepAlivePermitWithoutStream bool `yaml:"keepAlivePermitWithoutStream"`
 }
 
-// Validate ensures all set values are within bound.
-func (s ServerConfig) Validate() error {
-	return nil
-}
-
-// GRPCServer provides passing in the generated gRPC service implementation and
+// Server provides passing in the generated gRPC service implementation and
 // reigster it on the created gRPC.Server.
-type GRPCServer interface {
+type Server interface {
 	RegisterOn(*grpc.Server)
 }
 
 // NewBaseplateServer returns a new gRPC implementation of a Baseplate server
 // with the given config.
-func NewBaseplateServer(bp baseplate.Baseplate, server GRPCServer, cfg ServerConfig) (baseplate.Server, error) {
+func NewBaseplateServer(bp baseplate.Baseplate, server Server, cfg ServerConfig) (baseplate.Server, error) {
 	lis, err := net.Listen("tcp", bp.GetConfig().Addr)
 	if err != nil {
 		return nil, err
 	}
-	grpcServer, err := NewServer(bp, cfg)
+	srv, err := NewServer(bp, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	server.RegisterOn(grpcServer)
+	server.RegisterOn(srv)
 
-	return ApplyBaseplate(bp, grpcServer, lis), nil
+	return ApplyBaseplate(bp, srv, lis), nil
 }
 
 // NewServer returns a new instance of grpc.Server with any baseplate-related
 // server options.
 func NewServer(bp baseplate.Baseplate, cfg ServerConfig) (*grpc.Server, error) {
-	if err := cfg.Validate(); err != nil {
-		return nil, err
-	}
-
 	kaep := keepalive.EnforcementPolicy{
 		MinTime:             cfg.KeepAliveMinTime,
 		PermitWithoutStream: cfg.KeepAlivePermitWithoutStream,
@@ -115,34 +107,34 @@ func NewServer(bp baseplate.Baseplate, cfg ServerConfig) (*grpc.Server, error) {
 //
 // You generally don't need to use this, instead use NewBaseplateServer, which
 // will take care of this for you.
-func ApplyBaseplate(bp baseplate.Baseplate, server *grpc.Server, lis net.Listener) baseplate.Server {
-	return grpcServer{
+func ApplyBaseplate(bp baseplate.Baseplate, srv *grpc.Server, lis net.Listener) baseplate.Server {
+	return server{
 		bp:  bp,
 		lis: lis,
-		srv: server,
+		srv: srv,
 	}
 }
 
-type grpcServer struct {
+type server struct {
 	bp  baseplate.Baseplate
 	srv *grpc.Server
 	lis net.Listener
 }
 
-func (s grpcServer) Baseplate() baseplate.Baseplate {
+func (s server) Baseplate() baseplate.Baseplate {
 	return s.bp
 }
 
-func (s grpcServer) Serve() error {
+func (s server) Serve() error {
 	return s.srv.Serve(s.lis)
 }
 
-func (s grpcServer) Close() error {
+func (s server) Close() error {
 	s.srv.GracefulStop()
 	return nil
 }
 
 var (
-	_ baseplate.Server = grpcServer{}
-	_ baseplate.Server = (*grpcServer)(nil)
+	_ baseplate.Server = server{}
+	_ baseplate.Server = (*server)(nil)
 )
