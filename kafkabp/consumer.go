@@ -35,6 +35,13 @@ var (
 	}, rebalanceLabels)
 )
 
+func init() {
+	// Register the error counter so that it can be monitored.
+	rebalanceCounter.With(prometheus.Labels{
+		successLabel: prometheusbp.BoolString(false),
+	})
+}
+
 // ConsumeMessageFunc is a function type for consuming consumer messages.
 //
 // The implementation is expected to handle all consuming errors.
@@ -179,8 +186,7 @@ func (kc *consumer) reset() error {
 		return nil
 	}
 
-	err := rebalance()
-	if err != nil {
+	if err := rebalance(); err != nil {
 		metricsbp.M.Counter("kafka.consumer.rebalance.failure").Add(1)
 		rebalanceCounter.With(prometheus.Labels{
 			successLabel: prometheusbp.BoolString(false),

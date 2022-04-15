@@ -287,6 +287,9 @@ func SupportedMethods(method string, additional ...string) Middleware {
 // bubble up into other middlewares. Since it is always added to the middleware
 // chain is a specific position, it is not exported.
 func recoverPanic(name string, next HandlerFunc) HandlerFunc {
+	counter := panicRecoverCounter.With(prometheus.Labels{
+		methodLabel: name,
+	})
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -304,9 +307,7 @@ func recoverPanic(name string, next HandlerFunc) HandlerFunc {
 				metricsbp.M.Counter("panic.recover").With(
 					"name", name,
 				).Add(1)
-				panicRecoverCounter.With(prometheus.Labels{
-					methodLabel: name,
-				}).Inc()
+				counter.Inc()
 
 				// change named return value to a generic 500 error
 				err = RawError(InternalServerError(), rErr, PlainTextContentType)
