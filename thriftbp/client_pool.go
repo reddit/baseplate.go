@@ -486,6 +486,15 @@ func newClientPool(
 	//
 	// pooledClient is now ready for use.
 	pooledClient.wrapCalls(middlewares...)
+
+	// Register the error prometheus counters so they can be monitored
+	labels := prometheus.Labels{
+		serverSlugLabel: cfg.ServiceSlug,
+	}
+	clientPoolExhaustedCounter.With(labels)
+	clientPoolClosedConnectionsCounter.With(labels)
+	clientPoolReleaseErrorCounter.With(labels)
+
 	return pooledClient, nil
 }
 

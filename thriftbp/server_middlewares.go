@@ -365,6 +365,9 @@ func tHeaderProtocol2String(proto thrift.THeaderProtocolID) string {
 // logs them, and records a metric indicating that the endpoint recovered from a
 // panic.
 func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+	counter := panicRecoverCounter.With(prometheus.Labels{
+		methodLabel: name,
+	})
 	return thrift.WrappedTProcessorFunction{
 		Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (ok bool, err thrift.TException) {
 			defer func() {
@@ -383,9 +386,7 @@ func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessor
 					metricsbp.M.Counter("panic.recover").With(
 						"name", name,
 					).Add(1)
-					panicRecoverCounter.With(prometheus.Labels{
-						methodLabel: name,
-					}).Inc()
+					counter.Inc()
 
 					// changed named return values to show that the request failed and
 					// return the panic value error.

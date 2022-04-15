@@ -165,5 +165,12 @@ func newTTLClient(generator ttlClientGenerator, ttl time.Duration, jitter float6
 	}
 	state.renew(time.Now(), c)
 	c.state <- state
+
+	// Register the error counter so it can be monitored
+	ttlClientReplaceCounter.With(prometheus.Labels{
+		serverSlugLabel: c.slug,
+		successLabel:    prometheusbp.BoolString(false),
+	})
+
 	return c, nil
 }
