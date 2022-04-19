@@ -89,5 +89,7 @@ func NewBaseplateRedisCluster(ctx context.Context, addrs []string, opts redisclu
 	if err != nil {
 		return nil, err
 	}
+	// TODO: Make ReplicaPolicy a separate config object when we make the next API breaking changes
+	// see: https://github.com/reddit/baseplate.go/pull/508
 	return wrapSender(sender.WithPolicy(args.ReplicaPolicy), args)
 }
