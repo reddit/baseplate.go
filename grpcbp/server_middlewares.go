@@ -3,6 +3,7 @@ package grpcbp
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"google.golang.org/grpc"
@@ -12,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
 )
@@ -179,7 +179,7 @@ func InjectPrometheusUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 		serverActiveRequests.With(activeRequestLabels).Inc()
 
 		defer func() {
-			success := prometheusbp.BoolString(err == nil)
+			success := strconv.FormatBool(err == nil)
 			status, _ := status.FromError(err)
 
 			latencyLabels := prometheus.Labels{

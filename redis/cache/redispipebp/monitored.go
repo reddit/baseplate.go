@@ -3,6 +3,7 @@ package redispipebp
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -62,7 +63,7 @@ func (s MonitoredSync) Do(ctx context.Context, cmd string, args ...interface{}) 
 		err := redis.AsError(result)
 		promHistogram.With(prometheus.Labels{
 			labelCommand: extractCommand(cmd),
-			labelSuccess: prometheusbp.BoolString(err == nil),
+			labelSuccess: strconv.FormatBool(err == nil),
 		}).Observe(time.Since(start).Seconds())
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
@@ -88,7 +89,7 @@ func (s MonitoredSync) Send(ctx context.Context, r redis.Request) (result interf
 		}
 		promHistogram.With(prometheus.Labels{
 			labelCommand: cmd,
-			labelSuccess: prometheusbp.BoolString(err == nil),
+			labelSuccess: strconv.FormatBool(err == nil),
 		}).Observe(time.Since(start).Seconds())
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
@@ -130,7 +131,7 @@ func (s MonitoredSync) SendMany(ctx context.Context, reqs []redis.Request) (resu
 		}
 		promHistogram.With(prometheus.Labels{
 			labelCommand: cmd,
-			labelSuccess: prometheusbp.BoolString(err == nil),
+			labelSuccess: strconv.FormatBool(err == nil),
 		}).Observe(time.Since(start).Seconds())
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
@@ -152,7 +153,7 @@ func (s MonitoredSync) SendTransaction(ctx context.Context, reqs []redis.Request
 	defer func(start time.Time) {
 		promHistogram.With(prometheus.Labels{
 			labelCommand: cmd,
-			labelSuccess: prometheusbp.BoolString(err == nil),
+			labelSuccess: strconv.FormatBool(err == nil),
 		}).Observe(time.Since(start).Seconds())
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
@@ -191,7 +192,7 @@ func (s MonitoredScanIterator) Next() (results []string, err error) {
 		const cmd = "scanner-next"
 		promHistogram.With(prometheus.Labels{
 			labelCommand: cmd,
-			labelSuccess: prometheusbp.BoolString(err == nil),
+			labelSuccess: strconv.FormatBool(err == nil),
 		}).Observe(time.Since(start).Seconds())
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,

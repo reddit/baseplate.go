@@ -3,6 +3,7 @@ package grpcbp
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/opentracing/opentracing-go"
@@ -11,7 +12,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/reddit/baseplate.go/ecinterface"
-	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -147,7 +147,7 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 		clientActiveRequests.With(activeRequestLabels).Inc()
 
 		defer func() {
-			success := prometheusbp.BoolString(err == nil)
+			success := strconv.FormatBool(err == nil)
 			status, _ := status.FromError(err)
 
 			latencyLabels := prometheus.Labels{

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -14,7 +15,6 @@ import (
 	"github.com/reddit/baseplate.go/clientpool"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
-	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 )
 
@@ -65,7 +65,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 				exceptionType = strings.TrimPrefix(fmt.Sprintf("%T", tt.wantErr), "*")
 			}
 
-			success := prometheusbp.BoolString(tt.wantErr == nil)
+			success := strconv.FormatBool(tt.wantErr == nil)
 
 			activeRequestLabels := prometheus.Labels{
 				methodLabel: method,

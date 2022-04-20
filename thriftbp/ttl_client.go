@@ -2,6 +2,7 @@ package thriftbp
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -9,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/metricsbp"
-	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/randbp"
 )
 
@@ -109,7 +109,7 @@ func (c *ttlClient) refresh() {
 		c.replaceCounter.With("success", metricsbp.BoolString(false)).Add(1)
 		ttlClientReplaceCounter.With(prometheus.Labels{
 			serverSlugLabel: c.slug,
-			successLabel:    prometheusbp.BoolString(false),
+			successLabel:    strconv.FormatBool(false),
 		}).Inc()
 		return
 	}
@@ -135,7 +135,7 @@ func (c *ttlClient) refresh() {
 	c.replaceCounter.With("success", metricsbp.BoolString(true)).Add(1)
 	ttlClientReplaceCounter.With(prometheus.Labels{
 		serverSlugLabel: c.slug,
-		successLabel:    prometheusbp.BoolString(true),
+		successLabel:    strconv.FormatBool(true),
 	}).Inc()
 }
 
@@ -169,7 +169,7 @@ func newTTLClient(generator ttlClientGenerator, ttl time.Duration, jitter float6
 	// Register the error counter so it can be monitored
 	ttlClientReplaceCounter.With(prometheus.Labels{
 		serverSlugLabel: c.slug,
-		successLabel:    prometheusbp.BoolString(false),
+		successLabel:    strconv.FormatBool(false),
 	})
 
 	return c, nil

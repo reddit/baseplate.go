@@ -3,6 +3,7 @@ package kafkabp
 import (
 	"context"
 	"io"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/reddit/baseplate.go/metricsbp"
-	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -38,7 +38,7 @@ var (
 func init() {
 	// Register the error counter so that it can be monitored.
 	rebalanceCounter.With(prometheus.Labels{
-		successLabel: prometheusbp.BoolString(false),
+		successLabel: strconv.FormatBool(false),
 	})
 }
 
@@ -189,14 +189,14 @@ func (kc *consumer) reset() error {
 	if err := rebalance(); err != nil {
 		metricsbp.M.Counter("kafka.consumer.rebalance.failure").Add(1)
 		rebalanceCounter.With(prometheus.Labels{
-			successLabel: prometheusbp.BoolString(false),
+			successLabel: strconv.FormatBool(false),
 		}).Inc()
 		return err
 	}
 
 	metricsbp.M.Counter("kafka.consumer.rebalance.success").Add(1)
 	rebalanceCounter.With(prometheus.Labels{
-		successLabel: prometheusbp.BoolString(true),
+		successLabel: strconv.FormatBool(true),
 	}).Inc()
 	return nil
 }

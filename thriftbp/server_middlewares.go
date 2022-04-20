@@ -16,7 +16,6 @@ import (
 	"github.com/reddit/baseplate.go/iobp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
-	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/randbp"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
@@ -432,7 +431,7 @@ func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) t
 		defer func() {
 			var baseplateStatusCode, baseplateStatus string
 			exceptionTypeLabel := stringifyErrorType(err)
-			success := prometheusbp.BoolString(err == nil)
+			success := strconv.FormatBool(err == nil)
 			if err != nil {
 				var bpErr baseplateErrorCoder
 				if errors.As(err, &bpErr) {

@@ -17,7 +17,6 @@ import (
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
-	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -487,7 +486,7 @@ func PrometheusServerMetrics(_ string) Middleware {
 //   1) no error is returned from the request and
 //   2) the HTTP status code is in the range [100, 400).
 func isRequestSuccessful(httpStatusCode int, requestErr error) string {
-	return prometheusbp.BoolString(requestErr == nil && isSuccessStatusCode(httpStatusCode))
+	return strconv.FormatBool(requestErr == nil && isSuccessStatusCode(httpStatusCode))
 }
 
 // responeRecorder records the following:
