@@ -20,12 +20,14 @@ import (
 const (
 	promNamespace = "redispipebp"
 
+	labelSlug    = "redis_slug"
 	labelCommand = "redis_command"
 	labelSuccess = "redis_success"
 )
 
 var (
 	labels = []string{
+		labelSlug,
 		labelCommand,
 		labelSuccess,
 	}
@@ -61,6 +63,7 @@ func (s MonitoredSync) Do(ctx context.Context, cmd string, args ...interface{}) 
 	defer func(start time.Time) {
 		err := redis.AsError(result)
 		promHistogram.With(prometheus.Labels{
+			labelSlug:    s.Name,
 			labelCommand: extractCommand(cmd),
 			labelSuccess: prometheusbp.BoolString(err == nil),
 		}).Observe(time.Since(start).Seconds())
@@ -87,6 +90,7 @@ func (s MonitoredSync) Send(ctx context.Context, r redis.Request) (result interf
 			cmd = "send"
 		}
 		promHistogram.With(prometheus.Labels{
+			labelSlug:    s.Name,
 			labelCommand: cmd,
 			labelSuccess: prometheusbp.BoolString(err == nil),
 		}).Observe(time.Since(start).Seconds())
@@ -129,6 +133,7 @@ func (s MonitoredSync) SendMany(ctx context.Context, reqs []redis.Request) (resu
 			}
 		}
 		promHistogram.With(prometheus.Labels{
+			labelSlug:    s.Name,
 			labelCommand: cmd,
 			labelSuccess: prometheusbp.BoolString(err == nil),
 		}).Observe(time.Since(start).Seconds())
@@ -151,6 +156,7 @@ func (s MonitoredSync) SendTransaction(ctx context.Context, reqs []redis.Request
 	)
 	defer func(start time.Time) {
 		promHistogram.With(prometheus.Labels{
+			labelSlug:    s.Name,
 			labelCommand: cmd,
 			labelSuccess: prometheusbp.BoolString(err == nil),
 		}).Observe(time.Since(start).Seconds())
@@ -167,7 +173,7 @@ func (s MonitoredSync) SendTransaction(ctx context.Context, reqs []redis.Request
 func (s MonitoredSync) Scanner(ctx context.Context, opts redis.ScanOpts) redisx.ScanIterator {
 	return MonitoredScanIterator{
 		ScanIterator: s.Sync.Scanner(ctx, opts),
-		name:         s.Name + ".scanner",
+		name:         s.Name,
 		ctx:          ctx,
 	}
 }
@@ -184,12 +190,13 @@ type MonitoredScanIterator struct {
 func (s MonitoredScanIterator) Next() (results []string, err error) {
 	span, ctx := opentracing.StartSpanFromContext(
 		s.ctx,
-		s.name+".next",
+		s.name+".scanner.next",
 		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 	)
 	defer func(start time.Time) {
 		const cmd = "scanner-next"
 		promHistogram.With(prometheus.Labels{
+			labelSlug:    s.name,
 			labelCommand: cmd,
 			labelSuccess: prometheusbp.BoolString(err == nil),
 		}).Observe(time.Since(start).Seconds())
