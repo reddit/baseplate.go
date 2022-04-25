@@ -24,40 +24,6 @@ var globalLogger = zap.New(
 	zap.AddCallerSkip(1), // will always be called via a top-level function from this package
 ).Sugar()
 
-// Version is the version tag value to be added to the global logger.
-//
-// If it's changed to non-empty value before the calling of Init* functions
-// (InitFromConfig/InitLogger/InitLoggerJSON/InitLoggerWithConfig/InitSentry),
-// the global logger initialized will come with a tag of VersionKey("v"),
-// added to every line of logs.
-// For InitSentry the global sentry will also be initialized with a tag of
-// "version".
-//
-// In order to use it, either set it in your main function early,
-// before calling InitLogger* functions,
-// with the value coming from flag/config file/etc..
-// For example:
-//
-//     func main() {
-//       log.Version = *flagVersion
-//       log.InitLoggerJSON(log.Level(*logLevel))
-//       // ...
-//     }
-//
-// Or just "stamp" it during build time,
-// by passing additional ldflags to go build command.
-// For example:
-//
-//     go build -ldflags "-X github.com/reddit/baseplate.go/log.Version=$(git rev-parse HEAD)"
-//
-// Change its value after calling Init* functions will have no effects,
-// unless you call Init* functions again.
-var (
-	VersionLogKey = "v"
-
-	Version string
-)
-
 // Level is the verbose representation of log level
 type Level string
 
