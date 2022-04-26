@@ -124,6 +124,13 @@ func StartSpanFromThriftContext(ctx context.Context, name string) (context.Conte
 	return tracing.StartSpanFromHeaders(ctx, name, headers)
 }
 
+func wrapErrorForServerSpan(err error, suppressor errorsbp.Suppressor) error {
+	if suppressor == nil {
+		suppressor = IDLExceptionSuppressor
+	}
+	return WrapBaseplateError(suppressor.Wrap(err))
+}
+
 // InjectServerSpan implements thrift.ProcessorMiddleware and injects a server
 // span into the `next` context.
 //
@@ -144,9 +151,6 @@ func StartSpanFromThriftContext(ctx context.Context, name string) (context.Conte
 // being set on the context object.
 // These should be automatically injected by your thrift.TSimpleServer.
 func InjectServerSpan(suppressor errorsbp.Suppressor) thrift.ProcessorMiddleware {
-	if suppressor == nil {
-		suppressor = IDLExceptionSuppressor
-	}
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
 			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
@@ -157,7 +161,7 @@ func InjectServerSpan(suppressor errorsbp.Suppressor) thrift.ProcessorMiddleware
 				defer func() {
 					span.FinishWithOptions(tracing.FinishOptions{
 						Ctx: ctx,
-						Err: suppressor.Wrap(err),
+						Err: wrapErrorForServerSpan(err, suppressor),
 					}.Convert())
 				}()
 
