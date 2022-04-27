@@ -16,6 +16,7 @@ import (
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/metadatabp"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
@@ -76,11 +77,20 @@ func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	if args.TrustHandler == nil {
 		args.TrustHandler = NeverTrustHeaders{}
 	}
+
+	// create metadata config to pass to InjectDebugHeaders middleware func
+	// since this isnt part of critical functionality, log error and move on.
+	config, err := metadatabp.New()
+	if err != nil {
+		log.Warn("could not set up func InjectDebugHeaders()", err)
+	}
+
 	return []Middleware{
 		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
 		RecordStatusCode(),
 		PrometheusServerMetrics(""),
+		InjectDebugHeaders(config),
 	}
 }
 
@@ -509,4 +519,32 @@ func (rr *responseRecorder) Write(b []byte) (n int, err error) {
 func (rr *responseRecorder) WriteHeader(code int) {
 	rr.ResponseWriter.WriteHeader(code)
 	rr.responseCode = code
+}
+
+const (
+	RedditDebug        = "X-Reddit-Debug"
+	RedditDebugEnabled = "enabled"
+	RedditK8sMeta      = "X-Reddit-K8S-Meta"
+	redditK8sMetaFmt   = "%s-%s-%s"
+)
+
+// InjectDebugHeaders injects debug headers into the http response.
+// headers are only injected if X-Reddit-Debug is set in the corresponding request.
+func InjectDebugHeaders(metadata *metadatabp.Config) Middleware {
+	return func(name string, next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+			wrapped := &statusCodeRecorder{ResponseWriter: w}
+			if value := r.Header.Get(RedditDebug); value == RedditDebugEnabled && metadata != nil {
+				nodeName, namespace, podName := metadata.GetBaseMetadata(metadatabp.BaseplateK8sNodeName),
+					metadata.GetBaseMetadata(metadatabp.BaseplateK8sNamespace),
+					metadata.GetBaseMetadata(metadatabp.BaseplateK8sPodName)
+				if nodeName != "" && namespace != "" && podName != "" {
+					wrapped.Header().Add(RedditK8sMeta, fmt.Sprintf(redditK8sMetaFmt, nodeName, namespace, podName))
+				}
+
+				return next(ctx, wrapped, r)
+			}
+			return next(ctx, wrapped, r)
+		}
+	}
 }
