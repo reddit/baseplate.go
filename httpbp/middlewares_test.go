@@ -13,6 +13,7 @@ import (
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/metadatabp"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -318,6 +319,97 @@ func TestSupportedMethods(t *testing.T) {
 					}
 				} else {
 					t.Fatalf("unexpected error type %v", err)
+				}
+			},
+		)
+	}
+}
+
+func TestInjectDebugHeaders(t *testing.T) {
+	cases := []struct {
+		name           string
+		debugHeader    string
+		expectedHeader string
+		config         metadatabp.Config
+	}{
+		{
+			name:           "debug header enabled",
+			debugHeader:    "enabled",
+			expectedHeader: "test_node-test_namespace-test_pod",
+			config: metadatabp.Config{
+				BaseK8sMetadata: map[metadatabp.BaseMetadata]string{
+					metadatabp.BaseplateK8sNodeName:  "test_node",
+					metadatabp.BaseplateK8sNodeIP:    "1.1.1.1",
+					metadatabp.BaseplateK8sPodName:   "test_pod",
+					metadatabp.BaseplateK8sPodIP:     "2.2.2.2",
+					metadatabp.BaseplateK8sNamespace: "test_namespace",
+				},
+			},
+		},
+		{
+			name:           "wrong value in debug header",
+			debugHeader:    "wrong_value",
+			expectedHeader: "",
+			config: metadatabp.Config{
+				BaseK8sMetadata: map[metadatabp.BaseMetadata]string{
+					metadatabp.BaseplateK8sNodeName:  "test_node",
+					metadatabp.BaseplateK8sNodeIP:    "1.1.1.1",
+					metadatabp.BaseplateK8sPodName:   "test_pod",
+					metadatabp.BaseplateK8sPodIP:     "2.2.2.2",
+					metadatabp.BaseplateK8sNamespace: "test_namespace",
+				},
+			},
+		},
+		{
+			name:           "no debug header",
+			expectedHeader: "",
+			config: metadatabp.Config{
+				BaseK8sMetadata: map[metadatabp.BaseMetadata]string{
+					metadatabp.BaseplateK8sNodeName:  "test_node",
+					metadatabp.BaseplateK8sNodeIP:    "1.1.1.1",
+					metadatabp.BaseplateK8sPodName:   "test_pod",
+					metadatabp.BaseplateK8sPodIP:     "2.2.2.2",
+					metadatabp.BaseplateK8sNamespace: "test_namespace",
+				},
+			},
+		},
+		{
+			name:           "base value missing",
+			expectedHeader: "",
+			config: metadatabp.Config{
+				BaseK8sMetadata: map[metadatabp.BaseMetadata]string{
+					metadatabp.BaseplateK8sNodeIP:    "1.1.1.1",
+					metadatabp.BaseplateK8sPodName:   "test_pod",
+					metadatabp.BaseplateK8sPodIP:     "2.2.2.2",
+					metadatabp.BaseplateK8sNamespace: "test_namespace",
+				},
+			},
+		},
+	}
+	for _, _c := range cases {
+		c := _c
+		t.Run(
+			c.name,
+			func(t *testing.T) {
+				handle := httpbp.Wrap(
+					"test",
+					newTestHandler(testHandlerPlan{}),
+					httpbp.InjectDebugHeaders(&c.config),
+				)
+
+				w := httptest.NewRecorder()
+				req, err := http.NewRequest("get", "localhost:9090", strings.NewReader("test"))
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				if c.debugHeader != "" {
+					req.Header.Set(httpbp.RedditDebug, c.debugHeader)
+				}
+				handle(req.Context(), w, req)
+
+				if c.expectedHeader != w.Header().Get(httpbp.RedditK8sMeta) {
+					t.Errorf("Expected header to be %q, got %q", c.expectedHeader, w.Header().Get(httpbp.RedditK8sMeta))
 				}
 			},
 		)
