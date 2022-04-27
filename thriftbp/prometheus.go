@@ -215,6 +215,25 @@ var (
 	)
 )
 
+const (
+	clientLabel = "thrift_client"
+)
+
+var (
+	deadlineBudgetLabels = []string{
+		methodLabel,
+		clientLabel,
+	}
+
+	deadlineBudgetHisto = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: promNamespace,
+		Subsystem: subsystemServer,
+		Name:      "extracted_deadline_budget_seconds",
+		Help:      "Baseplate deadline budget extracted from client set header",
+		Buckets:   prometheusbp.DefaultBuckets,
+	}, deadlineBudgetLabels)
+)
+
 type clientPoolGaugeExporter struct {
 	slug string
 	pool clientpool.Pool
