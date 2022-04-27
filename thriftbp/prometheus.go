@@ -123,8 +123,8 @@ var (
 	ttlClientReplaceCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: promNamespace,
 		Subsystem: subsystemTTLClient,
-		Name:      "connection_houskeeping_total",
-		Help:      "Total connection housekeeping (replace the connection in the background) done in thrift ttlClient",
+		Name:      "connection_housekeeping_total",
+		Help:      "Total connection housekeeping (replacing the connection in the background) done in thrift ttlClient",
 	}, ttlClientReplaceLabels)
 )
 
