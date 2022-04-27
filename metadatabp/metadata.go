@@ -1,10 +1,10 @@
 package metadatabp
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"strings"
-
-	"github.com/reddit/baseplate.go/log"
 )
 
 type BaseMetadata string
@@ -27,14 +27,42 @@ var baseMetadataVariables = map[BaseMetadata]string{
 
 type Config struct {
 	BaseK8sMetadata map[BaseMetadata]string
+	k8sClient       K8SFetcher
+}
+
+// K8SFetcher is an interface for fetching data from the k8s api.
+// The interface is solely here to make unit testing with the k8s client easier.
+type K8SFetcher interface {
+	GetPodStatus(ctx context.Context, namespace, podName string) (string, error)
 }
 
 // New returns a new instance of metadata.
-func New() *Config {
-	baseK8sMetadata := fetchBaseMetadata()
+func New(options ...func(*Config) error) (*Config, error) {
+	config := &Config{}
 
-	return &Config{
-		BaseK8sMetadata: baseK8sMetadata,
+	baseK8sMetadata, err := fetchBaseMetadata()
+	if err != nil {
+		return nil, err
+	}
+
+	config.BaseK8sMetadata = baseK8sMetadata
+
+	for _, option := range options {
+		err := option(config)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return config, nil
+}
+
+// WithK8SClient adds the k8s client to config.
+func WithK8SClient() func(*Config) error {
+	return func(c *Config) error {
+		client, err := NewK8SClient()
+		c.k8sClient = client
+		return err
 	}
 }
 
@@ -45,14 +73,14 @@ func (c *Config) GetBaseMetadata(key BaseMetadata) string {
 
 // fetchBaseMetadata fetches the base k8s metadata from the environment
 // this base metadata is needed for fetching further metadata via the k8s api.
-func fetchBaseMetadata() map[BaseMetadata]string {
+func fetchBaseMetadata() (map[BaseMetadata]string, error) {
 	baseK8sMetadata := make(map[BaseMetadata]string)
 	for k, v := range baseMetadataVariables {
 		value, exists := os.LookupEnv(v)
 		if !exists || strings.TrimSpace(value) == "" {
-			log.Warnf("metadatapb:%s base k8s metadata value not present", v)
+			return nil, fmt.Errorf("metadatapb:%s base k8s metadata value not present", v)
 		}
 		baseK8sMetadata[k] = value
 	}
-	return baseK8sMetadata
+	return baseK8sMetadata, nil
 }

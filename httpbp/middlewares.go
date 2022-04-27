@@ -77,12 +77,20 @@ func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	if args.TrustHandler == nil {
 		args.TrustHandler = NeverTrustHeaders{}
 	}
+
+	// create metadata config to pass to InjectDebugHeaders middleware func
+	// since this isnt part of critical functionality, log error and move on.
+	config, err := metadatabp.New()
+	if err != nil {
+		log.Warn("could not set up func InjectDebugHeaders()", err)
+	}
+
 	return []Middleware{
 		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
 		RecordStatusCode(),
 		PrometheusServerMetrics(""),
-		InjectDebugHeaders(metadatabp.New()),
+		InjectDebugHeaders(config),
 	}
 }
 
@@ -526,7 +534,7 @@ func InjectDebugHeaders(metadata *metadatabp.Config) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			wrapped := &statusCodeRecorder{ResponseWriter: w}
-			if value := r.Header.Get(RedditDebug); value == RedditDebugEnabled {
+			if value := r.Header.Get(RedditDebug); value == RedditDebugEnabled && metadata != nil {
 				nodeName, namespace, podName := metadata.GetBaseMetadata(metadatabp.BaseplateK8sNodeName),
 					metadata.GetBaseMetadata(metadatabp.BaseplateK8sNamespace),
 					metadata.GetBaseMetadata(metadatabp.BaseplateK8sPodName)
