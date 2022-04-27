@@ -216,11 +216,19 @@ func ExtractDeadlineBudget(name string, next thrift.TProcessorFunction) thrift.T
 	return thrift.WrappedTProcessorFunction{
 		Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
 			if s, ok := header(ctx, transport.HeaderDeadlineBudget); ok {
-				v, err := strconv.ParseInt(s, 10, 64)
-				if err == nil && v >= 1 {
+				if v, err := strconv.ParseInt(s, 10, 64); err == nil && v >= 1 {
+					timeout := time.Duration(v) * time.Millisecond
+
 					var cancel context.CancelFunc
-					ctx, cancel = context.WithTimeout(ctx, time.Millisecond*time.Duration(v))
+					ctx, cancel = context.WithTimeout(ctx, timeout)
 					defer cancel()
+
+					// The dropped return here is `ok bool`, not an error.
+					client, _ := header(ctx, transport.HeaderUserAgent)
+					deadlineBudgetHisto.With(prometheus.Labels{
+						methodLabel: name,
+						clientLabel: client,
+					}).Observe(timeout.Seconds())
 				}
 			}
 			return next.Process(ctx, seqID, in, out)
@@ -231,7 +239,7 @@ func ExtractDeadlineBudget(name string, next thrift.TProcessorFunction) thrift.T
 // AbandonCanceledRequests transforms context.Canceled errors into
 // thrift.ErrAbandonRequest errors.
 //
-// When using thrift compiler version >4db7a0a, the context object will be
+// When using thrift compiler version >=v0.14.0, the context object will be
 // canceled after the client closes the connection, and returning
 // thrift.ErrAbandonRequest as the error helps the server to not try to write
 // the error back to the client, but close the connection directly.
