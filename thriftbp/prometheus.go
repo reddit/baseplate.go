@@ -129,7 +129,7 @@ var (
 )
 
 const (
-	protoLabel = "proto"
+	protoLabel = "thrift_proto"
 )
 
 var (
