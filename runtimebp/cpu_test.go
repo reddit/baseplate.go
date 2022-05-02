@@ -59,6 +59,10 @@ func TestReadNumberFromFile(t *testing.T) {
 			Content: "123.456",
 			Error:   true,
 		},
+		"negative": {
+			Content:  "-1",
+			Expected: -1,
+		},
 	}
 
 	for label, data := range cases {

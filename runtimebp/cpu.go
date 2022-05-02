@@ -12,46 +12,53 @@ import (
 // NumCPU returns the number of CPUs assigned to this running container.
 //
 // This is the container aware version of runtime.NumCPU.
-// It reads from the cgroup sysfs values.
+// It reads from the cgroup cpu.cfs_quota_us and cpu.cfs_period_us values
+// to determine the hard CPU limit of the container.
 //
 // If the current process is not running inside a container,
 // or if there's no limit set in cgroup,
 // it will fallback to runtime.NumCPU() instead.
-//
-// When fallback happens, it also prints the reason to stderr.
-func NumCPU() (n float64) {
+func NumCPU() float64 {
 	const (
 		quotaPath  = "/sys/fs/cgroup/cpu/cpu.cfs_quota_us"
 		periodPath = "/sys/fs/cgroup/cpu/cpu.cfs_period_us"
 	)
 
-	var err error
-	defer func() {
-		if err != nil || n <= 0 {
-			// Fallback and log to stderr.
-			fmt.Fprintf(
-				os.Stderr,
-				"NumCPU: falling back to use runtime.NumCPU(): %v, %v\n",
-				n,
-				err,
-			)
-			// fallback to physical cpus
-			n = float64(runtime.NumCPU())
-		}
-	}()
+	// Default to the standard runtime package value.
+	defaultCPUs := float64(runtime.NumCPU())
 
 	// Big enough buffer to read the number in the file wholly into memory.
 	buf := make([]byte, 1024)
-	var quota, period float64
 
-	quota, err = readNumberFromFile(quotaPath, buf)
+	quota, err := readNumberFromFile(quotaPath, buf)
 	if err != nil {
-		return
+		fmt.Fprintf(
+			os.Stderr,
+			"NumCPU: Failed to read quota file, falling back to use runtime.NumCPU(): %v\n",
+			err,
+		)
+		return defaultCPUs
 	}
 
-	period, err = readNumberFromFile(periodPath, buf)
+	// CFS quota returns -1 if there is no limit, return the default.
+	if quota < 0 {
+		fmt.Fprintf(
+			os.Stderr,
+			"NumCPU: Quota file returned %f, falling back to use runtime.NumCPU(): %v\n",
+			quota,
+			err,
+		)
+		return defaultCPUs
+	}
+
+	period, err := readNumberFromFile(periodPath, buf)
 	if err != nil {
-		return
+		fmt.Fprintf(
+			os.Stderr,
+			"NumCPU: Failed to read period file, falling back to use runtime.NumCPU(): %v\n",
+			err,
+		)
+		return defaultCPUs
 	}
 
 	return quota / period
