@@ -138,10 +138,10 @@ var (
 		protoLabel,
 	}
 
-	// 8 bytes to 8 megabytes
+	// 8 bytes to 4 mebibytes
 	// some endpoints can have very small, almost zero payloads (for example,
 	// is_healthy), but we do have some endpoints with very large payloads
-	// (up to ~400KB).
+	// (up to ~500 KiB).
 	payloadSizeBuckets = prometheus.ExponentialBuckets(8, 2, 20)
 
 	payloadSizeRequestBytes = promauto.NewHistogramVec(prometheus.HistogramOpts{
