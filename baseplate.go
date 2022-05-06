@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/reddit/baseplate.go/batchcloser"
@@ -67,6 +68,8 @@ type Baseplate interface {
 
 	EdgeContextImpl() ecinterface.Interface
 	Secrets() *secrets.Store
+
+	State() runtimebp.State
 }
 
 // Server is the primary interface for baseplate servers.
@@ -128,6 +131,11 @@ type ServeArgs struct {
 func Serve(ctx context.Context, args ServeArgs) error {
 	server := args.Server
 
+	setRuntimeState := func(runtimebp.State) { /*noop*/ }
+	if v, ok := server.Baseplate().(interface{ setState(runtimebp.State) }); ok {
+		setRuntimeState = v.setState
+	}
+
 	// Initialize a channel to return the response from server.Close() as our
 	// return value.
 	shutdownChannel := make(chan error)
@@ -140,6 +148,8 @@ func Serve(ctx context.Context, args ServeArgs) error {
 	go runtimebp.HandleShutdown(
 		ctx,
 		func(signal os.Signal) {
+			setRuntimeState(runtimebp.StateDraining)
+
 			// Check if the server has a StopTimeout configured.
 			//
 			// If one is set, we will only wait for that duration for the server to
@@ -202,6 +212,8 @@ func Serve(ctx context.Context, args ServeArgs) error {
 			shutdownChannel <- err
 		},
 	)
+
+	setRuntimeState(runtimebp.StateServing)
 
 	// Start the server.
 	//
@@ -281,7 +293,8 @@ type NewArgs struct {
 // The returned context will be cancelled when the Baseplate is closed.
 func New(ctx context.Context, args NewArgs) (context.Context, Baseplate, error) {
 	cfg := args.Config.GetConfig()
-	bp := impl{cfg: cfg, closers: batchcloser.New()}
+	state := int64(runtimebp.StateStarting)
+	bp := impl{cfg: cfg, closers: batchcloser.New(), state: &state}
 
 	runtimebp.InitFromConfig(cfg.Runtime)
 
@@ -343,6 +356,15 @@ type impl struct {
 	cfg     Config
 	ecImpl  ecinterface.Interface
 	secrets *secrets.Store
+	state   *int64
+}
+
+func (bp impl) State() runtimebp.State {
+	return runtimebp.State(int(atomic.LoadInt64(bp.state)))
+}
+
+func (bp impl) setState(state runtimebp.State) {
+	atomic.StoreInt64(bp.state, int64(state))
 }
 
 func (bp impl) GetConfig() Config {

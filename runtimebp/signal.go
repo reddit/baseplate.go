@@ -5,8 +5,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/reddit/baseplate.go"
 )
 
 // ShutdownHandler is the callback type used in HandleSignals.
@@ -23,25 +21,12 @@ var defaultSignals = []os.Signal{
 type State int
 
 const (
+	//TODO docs
 	StateUnknown State = iota
-	StateRunning
-	StateShuttingDown
+	StateStarting
+	StateServing
+	StateDraining
 )
-
-// drainer is used to track the server state
-//
-// This drainer is updated by HandleShutdown before invoking the
-// user supplied ShutdownHandler
-var drainer = baseplate.Drainer()
-
-// ServerState returns the current runtimebp.State of the application
-func ServerState() State {
-	if drainer.IsHealthy(context.Background()) {
-		return StateRunning
-	}
-
-	return StateShuttingDown
-}
 
 // HandleShutdown register a handler to do cleanups for a graceful shutdown.
 //
@@ -69,10 +54,8 @@ func HandleShutdown(ctx context.Context, handler ShutdownHandler, signals ...os.
 	)
 	select {
 	case signal := <-c:
-		drainer.Close()
 		handler(signal)
 	case <-ctx.Done():
-		drainer.Close()
 		// do nothing, just unblock the select block so it will return after it.
 	}
 }

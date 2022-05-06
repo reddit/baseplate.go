@@ -132,6 +132,7 @@ func NewBaseplateServer(
 			EdgeContextImpl:                    bp.EdgeContextImpl(),
 			ErrorSpanSuppressor:                cfg.ErrorSpanSuppressor,
 			ReportPayloadSizeMetricsSampleRate: cfg.ReportPayloadSizeMetricsSampleRate,
+			RuntimeStateReader:                 bp.State,
 		},
 	)
 	middlewares = append(middlewares, cfg.Middlewares...)

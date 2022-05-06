@@ -54,6 +54,8 @@ type DefaultProcessorMiddlewaresArgs struct {
 	//
 	// If it's not set, the global one from ecinterface.Get will be used instead.
 	EdgeContextImpl ecinterface.Interface
+
+	RuntimeStateReader func() runtimebp.State
 }
 
 // BaseplateDefaultProcessorMiddlewares returns the default processor
@@ -84,7 +86,7 @@ func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) 
 		AbandonCanceledRequests,
 		ReportPayloadSizeMetrics(args.ReportPayloadSizeMetricsSampleRate),
 		PrometheusServerMiddleware,
-		EnvoyGracefulDrainHeader,
+		EnvoyGracefulDrainHeader(args.RuntimeStateReader),
 		RecoverPanic,
 	}
 }
@@ -483,16 +485,18 @@ func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) t
 }
 
 // EnvoyGracefulDrainHeader returns middleware which sets a drain signal header on server responses.
-func EnvoyGracefulDrainHeader(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
-	return thrift.WrappedTProcessorFunction{
-		Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (ok bool, err thrift.TException) {
-			if runtimebp.ServerState() == runtimebp.StateShuttingDown {
-				if t, ok := out.(*thrift.THeaderProtocol); ok {
-					t.SetWriteHeader(transport.HeaderEnvoyThriftDrain, "true")
+func EnvoyGracefulDrainHeader(stateReader func() runtimebp.State) thrift.ProcessorMiddleware {
+	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+		return thrift.WrappedTProcessorFunction{
+			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (ok bool, err thrift.TException) {
+				if stateReader() == runtimebp.StateDraining {
+					if t, ok := out.(*thrift.THeaderProtocol); ok {
+						t.SetWriteHeader(transport.HeaderEnvoyThriftDrain, "true")
+					}
 				}
-			}
 
-			return next.Process(ctx, seqID, in, out)
-		},
+				return next.Process(ctx, seqID, in, out)
+			},
+		}
 	}
 }
