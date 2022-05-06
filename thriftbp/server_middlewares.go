@@ -4,7 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
 	"strconv"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -72,7 +76,9 @@ type DefaultProcessorMiddlewaresArgs struct {
 //
 // 6. PrometheusServerMiddleware
 //
-// 7. RecoverPanic
+// 7. EnvoyGracefulDrainHeader
+//
+// 8. RecoverPanic
 func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) []thrift.ProcessorMiddleware {
 	return []thrift.ProcessorMiddleware{
 		ExtractDeadlineBudget,
@@ -81,6 +87,7 @@ func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) 
 		AbandonCanceledRequests,
 		ReportPayloadSizeMetrics(args.ReportPayloadSizeMetricsSampleRate),
 		PrometheusServerMiddleware,
+		EnvoyGracefulDrainHeader(),
 		RecoverPanic,
 	}
 }
@@ -476,4 +483,33 @@ func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) t
 		return next.Process(ctx, seqID, in, out)
 	}
 	return thrift.WrappedTProcessorFunction{Wrapped: process}
+}
+
+// EnvoyGracefulDrainHeader returns middleware which sets a drain signal header on server responses.
+func EnvoyGracefulDrainHeader() thrift.ProcessorMiddleware {
+
+	const envoyDrainHeader = ":drain"
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	var shouldDrain int32
+	go func() {
+		<-sig
+		atomic.StoreInt32(&shouldDrain, 1)
+	}()
+
+	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+
+		return thrift.WrappedTProcessorFunction{
+			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (ok bool, err thrift.TException) {
+				if atomic.LoadInt32(&shouldDrain) > 0 {
+					if t, ok := out.(*thrift.THeaderProtocol); ok {
+						t.SetWriteHeader(envoyDrainHeader, "true")
+					}
+				}
+
+				return next.Process(ctx, seqID, in, out)
+			},
+		}
+	}
 }
