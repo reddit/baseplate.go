@@ -25,4 +25,14 @@ const (
 	HeaderTracingSampledTrue = "1"
 	// Number of milliseconds, 64-bit integer encoded in decimal.
 	HeaderDeadlineBudget = "Deadline-Budget"
+
+	// HeaderEnvoyThriftDrain is a checked by envoy to determine is an upstream
+	// connection should be drained.
+	//
+	// This header is used by the thriftbp.EnvoyGracefulDrainHeader middleware and attached
+	// to all thrift responses while the server state is runtimebp.StateShuttingDown
+	//
+	// Relevant Envoy PR implementing connection draining
+	// https://github.com/envoyproxy/envoy/pull/20236
+	HeaderEnvoyThriftDrain = ":drain"
 )
