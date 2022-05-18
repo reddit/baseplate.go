@@ -45,9 +45,9 @@ var InitialReadInterval = time.Second / 2
 
 // DefaultMaxFileSize is the default MaxFileSize used when it's <= 0.
 //
-// It's 1MiB, which is following the size limit of Apache ZooKeeper nodes.
+// It's 10 MiB, with hard limit multiplier of 10.
 const (
-	DefaultMaxFileSize  = 1 << 20
+	DefaultMaxFileSize  = 10 << 20
 	HardLimitMultiplier = 10
 )
 
