@@ -66,19 +66,16 @@ type DefaultProcessorMiddlewaresArgs struct {
 //
 // 3. InjectEdgeContext
 //
-// 4. AbandonCanceledRequests
+// 4. ReportPayloadSizeMetrics
 //
-// 5. ReportPayloadSizeMetrics
+// 5. PrometheusServerMiddleware
 //
-// 6. PrometheusServerMiddleware
-//
-// 7. RecoverPanic
+// 6. RecoverPanic
 func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) []thrift.ProcessorMiddleware {
 	return []thrift.ProcessorMiddleware{
 		ExtractDeadlineBudget,
 		InjectServerSpan(args.ErrorSpanSuppressor),
 		InjectEdgeContext(args.EdgeContextImpl),
-		AbandonCanceledRequests,
 		ReportPayloadSizeMetrics(args.ReportPayloadSizeMetricsSampleRate),
 		PrometheusServerMiddleware,
 		RecoverPanic,
@@ -243,6 +240,11 @@ func ExtractDeadlineBudget(name string, next thrift.TProcessorFunction) thrift.T
 // canceled after the client closes the connection, and returning
 // thrift.ErrAbandonRequest as the error helps the server to not try to write
 // the error back to the client, but close the connection directly.
+//
+// Deprecated: The checking of ErrAbandonRequest happens before all the
+// middlewares so doing this in a middleware will have no effect. Please do the
+// context.Canceled -> thrift.ErrAbandonRequest translation in your service's
+// endpoint handlers instead.
 func AbandonCanceledRequests(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 	return thrift.WrappedTProcessorFunction{
 		Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
