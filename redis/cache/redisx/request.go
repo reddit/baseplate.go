@@ -35,6 +35,8 @@ var (
 		"SRANDMEMBERN":     {},
 		"SUNION":           {},
 		"XCLAIMJUSTID":     {},
+		"ZPOPMAX":          {},
+		"ZPOPMIN":          {},
 		"ZRANGE":           {},
 		"ZRANGEBYLEX":      {},
 		"ZRANGEBYSCORE":    {},
