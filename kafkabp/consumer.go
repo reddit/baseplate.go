@@ -5,34 +5,14 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
-)
-
-const (
-	promNamespace     = "kafkabp"
-	subsystemConsumer = "consumer"
-
-	successLabel = "success"
-)
-
-var (
-	rebalanceLabels = []string{
-		successLabel,
-	}
-
-	rebalanceCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemConsumer,
-		Name:      "rebalance_total",
-		Help:      "The number of times consumer rebalance happened",
-	}, rebalanceLabels)
 )
 
 func init() {
@@ -258,11 +238,14 @@ func (kc *consumer) Consume(
 						var span *tracing.Span
 						spanName := "consumer." + kc.cfg.Topic
 						ctx, span = tracing.StartTopLevelServerSpan(ctx, spanName)
-						defer func() {
+						defer func(start time.Time) {
+							consumerTimer.With(prometheus.Labels{
+								topicLabel: kc.cfg.Topic,
+							}).Observe(time.Since(start).Seconds())
 							span.FinishWithOptions(tracing.FinishOptions{
 								Ctx: ctx,
 							}.Convert())
-						}()
+						}(time.Now())
 
 						messagesFunc(ctx, m)
 					}()
