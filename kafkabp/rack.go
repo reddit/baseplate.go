@@ -10,24 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
 	"github.com/reddit/baseplate.go/log"
-)
-
-var (
-	awsRackFailure = promauto.NewCounter(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Name:      "aws_rack_id_failure_total",
-		Help:      "Total failures of getting rack id from AWS endpoint",
-	})
-
-	httpRackFailure = promauto.NewCounter(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Name:      "http_rack_id_failure_total",
-		Help:      "Total failures of getting rack id from http endpoint",
-	})
 )
 
 // RackIDFunc defines a function to provide the kafka rack id to use.
