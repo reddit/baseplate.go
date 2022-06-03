@@ -2,13 +2,18 @@ package redisbp
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/reddit/baseplate.go/prometheusbp"
 )
 
 const (
 	promNamespace = "redisbp"
 	subsystemPool = "pool"
 
-	nameLabel = "pool"
+	nameLabel    = "redis_pool"
+	commandLabel = "redis_command"
+	successLabel = "redis_success"
 )
 
 var (
@@ -55,6 +60,21 @@ var (
 		promLabels,
 		nil,
 	)
+)
+
+var (
+	latencyLabels = []string{
+		nameLabel,
+		commandLabel,
+		successLabel,
+	}
+
+	latencyTimer = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: promNamespace,
+		Name:      "latency_seconds",
+		Help:      "Latency of redis operations",
+		Buckets:   prometheusbp.DefaultBuckets,
+	}, latencyLabels)
 )
 
 // exporter provides an interface for Prometheus metrics.

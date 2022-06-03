@@ -1,4 +1,4 @@
-package redisbp_test
+package redisbp
 
 import (
 	"context"
@@ -6,22 +6,29 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/reddit/baseplate.go/redis/db/redisbp"
+	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
 func TestSpanHook(t *testing.T) {
 	ctx, _ := thriftbp.StartSpanFromThriftContext(context.Background(), "foo")
-	hooks := redisbp.SpanHook{ClientName: "redis"}
+	hooks := SpanHook{ClientName: "redis"}
 	statusCmd := redis.NewStatusCmd(ctx, "ping")
 	stringCmd := redis.NewStringCmd(ctx, "get", "1")
-	stringCmd.SetErr(redis.Nil)
+	stringCmd.SetErr(nil)
 
 	t.Run(
 		"Before/AfterProcess",
 		func(t *testing.T) {
+			defer promtest.NewPrometheusMetricTest(t, "latency timer", latencyTimer, prometheus.Labels{
+				nameLabel:    "redis",
+				commandLabel: "ping",
+				successLabel: "true",
+			}).CheckHistogramCountDelta(1)
+
 			ctx, err := hooks.BeforeProcess(ctx, statusCmd)
 			if err != nil {
 				t.Fatalf("Unexpected error: %s", err)
@@ -43,6 +50,12 @@ func TestSpanHook(t *testing.T) {
 	t.Run(
 		"Before/AfterProcessPipeline",
 		func(t *testing.T) {
+			defer promtest.NewPrometheusMetricTest(t, "latency timer", latencyTimer, prometheus.Labels{
+				nameLabel:    "redis",
+				commandLabel: "pipeline",
+				successLabel: "true",
+			}).CheckHistogramCountDelta(1)
+
 			cmds := []redis.Cmder{statusCmd, stringCmd}
 			ctx, err := hooks.BeforeProcessPipeline(ctx, cmds)
 			if err != nil {

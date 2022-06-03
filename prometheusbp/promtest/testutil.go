@@ -10,21 +10,33 @@ import (
 
 // PrometheusMetricTest stores information about a metric to use for testing.
 type PrometheusMetricTest struct {
-	tb        testing.TB
-	metric    prometheus.Collector
-	name      string
-	initValue float64
-	labels    prometheus.Labels
+	tb             testing.TB
+	metric         prometheus.Collector
+	name           string
+	initValue      float64
+	initHistoCount int
+	labels         prometheus.Labels
 }
 
 // CheckDelta checks that the metric value changes exactly delta from when Helper was called.
 func (p *PrometheusMetricTest) CheckDelta(delta float64) {
 	p.tb.Helper()
 
-	got := p.getValue()
+	got, _ := p.getValueAndSampleCount()
 	got -= float64(p.initValue)
 	if got != delta {
 		p.tb.Errorf("%s metric delta: wanted %v, got %v", p.name, delta, got)
+	}
+}
+
+// CheckHistogramCountDelta checks that the number of samples of histogram is the exactly delta from when Helper was called.
+func (p *PrometheusMetricTest) CheckHistogramCountDelta(delta int) {
+	p.tb.Helper()
+
+	_, got := p.getValueAndSampleCount()
+	got -= p.initHistoCount
+	if got != delta {
+		p.tb.Errorf("%s metric histogram count delta: wanted %v, got %v", p.name, delta, got)
 	}
 }
 
@@ -60,13 +72,15 @@ func NewPrometheusMetricTest(tb testing.TB, name string, metric prometheus.Colle
 		name:   name,
 		labels: labels,
 	}
-	p.initValue = p.getValue()
+	p.initValue, p.initHistoCount = p.getValueAndSampleCount()
 	return p
 }
 
-// getValue returns the current value of the metric.
-func (p *PrometheusMetricTest) getValue() float64 {
+// getValueAndSampleCount returns the current value and histogram sample count
+// of the metric.
+func (p *PrometheusMetricTest) getValueAndSampleCount() (float64, int) {
 	var value float64
+	var histoCount int
 	switch m := p.metric.(type) {
 	case *prometheus.GaugeVec:
 		gague, err := m.GetMetricWith(p.labels)
@@ -89,11 +103,11 @@ func (p *PrometheusMetricTest) getValue() float64 {
 		if !ok {
 			p.tb.Fatalf("histogram is not a collector type")
 		}
-		_, value = collectHistogramToFloat64(p.tb, h)
+		histoCount, value = collectHistogramToFloat64(p.tb, h)
 	default:
 		p.tb.Fatalf("not supported type %T\n", m)
 	}
-	return value
+	return value, histoCount
 }
 
 // collectHistogramToFloat64 returns the sample count and sum of the histogram.
