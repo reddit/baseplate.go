@@ -519,7 +519,7 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 				remoteServiceSlugLabel: thrifttest.DefaultServiceSlug,
 			}
 
-			defer thriftbp.PrometheusClientMetricsTest(t, latencyLabels, totalRequestLabels, activeRequestLabels).CheckMetrics(2)
+			defer thriftbp.PrometheusClientMetricsTest(t, latencyLabels, totalRequestLabels, activeRequestLabels).CheckMetrics()
 			defer spectest.ValidateSpec(t, "thrift", "client")
 
 			ctx := context.Background()

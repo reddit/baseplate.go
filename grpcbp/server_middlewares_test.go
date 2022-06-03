@@ -280,10 +280,10 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 				serverSlugLabel: serverSlug,
 			}
 
-			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution, serverLatencyLabels).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution, serverLatencyLabels).CheckHistogramCountDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "server rpc count", serverTotalRequests, serverTotalRequestLabels).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels).CheckDelta(0)
-			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution, clientLatencyLabels).CheckExists()
+			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution, clientLatencyLabels).CheckHistogramCountDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "client rpc count", clientTotalRequests, clientTotalRequestLabels).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientActiveRequestLabels).CheckDelta(0)
 			defer spectest.ValidateSpec(t, "grpc", "server")
