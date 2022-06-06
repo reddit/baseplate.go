@@ -10,12 +10,12 @@ import (
 
 // PrometheusMetricTest stores information about a metric to use for testing.
 type PrometheusMetricTest struct {
-	tb             testing.TB
-	metric         prometheus.Collector
-	name           string
-	initValue      float64
-	initHistoCount int
-	labels         prometheus.Labels
+	tb              testing.TB
+	metric          prometheus.Collector
+	name            string
+	initValue       float64
+	initSampleCount int
+	labels          prometheus.Labels
 }
 
 // CheckDelta checks that the metric value changes exactly delta from when Helper was called.
@@ -29,12 +29,12 @@ func (p *PrometheusMetricTest) CheckDelta(delta float64) {
 	}
 }
 
-// CheckHistogramCountDelta checks that the number of samples of histogram is the exactly delta from when Helper was called.
-func (p *PrometheusMetricTest) CheckHistogramCountDelta(delta int) {
+// CheckSampleCountDelta checks that the number of samples (of histogram) is the exactly delta from when Helper was called.
+func (p *PrometheusMetricTest) CheckSampleCountDelta(delta int) {
 	p.tb.Helper()
 
 	_, got := p.getValueAndSampleCount()
-	got -= p.initHistoCount
+	got -= p.initSampleCount
 	if got != delta {
 		p.tb.Errorf("%s metric histogram count delta: wanted %v, got %v", p.name, delta, got)
 	}
@@ -72,7 +72,7 @@ func NewPrometheusMetricTest(tb testing.TB, name string, metric prometheus.Colle
 		name:   name,
 		labels: labels,
 	}
-	p.initValue, p.initHistoCount = p.getValueAndSampleCount()
+	p.initValue, p.initSampleCount = p.getValueAndSampleCount()
 	return p
 }
 

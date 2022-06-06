@@ -27,7 +27,7 @@ func TestSpanHook(t *testing.T) {
 				nameLabel:    "redis",
 				commandLabel: "ping",
 				successLabel: "true",
-			}).CheckHistogramCountDelta(1)
+			}).CheckSampleCountDelta(1)
 
 			ctx, err := hooks.BeforeProcess(ctx, statusCmd)
 			if err != nil {
@@ -54,7 +54,7 @@ func TestSpanHook(t *testing.T) {
 				nameLabel:    "redis",
 				commandLabel: "pipeline",
 				successLabel: "true",
-			}).CheckHistogramCountDelta(1)
+			}).CheckSampleCountDelta(1)
 
 			cmds := []redis.Cmder{statusCmd, stringCmd}
 			ctx, err := hooks.BeforeProcessPipeline(ctx, cmds)
