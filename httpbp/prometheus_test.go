@@ -157,12 +157,12 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 				serverSlugLabel: serverSlug,
 			}
 
-			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatency, serverSizeLabels).CheckHistogramCountDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatency, serverSizeLabels).CheckSampleCountDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "server total requests", serverTotalRequests, serverTotalRequestLabels).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels).CheckDelta(0)
 			defer promtest.NewPrometheusMetricTest(t, "server request size", serverRequestSize, serverSizeLabels).CheckDelta(float64(tt.reqSize))
 			defer promtest.NewPrometheusMetricTest(t, "server response size", serverResponseSize, serverSizeLabels).CheckDelta(float64(tt.respSize))
-			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution, clientLatencyLabels).CheckHistogramCountDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution, clientLatencyLabels).CheckSampleCountDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "client total requests", clientTotalRequests, clientTotalRequestLabels).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientActiveRequestLabels).CheckDelta(0)
 			defer spectest.ValidateSpec(t, "http", "server")

@@ -84,7 +84,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 				baseplateStatusCodeLabel: tt.baseplateStatusCode,
 			}
 
-			defer promtest.NewPrometheusMetricTest(t, "latency", serverLatencyDistribution, latencyLabels).CheckHistogramCountDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "latency", serverLatencyDistribution, latencyLabels).CheckSampleCountDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "rpc count", serverTotalRequests, totalRequestLabels).CheckDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "active requests", serverActiveRequests, activeRequestLabels).CheckDelta(0)
 			defer spectest.ValidateSpec(t, "thrift", "server")
@@ -137,7 +137,7 @@ func PrometheusClientMetricsTest(tb testing.TB, latencyLabelValues, requestCount
 func (p PromClientMetricsTest) CheckMetrics() {
 	p.tb.Helper()
 
-	p.latency.CheckHistogramCountDelta(1)
+	p.latency.CheckSampleCountDelta(1)
 	p.totalRequests.CheckDelta(1)
 	p.activeRequests.CheckDelta(0)
 }
