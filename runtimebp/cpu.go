@@ -15,7 +15,7 @@ import (
 // It reads from the cgroup sysfs values.
 //
 // If the current process is not running inside a container,
-// or for whatever reason we failed to read the cgroup sysfs values,
+// or if there's no limit set in cgroup,
 // it will fallback to runtime.NumCPU() instead.
 //
 // When fallback happens, it also prints the reason to stderr.
@@ -31,11 +31,12 @@ func NumCPU() (n float64) {
 			// Fallback and log to stderr.
 			fmt.Fprintf(
 				os.Stderr,
-				"NumCPU: falling back to use shares: %v, %v\n",
+				"NumCPU: falling back to use runtime.NumCPU(): %v, %v\n",
 				n,
 				err,
 			)
-			n = numCPUSharesFallback()
+			// fallback to physical cpus
+			n = float64(runtime.NumCPU())
 		}
 	}()
 
@@ -54,46 +55,6 @@ func NumCPU() (n float64) {
 	}
 
 	return quota / period
-}
-
-// On some situations the quota file will be -1,
-// and we should use this one instead.
-//
-// Those situations include:
-//
-// - Very old version of docker
-//
-// - In k8s only request is set for cpu, not limit
-func numCPUSharesFallback() (n float64) {
-	const (
-		sharesPath  = "/sys/fs/cgroup/cpu/cpu.shares"
-		denominator = 1024
-	)
-
-	var err error
-	defer func() {
-		if err != nil || n <= 0 {
-			// Fallback and log to stderr.
-			fmt.Fprintf(
-				os.Stderr,
-				"NumCPU: falling back to use runtime.NumCPU(): %v, %v\n",
-				n,
-				err,
-			)
-			n = float64(runtime.NumCPU())
-		}
-	}()
-
-	// Big enough buffer to read the number in the file wholly into memory.
-	buf := make([]byte, 1024)
-	var shares float64
-
-	shares, err = readNumberFromFile(sharesPath, buf)
-	if err != nil {
-		return
-	}
-
-	return float64(shares) / denominator
 }
 
 func readNumberFromFile(path string, buf []byte) (float64, error) {
