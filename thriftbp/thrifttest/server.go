@@ -115,7 +115,7 @@ func (s *Server) Start(ctx context.Context) {
 // Close the underying Server and Baseplate as well as the thriftbp.ClientPool.
 func (s *Server) Close() error {
 	closers := make([]io.Closer, 0, 3)
-	// close the ClientPool first so the server doesn't hang waiting for them to
+	// close the ClientPool first so the server doesn't hang waiting for it to
 	// close while trying to close itself.
 	if s.ClientPool != nil {
 		closers = append(closers, s.ClientPool)
