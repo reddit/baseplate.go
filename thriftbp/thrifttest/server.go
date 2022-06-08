@@ -2,6 +2,7 @@ package thrifttest
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -113,11 +114,14 @@ func (s *Server) Start(ctx context.Context) {
 
 // Close the underying Server and Baseplate as well as the thriftbp.ClientPool.
 func (s *Server) Close() error {
-	closers := batchcloser.New(s.Server, s.Baseplate())
+	closers := make([]io.Closer, 0, 3)
+	// close the ClientPool first so the server doesn't hang waiting for them to
+	// close while trying to close itself.
 	if s.ClientPool != nil {
-		closers.Add(s.ClientPool)
+		closers = append(closers, s.ClientPool)
 	}
-	return closers.Close()
+	closers = append(closers, s.Server, s.Baseplate())
+	return batchcloser.New(closers...).Close()
 }
 
 // NewBaseplateServer returns a new, Baseplate thrift server listening on the
