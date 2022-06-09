@@ -113,14 +113,14 @@ func (s *Server) Start(ctx context.Context) {
 
 // Close the underying Server and Baseplate as well as the thriftbp.ClientPool.
 func (s *Server) Close() error {
-	bc := batchcloser.New()
+	closers := batchcloser.New()
 	// close the ClientPool first so the server doesn't hang waiting for it to
 	// close while trying to close itself.
 	if s.ClientPool != nil {
-		bc.Add(s.ClientPool)
+		closers.Add(s.ClientPool)
 	}
-	bc.Add(s.Server, s.Baseplate())
-	return bc.Close()
+	closers.Add(s.Server, s.Baseplate())
+	return closers.Close()
 }
 
 // NewBaseplateServer returns a new, Baseplate thrift server listening on the
