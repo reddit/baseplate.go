@@ -113,3 +113,42 @@ func TestNewBaseplateServer(t *testing.T) {
 		)
 	}
 }
+
+func TestServer_Close(t *testing.T) {
+	ctx := context.Background()
+
+	store := newSecrets(t)
+	t.Cleanup(func() {
+		store.Close()
+	})
+
+	processor := baseplatethrift.NewBaseplateServiceV2Processor(BaseplateService{})
+	server, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
+		Processor:   processor,
+		SecretStore: store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server.Start(ctx)
+
+	// you have to actually use the client to establish a connection to the test
+	// server
+	client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool.TClient())
+	_, err = client.IsHealthy(
+		ctx,
+		&baseplatethrift.IsHealthyRequest{
+			Probe: baseplatethrift.IsHealthyProbePtr(baseplatethrift.IsHealthyProbe_READINESS),
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// without closing the ClientPool first in Server.Close, this will hang.
+	err = server.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
