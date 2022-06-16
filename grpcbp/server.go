@@ -53,6 +53,10 @@ type ServerConfig struct {
 	// RegisterServerFunc is used to pass in a generated gRPC service
 	// implementation and register it on the created gRPC.Server.
 	RegisterServerFunc func(*grpc.Server) `yaml:"-"`
+
+	// AdditionalServerOptions is used to pass in additional server options
+	// to use when constructing a
+	AdditionalServerOptions []grpc.ServerOption `yaml:"-"`
 }
 
 // NewBaseplateServer returns a new gRPC implementation of a Baseplate server
@@ -80,11 +84,17 @@ func NewBaseplateServer(bp baseplate.Baseplate, cfg ServerConfig) (baseplate.Ser
 		EdgeContextImpl: bp.EdgeContextImpl(),
 	})
 
-	server := grpc.NewServer(
+	options := []grpc.ServerOption{
 		grpc.KeepaliveEnforcementPolicy(kaep),
 		grpc.KeepaliveParams(kasp),
 		middlewares,
-	)
+	}
+
+	if len(cfg.AdditionalServerOptions) > 0 {
+		options = append(options, cfg.AdditionalServerOptions...)
+	}
+
+	server := grpc.NewServer(options...)
 	cfg.RegisterServerFunc(server)
 
 	return ApplyBaseplate(bp, server, lis), nil
