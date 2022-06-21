@@ -18,12 +18,19 @@ type PrometheusMetricTest struct {
 	labels          prometheus.Labels
 }
 
+func (p *PrometheusMetricTest) gotDelta() float64 {
+	p.tb.Helper()
+
+	got, _ := p.getValueAndSampleCount()
+	got -= p.initValue
+	return got
+}
+
 // CheckDelta checks that the metric value changes exactly delta from when Helper was called.
 func (p *PrometheusMetricTest) CheckDelta(delta float64) {
 	p.tb.Helper()
 
-	got, _ := p.getValueAndSampleCount()
-	got -= float64(p.initValue)
+	got := p.gotDelta()
 	if got != delta {
 		p.tb.Errorf("%s metric delta: wanted %v, got %v", p.name, delta, got)
 	}
@@ -44,8 +51,7 @@ func (p *PrometheusMetricTest) CheckSampleCountDelta(delta int) {
 func (p *PrometheusMetricTest) CheckDeltaLE(delta float64) {
 	p.tb.Helper()
 
-	got, _ := p.getValueAndSampleCount()
-	got -= float64(p.initValue)
+	got := p.gotDelta()
 	if got > delta {
 		p.tb.Errorf("%s metric delta: wanted less or equal to %v, got %v", p.name, delta, got)
 	}
@@ -55,8 +61,7 @@ func (p *PrometheusMetricTest) CheckDeltaLE(delta float64) {
 func (p *PrometheusMetricTest) CheckDeltaLT(delta float64) {
 	p.tb.Helper()
 
-	got, _ := p.getValueAndSampleCount()
-	got -= float64(p.initValue)
+	got := p.gotDelta()
 	if got >= delta {
 		p.tb.Errorf("%s metric delta: wanted less than %v, got %v", p.name, delta, got)
 	}
@@ -66,8 +71,7 @@ func (p *PrometheusMetricTest) CheckDeltaLT(delta float64) {
 func (p *PrometheusMetricTest) CheckDeltaGE(delta float64) {
 	p.tb.Helper()
 
-	got, _ := p.getValueAndSampleCount()
-	got -= float64(p.initValue)
+	got := p.gotDelta()
 	if got < delta {
 		p.tb.Errorf("%s metric delta: wanted greater or equal to %v, got %v", p.name, delta, got)
 	}
@@ -77,8 +81,7 @@ func (p *PrometheusMetricTest) CheckDeltaGE(delta float64) {
 func (p *PrometheusMetricTest) CheckDeltaGT(delta float64) {
 	p.tb.Helper()
 
-	got, _ := p.getValueAndSampleCount()
-	got -= float64(p.initValue)
+	got := p.gotDelta()
 	if got <= delta {
 		p.tb.Errorf("%s metric delta: wanted greater than %v, got %v", p.name, delta, got)
 	}
