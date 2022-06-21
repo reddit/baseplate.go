@@ -156,7 +156,7 @@ func (p *PrometheusMetricTest) getValueAndSampleCount() (float64, int) {
 	case prometheus.Histogram:
 		histoCount, value = collectHistogramToFloat64(p.tb, m)
 	default:
-		p.tb.Fatalf("not supported type %T for metric %s\n", m, p.name)
+		p.tb.Fatalf("not supported type %T for metric %s", m, p.name)
 	}
 	return value, histoCount
 }
