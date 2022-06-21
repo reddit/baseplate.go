@@ -10,22 +10,33 @@ import (
 
 // PrometheusMetricTest stores information about a metric to use for testing.
 type PrometheusMetricTest struct {
-	tb        testing.TB
-	metric    prometheus.Collector
-	name      string
-	initValue float64
-	initCount int
-	labels    prometheus.Labels
+	tb              testing.TB
+	metric          prometheus.Collector
+	name            string
+	initValue       float64
+	initSampleCount int
+	labels          prometheus.Labels
 }
 
 // CheckDelta checks that the metric value changes exactly delta from when Helper was called.
 func (p *PrometheusMetricTest) CheckDelta(delta float64) {
 	p.tb.Helper()
 
-	got, _ := p.getValue()
+	got, _ := p.getValueAndSampleCount()
 	got -= float64(p.initValue)
 	if got != delta {
 		p.tb.Errorf("%s metric delta: wanted %v, got %v", p.name, delta, got)
+	}
+}
+
+// CheckSampleCountDelta checks that the number of samples (of histogram) is the exactly delta from when Helper was called.
+func (p *PrometheusMetricTest) CheckSampleCountDelta(delta int) {
+	p.tb.Helper()
+
+	_, got := p.getValueAndSampleCount()
+	got -= p.initSampleCount
+	if got != delta {
+		p.tb.Errorf("%s metric histogram count delta: wanted %v, got %v", p.name, delta, got)
 	}
 }
 
@@ -33,7 +44,7 @@ func (p *PrometheusMetricTest) CheckDelta(delta float64) {
 func (p *PrometheusMetricTest) CheckDeltaLE(delta float64) {
 	p.tb.Helper()
 
-	got, _ := p.getValue()
+	got, _ := p.getValueAndSampleCount()
 	got -= float64(p.initValue)
 	if got > delta {
 		p.tb.Errorf("%s metric delta: wanted less or equal to %v, got %v", p.name, delta, got)
@@ -44,7 +55,7 @@ func (p *PrometheusMetricTest) CheckDeltaLE(delta float64) {
 func (p *PrometheusMetricTest) CheckDeltaLT(delta float64) {
 	p.tb.Helper()
 
-	got, _ := p.getValue()
+	got, _ := p.getValueAndSampleCount()
 	got -= float64(p.initValue)
 	if got >= delta {
 		p.tb.Errorf("%s metric delta: wanted less than %v, got %v", p.name, delta, got)
@@ -55,7 +66,7 @@ func (p *PrometheusMetricTest) CheckDeltaLT(delta float64) {
 func (p *PrometheusMetricTest) CheckDeltaGE(delta float64) {
 	p.tb.Helper()
 
-	got, _ := p.getValue()
+	got, _ := p.getValueAndSampleCount()
 	got -= float64(p.initValue)
 	if got < delta {
 		p.tb.Errorf("%s metric delta: wanted greater or equal to %v, got %v", p.name, delta, got)
@@ -66,26 +77,10 @@ func (p *PrometheusMetricTest) CheckDeltaGE(delta float64) {
 func (p *PrometheusMetricTest) CheckDeltaGT(delta float64) {
 	p.tb.Helper()
 
-	got, _ := p.getValue()
+	got, _ := p.getValueAndSampleCount()
 	got -= float64(p.initValue)
 	if got <= delta {
 		p.tb.Errorf("%s metric delta: wanted greater than %v, got %v", p.name, delta, got)
-	}
-}
-
-// CheckDeltaHist checks that the histogram sum and count changes exactly the given delta
-// from when Helper was called.
-func (p *PrometheusMetricTest) CheckDeltaHist(deltaSum float64, deltaCount int) {
-	p.tb.Helper()
-
-	sum, count := p.getValue()
-	sum -= float64(p.initValue)
-	if sum != deltaSum {
-		p.tb.Errorf("%s metric delta: wanted %v, got %v", p.name, deltaSum, sum)
-	}
-	count -= p.initCount
-	if count != deltaCount {
-		p.tb.Errorf("%s metric delta: wanted %v, got %v", p.name, deltaCount, count)
 	}
 }
 
@@ -121,12 +116,15 @@ func NewPrometheusMetricTest(tb testing.TB, name string, metric prometheus.Colle
 		name:   name,
 		labels: labels,
 	}
-	p.initValue, p.initCount = p.getValue()
+	p.initValue, p.initSampleCount = p.getValueAndSampleCount()
 	return p
 }
 
-// getValue returns the current value of the metric.
-func (p *PrometheusMetricTest) getValue() (value float64, count int) {
+// getValueAndSampleCount returns the current value and histogram sample count
+// of the metric.
+func (p *PrometheusMetricTest) getValueAndSampleCount() (float64, int) {
+	var value float64
+	var histoCount int
 	switch m := p.metric.(type) {
 	case prometheus.Gauge, prometheus.Counter:
 		value = testutil.ToFloat64(m)
@@ -149,15 +147,15 @@ func (p *PrometheusMetricTest) getValue() (value float64, count int) {
 		}
 		h, ok := histrogram.(prometheus.Collector)
 		if !ok {
-			p.tb.Fatalf("histogram is not a collector type")
+			p.tb.Fatalf("histogram %s is not a collector type", p.name)
 		}
-		count, value = collectHistogramToFloat64(p.tb, h)
+		histoCount, value = collectHistogramToFloat64(p.tb, h)
 	case prometheus.Histogram:
-		count, value = collectHistogramToFloat64(p.tb, m)
+		histoCount, value = collectHistogramToFloat64(p.tb, m)
 	default:
 		p.tb.Fatalf("not supported type %T for metric %s\n", m, p.name)
 	}
-	return
+	return value, histoCount
 }
 
 // collectHistogramToFloat64 returns the sample count and sum of the histogram.
