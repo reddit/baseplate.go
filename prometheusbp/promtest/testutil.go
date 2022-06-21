@@ -53,7 +53,7 @@ func (p *PrometheusMetricTest) CheckDeltaLE(delta float64) {
 
 	got := p.gotDelta()
 	if got > delta {
-		p.tb.Errorf("%s metric delta: wanted less or equal to %v, got %v", p.name, delta, got)
+		p.tb.Errorf("metric delta %s: wanted less or equal to %v, got %v", p.name, delta, got)
 	}
 }
 
