@@ -18,19 +18,12 @@ type PrometheusMetricTest struct {
 	labels          prometheus.Labels
 }
 
-func (p *PrometheusMetricTest) gotDelta() float64 {
-	p.tb.Helper()
-
-	got, _ := p.getValueAndSampleCount()
-	got -= p.initValue
-	return got
-}
-
 // CheckDelta checks that the metric value changes exactly delta from when Helper was called.
 func (p *PrometheusMetricTest) CheckDelta(delta float64) {
 	p.tb.Helper()
 
-	got := p.gotDelta()
+	got, _ := p.getValueAndSampleCount()
+	got -= p.initValue
 	if got != delta {
 		p.tb.Errorf("%s metric delta: wanted %v, got %v", p.name, delta, got)
 	}
@@ -44,46 +37,6 @@ func (p *PrometheusMetricTest) CheckSampleCountDelta(delta int) {
 	got -= p.initSampleCount
 	if got != delta {
 		p.tb.Errorf("%s metric histogram count delta: wanted %v, got %v", p.name, delta, got)
-	}
-}
-
-// CheckDeltaLE checks that the metric value changes less or equal to delta from when Helper was called.
-func (p *PrometheusMetricTest) CheckDeltaLE(delta float64) {
-	p.tb.Helper()
-
-	got := p.gotDelta()
-	if got > delta {
-		p.tb.Errorf("metric delta %s: wanted less or equal to %v, got %v", p.name, delta, got)
-	}
-}
-
-// CheckDeltaLT checks that the metric value changes less than delta from when Helper was called.
-func (p *PrometheusMetricTest) CheckDeltaLT(delta float64) {
-	p.tb.Helper()
-
-	got := p.gotDelta()
-	if got >= delta {
-		p.tb.Errorf("%s metric delta: wanted less than %v, got %v", p.name, delta, got)
-	}
-}
-
-// CheckDeltaGE checks that the metric value changes greater or equal to delta from when Helper was called.
-func (p *PrometheusMetricTest) CheckDeltaGE(delta float64) {
-	p.tb.Helper()
-
-	got := p.gotDelta()
-	if got < delta {
-		p.tb.Errorf("%s metric delta: wanted greater or equal to %v, got %v", p.name, delta, got)
-	}
-}
-
-// CheckDeltaGT checks that the metric value changes greater than delta from when Helper was called.
-func (p *PrometheusMetricTest) CheckDeltaGT(delta float64) {
-	p.tb.Helper()
-
-	got := p.gotDelta()
-	if got <= delta {
-		p.tb.Errorf("%s metric delta: wanted greater than %v, got %v", p.name, delta, got)
 	}
 }
 
