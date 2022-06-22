@@ -41,7 +41,7 @@ var v0logDisabled uint64
 // SetGlobalLogger allows baseplate v0 to set the global logger.
 func SetGlobalLogger(logger *zap.SugaredLogger) {
 	if atomic.LoadUint64(&v0logDisabled) > 0 {
-		globalLogger.Warnf("Suppressing global log override; use v2 loging instead")
+		globalLogger.Warn("ineffectual call to SetGlobalLogger; baseplate.go v2 compatibility mode is active")
 		return
 	}
 
