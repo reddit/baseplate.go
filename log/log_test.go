@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 )
 
