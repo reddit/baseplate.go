@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/reddit/baseplate.go/detach"
+	"github.com/reddit/baseplate.go/internalv2compat"
 )
 
 type contextKeyType struct{}
@@ -104,5 +105,5 @@ func C(ctx context.Context) *zap.SugaredLogger {
 	if logger, ok := ctx.Value(contextKey).(*zap.SugaredLogger); ok && logger != nil {
 		return logger
 	}
-	return globalLogger
+	return internalv2compat.GlobalLogger()
 }
