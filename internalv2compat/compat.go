@@ -1,7 +1,7 @@
 // Package internalv2compat is an INTERNAL ONLY library provided for transitional projects that need
 // to use baseplate v2 and v0 in the same module.
 //
-// DO NOT USE THIS LIBRARY DIRECTLY.
+// DO NOT USE THIS LIBRARY DIRECTLY.  Breaking changes may be made to this package at any time.
 //
 // Deprecated: This is an internal library and should not be used directly.
 package internalv2compat
