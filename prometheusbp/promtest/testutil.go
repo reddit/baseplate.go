@@ -23,7 +23,7 @@ func (p *PrometheusMetricTest) CheckDelta(delta float64) {
 	p.tb.Helper()
 
 	got, _ := p.getValueAndSampleCount()
-	got -= float64(p.initValue)
+	got -= p.initValue
 	if got != delta {
 		p.tb.Errorf("%s metric delta: wanted %v, got %v", p.name, delta, got)
 	}
@@ -82,6 +82,8 @@ func (p *PrometheusMetricTest) getValueAndSampleCount() (float64, int) {
 	var value float64
 	var histoCount int
 	switch m := p.metric.(type) {
+	case prometheus.Gauge, prometheus.Counter:
+		value = testutil.ToFloat64(m)
 	case *prometheus.GaugeVec:
 		gague, err := m.GetMetricWith(p.labels)
 		if err != nil {
@@ -101,11 +103,13 @@ func (p *PrometheusMetricTest) getValueAndSampleCount() (float64, int) {
 		}
 		h, ok := histrogram.(prometheus.Collector)
 		if !ok {
-			p.tb.Fatalf("histogram is not a collector type")
+			p.tb.Fatalf("histogram %s is not a collector type", p.name)
 		}
 		histoCount, value = collectHistogramToFloat64(p.tb, h)
+	case prometheus.Histogram:
+		histoCount, value = collectHistogramToFloat64(p.tb, m)
 	default:
-		p.tb.Fatalf("not supported type %T\n", m)
+		p.tb.Fatalf("not supported type %T for metric %s", m, p.name)
 	}
 	return value, histoCount
 }
