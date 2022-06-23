@@ -4,15 +4,18 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 )
 
 func TestZapLogger(t *testing.T) {
 	InitLogger(DebugLevel)
-	log(globalLogger)
+	log(internalv2compat.GlobalLogger())
 
 	Version = "test-version"
 	InitLoggerJSON(DebugLevel)
-	log(globalLogger)
+	log(internalv2compat.GlobalLogger())
 }
 
 func TestInitSentry(t *testing.T) {
