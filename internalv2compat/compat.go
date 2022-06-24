@@ -53,3 +53,13 @@ func OverrideLogger(logger *zap.SugaredLogger) {
 	atomic.StoreUint64(&v0logDisabled, 1)
 	globalLogger = logger
 }
+
+// IsHTTP allows detecting the unexported httpbp.server without resorting to reflection.
+type IsHTTP interface {
+	isHTTP()
+}
+
+// IsThrift allows detecting the unexported thriftbp.server without resorting to reflection.
+type IsThrift interface {
+	isThrift()
+}

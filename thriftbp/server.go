@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/metricsbp"
 
 	"github.com/reddit/baseplate.go"
@@ -181,6 +183,8 @@ func ApplyBaseplate(bp baseplate.Baseplate, server *thrift.TSimpleServer) basepl
 type impl struct {
 	bp  baseplate.Baseplate
 	srv *thrift.TSimpleServer
+
+	internalv2compat.IsThrift
 }
 
 func (s impl) Baseplate() baseplate.Baseplate {

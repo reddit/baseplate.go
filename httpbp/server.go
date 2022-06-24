@@ -10,6 +10,7 @@ import (
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
 )
 
@@ -225,12 +226,14 @@ func NewBaseplateServer(args ServerArgs) (baseplate.Server, error) {
 	for _, f := range args.OnShutdown {
 		srv.RegisterOnShutdown(f)
 	}
-	return &server{args.Baseplate, srv}, nil
+	return &server{bp: args.Baseplate, srv: srv}, nil
 }
 
 type server struct {
 	bp  baseplate.Baseplate
 	srv *http.Server
+
+	internalv2compat.IsHTTP
 }
 
 func (s server) Baseplate() baseplate.Baseplate {
