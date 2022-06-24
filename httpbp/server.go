@@ -10,6 +10,8 @@ import (
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/errorsbp"
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
 )
 
@@ -225,12 +227,14 @@ func NewBaseplateServer(args ServerArgs) (baseplate.Server, error) {
 	for _, f := range args.OnShutdown {
 		srv.RegisterOnShutdown(f)
 	}
-	return &server{args.Baseplate, srv}, nil
+	return &server{bp: args.Baseplate, srv: srv}, nil
 }
 
 type server struct {
 	bp  baseplate.Baseplate
 	srv *http.Server
+
+	internalv2compat.IsHTTP
 }
 
 func (s server) Baseplate() baseplate.Baseplate {

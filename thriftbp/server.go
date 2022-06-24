@@ -5,11 +5,13 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	"github.com/reddit/baseplate.go/metricsbp"
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/errorsbp"
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/metricsbp"
 )
 
 const (
@@ -181,6 +183,8 @@ func ApplyBaseplate(bp baseplate.Baseplate, server *thrift.TSimpleServer) basepl
 type impl struct {
 	bp  baseplate.Baseplate
 	srv *thrift.TSimpleServer
+
+	internalv2compat.IsThrift
 }
 
 func (s impl) Baseplate() baseplate.Baseplate {
