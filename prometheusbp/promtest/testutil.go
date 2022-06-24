@@ -1,12 +1,19 @@
 package promtest
 
 import (
+	"math"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	dto "github.com/prometheus/client_model/go"
 )
+
+const float64EqualityThreshold = 1e-9
+
+func almostEqual(a, b float64) bool {
+	return math.Abs(a-b) <= float64EqualityThreshold
+}
 
 // PrometheusMetricTest stores information about a metric to use for testing.
 type PrometheusMetricTest struct {
@@ -24,7 +31,7 @@ func (p *PrometheusMetricTest) CheckDelta(delta float64) {
 
 	got, _ := p.getValueAndSampleCount()
 	got -= p.initValue
-	if got != delta {
+	if !almostEqual(got, delta) {
 		p.tb.Errorf("%s metric delta: wanted %v, got %v", p.name, delta, got)
 	}
 }
