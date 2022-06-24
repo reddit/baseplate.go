@@ -6,12 +6,11 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 
-	"github.com/reddit/baseplate.go/internalv2compat"
-	"github.com/reddit/baseplate.go/metricsbp"
-
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/metricsbp"
 )
 
 const (
