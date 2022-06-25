@@ -12,7 +12,18 @@ import (
 const float64EqualityThreshold = 1e-9
 
 func almostEqual(a, b float64) bool {
-	return math.Abs(a-b) <= float64EqualityThreshold
+	if math.IsNaN(a) {
+		return math.IsNaN(b)
+	}
+	if math.IsInf(a, 0) {
+		aSign := 1
+		if a < 0 {
+			aSign = -1
+		}
+		return math.IsInf(b, aSign)
+	}
+	threshold := math.Abs(a) * float64EqualityThreshold
+	return math.Abs(a-b) <= threshold
 }
 
 // PrometheusMetricTest stores information about a metric to use for testing.
