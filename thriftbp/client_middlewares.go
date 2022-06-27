@@ -3,6 +3,7 @@ package thriftbp
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -208,7 +209,7 @@ func MonitorClient(args MonitorClientArgs) thrift.ClientMiddleware {
 				defer func() {
 					span.FinishWithOptions(tracing.FinishOptions{
 						Ctx: ctx,
-						Err: s.Wrap(err),
+						Err: s.Wrap(getClientError(result, err)),
 					}.Convert())
 				}()
 
@@ -281,7 +282,7 @@ func Retry(defaults ...retry.Option) thrift.ClientMiddleware {
 					func() error {
 						var err error
 						lastMeta, err = next.Call(ctx, method, args, result)
-						return err
+						return getClientError(result, err)
 					},
 					defaults...,
 				)
@@ -361,11 +362,12 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 
 				defer func() {
 					var baseplateStatusCode, baseplateStatus string
-					exceptionTypeLabel := stringifyErrorType(err)
-					success := prometheusbp.BoolString(err == nil)
-					if err != nil {
+					finalErr := getClientError(result, err)
+					exceptionTypeLabel := stringifyErrorType(finalErr)
+					success := prometheusbp.BoolString(finalErr == nil)
+					if finalErr != nil {
 						var bpErr baseplateErrorCoder
-						if errors.As(err, &bpErr) {
+						if errors.As(finalErr, &bpErr) {
 							code := bpErr.GetCode()
 							baseplateStatusCode = strconv.FormatInt(int64(code), 10)
 							if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
@@ -397,4 +399,42 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 			},
 		}
 	}
+}
+
+// For a endpoint defined in thrift IDL like this:
+//
+//     service MyService {
+//       FooResponse foo(1: FooRequest request) throws (
+//         1: Exception1 error1,
+//         2: Exception2 error2,
+//       )
+//     }
+//
+// The thrift compiler generated go code for the result TStruct would be like:
+//
+//     type MyServiceFooResult struct {
+//       Success *FooResponse `thrift:"success,0" db:"success" json:"success,omitempty"`
+//       Error1 *Exception1 `thrift:"error1,1" db:"error1" json:"error1,omitempty"`
+//       Error2 *Exception2 `thrift:"error2,2" db:"error2" json:"error2,omitempty"`
+//     }
+func getClientError(result thrift.TStruct, err error) error {
+	if err != nil {
+		return err
+	}
+	v := reflect.Indirect(reflect.ValueOf(result))
+	if v.Kind() != reflect.Struct {
+		return nil
+	}
+	typ := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		if typ.Field(i).Name == "Success" {
+			continue
+		}
+		field := v.Field(i).Interface()
+		tExc, ok := field.(thrift.TException)
+		if ok && tExc != nil && tExc.TExceptionType() == thrift.TExceptionTypeCompiled {
+			return tExc
+		}
+	}
+	return nil
 }
