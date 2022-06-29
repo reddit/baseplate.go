@@ -430,8 +430,11 @@ func getClientError(result thrift.TStruct, err error) error {
 		if typ.Field(i).Name == "Success" {
 			continue
 		}
-		field := v.Field(i).Interface()
-		tExc, ok := field.(thrift.TException)
+		field := v.Field(i)
+		if field.IsZero() {
+			continue
+		}
+		tExc, ok := field.Interface().(thrift.TException)
 		if ok && tExc != nil && tExc.TExceptionType() == thrift.TExceptionTypeCompiled {
 			return tExc
 		}
