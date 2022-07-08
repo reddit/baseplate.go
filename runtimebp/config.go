@@ -21,7 +21,20 @@ type Config struct {
 }
 
 // InitFromConfig sets GOMAXPROCS using the given config.
+//
+// NOTE: If the GOMAXPROCS environment variable is set,
+// this function will skip setting GOMAXPROCS,
+// even if the environment variable is set to some bogus value
+// (in that case it will be set to number of physical CPUs).
 func InitFromConfig(cfg Config) {
-	prev, current := GOMAXPROCS(1, math.MaxInt)
-	fmt.Fprintf(os.Stderr, "GOMAXPROCS: Old: %d New: %d\n", prev, current)
+	if v, ok := os.LookupEnv("GOMAXPROCS"); ok {
+		fmt.Fprintf(
+			os.Stderr,
+			"runtimebp.InitFromConfig: GOMAXPROCS environment variable is set to %q, skipping setting GOMAXPROCS.",
+			v,
+		)
+	} else {
+		prev, current := GOMAXPROCS(1, math.MaxInt)
+		fmt.Fprintf(os.Stderr, "GOMAXPROCS: Old: %d New: %d\n", prev, current)
+	}
 }
