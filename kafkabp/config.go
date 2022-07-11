@@ -138,6 +138,10 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 	// Return any errors that occurred to the Errors channel.
 	c.Consumer.Return.Errors = true
 
+	// Set the commit frequency to 5s
+	c.Consumer.Offsets.AutoCommit.Enable = true
+	c.Consumer.Offsets.AutoCommit.Interval = 5 * time.Second
+
 	c.ClientID = cfg.ClientID
 	c.Version = version
 
