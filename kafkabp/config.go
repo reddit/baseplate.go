@@ -3,6 +3,7 @@ package kafkabp
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Shopify/sarama"
 
