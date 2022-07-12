@@ -29,9 +29,6 @@ type Config struct {
 	// Path is the path to the secrets.json file file to load your service's
 	// secrets from.
 	Path string `yaml:"path"`
-
-	// The Service providing secrets. ie vault, vault_csi
-	Provider string `yaml:"provider"`
 }
 
 // InitFromConfig returns a new *secrets.Store using the given context and config.

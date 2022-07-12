@@ -43,7 +43,7 @@ func BenchmarkStoreMiddlewares(b *testing.B) {
 			fmt.Sprintf("number of middlewares %d", numOfMiddlewares),
 			func(b *testing.B) {
 				for n := 0; n < b.N; n++ {
-					secrets.NewStore(context.Background(), tmpFile.Name(), "vault", log.TestWrapper(b), middlewares...)
+					secrets.NewStore(context.Background(), tmpFile.Name(), log.TestWrapper(b), middlewares...)
 				}
 			},
 		)

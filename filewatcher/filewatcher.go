@@ -26,14 +26,14 @@ type FileWatcher interface {
 	// Get returns the latest, parsed data from the FileWatcher.
 	Get() interface{}
 
-	// Close stops the FileWatcher.
+	// Stop stops the FileWatcher.
 	//
-	// After Close is called you won't get any updates on the file content,
+	// After Stop is called you won't get any updates on the file content,
 	// but you can still call Get to get the last content before stopping.
 	//
-	// It's OK to call Close multiple times.
+	// It's OK to call Stop multiple times.
 	// Calls after the first one are essentially no-op.
-	Close()
+	Stop()
 }
 
 // InitialReadInterval is the interval to keep retrying to open the file when
@@ -76,14 +76,14 @@ func (r *Result) Get() interface{} {
 	return r.data.Load().(*atomicData).data
 }
 
-// Close stops the file watcher.
+// Stop stops the file watcher.
 //
-// After Close is called you won't get any updates on the file content,
+// After Stop is called you won't get any updates on the file content,
 // but you can still call Get to get the last content before stopping.
 //
-// It's OK to call Close multiple times.
+// It's OK to call Stop multiple times.
 // Calls after the first one are essentially no-op.
-func (r *Result) Close() {
+func (r *Result) Stop() {
 	r.cancel()
 }
 
@@ -375,7 +375,7 @@ func (fw *MockFileWatcher) Get() interface{} {
 	return fw.data.Load()
 }
 
-// Close is a no-op.
-func (fw *MockFileWatcher) Close() {}
+// Stop is a no-op.
+func (fw *MockFileWatcher) Stop() {}
 
 var _ FileWatcher = (*MockFileWatcher)(nil)

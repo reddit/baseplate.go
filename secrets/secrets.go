@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/reddit/baseplate.go/errorsbp"
-	"github.com/reddit/baseplate.go/internal/limitopen"
 )
 
 const (
@@ -34,48 +33,7 @@ type Secrets struct {
 	simpleSecrets     map[string]SimpleSecret
 	versionedSecrets  map[string]VersionedSecret
 	credentialSecrets map[string]CredentialSecret
-	genericSecrets    map[string]GenericSecret
 	vault             Vault
-}
-
-// AddSecret adds a Generic secret to an appropriate map by its type
-func (s *Secrets) AddSecret(path string, g GenericSecret) error {
-	switch g.Type {
-	case "simple":
-		simple, err := newSimpleSecret(&g)
-		if err != nil {
-			return err
-		}
-		s.simpleSecrets[path] = simple
-	case "versioned":
-		versioned, err := newVersionedSecret(&g)
-		if err != nil {
-			return err
-		}
-		s.versionedSecrets[path] = versioned
-	case "credential":
-		credential, err := newCredentialSecret(&g)
-		if err != nil {
-			return err
-		}
-		s.credentialSecrets[path] = credential
-	default:
-		return fmt.Errorf(
-			"secrets.AddSecret: encountered unknown secret type %q for secret %q",
-			g.Type,
-			path,
-		)
-	}
-	return nil
-}
-
-// RemoveSecret removes a secret object based on its path
-func (s *Secrets) RemoveSecret(path string) error {
-	delete(s.simpleSecrets, path)
-	delete(s.versionedSecrets, path)
-	delete(s.credentialSecrets, path)
-	delete(s.genericSecrets, path)
-	return nil
 }
 
 // GetSimpleSecret fetches a simple secret or error if the key is not present.
@@ -228,11 +186,6 @@ type Document struct {
 	Vault   Vault                    `json:"vault"`
 }
 
-// CSIFile represent the raw parsed object of a file made by the Vault CSI provider
-type CSIFile struct {
-	Secret GenericSecret `json:"data"`
-}
-
 // Validate checks the Document for any errors that violate the Baseplate
 // specification.
 //
@@ -344,24 +297,4 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 		}
 	}
 	return secrets, nil
-}
-
-// NewCSISecret parses and validates the secret JSON provided by the reader.
-func NewCSISecret(r io.Reader) (secrets Secrets, err error) {
-	reader := r.(limitopen.ReadCloser)
-	var secretFile CSIFile
-	err = json.NewDecoder(r).Decode(&secretFile)
-	if err != nil {
-		return Secrets{}, err
-	}
-
-	// err = secretFile.Validate()
-	// if err != nil {
-	// 	return
-	// }
-	secrets = Secrets{
-		genericSecrets: make(map[string]GenericSecret),
-	}
-	secrets.genericSecrets[reader.Path] = secretFile.Secret
-	return
 }

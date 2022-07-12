@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/reddit/baseplate.go/directorywatcher"
 	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
 )
@@ -30,8 +29,6 @@ type Store struct {
 	watcher filewatcher.FileWatcher
 
 	secretHandlerFunc SecretHandlerFunc
-
-	provider string
 }
 
 // NewStore returns a new instance of Store by configuring it
@@ -40,47 +37,26 @@ type Store struct {
 //
 // Context should come with a timeout otherwise this might block forever, i.e.
 // if the path never becomes available.
-func NewStore(ctx context.Context, path string, provider string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
+func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
 	store := &Store{
 		secretHandlerFunc: nopSecretHandlerFunc,
-		provider:          provider,
 	}
 	store.secretHandler(middlewares...)
-	switch provider {
-	case "vault_csi":
 
-		result, err := directorywatcher.New(
-			ctx,
-			directorywatcher.Config{
-				Path:    path,
-				Parser:  store.csiParser,
-				Adder:   csiAdder,
-				Remover: csiRemover,
-				Logger:  logger,
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		store.watcher = result
-		return store, nil
-	default:
-		result, err := filewatcher.New(
-			ctx,
-			filewatcher.Config{
-				Path:   path,
-				Parser: store.parser,
-				Logger: logger,
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		store.watcher = result
-		return store, nil
+	result, err := filewatcher.New(
+		ctx,
+		filewatcher.Config{
+			Path:   path,
+			Parser: store.parser,
+			Logger: logger,
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
+
+	store.watcher = result
+	return store, nil
 }
 
 func (s *Store) parser(r io.Reader) (interface{}, error) {
@@ -94,44 +70,6 @@ func (s *Store) parser(r io.Reader) (interface{}, error) {
 	return secrets, nil
 }
 
-func (s *Store) csiParser(r io.Reader) (interface{}, error) {
-	secret, err := NewCSISecret(r)
-	if err != nil {
-		return nil, err
-	}
-
-	s.secretHandlerFunc(&secret)
-
-	return secret, nil
-}
-
-func csiAdder(d interface{}, f interface{}) (interface{}, error) {
-	var secrets Secrets
-	file := f.(Secrets)
-
-	if d == nil {
-		secrets = Secrets{
-			simpleSecrets:     make(map[string]SimpleSecret),
-			versionedSecrets:  make(map[string]VersionedSecret),
-			credentialSecrets: make(map[string]CredentialSecret),
-		}
-	} else {
-		secrets = d.(Secrets)
-	}
-
-	for path, secret := range file.genericSecrets {
-		secrets.AddSecret(path, secret)
-	}
-
-	return secrets, nil
-}
-
-func csiRemover(d interface{}, path string) (data interface{}, err error) {
-	secrets := d.(Secrets)
-	secrets.RemoveSecret(path)
-	return secrets, nil
-}
-
 // secretHandler creates the middleware chain.
 func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
 	for _, m := range middlewares {
@@ -140,13 +78,7 @@ func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
 }
 
 func (s *Store) getSecrets() *Secrets {
-	switch s.provider {
-	case "vault_csi":
-		secrets := s.watcher.Get().(Secrets)
-		return &secrets
-	default:
-		return s.watcher.Get().(*Secrets)
-	}
+	return s.watcher.Get().(*Secrets)
 }
 
 // Close closes the underlying filewatcher and release associated resources.
@@ -158,7 +90,7 @@ func (s *Store) getSecrets() *Secrets {
 //
 // Close doesn't return non-nil errors, but implements io.Closer.
 func (s *Store) Close() error {
-	s.watcher.Close()
+	s.watcher.Stop()
 	return nil
 }
 
@@ -192,7 +124,7 @@ func (s Store) GetCredentialSecret(path string) (CredentialSecret, error) {
 // token will have policies attached based on the current EC2 server's Vault
 // role. This is only necessary if talking directly to Vault.
 //
-// This function always returns nil error. < Ted: why? I only ask because the vault csi doesnt surface a token for you to use
+// This function always returns nil error.
 func (s Store) GetVault() (Vault, error) {
 	return s.getSecrets().vault, nil
 }
