@@ -114,7 +114,7 @@ func ExampleAsync() {
 	asyncDone.Wait()
 	fmt.Println("finished cleanup")
 
-	// Output:
+	// Unordered Output:
 	// running...
 	// timed out
 	// waiting for async cleanup

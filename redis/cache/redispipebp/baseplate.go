@@ -37,6 +37,11 @@ type BaseplateRedisClientArgs struct {
 	// Retry is the retry options for the redis client.
 	// This is optional, if it is empty or nil, then we will not wrap the client in a RetrySync
 	Retry []retry.Option
+	// ReplicaPolicy is the config enumeration of policies of redis replica hosts usage.
+	// This is optional, if nil, default to MasterOnly policy
+	// This config only applies if NewBaseplateRedisCluster is used to create a redis client otherwise does nothing.
+	// See: https://pkg.go.dev/github.com/joomcode/redispipe/rediscluster#ReplicaPolicyEnum
+	ReplicaPolicy rediscluster.ReplicaPolicyEnum
 }
 
 func wrapSender(sender redis.Sender, args BaseplateRedisClientArgs) (s redisx.Sync, err error) {
@@ -84,5 +89,7 @@ func NewBaseplateRedisCluster(ctx context.Context, addrs []string, opts redisclu
 	if err != nil {
 		return nil, err
 	}
-	return wrapSender(sender, args)
+	// TODO: Make ReplicaPolicy a separate config object when we make the next API breaking changes
+	// see: https://github.com/reddit/baseplate.go/pull/508
+	return wrapSender(sender.WithPolicy(args.ReplicaPolicy), args)
 }

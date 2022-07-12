@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/reddit/baseplate.go/metricsbp"
 )
 
@@ -25,6 +26,16 @@ type PoolStatser interface {
 func NewMonitoredClient(name string, opt *redis.Options) *redis.Client {
 	client := redis.NewClient(opt)
 	client.AddHook(SpanHook{ClientName: name})
+
+	if err := prometheus.Register(exporter{
+		client: client,
+		name:   name,
+	}); err != nil {
+		// prometheus.Register should never fail because
+		// exporter.Describe is a no-op, but just in case.
+		return nil
+	}
+
 	return client
 }
 
@@ -33,6 +44,16 @@ func NewMonitoredClient(name string, opt *redis.Options) *redis.Client {
 func NewMonitoredFailoverClient(name string, opt *redis.FailoverOptions) *redis.Client {
 	client := redis.NewFailoverClient(opt)
 	client.AddHook(SpanHook{ClientName: name})
+
+	if err := prometheus.Register(exporter{
+		client: client,
+		name:   name,
+	}); err != nil {
+		// prometheus.Register should never fail because
+		// exporter.Describe is a no-op, but just in case.
+		return nil
+	}
+
 	return client
 }
 
@@ -77,6 +98,15 @@ func (cc *ClusterClient) Wait(ctx context.Context, args WaitArgs) (replicas int6
 func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *ClusterClient {
 	client := redis.NewClusterClient(opt)
 	client.AddHook(SpanHook{ClientName: name})
+
+	if err := prometheus.Register(exporter{
+		client: client,
+		name:   name,
+	}); err != nil {
+		// prometheus.Register should never fail because
+		// exporter.Describe is a no-op, but just in case.
+		return nil
+	}
 
 	return &ClusterClient{client}
 }

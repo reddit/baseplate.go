@@ -6,8 +6,10 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/randbp"
 )
 
@@ -47,6 +49,7 @@ type ttlClient struct {
 	ttl       time.Duration
 
 	replaceCounter metrics.Counter
+	slug           string
 
 	// state guarded by lock (buffer-1 channel)
 	state chan *ttlClientState
@@ -103,7 +106,11 @@ func (c *ttlClient) refresh() {
 		// We cannot replace this connection in the background,
 		// leave client and transport be,
 		// this connection will be replaced by the pool upon next use.
-		c.replaceCounter.With("success", "False").Add(1)
+		c.replaceCounter.With("success", metricsbp.BoolString(false)).Add(1)
+		ttlClientReplaceCounter.With(prometheus.Labels{
+			serverSlugLabel: c.slug,
+			successLabel:    prometheusbp.BoolString(false),
+		}).Inc()
 		return
 	}
 
@@ -125,7 +132,11 @@ func (c *ttlClient) refresh() {
 		state.transport.Close()
 	}
 	state.transport = transport
-	c.replaceCounter.With("success", "True").Add(1)
+	c.replaceCounter.With("success", metricsbp.BoolString(true)).Add(1)
+	ttlClientReplaceCounter.With(prometheus.Labels{
+		serverSlugLabel: c.slug,
+		successLabel:    prometheusbp.BoolString(true),
+	}).Inc()
 }
 
 // newTTLClient creates a ttlClient with a thrift TTransport and ttl+jitter.
@@ -144,6 +155,7 @@ func newTTLClient(generator ttlClientGenerator, ttl time.Duration, jitter float6
 		ttl:       duration,
 
 		replaceCounter: metricsbp.M.Counter(slug + ".connection-housekeeping").With(tags.AsStatsdTags()...),
+		slug:           slug,
 
 		state: make(chan *ttlClientState, 1),
 	}
@@ -153,5 +165,12 @@ func newTTLClient(generator ttlClientGenerator, ttl time.Duration, jitter float6
 	}
 	state.renew(time.Now(), c)
 	c.state <- state
+
+	// Register the error counter so it can be monitored
+	ttlClientReplaceCounter.With(prometheus.Labels{
+		serverSlugLabel: c.slug,
+		successLabel:    prometheusbp.BoolString(false),
+	})
+
 	return c, nil
 }

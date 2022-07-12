@@ -17,6 +17,10 @@ type channelPool struct {
 var _ Pool = (*channelPool)(nil)
 
 // NewChannelPool creates a new client pool implemented via channel.
+//
+// Note that this function could return both non-nil Pool and error,
+// when we failed to create all asked initialClients.
+// In such case the returned Pool would have the clients we already established.
 func NewChannelPool(initialClients, maxClients int, opener ClientOpener) (Pool, error) {
 	if initialClients > maxClients {
 		return nil, &ConfigError{
@@ -25,16 +29,18 @@ func NewChannelPool(initialClients, maxClients int, opener ClientOpener) (Pool, 
 		}
 	}
 
+	var finalErr error
 	pool := make(chan Client, maxClients)
 	for i := 0; i < initialClients; i++ {
 		c, err := opener()
 		if err != nil {
-			return nil, fmt.Errorf(
-				"error creating client #%d/%d: %w",
+			finalErr = fmt.Errorf(
+				"clientpool: error creating client #%d/%d: %w",
 				i,
 				initialClients,
 				err,
 			)
+			break
 		}
 		pool <- c
 	}
@@ -44,7 +50,7 @@ func NewChannelPool(initialClients, maxClients int, opener ClientOpener) (Pool, 
 		opener:         opener,
 		initialClients: initialClients,
 		maxClients:     maxClients,
-	}, nil
+	}, finalErr
 }
 
 // Get returns a client from the pool.
@@ -60,6 +66,14 @@ func (cp *channelPool) Get() (client Client, err error) {
 		if c.IsOpen() {
 			return c, nil
 		}
+		// For thrift connections, IsOpen could return false in both explicit and
+		// implicit closed situations.
+		// In implicit closed situation, IsOpen does a connectivity check and
+		// returns false if that check fails. In such case we should still close the
+		// connection explicitly to avoid resource leak.
+		// In explicit situation, calling Close again will just return an already
+		// closed error, which is harmless here.
+		c.Close()
 	default:
 	}
 
@@ -85,6 +99,11 @@ func (cp *channelPool) Release(c Client) error {
 	defer atomic.AddInt32(&cp.numActive, -1)
 
 	if !c.IsOpen() {
+		// Even when c.IsOpen reported false, still call Close explicitly to avoid
+		// connection leaks. At worst case scenario it just returns an already
+		// closed error, which is still harmless.
+		c.Close()
+
 		newC, err := cp.opener()
 		if err != nil {
 			return err

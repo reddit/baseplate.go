@@ -1,6 +1,7 @@
 package promtest
 
 import (
+	"math"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -8,29 +9,75 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
+const float64EqualityThreshold = 1e-9
+
+func almostEqual(a, b float64) bool {
+	if math.IsNaN(a) {
+		return math.IsNaN(b)
+	}
+	if math.IsInf(a, 0) {
+		aSign := 1
+		if a < 0 {
+			aSign = -1
+		}
+		return math.IsInf(b, aSign)
+	}
+	threshold := math.Abs(a) * float64EqualityThreshold
+	return math.Abs(a-b) <= threshold
+}
+
 // PrometheusMetricTest stores information about a metric to use for testing.
 type PrometheusMetricTest struct {
-	tb        testing.TB
-	metric    prometheus.Collector
-	name      string
-	initValue float64
-	labels    prometheus.Labels
+	tb              testing.TB
+	metric          prometheus.Collector
+	name            string
+	initValue       float64
+	initSampleCount int
+	labels          prometheus.Labels
 }
 
 // CheckDelta checks that the metric value changes exactly delta from when Helper was called.
 func (p *PrometheusMetricTest) CheckDelta(delta float64) {
-	got := p.getValue()
-	got -= float64(p.initValue)
-	if got != delta {
+	p.tb.Helper()
+
+	got, _ := p.getValueAndSampleCount()
+	got -= p.initValue
+	if !almostEqual(got, delta) {
 		p.tb.Errorf("%s metric delta: wanted %v, got %v", p.name, delta, got)
 	}
 }
 
-// CheckExists confirms that the metric exists and returns the count of metrics.
+// CheckSampleCountDelta checks that the number of samples (of histogram) is the exactly delta from when Helper was called.
+func (p *PrometheusMetricTest) CheckSampleCountDelta(delta int) {
+	p.tb.Helper()
+
+	_, got := p.getValueAndSampleCount()
+	got -= p.initSampleCount
+	if got != delta {
+		p.tb.Errorf("%s metric histogram count delta: wanted %v, got %v", p.name, delta, got)
+	}
+}
+
+// CheckExists confirms that the metric exists and returns exactly 1 metrics.
+//
+// It's a shorthand for CheckExistsN(1)
 func (p *PrometheusMetricTest) CheckExists() {
+	p.tb.Helper()
+	p.CheckExistsN(1)
+}
+
+// CheckExistsN confirms that the metric exists and returns the count of metrics.
+//
+// Please note that due to the limitation of upstream API,
+// neither CheckExistsN nor CheckExists will limit the counts to the specified
+// labels, so they will check against the number of metrics reported with all
+// label values.
+func (p *PrometheusMetricTest) CheckExistsN(count int) {
+	p.tb.Helper()
+
 	got := testutil.CollectAndCount(p.metric)
-	if got != 1 {
-		p.tb.Errorf("%s metric count: wanted %v, got %v", p.name, 1, got)
+	if got != count {
+		p.tb.Errorf("%s metric count: wanted %v, got %v", p.name, count, got)
 	}
 }
 
@@ -43,14 +90,18 @@ func NewPrometheusMetricTest(tb testing.TB, name string, metric prometheus.Colle
 		name:   name,
 		labels: labels,
 	}
-	p.initValue = p.getValue()
+	p.initValue, p.initSampleCount = p.getValueAndSampleCount()
 	return p
 }
 
-// getValue returns the current value of the metric.
-func (p *PrometheusMetricTest) getValue() float64 {
+// getValueAndSampleCount returns the current value and histogram sample count
+// of the metric.
+func (p *PrometheusMetricTest) getValueAndSampleCount() (float64, int) {
 	var value float64
+	var histoCount int
 	switch m := p.metric.(type) {
+	case prometheus.Gauge, prometheus.Counter:
+		value = testutil.ToFloat64(m)
 	case *prometheus.GaugeVec:
 		gague, err := m.GetMetricWith(p.labels)
 		if err != nil {
@@ -70,13 +121,15 @@ func (p *PrometheusMetricTest) getValue() float64 {
 		}
 		h, ok := histrogram.(prometheus.Collector)
 		if !ok {
-			p.tb.Fatalf("histogram is not a collector type")
+			p.tb.Fatalf("histogram %s is not a collector type", p.name)
 		}
-		_, value = collectHistogramToFloat64(p.tb, h)
+		histoCount, value = collectHistogramToFloat64(p.tb, h)
+	case prometheus.Histogram:
+		histoCount, value = collectHistogramToFloat64(p.tb, m)
 	default:
-		p.tb.Fatalf("not supported type %T\n", m)
+		p.tb.Fatalf("not supported type %T for metric %s", m, p.name)
 	}
-	return value
+	return value, histoCount
 }
 
 // collectHistogramToFloat64 returns the sample count and sum of the histogram.

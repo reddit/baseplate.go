@@ -2,15 +2,41 @@ package limitopen
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
+)
+
+const (
+	promNamespace = "limitopen"
+
+	pathLabel = "path"
+)
+
+var (
+	sizeLabels = []string{
+		pathLabel,
+	}
+
+	sizeGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: promNamespace,
+		Name:      "file_size_bytes",
+		Help:      "The size of the file opened by limitopen.Open",
+	}, sizeLabels)
+
+	softLimitCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: promNamespace,
+		Name:      "softlimit_violation_total",
+		Help:      "The total number of violations of softlimit",
+	}, sizeLabels)
 )
 
 // Open opens a path for read.
@@ -67,9 +93,11 @@ type ReadCloser struct {
 // OpenWithLimit calls Open with limit checks.
 //
 // It always reports the size of the path as a runtime gauge
-// (with "limitopen.size" as the metrics path and path label).
+// (with "limitopen.size" as the metrics path and path label for statsd,
+// "limitopen_file_size_bytes" for prometheus).
 // When softLimit > 0 and the size of the path as reported by the os is larger,
-// it will also use log.ErrorWithSentry to report it.
+// it will also use log.DefaultWrapper to report it and increase prometheus
+// counter of limitopen_softlimit_violation_total.
 // When hardLimit > 0 and the size of the path as reported by the os is larger,
 // it will close the file and return an error directly.
 func OpenWithLimit(path string, softLimit, hardLimit int64) (io.ReadCloser, error) {
@@ -78,20 +106,24 @@ func OpenWithLimit(path string, softLimit, hardLimit int64) (io.ReadCloser, erro
 		return nil, err
 	}
 
+	pathValue := filepath.Base(path)
 	metricsbp.M.RuntimeGauge("limitopen.size").With(
-		"path", filepath.Base(path),
+		"path", pathValue,
 	).Set(float64(size))
+	labels := prometheus.Labels{
+		pathLabel: pathValue,
+	}
+	sizeGauge.With(labels).Set(float64(size))
 
 	if softLimit > 0 && size > softLimit {
-		const msg = "limitopen.OpenWithLimit: file size > soft limit"
-		log.ErrorWithSentry(
-			context.Background(),
-			msg,
-			errors.New(msg),
-			"path", path,
-			"size", size,
-			"limit", softLimit,
+		msg := fmt.Sprintf(
+			"limitopen.OpenWithLimit: file size > soft limit, path=%q size=%d limit=%d",
+			path,
+			size,
+			softLimit,
 		)
+		log.DefaultWrapper.Log(context.Background(), msg)
+		softLimitCounter.With(labels).Inc()
 	}
 
 	if hardLimit > 0 && size > hardLimit {

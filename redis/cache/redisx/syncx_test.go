@@ -253,22 +253,27 @@ func TestResponseTypes(t *testing.T) {
 
 	t.Run("[]byte", func(t *testing.T) {
 		key := "fizz"
-
-		var v []byte
-		if err := client.Do(ctx, &v, "GET", key); err != nil {
-			t.Fatal(err)
-		}
-		if v != nil {
-			t.Errorf("expected value to not be set, got %q", string(v))
-		}
+		nilKey := "empty"
+		intKey := "number"
 
 		value := "buzz"
 		if err := client.Do(ctx, nil, "SET", key, value); err != nil {
 			t.Fatal(err)
 		}
+		var intValue int64 = 3
+		if err := client.Do(ctx, nil, "SET", intKey, strconv.FormatInt(intValue, 10)); err != nil {
+			t.Fatal(err)
+		}
 
 		t.Run("input/[]byte", func(t *testing.T) {
 			var v []byte
+			if err := client.Do(ctx, &v, "GET", nilKey); err != nil {
+				t.Fatal(err)
+			}
+			if v != nil {
+				t.Errorf("expected value to not be set, got %q", string(v))
+			}
+
 			if err := client.Do(ctx, &v, "GET", key); err != nil {
 				t.Fatal(err)
 			}
@@ -287,18 +292,48 @@ func TestResponseTypes(t *testing.T) {
 			}
 		})
 
-		t.Run("input/int64", func(t *testing.T) {
-			var value int64 = 3
-			if err := client.Do(ctx, nil, "SET", key, strconv.FormatInt(value, 10)); err != nil {
+		t.Run("input/*string", func(t *testing.T) {
+			var v *string
+			if err := client.Do(ctx, &v, "GET", nilKey); err != nil {
 				t.Fatal(err)
 			}
+			if v != nil {
+				t.Errorf("expected value to not be set, got %v", v)
+			}
 
-			var v int64
 			if err := client.Do(ctx, &v, "GET", key); err != nil {
 				t.Fatal(err)
 			}
-			if v != value {
-				t.Errorf("bulk string value mismatch, expected %d, got %d", value, v)
+			if *v != value {
+				t.Errorf("*string value mismatch, expected %q, got %v", value, v)
+			}
+
+		})
+
+		t.Run("input/int64", func(t *testing.T) {
+			var v int64
+			if err := client.Do(ctx, &v, "GET", intKey); err != nil {
+				t.Fatal(err)
+			}
+			if v != intValue {
+				t.Errorf("bulk string value mismatch, expected %d, got %d", intValue, v)
+			}
+		})
+
+		t.Run("input/*int64", func(t *testing.T) {
+			var v *int64
+			if err := client.Do(ctx, &v, "GET", nilKey); err != nil {
+				t.Fatal(err)
+			}
+			if v != nil {
+				t.Errorf("expected value to not be set, got %v", v)
+			}
+
+			if err := client.Do(ctx, &v, "GET", intKey); err != nil {
+				t.Fatal(err)
+			}
+			if *v != intValue {
+				t.Errorf("bulk string value mismatch, expected %d, got %d", intValue, v)
 			}
 		})
 	})

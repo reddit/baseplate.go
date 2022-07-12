@@ -4,13 +4,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
+
+type promCtxKeyType struct{}
+
+var promCtxKey promCtxKeyType
+
+type promCtx struct {
+	command string
+	start   time.Time
+}
 
 // SpanHook is a redis.Hook for wrapping Redis commands and pipelines
 // in Client Spans and metrics.
@@ -67,10 +79,21 @@ func (h SpanHook) startChildSpan(ctx context.Context, cmdName string) context.Co
 		name,
 		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 	)
-	return ctx
+	return context.WithValue(ctx, promCtxKey, &promCtx{
+		command: cmdName,
+		start:   time.Now(),
+	})
 }
 
 func (h SpanHook) endChildSpan(ctx context.Context, err error) {
+	if v, _ := ctx.Value(promCtxKey).(*promCtx); v != nil {
+		latencyTimer.With(prometheus.Labels{
+			nameLabel:    h.ClientName,
+			commandLabel: v.command,
+			successLabel: prometheusbp.BoolString(err == nil),
+		}).Observe(time.Since(v.start).Seconds())
+	}
+
 	if span := opentracing.SpanFromContext(ctx); span != nil {
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,

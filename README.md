@@ -21,7 +21,7 @@ with `*-remote` directories removed.
 They are excluded from the linter.
 DO NOT EDIT.
 
-They were generated with [thrift compiler v0.14.1][thrift-version] against
+They were generated with [thrift compiler v0.16.0][thrift-version] against
 [`baseplate.thrift`][baseplate.thrift]
 using the following commands under `internal/`:
 
@@ -37,8 +37,8 @@ files changed significantly.
 
 [baseplate.py]: https://github.com/reddit/baseplate.py
 
-[baseplate.thrift]: https://github.com/reddit/baseplate.py/blob/b1e1dbddd0994c2b2a36c8c456fe8f08dadf1c9d/baseplate/thrift/baseplate.thrift
+[baseplate.thrift]: https://github.com/reddit/baseplate.py/blob/c47b5f29a99b8465987f37237da3e4a53ed55a0c/baseplate/thrift/baseplate.thrift
 
 [godev]: https://pkg.go.dev/github.com/reddit/baseplate.go
 
-[thrift-version]: https://github.com/apache/thrift/releases/tag/v0.14.1
+[thrift-version]: https://github.com/apache/thrift/releases/tag/v0.16.0

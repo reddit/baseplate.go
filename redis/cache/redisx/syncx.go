@@ -28,7 +28,8 @@ import (
 //    is supported as a response input.  In additon, you may use a "string" or
 //    "int64" and we will attempt to convert the "[]byte" response to that value.
 //    Note that this is done by converting it to a "string" first and, in the
-//    case of "int64", parsing it into an integer.
+//    case of "int64", parsing it into an integer. You can also use "*string"
+//    or "*int64", to be able to represent null value.
 // 4. Arrays: Arrays are the most flexible type returned by Redis as an array
 //    can contain elements of any of the types above. "[]interface{}" is the
 //    type that redispipe returns on these commands and is supported as a
@@ -52,6 +53,8 @@ import (
 //	SRANDMEMBERN
 //	SUNION
 //	XCLAIMJUSTID
+//  ZPOPMAX
+//  ZPOPMIN
 //	ZRANGE
 //	ZRANGEBYLEX
 //	ZRANGEBYSCORE

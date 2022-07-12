@@ -240,7 +240,7 @@ func TestTrustHeaderSignatureSignAndVerify(t *testing.T) {
 			}
 			ech, err = httpbp.NewEdgeContextHeaders(request.Header)
 			if err != nil {
-				t.Errorf("Got an unexpected error while decoding the edge context: %w", err)
+				t.Errorf("Got an unexpected error while decoding the edge context: %v", err)
 			}
 			ok, err := trustHandler.VerifyEdgeContextHeader(
 				ech,

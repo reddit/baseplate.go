@@ -17,6 +17,7 @@ import (
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -67,10 +68,10 @@ type DefaultMiddlewareArgs struct {
 // DefaultMiddleware returns a slice of all the default Middleware for a
 // Baseplate HTTP server. The default middleware are (in order):
 //
-//	1. InjectServerSpan
-//	2. InjectEdgeRequestContext
-//	3. RecordStatusCode
-//  4. PrometheusServerMetrics
+//   1. InjectServerSpan
+//   2. InjectEdgeRequestContext
+//   3. RecordStatusCode
+//   4. PrometheusServerMetrics
 func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	if args.TrustHandler == nil {
 		args.TrustHandler = NeverTrustHeaders{}
@@ -286,6 +287,9 @@ func SupportedMethods(method string, additional ...string) Middleware {
 // bubble up into other middlewares. Since it is always added to the middleware
 // chain is a specific position, it is not exported.
 func recoverPanic(name string, next HandlerFunc) HandlerFunc {
+	counter := panicRecoverCounter.With(prometheus.Labels{
+		methodLabel: name,
+	})
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -303,6 +307,7 @@ func recoverPanic(name string, next HandlerFunc) HandlerFunc {
 				metricsbp.M.Counter("panic.recover").With(
 					"name", name,
 				).Add(1)
+				counter.Inc()
 
 				// change named return value to a generic 500 error
 				err = RawError(InternalServerError(), rErr, PlainTextContentType)
@@ -443,7 +448,8 @@ func PrometheusServerMetrics(_ string) Middleware {
 			start := time.Now()
 			method := r.Method
 			activeRequestLabels := prometheus.Labels{
-				methodLabel: method,
+				methodLabel:   method,
+				endpointLabel: name,
 			}
 			serverActiveRequests.With(activeRequestLabels).Inc()
 
@@ -453,17 +459,19 @@ func PrometheusServerMetrics(_ string) Middleware {
 				success := isRequestSuccessful(code, err)
 
 				labels := prometheus.Labels{
-					methodLabel:  method,
-					successLabel: success,
+					methodLabel:   method,
+					successLabel:  success,
+					endpointLabel: name,
 				}
 				serverLatency.With(labels).Observe(time.Since(start).Seconds())
 				serverRequestSize.With(labels).Observe(float64(r.ContentLength))
 				serverResponseSize.With(labels).Observe(float64(wrapped.bytesWritten))
 
 				totalRequestLabels := prometheus.Labels{
-					methodLabel:  method,
-					successLabel: success,
-					codeLabel:    strconv.Itoa(code),
+					methodLabel:   method,
+					successLabel:  success,
+					codeLabel:     strconv.Itoa(code),
+					endpointLabel: name,
 				}
 				serverTotalRequests.With(totalRequestLabels).Inc()
 				serverActiveRequests.With(activeRequestLabels).Dec()
@@ -477,9 +485,9 @@ func PrometheusServerMetrics(_ string) Middleware {
 // isRequestSuccessful returns the success of an HTTP request as a string, i.e. "true" or "false".
 // A HTTP request is successful when:
 //   1) no error is returned from the request and
-//   2) the HTTP status code is in the form 2xx.
+//   2) the HTTP status code is in the range [100, 400).
 func isRequestSuccessful(httpStatusCode int, requestErr error) string {
-	return strconv.FormatBool(requestErr == nil && isSuccessStatusCode(httpStatusCode))
+	return prometheusbp.BoolString(requestErr == nil && isSuccessStatusCode(httpStatusCode))
 }
 
 // responeRecorder records the following:

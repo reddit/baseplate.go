@@ -259,8 +259,9 @@ func TestClientErrorWrapper(t *testing.T) {
 
 func TestRetry(t *testing.T) {
 	t.Run("retry for timeout", func(t *testing.T) {
+		const timeout = time.Millisecond * 10
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			time.Sleep(2 * time.Millisecond)
+			time.Sleep(timeout * 10)
 		}))
 		defer server.Close()
 
@@ -274,7 +275,7 @@ func TestRetry(t *testing.T) {
 					attempts = n + 1
 				}),
 			)(http.DefaultTransport),
-			Timeout: time.Millisecond,
+			Timeout: timeout,
 		}
 		_, err := client.Get(server.URL)
 		if err == nil {

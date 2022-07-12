@@ -58,43 +58,60 @@ func compareBytesData(t *testing.T, data interface{}, expected []byte) {
 }
 
 func TestFileWatcher(t *testing.T) {
-	interval := time.Millisecond
-	filewatcher.InitialReadInterval = interval
-	writeDelay := interval * 10
-	timeout := writeDelay * 20
-
-	payload1 := []byte("Hello, world!")
-	payload2 := []byte("Bye, world!")
-
-	dir := t.TempDir()
-	path := filepath.Join(dir, "foo")
-
-	// Delay writing the file
-	go func() {
-		time.Sleep(writeDelay)
-		writeFile(t, path, payload1)
-	}()
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	data, err := filewatcher.New(
-		ctx,
-		filewatcher.Config{
-			Path:   path,
-			Parser: parser,
-			Logger: log.TestWrapper(t),
+	for _, c := range []struct {
+		label    string
+		interval time.Duration
+	}{
+		{
+			label:    "with-polling",
+			interval: filewatcher.DefaultPollingInterval,
 		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer data.Close()
-	compareBytesData(t, data.Get(), payload1)
+		{
+			label:    "no-polling",
+			interval: -1,
+		},
+	} {
+		t.Run(c.label, func(t *testing.T) {
+			interval := time.Millisecond
+			filewatcher.InitialReadInterval = interval
+			writeDelay := interval * 10
+			timeout := writeDelay * 20
 
-	writeFile(t, path, payload2)
-	// Give it some time to handle the file content change
-	time.Sleep(time.Millisecond * 500)
-	compareBytesData(t, data.Get(), payload2)
+			payload1 := []byte("Hello, world!")
+			payload2 := []byte("Bye, world!")
+
+			dir := t.TempDir()
+			path := filepath.Join(dir, "foo")
+
+			// Delay writing the file
+			go func() {
+				time.Sleep(writeDelay)
+				writeFile(t, path, payload1)
+			}()
+
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			t.Cleanup(cancel)
+			data, err := filewatcher.New(
+				ctx,
+				filewatcher.Config{
+					Path:            path,
+					Parser:          parser,
+					Logger:          log.TestWrapper(t),
+					PollingInterval: c.interval,
+				},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(data.Stop)
+			compareBytesData(t, data.Get(), payload1)
+
+			writeFile(t, path, payload2)
+			// Give it some time to handle the file content change
+			time.Sleep(500 * time.Millisecond)
+			compareBytesData(t, data.Get(), payload2)
+		})
+	}
 }
 
 func TestFileWatcherTimeout(t *testing.T) {
@@ -108,7 +125,7 @@ func TestFileWatcherTimeout(t *testing.T) {
 
 	before := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	t.Cleanup(cancel)
 	_, err := filewatcher.New(
 		ctx,
 		filewatcher.Config{
@@ -147,19 +164,20 @@ func TestFileWatcherRename(t *testing.T) {
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	t.Cleanup(cancel)
 	data, err := filewatcher.New(
 		ctx,
 		filewatcher.Config{
-			Path:   path,
-			Parser: parser,
-			Logger: log.TestWrapper(t),
+			Path:            path,
+			Parser:          parser,
+			Logger:          log.TestWrapper(t),
+			PollingInterval: writeDelay,
 		},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	t.Cleanup(data.Stop)
 	compareBytesData(t, data.Get(), payload1)
 
 	func() {
@@ -170,12 +188,11 @@ func TestFileWatcherRename(t *testing.T) {
 		}
 	}()
 	// Give it some time to handle the file content change
-	time.Sleep(interval * 10)
+	time.Sleep(writeDelay * 10)
 	compareBytesData(t, data.Get(), payload2)
 }
 
 func TestParserFailure(t *testing.T) {
-	interval := time.Millisecond
 	errParser := errors.New("parser failed")
 	var n int64
 	parser := func(_ io.Reader) (interface{}, error) {
@@ -201,15 +218,16 @@ func TestParserFailure(t *testing.T) {
 	data, err := filewatcher.New(
 		context.Background(),
 		filewatcher.Config{
-			Path:   path,
-			Parser: parser,
-			Logger: logger,
+			Path:            path,
+			Parser:          parser,
+			Logger:          logger,
+			PollingInterval: -1, // disable polling as we need exact numbers of parser calls in this test
 		},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	t.Cleanup(data.Stop)
 	expected := int64(1)
 	value := data.Get().(int64)
 	if value != expected {
@@ -223,7 +241,7 @@ func TestParserFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Give it some time to handle the file content change
-	time.Sleep(interval * 500)
+	time.Sleep(500 * time.Millisecond)
 	if atomic.LoadInt64(&loggerCalled) == 0 {
 		t.Error("Expected logger being called")
 	}
@@ -238,7 +256,7 @@ func TestParserFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Give it some time to handle the file content change
-	time.Sleep(interval * 500)
+	time.Sleep(500 * time.Millisecond)
 	expected = 3
 	value = data.Get().(int64)
 	if value != expected {
@@ -308,34 +326,36 @@ func TestParserSizeLimit(t *testing.T) {
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	t.Cleanup(cancel)
 	var wrapper logWrapper
 	data, err := filewatcher.New(
 		ctx,
 		filewatcher.Config{
-			Path:        path,
-			Parser:      limitedParser(t, size),
-			Logger:      wrapper.wrapper(t),
-			MaxFileSize: limit,
+			Path:            path,
+			Parser:          limitedParser(t, size),
+			Logger:          wrapper.wrapper(t),
+			MaxFileSize:     limit,
+			PollingInterval: writeDelay,
 		},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	t.Cleanup(data.Stop)
 	compareBytesData(t, data.Get(), expectedPayload)
 
 	writeFile(t, path, payload2)
 	// Give it some time to handle the file content change
-	time.Sleep(time.Millisecond * 500)
+	time.Sleep(writeDelay * 10)
 	// We expect the second parse would fail because of the data is beyond the
 	// hard limit, so the data should still be expectedPayload
 	compareBytesData(t, data.Get(), expectedPayload)
 	// Since we expect the second parse would fail, we also expect the logger to
-	// be called once.
-	const expectedCalled = 1
-	if called := wrapper.getCalled(); called != expectedCalled {
-		t.Errorf("Expected log.Wrapper to be called %d times, actual %d", expectedCalled, called)
+	// be called at least once.
+	// The logger could be called twice because of reload triggered by polling.
+	const expectedCalledMin = 1
+	if called := wrapper.getCalled(); called < expectedCalledMin {
+		t.Errorf("Expected log.Wrapper to be called at least %d times, actual %d", expectedCalledMin, called)
 	}
 }
 

@@ -96,33 +96,77 @@ func TestInitialConnectionsFallback(t *testing.T) {
 		return "", errors.New("error")
 	}
 
-	var loggerCalled int64
-	logger := func(_ context.Context, msg string) {
-		t.Logf("InitialConnectionsFallbackLogger called with %q", msg)
-		atomic.StoreInt64(&loggerCalled, 1)
-	}
+	for _, c := range []struct {
+		label       string
+		expectError bool
+		cfg         thriftbp.ClientPoolConfig
+	}{
+		{
+			label:       "invalid-config",
+			expectError: true,
+			cfg: thriftbp.ClientPoolConfig{
+				ServiceSlug:     "test",
+				EdgeContextImpl: ecinterface.Mock(),
+				ConnectTimeout:  time.Millisecond * 5,
+				SocketTimeout:   time.Millisecond * 15,
 
-	cfg := thriftbp.ClientPoolConfig{
-		ServiceSlug:                      "test",
-		EdgeContextImpl:                  ecinterface.Mock(),
-		Addr:                             ":9090",
-		InitialConnections:               2,
-		MaxConnections:                   5,
-		ConnectTimeout:                   time.Millisecond * 5,
-		SocketTimeout:                    time.Millisecond * 15,
-		InitialConnectionsFallbackLogger: logger,
-	}
-	factory := thrift.NewTBinaryProtocolFactoryConf(cfg.ToTConfiguration())
+				InitialConnections: 5,
+				MaxConnections:     2,
+			},
+		},
+		{
+			label:       "required-1",
+			expectError: true,
+			cfg: thriftbp.ClientPoolConfig{
+				ServiceSlug:     "test",
+				EdgeContextImpl: ecinterface.Mock(),
+				ConnectTimeout:  time.Millisecond * 5,
+				SocketTimeout:   time.Millisecond * 15,
 
-	if _, err := thriftbp.NewCustomClientPool(cfg, addrGen, factory); err == nil {
-		t.Error("Expected error without fallback, got nil")
-	}
+				InitialConnections:         2,
+				MaxConnections:             5,
+				RequiredInitialConnections: 1,
+			},
+		},
+		{
+			label:       "required-0",
+			expectError: false,
+			cfg: thriftbp.ClientPoolConfig{
+				ServiceSlug:     "test",
+				EdgeContextImpl: ecinterface.Mock(),
+				ConnectTimeout:  time.Millisecond * 5,
+				SocketTimeout:   time.Millisecond * 15,
 
-	cfg.InitialConnectionsFallback = true
-	if _, err := thriftbp.NewCustomClientPool(cfg, addrGen, factory); err != nil {
-		t.Errorf("Expected no error with fallback, got: %v", err)
-	}
-	if atomic.LoadInt64(&loggerCalled) != 1 {
-		t.Error("InitialConnectionsFallbackLogger not called")
+				InitialConnections:         2,
+				MaxConnections:             5,
+				RequiredInitialConnections: 0,
+			},
+		},
+	} {
+		t.Run(c.label, func(t *testing.T) {
+			var loggerCalled int64
+			logger := func(_ context.Context, msg string) {
+				t.Logf("InitialConnectionsFallbackLogger called with %q", msg)
+				atomic.StoreInt64(&loggerCalled, 1)
+			}
+
+			c.cfg.InitialConnectionsFallbackLogger = logger
+			factory := thrift.NewTBinaryProtocolFactoryConf(c.cfg.ToTConfiguration())
+
+			_, err := thriftbp.NewCustomClientPool(c.cfg, addrGen, factory)
+			if c.expectError {
+				t.Logf("err: %v", err)
+				if err == nil {
+					t.Error("Expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %v", err)
+				}
+				if atomic.LoadInt64(&loggerCalled) != 1 {
+					t.Error("InitialConnectionsFallbackLogger not called")
+				}
+			}
+		})
 	}
 }

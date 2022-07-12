@@ -12,12 +12,14 @@ const (
 	successLabel    = "http_success"
 	codeLabel       = "http_response_code"
 	serverSlugLabel = "http_slug"
+	endpointLabel   = "http_endpoint"
 )
 
 var (
 	serverLabels = []string{
 		methodLabel,
 		successLabel,
+		endpointLabel,
 	}
 
 	serverLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -54,6 +56,7 @@ var (
 		methodLabel,
 		successLabel,
 		codeLabel,
+		endpointLabel,
 	}
 
 	serverTotalRequests = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -63,6 +66,7 @@ var (
 
 	serverActiveRequestsLabels = []string{
 		methodLabel,
+		endpointLabel,
 	}
 
 	serverActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -105,6 +109,25 @@ var (
 		Name: "http_client_active_requests",
 		Help: "The number of in-flight requests",
 	}, clientActiveRequestsLabels)
+)
+
+const (
+	// Note that this is not used by prometheus metrics defined in Baseplate spec.
+	promNamespace   = "httpbp"
+	subsystemServer = "server"
+)
+
+var (
+	panicRecoverLabels = []string{
+		methodLabel,
+	}
+
+	panicRecoverCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: promNamespace,
+		Subsystem: subsystemServer,
+		Name:      "panic_recover_total",
+		Help:      "The number of panics recovered from http server handlers",
+	}, panicRecoverLabels)
 )
 
 // PerformanceMonitoringMiddleware returns optional Prometheus historgram metrics for monitoring the following:

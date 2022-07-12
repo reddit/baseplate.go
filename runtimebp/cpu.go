@@ -2,6 +2,7 @@ package runtimebp
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"runtime"
@@ -12,107 +13,110 @@ import (
 // NumCPU returns the number of CPUs assigned to this running container.
 //
 // This is the container aware version of runtime.NumCPU.
-// It reads from the cgroup sysfs values.
+// It reads from the cgroup v2 cpu.max values to determine the hard CPU limit of
+// the container.
 //
+// If the current process is not running with cgroup v2,
+// it falls back to read from the cgroup v1 cpu.cfs_quota_us and
+// cpu.cfs_period_us values.
 // If the current process is not running inside a container,
-// or for whatever reason we failed to read the cgroup sysfs values,
+// or if there's no limit set in cgroup,
 // it will fallback to runtime.NumCPU() instead.
-//
-// When fallback happens, it also prints the reason to stderr.
-func NumCPU() (n float64) {
+func NumCPU() float64 {
+	// Big enough buffer to read the numbers in the files wholly into memory.
+	buf := make([]byte, 1024)
+
+	n, err := numCPUCgroupsV2(buf)
+	if err == nil {
+		return n
+	}
+
+	// fallback to cgroups v1
+	fmt.Fprintf(
+		os.Stderr,
+		"runtimebp.NumCPU: Failed to read cgroup v2, fallback to cgroup v1: %v\n",
+		err,
+	)
+	n, err = numCPUCgroupsV1(buf)
+	if err == nil {
+		return n
+	}
+
+	// Fallback to the standard runtime package value.
+	fmt.Fprintf(
+		os.Stderr,
+		"runtimebp.NumCPU: Failed to read cgroup v1, fallback to NumCPU on the physical machine: %v\n",
+		err,
+	)
+	return float64(runtime.NumCPU())
+}
+
+func numCPUCgroupsV2(buf []byte) (float64, error) {
+	const (
+		maxPath = "/sys/fs/cgroup/cpu.max"
+	)
+
+	values, err := readNumbersFromFile(maxPath, buf, 2)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read max file: %w", err)
+	}
+
+	return values[0] / values[1], nil
+}
+
+func numCPUCgroupsV1(buf []byte) (float64, error) {
 	const (
 		quotaPath  = "/sys/fs/cgroup/cpu/cpu.cfs_quota_us"
 		periodPath = "/sys/fs/cgroup/cpu/cpu.cfs_period_us"
 	)
 
-	var err error
-	defer func() {
-		if err != nil || n <= 0 {
-			// Fallback and log to stderr.
-			fmt.Fprintf(
-				os.Stderr,
-				"NumCPU: falling back to use shares: %v, %v\n",
-				n,
-				err,
-			)
-			n = numCPUSharesFallback()
-		}
-	}()
-
-	// Big enough buffer to read the number in the file wholly into memory.
-	buf := make([]byte, 1024)
-	var quota, period float64
-
-	quota, err = readNumberFromFile(quotaPath, buf)
-	if err != nil {
-		return
+	quota, err := readNumbersFromFile(quotaPath, buf, 1)
+	if err != nil || len(quota) != 1 {
+		return 0, fmt.Errorf("failed to read quota file: %w", err)
 	}
 
-	period, err = readNumberFromFile(periodPath, buf)
-	if err != nil {
-		return
+	// CFS quota returns -1 if there is no limit, return the default.
+	if quota[0] < 0 {
+		return 0, fmt.Errorf(
+			"quota file returned %f",
+			quota[0],
+		)
 	}
 
-	return quota / period
+	period, err := readNumbersFromFile(periodPath, buf, 1)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read period file: %w", err)
+	}
+
+	return quota[0] / period[0], nil
 }
 
-// On some situations the quota file will be -1,
-// and we should use this one instead.
-//
-// Those situations include:
-//
-// - Very old version of docker
-//
-// - In k8s only request is set for cpu, not limit
-func numCPUSharesFallback() (n float64) {
-	const (
-		sharesPath  = "/sys/fs/cgroup/cpu/cpu.shares"
-		denominator = 1024
-	)
-
-	var err error
-	defer func() {
-		if err != nil || n <= 0 {
-			// Fallback and log to stderr.
-			fmt.Fprintf(
-				os.Stderr,
-				"NumCPU: falling back to use runtime.NumCPU(): %v, %v\n",
-				n,
-				err,
-			)
-			n = float64(runtime.NumCPU())
-		}
-	}()
-
-	// Big enough buffer to read the number in the file wholly into memory.
-	buf := make([]byte, 1024)
-	var shares float64
-
-	shares, err = readNumberFromFile(sharesPath, buf)
-	if err != nil {
-		return
-	}
-
-	return float64(shares) / denominator
-}
-
-func readNumberFromFile(path string, buf []byte) (float64, error) {
+func readNumbersFromFile(path string, buf []byte, numbers int) ([]float64, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return 0, fmt.Errorf("runtimebp: failed to open %q: %w", path, err)
+		return nil, fmt.Errorf("failed to open %q: %w", path, err)
 	}
 	defer file.Close()
 
-	n, err := file.Read(buf)
-	if err != nil {
-		return 0, fmt.Errorf("runtimebp: failed to read %q: %w", path, err)
+	n, err := io.ReadFull(file, buf)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return nil, fmt.Errorf("failed to read %q: %w", path, err)
 	}
 
-	f, err := strconv.ParseInt(strings.TrimSpace(string(buf[:n])), 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("runtimebp: failed to parse %q: %w", path, err)
+	line := strings.TrimSpace(string(buf[:n]))
+	strs := strings.Fields(line)
+	if numbers != len(strs) {
+		return nil, fmt.Errorf("got %d numbers instead of %d: %q", len(strs), numbers, line)
 	}
-	return float64(f), nil
+	result := make([]float64, numbers)
+	for i, s := range strs {
+		f, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse %q: %w (#%d of %q)", path, err, i, line)
+		}
+		result[i] = float64(f)
+	}
+	return result, nil
 }
 
 // MaxProcsFormula is the function to calculate GOMAXPROCS based on NumCPU value

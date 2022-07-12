@@ -5,12 +5,22 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
+
+func init() {
+	// Register the error counter so that it can be monitored.
+	rebalanceCounter.With(prometheus.Labels{
+		successLabel: prometheusbp.BoolString(false),
+	})
+}
 
 // ConsumeMessageFunc is a function type for consuming consumer messages.
 //
@@ -31,12 +41,13 @@ type ConsumeMessageFunc func(ctx context.Context, msg *sarama.ConsumerMessage)
 //     consumer.Consume(
 //       consumeMessageFunc,
 //       func(err error) {
-//         log.ErrorWithSentry(
+//         log.Errorw(
 //           context.Background(),
 //           "kafka consumer error",
-//           err,
+//           "err", err,
 //           // additional key value pairs, for example topic info
 //         )
+//         // or a prometheus counter
 //         metricsbp.M.Counter("kafka.consumer.errors").With(/* key value pairs */).Add(1)
 //       },
 //     )
@@ -155,13 +166,18 @@ func (kc *consumer) reset() error {
 		return nil
 	}
 
-	err := rebalance()
-	if err != nil {
+	if err := rebalance(); err != nil {
 		metricsbp.M.Counter("kafka.consumer.rebalance.failure").Add(1)
+		rebalanceCounter.With(prometheus.Labels{
+			successLabel: prometheusbp.BoolString(false),
+		}).Inc()
 		return err
 	}
 
 	metricsbp.M.Counter("kafka.consumer.rebalance.success").Add(1)
+	rebalanceCounter.With(prometheus.Labels{
+		successLabel: prometheusbp.BoolString(true),
+	}).Inc()
 	return nil
 }
 
@@ -222,11 +238,14 @@ func (kc *consumer) Consume(
 						var span *tracing.Span
 						spanName := "consumer." + kc.cfg.Topic
 						ctx, span = tracing.StartTopLevelServerSpan(ctx, spanName)
-						defer func() {
+						defer func(start time.Time) {
+							consumerTimer.With(prometheus.Labels{
+								topicLabel: kc.cfg.Topic,
+							}).Observe(time.Since(start).Seconds())
 							span.FinishWithOptions(tracing.FinishOptions{
 								Ctx: ctx,
 							}.Convert())
-						}()
+						}(time.Now())
 
 						messagesFunc(ctx, m)
 					}()

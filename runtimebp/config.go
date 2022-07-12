@@ -2,6 +2,7 @@ package runtimebp
 
 import (
 	"fmt"
+	"math"
 	"os"
 )
 
@@ -9,33 +10,18 @@ import (
 //
 // Can be parsed from YAML.
 type Config struct {
-	// NumProcesses can be used to set the maximum and minimum number of Go
-	// Processes.
+	// Deprecated: No-op for now, will be removed in a future release.
 	NumProcesses struct {
-		// Max controls the maximum number of Go processes.  This is the ceiling,
-		// the final maximum number will depend on the number of CPUs available to
-		// your service.
-		//
-		// Defaults to 64 if not set.
+		// Deprecated: Always overridden to math.MaxInt.
 		Max int `yaml:"max"`
 
-		// Max controls the minimum number of Go processes.
-		//
-		// Defaults to 1 if not set.
+		// Deprecated: Always overridden to 1.
 		Min int `yaml:"min"`
 	} `yaml:"numProcesses"`
 }
 
 // InitFromConfig sets GOMAXPROCS using the given config.
 func InitFromConfig(cfg Config) {
-	max := 64
-	min := 1
-	if cfg.NumProcesses.Max != 0 {
-		max = cfg.NumProcesses.Max
-	}
-	if cfg.NumProcesses.Min != 0 {
-		min = cfg.NumProcesses.Min
-	}
-	prev, current := GOMAXPROCS(min, max)
-	fmt.Fprintf(os.Stderr, "GOMAXPROCS: %d %d\n", prev, current)
+	prev, current := GOMAXPROCS(1, math.MaxInt)
+	fmt.Fprintf(os.Stderr, "GOMAXPROCS: Old: %d New: %d\n", prev, current)
 }

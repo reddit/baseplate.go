@@ -11,6 +11,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
 	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/clientpool"
@@ -61,9 +62,23 @@ type ClientPoolConfig struct {
 	// "${host}:${port}"
 	Addr string `yaml:"addr"`
 
-	// InitialConnections is the inital number of thrift connections created by
-	// the client pool.
-	InitialConnections int `yaml:"initialConnections"`
+	// InitialConnections is the desired inital number of thrift connections
+	// created by the client pool.
+	//
+	// If an error occurred when we try to establish the initial N connections for
+	// the pool, we log the error with InitialConnectionsFallbackLogger,
+	// then return the pool with the <N connections we already established.
+	//
+	// If that's unacceptable, then RequiredInitialConnections can be used to set
+	// the hard requirement of minimal initial connections to be established.
+	// Note that enabling this can cause cascading failures during an outage,
+	// so it shall only be used for extreme circumstances.
+	InitialConnections               int         `yaml:"initialConnections"`
+	InitialConnectionsFallbackLogger log.Wrapper `yaml:"initialConnectionsFallbackLogger"`
+	RequiredInitialConnections       int         `yaml:"requiredInitialConnections"`
+	// Deprecated: InitialConnectionsFallback is always true and setting it to
+	// false won't do anything.
+	InitialConnectionsFallback bool `yaml:"initialConnectionsFallback"`
 
 	// MaxConnections is the maximum number of thrift connections the client
 	// pool can maintain.
@@ -168,20 +183,6 @@ type ClientPoolConfig struct {
 	//
 	// This is optional. If it's not set IDLExceptionSuppressor will be used.
 	ErrorSpanSuppressor errorsbp.Suppressor
-
-	// When InitialConnectionsFallback is set to true and an error occurred when
-	// we try to initialize the client pool, instead of returning that error,
-	// we try again with InitialConnections falls back to 0.
-	//
-	// If the fallback attempt succeeded, we log the initial error with
-	// InitialConnectionsFallbackLogger, and returns nil error.
-	// If the fallback attempt also failed, we return both errors.
-	//
-	// This is useful when the server is unstable that some connection errors are
-	// expected, so that we still try to create InitialConnections when possible,
-	// but returns an usable client pool with 0 initial connections as fallback.
-	InitialConnectionsFallback       bool        `yaml:"initialConnectionsFallback"`
-	InitialConnectionsFallbackLogger log.Wrapper `yaml:"initialConnectionsFallbackLogger"`
 
 	// When BreakerConfig is non-nil,
 	// a breakerbp.FailureRatioBreaker will be created for the pool,
@@ -413,35 +414,27 @@ func newClientPool(
 		opener,
 	)
 	if err != nil {
-		if cfg.InitialConnectionsFallback {
-			// do the InitialConnectionsFallback
-			var fallbackErr error
-			pool, fallbackErr = clientpool.NewChannelPool(
-				0, // initialClients
-				cfg.MaxConnections,
-				opener,
-			)
-			if fallbackErr == nil {
-				cfg.InitialConnectionsFallbackLogger.Log(context.Background(), fmt.Sprintf(
-					"thriftbp: error initializing thrift clientpool for %q but fallback to 0 initial connections worked. Original error: %v",
-					cfg.ServiceSlug,
-					err,
-				))
-				err = nil
-			} else {
+		if pool == nil || int(pool.NumAllocated()) < cfg.RequiredInitialConnections {
+			if pool != nil {
 				var batch errorsbp.Batch
 				batch.Add(err)
-				batch.Add(fallbackErr)
+				batch.AddPrefix("close", pool.Close())
 				err = batch.Compile()
 			}
-		}
-		if err != nil {
 			return nil, fmt.Errorf(
 				"thriftbp: error initializing thrift clientpool for %q: %w",
 				cfg.ServiceSlug,
 				err,
 			)
 		}
+
+		cfg.InitialConnectionsFallbackLogger.Log(context.Background(), fmt.Sprintf(
+			"thriftbp: Established %d of %d InitialConnections asked for thrift clientpool for %q: %v",
+			pool.NumAllocated(),
+			cfg.InitialConnections,
+			cfg.ServiceSlug,
+			err,
+		))
 	}
 	if cfg.ReportPoolStats {
 		go reportPoolStats(
@@ -451,6 +444,25 @@ func newClientPool(
 			cfg.PoolGaugeInterval,
 			tags,
 		)
+
+		if err := prometheus.Register(clientPoolGaugeExporter{
+			slug: cfg.ServiceSlug,
+			pool: pool,
+		}); err != nil {
+			// prometheus.Register should never fail because
+			// clientPoolGaugeExporter.Describe is a no-op, but just in case.
+
+			var batch errorsbp.Batch
+			batch.Add(err)
+			if err := pool.Close(); err != nil {
+				batch.AddPrefix("close pool", err)
+			}
+			return nil, fmt.Errorf(
+				"thriftbp: error registering prometheus exporter for client pool %q: %w",
+				cfg.ServiceSlug,
+				batch.Compile(),
+			)
+		}
 	}
 
 	// create the base clientPool, this is not ready for use.
@@ -474,6 +486,15 @@ func newClientPool(
 	//
 	// pooledClient is now ready for use.
 	pooledClient.wrapCalls(middlewares...)
+
+	// Register the error prometheus counters so they can be monitored
+	labels := prometheus.Labels{
+		serverSlugLabel: cfg.ServiceSlug,
+	}
+	clientPoolExhaustedCounter.With(labels)
+	clientPoolClosedConnectionsCounter.With(labels)
+	clientPoolReleaseErrorCounter.With(labels)
+
 	return pooledClient, nil
 }
 
@@ -504,9 +525,9 @@ func newClient(
 	}, maxConnectionAge, maxConnectionAgeJitter, slug, tags)
 }
 
-func reportPoolStats(ctx context.Context, prefix string, pool clientpool.Pool, tickerDuration time.Duration, tags []string) {
-	activeGauge := metricsbp.M.RuntimeGauge(prefix + ".pool-active-connections").With(tags...)
-	allocatedGauge := metricsbp.M.RuntimeGauge(prefix + ".pool-allocated-clients").With(tags...)
+func reportPoolStats(ctx context.Context, slug string, pool clientpool.Pool, tickerDuration time.Duration, tags []string) {
+	activeGauge := metricsbp.M.RuntimeGauge(slug + ".pool-active-connections").With(tags...)
+	allocatedGauge := metricsbp.M.RuntimeGauge(slug + ".pool-allocated-clients").With(tags...)
 
 	if tickerDuration <= 0 {
 		tickerDuration = DefaultPoolGaugeInterval
@@ -571,6 +592,9 @@ func (p *clientPool) pooledCall(ctx context.Context, method string, args, result
 	defer func() {
 		if shouldCloseConnection(err) {
 			p.poolClosedConnectionsCounter.Add(1)
+			clientPoolClosedConnectionsCounter.With(prometheus.Labels{
+				serverSlugLabel: p.slug,
+			}).Inc()
 			if e := client.Close(); e != nil {
 				log.C(ctx).Errorw(
 					"Failed to close client",
@@ -591,6 +615,9 @@ func (p *clientPool) getClient() (Client, error) {
 	if err != nil {
 		if errors.Is(err, clientpool.ErrExhausted) {
 			p.poolExhaustedCounter.Add(1)
+			clientPoolExhaustedCounter.With(prometheus.Labels{
+				serverSlugLabel: p.slug,
+			}).Inc()
 		}
 		log.Errorw(
 			"Failed to get client from pool",
@@ -610,6 +637,9 @@ func (p *clientPool) releaseClient(c Client) {
 			"err", err,
 		)
 		p.releaseErrorCounter.Add(1)
+		clientPoolReleaseErrorCounter.With(prometheus.Labels{
+			serverSlugLabel: p.slug,
+		}).Inc()
 	}
 }
 

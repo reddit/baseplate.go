@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -115,11 +117,14 @@ func (h GroupConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, 
 			var span *tracing.Span
 			spanName := "group-consumer." + h.Topic
 			ctx, span = tracing.StartTopLevelServerSpan(ctx, spanName)
-			defer func() {
+			defer func(start time.Time) {
+				groupConsumerTimer.With(prometheus.Labels{
+					topicLabel: h.Topic,
+				}).Observe(time.Since(start).Seconds())
 				span.FinishWithOptions(tracing.FinishOptions{
 					Ctx: ctx,
 				}.Convert())
-			}()
+			}(time.Now())
 
 			h.Callback(ctx, m)
 			session.MarkMessage(

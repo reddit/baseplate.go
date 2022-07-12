@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strconv"
 	"testing"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
 	"github.com/reddit/baseplate.go/mqsend"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
@@ -501,13 +501,13 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 
 			latencyLabels := prometheus.Labels{
 				methodLabel:            methodIsHealthy,
-				successLabel:           strconv.FormatBool(!tt.wantFail),
+				successLabel:           prometheusbp.BoolString(!tt.wantFail),
 				remoteServiceSlugLabel: thrifttest.DefaultServiceSlug,
 			}
 
 			totalRequestLabels := prometheus.Labels{
 				methodLabel:              methodIsHealthy,
-				successLabel:             strconv.FormatBool(!tt.wantFail),
+				successLabel:             prometheusbp.BoolString(!tt.wantFail),
 				exceptionLabel:           tt.exceptionType,
 				baseplateStatusCodeLabel: "",
 				baseplateStatusLabel:     "",

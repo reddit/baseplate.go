@@ -3,9 +3,8 @@ package thriftbp
 import (
 	"context"
 	"errors"
-	"fmt"
+	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -17,6 +16,7 @@ import (
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
@@ -35,7 +35,7 @@ import (
 // like:
 //
 //     service.endpointName
-const MonitorClientWrappedSlugSuffix = "-with-retry"
+const MonitorClientWrappedSlugSuffix = transport.WithRetrySlugSuffix
 
 // WithDefaultRetryFilters returns a list of retrybp.Filters by appending the
 // given filters to the "default" retry filters:
@@ -105,35 +105,41 @@ type DefaultClientMiddlewareArgs struct {
 //
 // 1. ForwardEdgeRequestContext.
 //
-// 2. MonitorClient with MonitorClientWrappedSlugSuffix - This creates the spans
+// 2. SetClientName(clientName)
+//
+// 3. MonitorClient with MonitorClientWrappedSlugSuffix - This creates the spans
 // from the view of the client that group all retries into a single,
 // wrapped span.
 //
-// 3. Retry(retryOptions) - If retryOptions is empty/nil, default to only
+// 4. PrometheusClientMiddleware with MonitorClientWrappedSlugSuffix - This
+// creates the prometheus client metrics from the view of the client that group
+// all retries into a single operation.
+//
+// 5. Retry(retryOptions) - If retryOptions is empty/nil, default to only
 // retry.Attempts(1), this will not actually retry any calls but your client is
 // configured to set retry logic per-call using retrybp.WithOptions.
 //
-// 4. FailureRatioBreaker - Only if BreakerConfig is non-nil.
+// 6. FailureRatioBreaker - Only if BreakerConfig is non-nil.
 //
-// 5. MonitorClient - This creates the spans of the raw client calls.
+// 7. MonitorClient - This creates the spans of the raw client calls.
 //
-// 6. SetClientName(clientName)
+// 8. PrometheusClientMiddleware
 //
-// 7. BaseplateErrorWrapper
+// 9. BaseplateErrorWrapper
 //
-// 8. SetDeadlineBudget
-//
-// 9. PrometheusClientMiddleware
+// 10. SetDeadlineBudget
 func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
 	}
 	middlewares := []thrift.ClientMiddleware{
 		ForwardEdgeRequestContext(args.EdgeContextImpl),
+		SetClientName(args.ClientName),
 		MonitorClient(MonitorClientArgs{
 			ServiceSlug:         args.ServiceSlug + MonitorClientWrappedSlugSuffix,
 			ErrorSpanSuppressor: args.ErrorSpanSuppressor,
 		}),
+		PrometheusClientMiddleware(args.ServiceSlug + MonitorClientWrappedSlugSuffix),
 		Retry(args.RetryOptions...),
 	}
 	if args.BreakerConfig != nil {
@@ -148,10 +154,9 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 			ServiceSlug:         args.ServiceSlug,
 			ErrorSpanSuppressor: args.ErrorSpanSuppressor,
 		}),
-		SetClientName(args.ClientName),
+		PrometheusClientMiddleware(args.ServiceSlug),
 		BaseplateErrorWrapper,
 		SetDeadlineBudget,
-		PrometheusClientMiddleware(args.ServiceSlug),
 	)
 	return middlewares
 }
@@ -204,7 +209,7 @@ func MonitorClient(args MonitorClientArgs) thrift.ClientMiddleware {
 				defer func() {
 					span.FinishWithOptions(tracing.FinishOptions{
 						Ctx: ctx,
-						Err: s.Wrap(err),
+						Err: s.Wrap(getClientError(result, err)),
 					}.Convert())
 				}()
 
@@ -277,7 +282,7 @@ func Retry(defaults ...retry.Option) thrift.ClientMiddleware {
 					func() error {
 						var err error
 						lastMeta, err = next.Call(ctx, method, args, result)
-						return err
+						return getClientError(result, err)
 					},
 					defaults...,
 				)
@@ -356,13 +361,13 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 				clientActiveRequests.With(activeRequestLabels).Inc()
 
 				defer func() {
-					var exceptionTypeLabel, baseplateStatusCode, baseplateStatus string
-					success := strconv.FormatBool(err == nil)
-					if err != nil {
-						exceptionTypeLabel = strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
-
-						var bpErr baseplateError
-						if errors.As(err, &bpErr) {
+					var baseplateStatusCode, baseplateStatus string
+					finalErr := getClientError(result, err)
+					exceptionTypeLabel := stringifyErrorType(finalErr)
+					success := prometheusbp.BoolString(finalErr == nil)
+					if finalErr != nil {
+						var bpErr baseplateErrorCoder
+						if errors.As(finalErr, &bpErr) {
 							code := bpErr.GetCode()
 							baseplateStatusCode = strconv.FormatInt(int64(code), 10)
 							if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
@@ -394,4 +399,45 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 			},
 		}
 	}
+}
+
+// For a endpoint defined in thrift IDL like this:
+//
+//     service MyService {
+//       FooResponse foo(1: FooRequest request) throws (
+//         1: Exception1 error1,
+//         2: Exception2 error2,
+//       )
+//     }
+//
+// The thrift compiler generated go code for the result TStruct would be like:
+//
+//     type MyServiceFooResult struct {
+//       Success *FooResponse `thrift:"success,0" db:"success" json:"success,omitempty"`
+//       Error1 *Exception1 `thrift:"error1,1" db:"error1" json:"error1,omitempty"`
+//       Error2 *Exception2 `thrift:"error2,2" db:"error2" json:"error2,omitempty"`
+//     }
+func getClientError(result thrift.TStruct, err error) error {
+	if err != nil {
+		return err
+	}
+	v := reflect.Indirect(reflect.ValueOf(result))
+	if v.Kind() != reflect.Struct {
+		return nil
+	}
+	typ := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		if typ.Field(i).Name == "Success" {
+			continue
+		}
+		field := v.Field(i)
+		if field.IsZero() {
+			continue
+		}
+		tExc, ok := field.Interface().(thrift.TException)
+		if ok && tExc != nil && tExc.TExceptionType() == thrift.TExceptionTypeCompiled {
+			return tExc
+		}
+	}
+	return nil
 }

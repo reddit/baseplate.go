@@ -279,8 +279,9 @@ func TestBuildLabelsHTTP(t *testing.T) {
 			prefix:         httpPrefix,
 			clientOrServer: server,
 			want: map[string]struct{}{
-				"http_method":  {},
-				"http_success": {},
+				"http_method":   {},
+				"http_success":  {},
+				"http_endpoint": {},
 			},
 		},
 		{
@@ -289,8 +290,9 @@ func TestBuildLabelsHTTP(t *testing.T) {
 			prefix:         httpPrefix,
 			clientOrServer: server,
 			want: map[string]struct{}{
-				"http_method":  {},
-				"http_success": {},
+				"http_method":   {},
+				"http_success":  {},
+				"http_endpoint": {},
 			},
 		},
 		{
@@ -299,8 +301,9 @@ func TestBuildLabelsHTTP(t *testing.T) {
 			prefix:         httpPrefix,
 			clientOrServer: server,
 			want: map[string]struct{}{
-				"http_method":  {},
-				"http_success": {},
+				"http_method":   {},
+				"http_success":  {},
+				"http_endpoint": {},
 			},
 		},
 		{
@@ -329,7 +332,10 @@ func TestBuildLabelsHTTP(t *testing.T) {
 			metricName:     "http_active_requests",
 			prefix:         httpPrefix,
 			clientOrServer: server,
-			want:           map[string]struct{}{"http_method": {}},
+			want: map[string]struct{}{
+				"http_method":   {},
+				"http_endpoint": {},
+			},
 		},
 		{
 			name:           "none",

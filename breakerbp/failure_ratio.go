@@ -6,10 +6,29 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sony/gobreaker"
 
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
+)
+
+const (
+	promNamespace = "breakerbp"
+	nameLabel     = "breaker"
+)
+
+var (
+	breakerLabels = []string{
+		nameLabel,
+	}
+
+	breakerClosed = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: promNamespace,
+		Name:      "closed",
+		Help:      "0 means the breaker is currently tripped, 1 otherwise (closed)",
+	}, breakerLabels)
 )
 
 // FailureRatioBreaker is a circuit breaker based on gobreaker that uses a low-water-mark and
@@ -36,8 +55,10 @@ type Config struct {
 	Name string `yaml:"name"`
 
 	// EmitStatusMetrics sets whether the failure breaker will regularly update a gauge on the breakers state (closed or open/halfopen).
-	// When enabled, it emits metrics using the interval defined by metricsbp.SysStatsTickerInterval.
-	EmitStatusMetrics bool `yaml:"emitStatusMetrics"`
+	// When enabled, it emits metrics using the interval of EmitStatusMetricsInterval.
+	// If EmitStatusMetricsInterval <=0, metricsbp.SysStatsTickerInterval will be used as the fallback.
+	EmitStatusMetrics         bool          `yaml:"emitStatusMetrics"`
+	EmitStatusMetricsInterval time.Duration `yaml:"emitStatusMetricsInterval"`
 
 	// Logger is the logger to be called when the breaker changes states.
 	Logger log.Wrapper `yaml:"logger"`
@@ -75,15 +96,18 @@ func NewFailureRatioBreaker(config Config) FailureRatioBreaker {
 
 	failureBreaker.goBreaker = gobreaker.NewCircuitBreaker(settings)
 	if config.EmitStatusMetrics {
-		go failureBreaker.runStatsProducer()
+		go failureBreaker.runStatsProducer(config.EmitStatusMetricsInterval)
 	}
 	return failureBreaker
 }
 
-func (cb FailureRatioBreaker) runStatsProducer() {
+func (cb FailureRatioBreaker) runStatsProducer(interval time.Duration) {
+	if interval <= 0 {
+		interval = metricsbp.SysStatsTickerInterval
+	}
 	circuitBreakerGauge := metricsbp.M.RuntimeGauge(cb.name + "-circuit-breaker-closed")
 
-	tick := time.NewTicker(metricsbp.SysStatsTickerInterval)
+	tick := time.NewTicker(interval)
 	defer tick.Stop()
 	for {
 		select {
@@ -137,6 +161,14 @@ func (cb FailureRatioBreaker) shouldTrip(counts gobreaker.Counts) bool {
 }
 
 func (cb FailureRatioBreaker) stateChanged(name string, from gobreaker.State, to gobreaker.State) {
+	var value float64
+	if to != gobreaker.StateOpen {
+		value = 1
+	}
+	breakerClosed.With(prometheus.Labels{
+		nameLabel: cb.name,
+	}).Set(value)
+
 	message := fmt.Sprintf("circuit breaker %v state changed from %v to %v", name, from, to)
 	cb.logger.Log(context.Background(), message)
 }
