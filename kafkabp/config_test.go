@@ -119,7 +119,7 @@ func TestConsumerConfig(t *testing.T) {
 		if sc == nil {
 			t.Fatal("expected config to be non-nil, got nil")
 		}
-		if sc.Consumer.Offsets.AutoCommit.Interval != 8 * time.Second {
+		if sc.Consumer.Offsets.AutoCommit.Interval != 8*time.Second {
 			t.Errorf("expected auto-commit interval to be %q, got %q", 8, sc.Consumer.Offsets.AutoCommit.Interval)
 		}
 	})
@@ -133,7 +133,7 @@ func TestConsumerConfig(t *testing.T) {
 		if sc == nil {
 			t.Fatal("expected config to be non-nil, got nil")
 		}
-		if sc.Consumer.Offsets.AutoCommit.Interval != 5 * time.Second {
+		if sc.Consumer.Offsets.AutoCommit.Interval != 5*time.Second {
 			t.Errorf("expected auto-commit interval to be %q, got %q", 5, sc.Consumer.Offsets.AutoCommit.Interval)
 		}
 	})
