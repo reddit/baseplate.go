@@ -3,6 +3,7 @@ package kafkabp_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/reddit/baseplate.go/kafkabp"
 )
@@ -106,6 +107,34 @@ func TestConsumerConfig(t *testing.T) {
 		}
 		if sc.RackID != "" {
 			t.Errorf("expected sarama rack id to be empty, got %q", sc.ClientID)
+		}
+	})
+
+	cfg.AutoCommitInterval = 8
+	t.Run("auto-commit-interval", func(t *testing.T) {
+		sc, err := cfg.NewSaramaConfig()
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+		if sc == nil {
+			t.Fatal("expected config to be non-nil, got nil")
+		}
+		if sc.Consumer.Offsets.AutoCommit.Interval != 8 * time.Second {
+			t.Errorf("expected auto-commit interval to be %q, got %q", 8, sc.Consumer.Offsets.AutoCommit.Interval)
+		}
+	})
+
+	cfg.AutoCommitInterval = 0
+	t.Run("no-auto-commit-interval", func(t *testing.T) {
+		sc, err := cfg.NewSaramaConfig()
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+		if sc == nil {
+			t.Fatal("expected config to be non-nil, got nil")
+		}
+		if sc.Consumer.Offsets.AutoCommit.Interval != 5 * time.Second {
+			t.Errorf("expected auto-commit interval to be %q, got %q", 5, sc.Consumer.Offsets.AutoCommit.Interval)
 		}
 	})
 }
