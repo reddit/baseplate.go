@@ -110,7 +110,7 @@ func TestConsumerConfig(t *testing.T) {
 		}
 	})
 
-	cfg.AutoCommitInterval = 8
+	cfg.AutoCommitIntervalSeconds = 8
 	t.Run("auto-commit-interval", func(t *testing.T) {
 		sc, err := cfg.NewSaramaConfig()
 		if err != nil {
@@ -124,7 +124,7 @@ func TestConsumerConfig(t *testing.T) {
 		}
 	})
 
-	cfg.AutoCommitInterval = 0
+	cfg.AutoCommitIntervalSeconds = 0
 	t.Run("no-auto-commit-interval", func(t *testing.T) {
 		sc, err := cfg.NewSaramaConfig()
 		if err != nil {

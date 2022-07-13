@@ -101,11 +101,11 @@ type ConsumerConfig struct {
 	// You are advised to test before using non-empty rack id in production.
 	RackID RackIDFunc `yaml:"rackID"`
 
-	// Optional. Defaults to 5. Values are in seconds.
+	// Optional. Defaults to 5 seconds.
 	//
 	// This affects how often the kafka consumer writes its offsets back to
 	// the cluster.
-	AutoCommitInterval time.Duration `yaml:"autoCommitInterval"`
+	AutoCommitIntervalSeconds int `yaml:"autoCommitInterval"`
 }
 
 // Since not all sarama's default config are zero values,
@@ -147,8 +147,8 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 
 	// Set the commit frequency to 5 seconds or other config value if provided
 	c.Consumer.Offsets.AutoCommit.Enable = true
-	if cfg.AutoCommitInterval != 0 {
-		c.Consumer.Offsets.AutoCommit.Interval = cfg.AutoCommitInterval * time.Second
+	if cfg.AutoCommitIntervalSeconds != 0 {
+		c.Consumer.Offsets.AutoCommit.Interval = time.Duration(cfg.AutoCommitIntervalSeconds) * time.Second
 	} else {
 		c.Consumer.Offsets.AutoCommit.Interval = 5 * time.Second
 	}
