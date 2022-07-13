@@ -1,6 +1,9 @@
 package thriftbp
 
 import (
+	"errors"
+	"net/http"
+
 	"github.com/reddit/baseplate.go/internal/admin"
 	"github.com/reddit/baseplate.go/log"
 )
@@ -13,5 +16,9 @@ import (
 //
 // This function blocks, so it should be run as its own goroutine.
 func ServeAdmin() {
-	log.Panicw("thriftbp: admin serving exited", "err", admin.Serve())
+	if err := admin.Serve(); errors.Is(err, http.ErrServerClosed) {
+		log.Info("thriftbp: server closed")
+	} else {
+		log.Panicw("thriftbp: admin serving exited", "err", err)
+	}
 }
