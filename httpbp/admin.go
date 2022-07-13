@@ -1,6 +1,9 @@
 package httpbp
 
 import (
+	"errors"
+	"net/http"
+
 	"github.com/reddit/baseplate.go/internal/admin"
 	"github.com/reddit/baseplate.go/log"
 )
@@ -15,5 +18,9 @@ import (
 // This function blocks, so it should be run as its own goroutine.
 func ServeAdmin(healthCheck HandlerFunc) {
 	admin.Mux.Handle("/health", handler{handle: healthCheck})
-	log.Warnw("httpbp: admin serving exited", "err", admin.Serve())
+	if err := admin.Serve(); errors.Is(err, http.ErrServerClosed) {
+		log.Info("httpbp: server closed")
+	} else {
+		log.Panicw("httpbp: admin serving exited", "err", err)
+	}
 }
