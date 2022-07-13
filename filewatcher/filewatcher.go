@@ -137,13 +137,13 @@ func (r *Result) watcherLoop(
 		}
 	}
 
-	file := filepath.Base(path)
 	var tickerChan <-chan time.Time
 	if pollingInterval > 0 {
 		ticker := time.NewTicker(pollingInterval)
 		defer ticker.Stop()
 		tickerChan = ticker.C
 	}
+
 	for {
 		select {
 		case <-r.ctx.Done():
@@ -162,14 +162,10 @@ func (r *Result) watcherLoop(
 				continue
 			}
 
-			if filepath.Base(ev.Name) != file {
-				continue
-			}
-
 			switch ev.Op {
 			default:
 				// Ignore uninterested events.
-			case fsnotify.Create, fsnotify.Write:
+			case fsnotify.Create, fsnotify.Write, fsnotify.Chmod:
 				mtime, err := getMtime(path)
 				if err != nil {
 					logger.Log(context.Background(), fmt.Sprintf(
@@ -300,11 +296,15 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 				select {
 				default:
 				case <-ctx.Done():
-					return fmt.Errorf("directorywatcher: context cancelled while waiting for file under %q to load. %w", cfg.Path, ctx.Err())
+					return fmt.Errorf("filewatcher: context cancelled while waiting for file under %q to load. %w", cfg.Path, ctx.Err())
 				}
 
 				var err error
 				f, err = limitopen.OpenWithLimit(path, limit, hardLimit)
+				if err != nil {
+					return err
+				}
+				mtime, err = getMtime(path)
 				if err != nil {
 					return err
 				}
@@ -320,7 +320,11 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 				// 	watcher.Close()
 				// 	return err
 				// }
-				res.data.Store(data)
+				res.data.Store(&atomicData{
+					data:  data,
+					mtime: mtime,
+				})
+				res.ctx, res.cancel = context.WithCancel(context.Background())
 
 				f.Close()
 
