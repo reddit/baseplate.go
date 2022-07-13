@@ -105,7 +105,7 @@ type ConsumerConfig struct {
 	//
 	// This affects how often the kafka consumer writes its offsets back to
 	// the cluster.
-	AutoCommitInterval int `yaml:"autoCommitInterval"`
+	AutoCommitInterval time.Duration `yaml:"autoCommitInterval"`
 }
 
 // Since not all sarama's default config are zero values,
@@ -148,7 +148,7 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 	// Set the commit frequency to 5 seconds or other config value if provided
 	c.Consumer.Offsets.AutoCommit.Enable = true
 	if cfg.AutoCommitInterval != 0 {
-		c.Consumer.Offsets.AutoCommit.Interval = time.Duration(cfg.AutoCommitInterval) * time.Second
+		c.Consumer.Offsets.AutoCommit.Interval = cfg.AutoCommitInterval * time.Second
 	} else {
 		c.Consumer.Offsets.AutoCommit.Interval = 5 * time.Second
 	}
