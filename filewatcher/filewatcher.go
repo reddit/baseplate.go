@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -270,58 +271,111 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 
 	var f io.ReadCloser
 	var mtime time.Time
-
-	for {
-		select {
-		default:
-		case <-ctx.Done():
-			return nil, fmt.Errorf("filewatcher: context cancelled while waiting for file under %q to load. %w", cfg.Path, ctx.Err())
-		}
-
-		var err error
-		f, err = limitopen.OpenWithLimit(cfg.Path, limit, hardLimit)
-		if errors.Is(err, os.ErrNotExist) {
-			time.Sleep(InitialReadInterval)
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		defer f.Close()
-
-		mtime, err = getMtime(cfg.Path)
-		if err != nil {
-			return nil, err
-		}
-		break
-	}
-
+	res := new(Result)
 	var watcher *fsnotify.Watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
-	// Note: We need to watch the parent directory instead of the file itself,
-	// because only watching the file won't give us CREATE events,
-	// which will happen with atomic renames.
-	err = watcher.Add(filepath.Dir(cfg.Path))
+
+	isDir, err := isDirectory(filepath.Clean(cfg.Path))
 	if err != nil {
 		return nil, err
 	}
+	if isDir {
+		// Need to walk recursively because the watcher
+		// doesnt support recursion by itself
+		dirPath := filepath.Clean(cfg.Path)
+		var data interface{}
 
-	var d interface{}
-	d, err = cfg.Parser(f)
-	if err != nil {
-		watcher.Close()
-		return nil, err
+		err = filepath.WalkDir(dirPath, func(path string, info fs.DirEntry, err error) error {
+			if info.IsDir() {
+				return watcher.Add(path)
+			}
+
+			// Parse file if you find it
+			return func() error {
+				var f io.ReadCloser
+
+				select {
+				default:
+				case <-ctx.Done():
+					return fmt.Errorf("directorywatcher: context cancelled while waiting for file under %q to load. %w", cfg.Path, ctx.Err())
+				}
+
+				var err error
+				f, err = limitopen.OpenWithLimit(path, limit, hardLimit)
+				if err != nil {
+					return err
+				}
+				data, err = cfg.Parser(f)
+				if err != nil {
+					watcher.Close()
+					return err
+				}
+				// // Combine with already existing data
+				// oldData := res.data.Load()
+				// data, err = cfg.Adder(oldData, data)
+				// if err != nil {
+				// 	watcher.Close()
+				// 	return err
+				// }
+				res.data.Store(data)
+
+				f.Close()
+
+				return nil
+			}()
+		})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		for {
+			select {
+			default:
+			case <-ctx.Done():
+				return nil, fmt.Errorf("filewatcher: context cancelled while waiting for file under %q to load. %w", cfg.Path, ctx.Err())
+			}
+
+			var err error
+			f, err = limitopen.OpenWithLimit(cfg.Path, limit, hardLimit)
+			if errors.Is(err, os.ErrNotExist) {
+				time.Sleep(InitialReadInterval)
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			defer f.Close()
+
+			mtime, err = getMtime(cfg.Path)
+			if err != nil {
+				return nil, err
+			}
+			break
+		}
+
+		// Note: We need to watch the parent directory instead of the file itself,
+		// because only watching the file won't give us CREATE events,
+		// which will happen with atomic renames.
+		err = watcher.Add(filepath.Dir(cfg.Path))
+		if err != nil {
+			return nil, err
+		}
+
+		var d interface{}
+		d, err = cfg.Parser(f)
+		if err != nil {
+			watcher.Close()
+			return nil, err
+		}
+		res.data.Store(&atomicData{
+			data:  d,
+			mtime: mtime,
+		})
+		res.ctx, res.cancel = context.WithCancel(context.Background())
 	}
-	res := new(Result)
-	res.data.Store(&atomicData{
-		data:  d,
-		mtime: mtime,
-	})
-	res.ctx, res.cancel = context.WithCancel(context.Background())
-
 	if cfg.PollingInterval == 0 {
 		cfg.PollingInterval = DefaultPollingInterval
 	}
@@ -379,3 +433,12 @@ func (fw *MockFileWatcher) Get() interface{} {
 func (fw *MockFileWatcher) Stop() {}
 
 var _ FileWatcher = (*MockFileWatcher)(nil)
+
+func isDirectory(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+
+	return fileInfo.IsDir(), err
+}
