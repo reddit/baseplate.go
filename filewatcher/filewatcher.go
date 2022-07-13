@@ -278,22 +278,6 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if isDir {
-		// Need to walk recursively because the watcher
-		// doesnt support recursion by itself
-		dirPath := filepath.Clean(cfg.Path)
-
-		err = filepath.WalkDir(dirPath, func(path string, info fs.DirEntry, err error) error {
-			if info.IsDir() {
-				return watcher.Add(path)
-			}
-			return nil
-
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
 	for {
 		select {
 		default:
@@ -325,6 +309,22 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	err = watcher.Add(filepath.Dir(cfg.Path))
 	if err != nil {
 		return nil, err
+	}
+	if isDir {
+		// Need to walk recursively because the watcher
+		// doesnt support recursion by itself
+		dirPath := filepath.Clean(cfg.Path)
+
+		err = filepath.WalkDir(dirPath, func(path string, info fs.DirEntry, err error) error {
+			if info.IsDir() {
+				return watcher.Add(path)
+			}
+			return nil
+
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var d interface{}
