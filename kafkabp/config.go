@@ -145,7 +145,7 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 	// Return any errors that occurred to the Errors channel.
 	c.Consumer.Return.Errors = true
 
-	// Set the commit frequency to 5 seconds or other config value if provided
+	// Set the kafka offset commit frequency to 5 seconds or other config value if provided
 	c.Consumer.Offsets.AutoCommit.Enable = true
 	if cfg.AutoCommitIntervalSeconds != 0 {
 		c.Consumer.Offsets.AutoCommit.Interval = time.Duration(cfg.AutoCommitIntervalSeconds) * time.Second
