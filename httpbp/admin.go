@@ -21,6 +21,6 @@ func ServeAdmin(healthCheck HandlerFunc) {
 	if err := admin.Serve(); errors.Is(err, http.ErrServerClosed) {
 		log.Info("httpbp: server closed")
 	} else {
-		log.Panicw("httpbp: admin serving exited", "err", err)
+		log.Panicw("httpbp: admin serving failed", "err", err)
 	}
 }

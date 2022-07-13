@@ -19,6 +19,6 @@ func ServeAdmin() {
 	if err := admin.Serve(); errors.Is(err, http.ErrServerClosed) {
 		log.Info("thriftbp: server closed")
 	} else {
-		log.Panicw("thriftbp: admin serving exited", "err", err)
+		log.Panicw("thriftbp: admin serving failed", "err", err)
 	}
 }
