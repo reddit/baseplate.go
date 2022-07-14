@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
+	"strings"
 
 	"github.com/reddit/baseplate.go/errorsbp"
 )
@@ -255,7 +257,19 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 	var secretsDocument Document
 	err := json.NewDecoder(r).Decode(&secretsDocument)
 	if err != nil {
-		return nil, err
+		switch e := err.(type) {
+		case *fs.PathError:
+			if strings.Contains(e.Error(), "is a directory") {
+				secretsDocument, err = csiPath(e.Path)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		default:
+			return nil, err
+		}
 	}
 
 	err = secretsDocument.Validate()
@@ -297,4 +311,9 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 		}
 	}
 	return secrets, nil
+}
+
+func csiPath(path string) (Document, error) {
+	var secretsDocument Document
+	return secretsDocument, nil
 }
