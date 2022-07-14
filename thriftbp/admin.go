@@ -17,7 +17,7 @@ import (
 // This function blocks, so it should be run as its own goroutine.
 func ServeAdmin() {
 	if err := admin.Serve(); errors.Is(err, http.ErrServerClosed) {
-		log.Info("thriftbp: server closed")
+		log.Info("thriftbp: admin server closed")
 	} else {
 		log.Panicw("thriftbp: admin serving failed", "err", err)
 	}

@@ -19,7 +19,7 @@ import (
 func ServeAdmin(healthCheck HandlerFunc) {
 	admin.Mux.Handle("/health", handler{handle: healthCheck})
 	if err := admin.Serve(); errors.Is(err, http.ErrServerClosed) {
-		log.Info("httpbp: server closed")
+		log.Info("httpbp: admin server closed")
 	} else {
 		log.Panicw("httpbp: admin serving failed", "err", err)
 	}
