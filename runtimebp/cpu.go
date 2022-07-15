@@ -162,6 +162,11 @@ func fetchCPURequest() (int, error) {
 	if v, ok := os.LookupEnv("CPUREQUEST"); ok {
 		req, err := strconv.Atoi(v)
 		if err != nil {
+			// This case will probably never be hit, but I'm keeping it just in case.
+			// In k8s 1.21 and newer, when you present the CPU request via the Downward API
+			// k8s automatically rounds it up to the nearest integer unit.  That's how
+			// we plan to set this variable, but just in case it might be worth doing this
+			// check in case they ever break that.  There's no official contract for that.
 			millicoreRegexp := regexp.MustCompile(`^(P<millis>[1-9][0-9]*)m$`)
 			match := millicoreRegexp.FindStringSubmatch(v)
 			if match == nil {
