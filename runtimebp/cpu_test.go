@@ -185,3 +185,55 @@ func TestBoundNtoMinMax(t *testing.T) {
 		})
 	}
 }
+
+func TestFetchCPURequest(t *testing.T) {
+	cases := map[string]struct {
+		N        string
+		Expected int
+		Ok       bool
+	}{
+		"plainInt": {
+			N:        "3",
+			Expected: 6,
+			Ok:       true,
+		},
+		"goodMilliLessThanOne": {
+			N:        "500m",
+			Expected: 2,
+			Ok:       true,
+		},
+		"goodMilliGreaterThanOne": {
+			N:        "1400m",
+			Expected: 3,
+			Ok:       true,
+		},
+		"badMilli": {
+			N:        "0m",
+			Expected: 2,
+			Ok:       true,
+		},
+		"noMilli": {
+			N:        "",
+			Expected: 0,
+			Ok:       false,
+		},
+	}
+
+	for label, data := range cases {
+		t.Run(label, func(t *testing.T) {
+			if data.N == "" {
+				os.Unsetenv("BASEPLATE_CPU_REQUEST")
+			} else {
+				os.Setenv("BASEPLATE_CPU_REQUEST", data.N)
+				defer os.Unsetenv("BASEPLATE_CPU_REQUEST")
+			}
+			actual, ok := fetchCPURequest()
+			if actual != data.Expected {
+				t.Errorf("Got %d for data %+v", actual, data)
+			}
+			if data.Ok != ok {
+				t.Errorf("Got %v for ok check on %+v", ok, data)
+			}
+		})
+	}
+}

@@ -11,7 +11,9 @@ import (
 	"strings"
 )
 
-var millicoreRegexp = regexp.MustCompile(`^(P<millis>[1-9][0-9]*)m$`)
+const defaultMultiplier = 2
+
+var millicoreRegexp = regexp.MustCompile(`^([1-9][0-9]*)m$`)
 
 // NumCPU returns the number of CPUs assigned to this running container.
 //
@@ -49,10 +51,11 @@ func NumCPU() float64 {
 	// Instead, fall back to the lowest value that still allows parallelism.
 	fmt.Fprintf(
 		os.Stderr,
-		"runtimebp.NumCPU: Failed to read cgroup v1, fallback to 2 to allow parallelism: %v\n",
+		"runtimebp.NumCPU: Failed to read cgroup v1, fallback to %d to allow parallelism: %v\n",
+		defaultMultiplier,
 		err,
 	)
-	return 2
+	return defaultMultiplier
 }
 
 func numCPUCgroupsV2(buf []byte) (float64, error) {
@@ -132,6 +135,10 @@ func defaultMaxProcsFormula(n float64) int {
 }
 
 func scaledMaxProcsFormula(n float64) int {
+	// If we have a request below 1, round up so we don't end up single-threaded
+	if n < 1 {
+		n = 1
+	}
 	i := fetchMaxProcsMult()
 	return int(math.Ceil(n * float64(i)))
 }
@@ -140,72 +147,93 @@ func fetchMaxProcsMult() int {
 	// Allow using a multiplier for number of processes relative to limit.
 	// Not catching the ok here because this function will never be called unless
 	// the environment variable is set
-	v, _ := os.LookupEnv("GOMAXPROCSMULT")
-	i, err := strconv.Atoi(v)
+	v, _ := os.LookupEnv("BASEPLATE_GOMAXPROCSMULT")
+	intVal, err := strconv.Atoi(v)
 	if err != nil {
 		fmt.Fprintf(
 			os.Stderr,
-			"runtimebp.fetchMaxProcsMult: GOMAXPROCSMULT is set to %q, which is invalid, falling back to 2 to ensure parallelism: %v",
+			"runtimebp.fetchMaxProcsMult: GOMAXPROCSMULT is set to %q, which is invalid, falling back to %d to ensure parallelism: %v",
 			v,
+			defaultMultiplier,
 			err,
 		)
-		i = 2
+		intVal = defaultMultiplier
 	}
-	if i <= 0 {
-		i = 1
+	if intVal <= 0 {
+		intVal = 1
 	}
-	return i
+	return intVal
 }
 
-// fetchCpuRequest checks for the magic CPUREQUEST variable set as a fallback
+// fetchCPURequest checks for the magic BASEPLATE_CPU_REQUEST variable set as a fallback
 // by Infrared.  If this is set, we use it and the multiplier to set our
 // GOMAXPROCS as a fallback.
-func fetchCPURequest() (int, error) {
-	if v, ok := os.LookupEnv("CPUREQUEST"); ok {
-		req, err := strconv.Atoi(v)
-		if err != nil {
-			// This case will probably never be hit, but I'm keeping it just in case.
-			// In k8s 1.21 and newer, when you present the CPU request via the Downward API
-			// k8s automatically rounds it up to the nearest integer unit.  That's how
-			// we plan to set this variable, but just in case it might be worth doing this
-			// check in case they ever break that.  There's no official contract for that.
-			match := millicoreRegexp.FindStringSubmatch(v)
-			if match == nil {
+func fetchCPURequest() (int, bool) {
+	var req float64
+	v, ok := os.LookupEnv("BASEPLATE_CPU_REQUEST")
+	if !ok {
+		return 0, false
+	}
+
+	iReq, err := strconv.Atoi(v)
+	if err != nil {
+		// This case will probably never be hit, but I'm keeping it just in case.
+		// In k8s 1.21 and newer, when you present the CPU request via the Downward API
+		// k8s automatically rounds it up to the nearest integer unit.  That's how
+		// we plan to set this variable, but just in case it might be worth doing this
+		// check in case they ever break that.  There's no official contract for that.
+		match := millicoreRegexp.FindStringSubmatch(v)
+		if match == nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"runtimebp.fetchCPURequest: BASEPLATE_CPU_REQUEST is set to %q, which is invalid, ignoring.",
+				v,
+			)
+			req = 1
+		} else {
+			m, err := strconv.Atoi(match[1])
+			if err == nil {
+				req = float64(m) / 1000
+			} else {
 				fmt.Fprintf(
 					os.Stderr,
-					"runtimebp.fetchCPURequest: CPUREQUEST is set to %q, which is invalid, ignoring.",
-					v,
+					"runtimebp.fetchCPURequest: BASEPLATE_CPU_REQUEST is set and appears to be a millicore value (%v), but not an integer: %v",
+					req,
+					err,
 				)
 				req = 1
-			} else {
-				m, err := strconv.Atoi(match[0])
-				if err != nil {
-					req = int(math.Ceil(float64(m) / 1000.0))
-				} else {
-					fmt.Fprintf(
-						os.Stderr,
-						"runtimebp.fetchCPURequest: CPUREQUEST is set and appears to be a millicore value (%v), but not an integer: %v",
-						req,
-						err,
-					)
-					req = 1
-				}
 			}
 		}
-		return scaledMaxProcsFormula(float64(req)), nil
+	} else {
+		req = float64(iReq)
 	}
-	return 0, fmt.Errorf("CPUREQUEST unset")
+	return scaledMaxProcsFormula(req), true
 }
 
-// GOMAXPROCS sets runtime.GOMAXPROCS with the formula,
+// GOMAXPROCS sets runtime.GOMAXPROCS with the relevant formula,
 // in bound of [min, max].
 //
-// Currently the default formula is NumCPU() rounding up.
+// Start by checking if limits are set at all.
+// If they aren't, fall back to the CPU request for the container
+// as provided by Infrared, with multiplier, if it exists.
+// If limits are set, check for a multiplier and multiply by it.
+// If limits are set with no multiplier, use a default multiplier.
+// If no limits are set and no request is provided by Infrared,
+// just use the default multiplier outright as our GOMAXPROCS value.
 func GOMAXPROCS(min, max int) (oldVal, newVal int) {
-	if req, err := fetchCPURequest(); err == nil {
-		return GOMAXPROCSwithFormula(req, req, defaultMaxProcsFormula)
+	var limitSet error
+	buf := make([]byte, 1024)
+	_, limitSet = numCPUCgroupsV2(buf)
+	if limitSet == nil {
+		_, limitSet = numCPUCgroupsV1(buf)
+		if limitSet == nil {
+			if req, ok := fetchCPURequest(); ok {
+				oldVal = runtime.GOMAXPROCS(req)
+				return oldVal, req
+			}
+		}
 	}
-	if _, ok := os.LookupEnv("GOMAXPROCSMULT"); ok {
+	if _, ok := os.LookupEnv("BASEPLATE_GOMAXPROCSMULT"); ok {
 		return GOMAXPROCSwithFormula(min, max, scaledMaxProcsFormula)
 	}
 	return GOMAXPROCSwithFormula(min, max, defaultMaxProcsFormula)

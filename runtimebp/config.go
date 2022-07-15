@@ -34,7 +34,7 @@ func InitFromConfig(cfg Config) {
 			v,
 		)
 	} else {
-		prev, current := GOMAXPROCS(2, math.MaxInt)
+		prev, current := GOMAXPROCS(defaultMultiplier, math.MaxInt)
 		fmt.Fprintf(os.Stderr, "GOMAXPROCS: Old: %d New: %d\n", prev, current)
 	}
 }
