@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/reddit/baseplate.go/errorsbp"
@@ -95,6 +98,11 @@ func newSimpleSecret(secret *GenericSecret) (SimpleSecret, error) {
 	return SimpleSecret{
 		Value: value,
 	}, nil
+}
+
+// CSIFile represent the raw parsed object of a file made by the Vault CSI provider
+type CSIFile struct {
+	Secret GenericSecret `json:"data"`
 }
 
 // AsVersioned returns the SimpleSecret as a VersionedSecret.
@@ -254,13 +262,17 @@ type Vault struct {
 
 // NewSecrets parses and validates the secret JSON provided by the reader.
 func NewSecrets(r io.Reader) (*Secrets, error) {
-	var secretsDocument Document
+	secretsDocument := Document{
+		Secrets: make(map[string]GenericSecret),
+	}
 	err := json.NewDecoder(r).Decode(&secretsDocument)
 	if err != nil {
 		switch e := err.(type) {
 		case *fs.PathError:
+			// check if the path is a directory, then assume
+			// the secret provider is Vault CSI
 			if strings.Contains(e.Error(), "is a directory") {
-				secretsDocument, err = csiPath(e.Path)
+				secretsDocument, err = csiPathParser(e.Path, secretsDocument)
 				if err != nil {
 					return nil, err
 				}
@@ -313,7 +325,44 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 	return secrets, nil
 }
 
-func csiPath(path string) (Document, error) {
-	var secretsDocument Document
-	return secretsDocument, nil
+func csiPathParser(path string, inputSecrets Document) (secretsDocument Document, err error) {
+	secretsDocument = Document{
+		Secrets: make(map[string]GenericSecret),
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return secretsDocument, err
+	}
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return secretsDocument, err
+	}
+	if fileInfo.IsDir() {
+		files, err := ioutil.ReadDir(path)
+		if err != nil {
+			return secretsDocument, err
+		}
+		for _, f := range files {
+			// recursive step
+			parsedSecrets, err := csiPathParser(filepath.Join(path, f.Name()), inputSecrets)
+			if err != nil {
+				return secretsDocument, err
+			}
+
+			// secretsDocument += parsedSecrets
+			for k, v := range parsedSecrets.Secrets {
+				secretsDocument.Secrets[k] = v
+			}
+		}
+	} else {
+		// parse file
+		var secretFile CSIFile
+		err = json.NewDecoder(file).Decode(&secretFile)
+		if err != nil {
+			return secretsDocument, err
+		}
+		secretsDocument.Secrets[path] = secretFile.Secret
+	}
+
+	return
 }
