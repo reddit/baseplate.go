@@ -133,7 +133,7 @@ func defaultMaxProcsFormula(n float64) int {
 
 func scaledMaxProcsFormula(n float64) int {
 	i := fetchMaxProcsMult()
-	return int(math.Ceil(n) * float64(i))
+	return int(math.Ceil(n * float64(i)))
 }
 
 func fetchMaxProcsMult() int {
