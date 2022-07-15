@@ -137,6 +137,7 @@ func (r *Result) watcherLoop(
 		}
 	}
 
+	file := filepath.Base(path)
 	var tickerChan <-chan time.Time
 	if pollingInterval > 0 {
 		ticker := time.NewTicker(pollingInterval)
@@ -162,10 +163,14 @@ func (r *Result) watcherLoop(
 				continue
 			}
 
+			if filepath.Base(ev.Name) != file {
+				continue
+			}
+
 			switch ev.Op {
 			default:
 				// Ignore uninterested events.
-			case fsnotify.Create, fsnotify.Write, fsnotify.Chmod:
+			case fsnotify.Create, fsnotify.Write:
 				mtime, err := getMtime(path)
 				if err != nil {
 					logger.Log(context.Background(), fmt.Sprintf(
