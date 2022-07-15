@@ -349,11 +349,11 @@ func csiPathParser(path string, inputSecrets Document) (secretsDocument Document
 				return secretsDocument, err
 			}
 
-			// secretsDocument += parsedSecrets
 			for k, v := range parsedSecrets.Secrets {
-				secretsDocument.Secrets[k] = v
+				inputSecrets.Secrets[k] = v
 			}
 		}
+		secretsDocument = inputSecrets
 	} else {
 		// parse file
 		var secretFile CSIFile
