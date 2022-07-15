@@ -272,7 +272,6 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 
 	var f io.ReadCloser
 	var mtime time.Time
-	res := new(Result)
 	var watcher *fsnotify.Watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -338,11 +337,13 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		watcher.Close()
 		return nil, err
 	}
+	res := new(Result)
 	res.data.Store(&atomicData{
 		data:  d,
 		mtime: mtime,
 	})
 	res.ctx, res.cancel = context.WithCancel(context.Background())
+
 	if cfg.PollingInterval == 0 {
 		cfg.PollingInterval = DefaultPollingInterval
 	}
