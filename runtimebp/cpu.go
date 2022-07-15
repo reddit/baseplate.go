@@ -42,13 +42,14 @@ func NumCPU() float64 {
 		return n
 	}
 
-	// Fallback to the standard runtime package value.
+	// If nothing is set, falling back to the core count is probably dangerous.
+	// Instead, fall back to the lowest value that still allows parallelism.
 	fmt.Fprintf(
 		os.Stderr,
-		"runtimebp.NumCPU: Failed to read cgroup v1, fallback to NumCPU on the physical machine: %v\n",
+		"runtimebp.NumCPU: Failed to read cgroup v1, fallback to 2 to allow parallelism: %v\n",
 		err,
 	)
-	return float64(runtime.NumCPU())
+	return float64(2)
 }
 
 func numCPUCgroupsV2(buf []byte) (float64, error) {
@@ -127,11 +128,59 @@ func defaultMaxProcsFormula(n float64) int {
 	return int(math.Ceil(n))
 }
 
-// GOMAXPROCS sets runtime.GOMAXPROCS with the default formula,
+func scaledMaxProcsFormula(n float64) int {
+	i := fetchMaxProcsMult()
+	return int(math.Ceil(n) * float64(i))
+}
+
+func fetchMaxProcsMult() int {
+	// Allow using a multiplier for number of processes relative to limit.
+	// Not catching the ok here because this function will never be called unless
+	// the environment variable is set
+	v, _ := os.LookupEnv("GOMAXPROCSMULT")
+	i, err := strconv.Atoi(v)
+	if err != nil {
+		fmt.Fprintf(
+			os.Stderr,
+			"runtimebp.fetchMaxProcsMult: GOMAXPROCSMULT is set to %q, which is invalid, falling back to 2 to ensure parallelism.",
+			v,
+		)
+		i = 2
+	}
+	return i
+}
+
+// fetchCpuRequest checks for the magic CPUREQUEST variable set as a fallback
+// by Infrared.  If this is set, we use it and the multiplier to set our
+// GOMAXPROCS as a fallback.
+func fetchCPURequest() (int, error) {
+	if v, ok := os.LookupEnv("CPUREQUEST"); ok {
+		req, err := strconv.Atoi(v)
+		if err != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"runtimebp.GOMAXPROCS: CPUREQUEST is set to %q, which is invalid, ignoring.",
+				v,
+			)
+			req = 1
+		}
+		mult := fetchMaxProcsMult()
+		return int(req * mult), nil
+	}
+	return 0, fmt.Errorf("CPUREQUEST unset")
+}
+
+// GOMAXPROCS sets runtime.GOMAXPROCS with the formula,
 // in bound of [min, max].
 //
 // Currently the default formula is NumCPU() rounding up.
 func GOMAXPROCS(min, max int) (oldVal, newVal int) {
+	if req, err := fetchCPURequest(); err == nil {
+		return GOMAXPROCSwithFormula(req, req, defaultMaxProcsFormula)
+	}
+	if _, ok := os.LookupEnv("GOMAXPROCSMULT"); ok {
+		return GOMAXPROCSwithFormula(min, max, scaledMaxProcsFormula)
+	}
 	return GOMAXPROCSwithFormula(min, max, defaultMaxProcsFormula)
 }
 
