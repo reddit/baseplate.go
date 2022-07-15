@@ -272,16 +272,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 
 	var f io.ReadCloser
 	var mtime time.Time
-	var watcher *fsnotify.Watcher
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
-	}
 
-	isDir, err := isDirectory(filepath.Clean(cfg.Path))
-	if err != nil {
-		return nil, err
-	}
 	for {
 		select {
 		default:
@@ -307,10 +298,19 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		break
 	}
 
+	var watcher *fsnotify.Watcher
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
 	// Note: We need to watch the parent directory instead of the file itself,
 	// because only watching the file won't give us CREATE events,
 	// which will happen with atomic renames.
 	err = watcher.Add(filepath.Dir(cfg.Path))
+	if err != nil {
+		return nil, err
+	}
+	isDir, err := isDirectory(filepath.Clean(cfg.Path))
 	if err != nil {
 		return nil, err
 	}
