@@ -179,7 +179,7 @@ func fetchCPURequest() (int, error) {
 			} else {
 				m, err := strconv.Atoi(match[0])
 				if err != nil {
-					req = int(math.Ceil(float64(m / 1000.0)))
+					req = int(math.Ceil(float64(m) / 1000.0))
 				} else {
 					fmt.Fprintf(
 						os.Stderr,
@@ -187,8 +187,8 @@ func fetchCPURequest() (int, error) {
 						req,
 						err,
 					)
+					req = 1
 				}
-				req = 1
 			}
 		}
 		return scaledMaxProcsFormula(float64(req)), nil
