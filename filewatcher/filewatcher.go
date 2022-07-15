@@ -137,7 +137,6 @@ func (r *Result) watcherLoop(
 		}
 	}
 
-	file := filepath.Base(path)
 	var tickerChan <-chan time.Time
 	if pollingInterval > 0 {
 		ticker := time.NewTicker(pollingInterval)
@@ -160,10 +159,6 @@ func (r *Result) watcherLoop(
 			// here to make sure we don't spam the log with i/o errors (which mainly
 			// happen in tests)
 			if r.ctx.Err() != nil {
-				continue
-			}
-
-			if filepath.Base(ev.Name) != file {
 				continue
 			}
 

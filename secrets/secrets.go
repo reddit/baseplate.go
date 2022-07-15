@@ -326,6 +326,7 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 }
 
 func csiPathParser(path string, inputSecrets Document) (secretsDocument Document, err error) {
+	fmt.Println("#######################")
 	secretsDocument = Document{
 		Secrets: make(map[string]GenericSecret),
 	}
