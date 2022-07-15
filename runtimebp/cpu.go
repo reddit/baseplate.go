@@ -5,6 +5,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -49,7 +50,7 @@ func NumCPU() float64 {
 		"runtimebp.NumCPU: Failed to read cgroup v1, fallback to 2 to allow parallelism: %v\n",
 		err,
 	)
-	return float64(2)
+	return 2
 }
 
 func numCPUCgroupsV2(buf []byte) (float64, error) {
@@ -142,10 +143,14 @@ func fetchMaxProcsMult() int {
 	if err != nil {
 		fmt.Fprintf(
 			os.Stderr,
-			"runtimebp.fetchMaxProcsMult: GOMAXPROCSMULT is set to %q, which is invalid, falling back to 2 to ensure parallelism.",
+			"runtimebp.fetchMaxProcsMult: GOMAXPROCSMULT is set to %q, which is invalid, falling back to 2 to ensure parallelism: %v",
 			v,
+			err,
 		)
 		i = 2
+	}
+	if i <= 0 {
+		i = 1
 	}
 	return i
 }
@@ -157,15 +162,31 @@ func fetchCPURequest() (int, error) {
 	if v, ok := os.LookupEnv("CPUREQUEST"); ok {
 		req, err := strconv.Atoi(v)
 		if err != nil {
-			fmt.Fprintf(
-				os.Stderr,
-				"runtimebp.GOMAXPROCS: CPUREQUEST is set to %q, which is invalid, ignoring.",
-				v,
-			)
-			req = 1
+			millicoreRegexp := regexp.MustCompile(`^(P<millis>[1-9][0-9]*)m$`)
+			match := millicoreRegexp.FindStringSubmatch(v)
+			if match == nil {
+				fmt.Fprintf(
+					os.Stderr,
+					"runtimebp.fetchCPURequest: CPUREQUEST is set to %q, which is invalid, ignoring.",
+					v,
+				)
+				req = 1
+			} else {
+				m, err := strconv.Atoi(match[0])
+				if err != nil {
+					req = int(math.Ceil(float64(m / 1000.0)))
+				} else {
+					fmt.Fprintf(
+						os.Stderr,
+						"runtimebp.fetchCPURequest: CPUREQUEST is set and appears to be a millicore value (%v), but not an integer: %v",
+						req,
+						err,
+					)
+				}
+				req = 1
+			}
 		}
-		mult := fetchMaxProcsMult()
-		return int(req * mult), nil
+		return scaledMaxProcsFormula(float64(req)), nil
 	}
 	return 0, fmt.Errorf("CPUREQUEST unset")
 }
