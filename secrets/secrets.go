@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -267,8 +266,7 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 	}
 	err := json.NewDecoder(r).Decode(&secretsDocument)
 	if err != nil {
-		switch e := err.(type) {
-		case *fs.PathError:
+		if e, ok := err.(*fs.PathError); ok {
 			// check if the path is a directory, then assume
 			// the secret provider is Vault CSI
 			if strings.Contains(e.Error(), "is a directory") {
@@ -279,9 +277,8 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 			} else {
 				return nil, err
 			}
-		default:
-			return nil, err
 		}
+		return nil, err
 	}
 
 	err = secretsDocument.Validate()
@@ -338,7 +335,7 @@ func csiPathParser(path string, inputSecrets Document) (secretsDocument Document
 		return secretsDocument, err
 	}
 	if fileInfo.IsDir() {
-		files, err := ioutil.ReadDir(path)
+		files, err := os.ReadDir(path)
 		if err != nil {
 			return secretsDocument, err
 		}
@@ -354,15 +351,15 @@ func csiPathParser(path string, inputSecrets Document) (secretsDocument Document
 			}
 		}
 		secretsDocument = inputSecrets
-	} else {
-		// parse file
-		var secretFile CSIFile
-		err = json.NewDecoder(file).Decode(&secretFile)
-		if err != nil {
-			return secretsDocument, err
-		}
-		secretsDocument.Secrets[path] = secretFile.Secret
+		return secretsDocument, err
 	}
+	// parse file
+	var secretFile CSIFile
+	err = json.NewDecoder(file).Decode(&secretFile)
+	if err != nil {
+		return secretsDocument, err
+	}
+	secretsDocument.Secrets[path] = secretFile.Secret
 
-	return
+	return secretsDocument, err
 }

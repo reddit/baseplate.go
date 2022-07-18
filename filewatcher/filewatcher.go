@@ -314,12 +314,11 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		// doesnt support recursion by itself
 		dirPath := filepath.Clean(cfg.Path)
 
-		err = filepath.WalkDir(dirPath, func(path string, info fs.DirEntry, err error) error {
+		err := filepath.WalkDir(dirPath, func(path string, info fs.DirEntry, err error) error {
 			if info.IsDir() {
 				return watcher.Add(path)
 			}
 			return nil
-
 		})
 		if err != nil {
 			return nil, err
