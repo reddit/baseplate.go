@@ -266,19 +266,10 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 	}
 	err := json.NewDecoder(r).Decode(&secretsDocument)
 	if err != nil {
-		if e, ok := err.(*fs.PathError); ok {
-			// check if the path is a directory, then assume
-			// the secret provider is Vault CSI
-			if strings.Contains(e.Error(), "is a directory") {
-				secretsDocument, err = csiPathParser(e.Path, secretsDocument)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				return nil, err
-			}
+		secretsDocument, err = checkForVaultCSI(secretsDocument, err)
+		if err != nil {
+			return nil, err
 		}
-		return nil, err
 	}
 
 	err = secretsDocument.Validate()
@@ -361,5 +352,16 @@ func csiPathParser(path string, inputSecrets Document) (secretsDocument Document
 	}
 	secretsDocument.Secrets[path] = secretFile.Secret
 
+	return secretsDocument, err
+}
+
+func checkForVaultCSI(secretsDocument Document, err error) (Document, error) {
+	if e, ok := err.(*fs.PathError); ok {
+		// check if the path is a directory, then assume
+		// the secret provider is Vault CSI
+		if strings.Contains(e.Error(), "is a directory") {
+			secretsDocument, err = csiPathParser(e.Path, secretsDocument)
+		}
+	}
 	return secretsDocument, err
 }

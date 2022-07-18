@@ -305,16 +305,14 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	isDir, err := isDirectory(filepath.Clean(cfg.Path))
+	isDir, err := isDirectory(cfg.Path)
 	if err != nil {
 		return nil, err
 	}
 	if isDir {
 		// Need to walk recursively because the watcher
 		// doesnt support recursion by itself
-		dirPath := filepath.Clean(cfg.Path)
-
-		err := filepath.WalkDir(dirPath, func(path string, info fs.DirEntry, err error) error {
+		err := filepath.WalkDir(cfg.Path, func(path string, info fs.DirEntry, err error) error {
 			if info.IsDir() {
 				return watcher.Add(path)
 			}
