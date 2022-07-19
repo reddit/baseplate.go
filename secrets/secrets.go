@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/reddit/baseplate.go/errorsbp"
 )
@@ -261,26 +259,36 @@ type Vault struct {
 
 // NewSecrets parses and validates the secret JSON provided by the reader.
 func NewSecrets(r io.Reader) (*Secrets, error) {
-	secretsDocument := Document{
-		Secrets: make(map[string]GenericSecret),
-	}
+	var secretsDocument Document
 	err := json.NewDecoder(r).Decode(&secretsDocument)
-	if err != nil {
-		secretsDocument, err = checkForVaultCSI(secretsDocument, err)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	err = secretsDocument.Validate()
 	if err != nil {
 		return nil, err
 	}
+	return secretsValidate(secretsDocument)
+}
+
+// NewDirSecrets parses a directory and returns its secrets
+func NewDirSecrets(path string) (*Secrets, error) {
+	secretsDocument := Document{
+		Secrets: make(map[string]GenericSecret),
+	}
+	secretsDocument, err := csiPathParser(path)
+	if err != nil {
+		return nil, err
+	}
+	return secretsValidate(secretsDocument)
+
+}
+func secretsValidate(secretsDocument Document) (*Secrets, error) {
 	secrets := &Secrets{
 		simpleSecrets:     make(map[string]SimpleSecret),
 		versionedSecrets:  make(map[string]VersionedSecret),
 		credentialSecrets: make(map[string]CredentialSecret),
 		vault:             secretsDocument.Vault,
+	}
+	err := secretsDocument.Validate()
+	if err != nil {
+		return secrets, err
 	}
 	for key, secret := range secretsDocument.Secrets {
 		switch secret.Type {
@@ -313,7 +321,7 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 	return secrets, nil
 }
 
-func csiPathParser(path string, inputSecrets Document) (Document, error) {
+func csiPathParser(path string) (Document, error) {
 	secretsDocument := Document{
 		Secrets: make(map[string]GenericSecret),
 	}
@@ -338,16 +346,5 @@ func csiPathParser(path string, inputSecrets Document) (Document, error) {
 			secretsDocument.Secrets[path] = secretFile.Secret
 			return nil
 		})
-	return secretsDocument, err
-}
-
-func checkForVaultCSI(secretsDocument Document, err error) (Document, error) {
-	if e, ok := err.(*fs.PathError); ok {
-		// check if the path is a directory, then assume
-		// the secret provider is Vault CSI
-		if strings.Contains(e.Error(), "is a directory") {
-			secretsDocument, err = csiPathParser(e.Path, secretsDocument)
-		}
-	}
 	return secretsDocument, err
 }

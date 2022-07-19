@@ -57,7 +57,7 @@ const (
 //
 // Please note that Parser should always return the consistent type.
 // Inconsistent type will cause panic, as does returning nil data and nil error.
-type Parser func(f io.Reader) (data interface{}, err error)
+type Parser func(f interface{}) (data interface{}, err error)
 
 // Result is the return type of New. Use Get function to get the actual data.
 type Result struct {
@@ -265,7 +265,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	}
 	hardLimit := limit * HardLimitMultiplier
 
-	var f io.ReadCloser
+	var f interface{}
 	var mtime time.Time
 
 	for {
@@ -284,7 +284,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer f.Close()
+		defer f.(io.ReadCloser).Close()
 
 		mtime, err = getMtime(cfg.Path)
 		if err != nil {
@@ -312,6 +312,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	if isDir {
 		// Need to walk recursively because the watcher
 		// doesnt support recursion by itself
+		f = cfg.Path
 		err := filepath.WalkDir(cfg.Path, func(path string, info fs.DirEntry, err error) error {
 			if info.IsDir() {
 				return watcher.Add(path)
