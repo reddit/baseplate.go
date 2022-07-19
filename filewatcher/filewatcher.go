@@ -400,5 +400,5 @@ func isDirectory(path string) (bool, error) {
 		return false, err
 	}
 
-	return fileInfo.IsDir(), err
+	return fileInfo.IsDir(), nil
 }
