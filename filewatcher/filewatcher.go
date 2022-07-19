@@ -310,6 +310,8 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		return nil, err
 	}
 	if isDir {
+		var dr DummyReadCloser
+		f = dr.(io.ReadCloser)
 		// Need to walk recursively because the watcher
 		// doesnt support recursion by itself
 		err := filepath.WalkDir(cfg.Path, func(path string, info fs.DirEntry, err error) error {
@@ -393,6 +395,12 @@ func (fw *MockFileWatcher) Get() interface{} {
 func (fw *MockFileWatcher) Stop() {}
 
 var _ FileWatcher = (*MockFileWatcher)(nil)
+
+// DummyReadCloser implements io.Reader to work with Parsers
+type DummyReadCloser interface {
+	io.Reader
+	io.Closer
+}
 
 func isDirectory(path string) (bool, error) {
 	fileInfo, err := os.Stat(path)
