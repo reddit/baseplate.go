@@ -313,45 +313,31 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 	return secrets, nil
 }
 
-func csiPathParser(path string, inputSecrets Document) (secretsDocument Document, err error) {
-	secretsDocument = Document{
+func csiPathParser(path string, inputSecrets Document) (Document, error) {
+	secretsDocument := Document{
 		Secrets: make(map[string]GenericSecret),
 	}
-	file, err := os.Open(path)
-	if err != nil {
-		return secretsDocument, err
-	}
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return secretsDocument, err
-	}
-	if fileInfo.IsDir() {
-		files, err := os.ReadDir(path)
-		if err != nil {
-			return secretsDocument, err
-		}
-		for _, f := range files {
-			// recursive step
-			parsedSecrets, err := csiPathParser(filepath.Join(path, f.Name()), inputSecrets)
+	err := filepath.Walk(path,
+		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				return secretsDocument, err
+				return err
 			}
-
-			for k, v := range parsedSecrets.Secrets {
-				inputSecrets.Secrets[k] = v
+			if info.Mode().IsDir() {
+				return nil
 			}
-		}
-		secretsDocument = inputSecrets
-		return secretsDocument, err
-	}
-	// parse file
-	var secretFile CSIFile
-	err = json.NewDecoder(file).Decode(&secretFile)
-	if err != nil {
-		return secretsDocument, err
-	}
-	secretsDocument.Secrets[path] = secretFile.Secret
-
+			// parse file
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			var secretFile CSIFile
+			err = json.NewDecoder(file).Decode(&secretFile)
+			if err != nil {
+				return err
+			}
+			secretsDocument.Secrets[path] = secretFile.Secret
+			return nil
+		})
 	return secretsDocument, err
 }
 
