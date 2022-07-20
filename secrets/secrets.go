@@ -288,7 +288,7 @@ func secretsValidate(secretsDocument Document) (*Secrets, error) {
 	}
 	err := secretsDocument.Validate()
 	if err != nil {
-		return secrets, err
+		return nil, err
 	}
 	for key, secret := range secretsDocument.Secrets {
 		switch secret.Type {
