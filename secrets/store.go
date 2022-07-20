@@ -80,8 +80,9 @@ func (s *Store) parser(r io.Reader) (interface{}, error) {
 	return secrets, nil
 }
 
-func (s *Store) dirParser(path io.Reader) (interface{}, error) {
-	secrets, err := NewDirSecrets(path)
+func (s *Store) dirParser(r io.Reader) (interface{}, error) {
+	drc := r.(filewatcher.DummyReadCloser)
+	secrets, err := NewDirSecrets(drc.Path)
 	if err != nil {
 		return nil, err
 	}

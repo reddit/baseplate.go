@@ -310,9 +310,11 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		return nil, err
 	}
 	if isDir {
+		f = DummyReadCloser{
+			Path: cfg.Path,
+		}
 		// Need to walk recursively because the watcher
 		// doesnt support recursion by itself
-		f = cfg.Path
 		err := filepath.WalkDir(cfg.Path, func(path string, info fs.DirEntry, err error) error {
 			if info.IsDir() {
 				return watcher.Add(path)
@@ -394,6 +396,13 @@ func (fw *MockFileWatcher) Get() interface{} {
 func (fw *MockFileWatcher) Stop() {}
 
 var _ FileWatcher = (*MockFileWatcher)(nil)
+
+// DummyReadCloser is a mock struct used to hold the path for directory watchers
+type DummyReadCloser struct {
+	io.Reader
+	io.Closer
+	Path string
+}
 
 func isDirectory(path string) (bool, error) {
 	fileInfo, err := os.Stat(path)
