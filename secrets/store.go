@@ -3,6 +3,7 @@ package secrets
 import (
 	"context"
 	"io"
+	"os"
 
 	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
@@ -41,13 +42,22 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares 
 	store := &Store{
 		secretHandlerFunc: nopSecretHandlerFunc,
 	}
+	parser := store.parser
 	store.secretHandler(middlewares...)
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if fileInfo.IsDir() {
+		parser = store.dirParser
+	}
 
 	result, err := filewatcher.New(
 		ctx,
 		filewatcher.Config{
 			Path:   path,
-			Parser: store.parser,
+			Parser: parser,
 			Logger: logger,
 		},
 	)
@@ -61,6 +71,18 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares 
 
 func (s *Store) parser(r io.Reader) (interface{}, error) {
 	secrets, err := NewSecrets(r)
+	if err != nil {
+		return nil, err
+	}
+
+	s.secretHandlerFunc(secrets)
+
+	return secrets, nil
+}
+
+func (s *Store) dirParser(r io.Reader) (interface{}, error) {
+	drc := r.(filewatcher.DummyReadCloser)
+	secrets, err := NewDirSecrets(drc.Path)
 	if err != nil {
 		return nil, err
 	}
