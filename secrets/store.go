@@ -69,8 +69,8 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares 
 	return store, nil
 }
 
-func (s *Store) parser(r interface{}) (interface{}, error) {
-	secrets, err := NewSecrets(r.(io.Reader))
+func (s *Store) parser(r io.Reader) (interface{}, error) {
+	secrets, err := NewSecrets(r)
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +80,8 @@ func (s *Store) parser(r interface{}) (interface{}, error) {
 	return secrets, nil
 }
 
-func (s *Store) dirParser(path interface{}) (interface{}, error) {
-	secrets, err := NewDirSecrets(path.(string))
+func (s *Store) dirParser(path io.Reader) (interface{}, error) {
+	secrets, err := NewDirSecrets(path)
 	if err != nil {
 		return nil, err
 	}

@@ -58,9 +58,9 @@ type Experiments struct {
 // Context should come with a timeout otherwise this might block forever, i.e.
 // if the path never becomes available.
 func NewExperiments(ctx context.Context, path string, eventLogger EventLogger, logger log.Wrapper) (*Experiments, error) {
-	parser := func(r interface{}) (interface{}, error) {
+	parser := func(r io.Reader) (interface{}, error) {
 		var doc document
-		err := json.NewDecoder(r.(io.Reader)).Decode(&doc)
+		err := json.NewDecoder(r).Decode(&doc)
 		if err != nil {
 			return nil, err
 		}
