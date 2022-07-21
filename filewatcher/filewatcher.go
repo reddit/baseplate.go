@@ -322,7 +322,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("filewatcher.New: Error while walking directory '%s': %s", cfg.Path, err)
 		}
 	}
 
