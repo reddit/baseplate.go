@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +19,27 @@ import (
 
 func parser(f io.Reader) (interface{}, error) {
 	return io.ReadAll(f)
+}
+
+func dirParser(f io.Reader) (interface{}, error) {
+	data := []byte{}
+	drc := f.(filewatcher.DummyReadCloser)
+	err := filepath.Walk(drc.Path,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.Mode().IsDir() {
+				return nil
+			}
+			// parse file
+			data, err = ioutil.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	return data, err
 }
 
 // writeFile does atomic write/overwrite (write to a tmp file, then use rename
@@ -104,12 +126,27 @@ func TestFileWatcher(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(data.Stop)
+			dirData, err := filewatcher.New(
+				ctx,
+				filewatcher.Config{
+					Path:            dir,
+					Parser:          dirParser,
+					Logger:          log.TestWrapper(t),
+					PollingInterval: c.interval,
+				},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(dirData.Stop)
 			compareBytesData(t, data.Get(), payload1)
+			compareBytesData(t, dirData.Get(), payload1)
 
 			writeFile(t, path, payload2)
 			// Give it some time to handle the file content change
 			time.Sleep(500 * time.Millisecond)
 			compareBytesData(t, data.Get(), payload2)
+			compareBytesData(t, dirData.Get(), payload2)
 		})
 	}
 }
@@ -178,7 +215,21 @@ func TestFileWatcherRename(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(data.Stop)
+	dirData, err := filewatcher.New(
+		ctx,
+		filewatcher.Config{
+			Path:            dir,
+			Parser:          dirParser,
+			Logger:          log.TestWrapper(t),
+			PollingInterval: writeDelay,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(dirData.Stop)
 	compareBytesData(t, data.Get(), payload1)
+	compareBytesData(t, dirData.Get(), payload1)
 
 	func() {
 		newpath := path + ".bar"
@@ -190,6 +241,7 @@ func TestFileWatcherRename(t *testing.T) {
 	// Give it some time to handle the file content change
 	time.Sleep(writeDelay * 10)
 	compareBytesData(t, data.Get(), payload2)
+	compareBytesData(t, dirData.Get(), payload2)
 }
 
 func TestParserFailure(t *testing.T) {

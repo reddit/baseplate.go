@@ -105,12 +105,22 @@ func (r *Result) watcherLoop(
 	pollingInterval time.Duration,
 ) {
 	forceReload := func(mtime time.Time) {
+		isDir, err := isDirectory(path)
+		if err != nil {
+			logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
+			return
+		}
 		f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
 		if err != nil {
 			logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
 			return
 		}
 		defer f.Close()
+		if isDir {
+			f = DummyReadCloser{
+				Path: path,
+			}
+		}
 		d, err := parser(f)
 		if err != nil {
 			logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
