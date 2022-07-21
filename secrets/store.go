@@ -81,7 +81,10 @@ func (s *Store) parser(r io.Reader) (interface{}, error) {
 }
 
 func (s *Store) dirParser(r io.Reader) (interface{}, error) {
-	drc := r.(filewatcher.DummyReadCloser)
+	drc, ok := r.(filewatcher.DummyReadCloser)
+	if !ok {
+	  return nil, fmt.Errorf("secrets.Store.dirParser: invalid type: %T", r)
+	}
 	secrets, err := NewDirSecrets(drc.Path)
 	if err != nil {
 		return nil, err
