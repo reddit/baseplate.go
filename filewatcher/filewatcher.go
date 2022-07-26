@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -65,6 +66,8 @@ type Result struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+	lock   sync.Mutex
+	timer  *time.Timer
 }
 
 // Get returns the latest parsed data from the file watcher.
@@ -121,14 +124,31 @@ func (r *Result) watcherLoop(
 				Path: path,
 			}
 		}
-		d, err := parser(f)
-		if err != nil {
-			logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
+		parse := func() {
+			d, err := parser(f)
+			if err != nil {
+				logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
+			} else {
+				r.data.Store(&atomicData{
+					data:  d,
+					mtime: mtime,
+				})
+			}
+		}
+		if isDir {
+			func() {
+				r.lock.Lock()
+				defer r.lock.Unlock()
+				if r.timer != nil {
+					r.timer.Stop()
+				}
+
+				r.timer = time.AfterFunc(time.Second, func() {
+					parse()
+				})
+			}()
 		} else {
-			r.data.Store(&atomicData{
-				data:  d,
-				mtime: mtime,
-			})
+			parse()
 		}
 	}
 
