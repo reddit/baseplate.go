@@ -133,6 +133,7 @@ func TestFileWatcher(t *testing.T) {
 					Parser:          dirParser,
 					Logger:          log.TestWrapper(t),
 					PollingInterval: c.interval,
+					ParseDelay:      time.Millisecond,
 				},
 			)
 			if err != nil {
@@ -222,6 +223,7 @@ func TestFileWatcherRename(t *testing.T) {
 			Parser:          dirParser,
 			Logger:          log.TestWrapper(t),
 			PollingInterval: writeDelay,
+			ParseDelay:      time.Millisecond,
 		},
 	)
 	if err != nil {

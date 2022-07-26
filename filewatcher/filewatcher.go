@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -20,6 +21,10 @@ import (
 // DefaultPollingInterval is the default PollingInterval used when creating a
 // new file watcher.
 const DefaultPollingInterval = 30 * time.Second
+
+// DefaultParseDelay is the default time needed without an event to parse again. Used in
+// directory watchers when many events can happen at once
+const DefaultParseDelay = 200 * time.Millisecond
 
 // FileWatcher loads and parses data from a file and watches for changes to that
 // file in order to refresh it's stored data.
@@ -65,6 +70,8 @@ type Result struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+	lock   sync.Mutex
+	timer  *time.Timer
 }
 
 // Get returns the latest parsed data from the file watcher.
@@ -103,6 +110,7 @@ func (r *Result) watcherLoop(
 	softLimit, hardLimit int64,
 	logger log.Wrapper,
 	pollingInterval time.Duration,
+	parseDelay time.Duration,
 ) {
 	forceReload := func(mtime time.Time) {
 		isDir, err := isDirectory(path)
@@ -121,14 +129,29 @@ func (r *Result) watcherLoop(
 				Path: path,
 			}
 		}
-		d, err := parser(f)
-		if err != nil {
-			logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
-		} else {
-			r.data.Store(&atomicData{
-				data:  d,
-				mtime: mtime,
+		parse := func() {
+			d, err := parser(f)
+			if err != nil {
+				logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
+			} else {
+				r.data.Store(&atomicData{
+					data:  d,
+					mtime: mtime,
+				})
+			}
+		}
+		if isDir {
+			r.lock.Lock()
+			defer r.lock.Unlock()
+			if r.timer != nil {
+				r.timer.Stop()
+			}
+
+			r.timer = time.AfterFunc(parseDelay, func() {
+				parse()
 			})
+		} else {
+			parse()
 		}
 	}
 
@@ -256,6 +279,10 @@ type Config struct {
 	// the parent directory will be remount upon change
 	// (for example, k8s ConfigMap).
 	PollingInterval time.Duration `yaml:"pollingInterval"`
+
+	// Optional, the time directory watcher should wait for notifications before
+	// it should parse again
+	ParseDelay time.Duration `yaml:"parseDelay"`
 }
 
 // New creates a new file watcher.
@@ -352,6 +379,9 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	if cfg.PollingInterval == 0 {
 		cfg.PollingInterval = DefaultPollingInterval
 	}
+	if cfg.ParseDelay == 0 {
+		cfg.ParseDelay = DefaultParseDelay
+	}
 	go res.watcherLoop(
 		watcher,
 		cfg.Path,
@@ -360,6 +390,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		hardLimit,
 		cfg.Logger,
 		cfg.PollingInterval,
+		cfg.ParseDelay,
 	)
 
 	return res, nil
