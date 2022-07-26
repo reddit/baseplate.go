@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -105,9 +104,6 @@ func (r *Result) watcherLoop(
 	logger log.Wrapper,
 	pollingInterval time.Duration,
 ) {
-	var lock sync.Mutex
-	var timer *time.Timer
-	var duration = time.Second
 	forceReload := func(mtime time.Time) {
 		isDir, err := isDirectory(path)
 		if err != nil {
@@ -125,25 +121,15 @@ func (r *Result) watcherLoop(
 				Path: path,
 			}
 		}
-		lock.Lock()
-		defer lock.Unlock()
-		if timer != nil {
-			timer.Reset(duration)
-			return
+		d, err := parser(f)
+		if err != nil {
+			logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
+		} else {
+			r.data.Store(&atomicData{
+				data:  d,
+				mtime: mtime,
+			})
 		}
-
-		timer = time.AfterFunc(duration, func() {
-			d, err := parser(f)
-			if err != nil {
-				logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
-			} else {
-				r.data.Store(&atomicData{
-					data:  d,
-					mtime: mtime,
-				})
-			}
-			timer = nil
-		})
 	}
 
 	reload := func() {
