@@ -70,8 +70,9 @@ type Result struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
-	lock   sync.Mutex
-	timer  *time.Timer
+
+	lock  sync.Mutex
+	timer *time.Timer
 }
 
 // Get returns the latest parsed data from the file watcher.
@@ -113,20 +114,22 @@ func (r *Result) watcherLoop(
 	parseDelay time.Duration,
 ) {
 	forceReload := func(mtime time.Time) {
+		var f io.ReadCloser
 		isDir, err := isDirectory(path)
 		if err != nil {
 			logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
-			return
-		}
-		f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
-		if err != nil {
-			logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
 			return
 		}
 		defer f.Close()
 		if isDir {
 			f = DummyReadCloser{
 				Path: path,
+			}
+		} else {
+			f, err = limitopen.OpenWithLimit(path, softLimit, hardLimit)
+			if err != nil {
+				logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
+				return
 			}
 		}
 		parse := func() {
@@ -442,6 +445,7 @@ var _ FileWatcher = (*MockFileWatcher)(nil)
 type DummyReadCloser struct {
 	io.Reader
 	io.Closer
+
 	Path string
 }
 

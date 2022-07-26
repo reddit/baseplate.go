@@ -325,7 +325,8 @@ func csiPathParser(path string) (Document, error) {
 	secretsDocument := Document{
 		Secrets: make(map[string]GenericSecret),
 	}
-	err := filepath.Walk(path,
+	err := filepath.Walk(
+		path,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err

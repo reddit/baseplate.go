@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,9 +21,10 @@ func parser(f io.Reader) (interface{}, error) {
 }
 
 func dirParser(f io.Reader) (interface{}, error) {
-	data := []byte{}
+	var data []byte
 	drc := f.(filewatcher.DummyReadCloser)
-	err := filepath.Walk(drc.Path,
+	err := filepath.Walk(
+		drc.Path,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -33,7 +33,7 @@ func dirParser(f io.Reader) (interface{}, error) {
 				return nil
 			}
 			// parse file
-			data, err = ioutil.ReadFile(path)
+			data, err = os.ReadFile(path)
 			if err != nil {
 				return err
 			}
