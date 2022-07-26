@@ -66,6 +66,8 @@ type Result struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+	lock   sync.Mutex
+	timer  *time.Timer
 }
 
 // Get returns the latest parsed data from the file watcher.
@@ -105,9 +107,6 @@ func (r *Result) watcherLoop(
 	logger log.Wrapper,
 	pollingInterval time.Duration,
 ) {
-	var lock sync.Mutex
-	var timer *time.Timer
-	var duration = time.Second
 	forceReload := func(mtime time.Time) {
 		isDir, err := isDirectory(path)
 		if err != nil {
@@ -125,14 +124,7 @@ func (r *Result) watcherLoop(
 				Path: path,
 			}
 		}
-		lock.Lock()
-		defer lock.Unlock()
-		if timer != nil {
-			timer.Reset(duration)
-			return
-		}
-
-		timer = time.AfterFunc(duration, func() {
+		parse := func() {
 			d, err := parser(f)
 			if err != nil {
 				logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
@@ -142,8 +134,22 @@ func (r *Result) watcherLoop(
 					mtime: mtime,
 				})
 			}
-			timer = nil
-		})
+		}
+		if isDir {
+			func() {
+				r.lock.Lock()
+				defer r.lock.Unlock()
+				if r.timer != nil {
+					r.timer.Stop()
+				}
+
+				r.timer = time.AfterFunc(time.Second, func() {
+					parse()
+				})
+			}()
+		} else {
+			parse()
+		}
 	}
 
 	reload := func() {
