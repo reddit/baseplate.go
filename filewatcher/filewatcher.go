@@ -120,7 +120,6 @@ func (r *Result) watcherLoop(
 			logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
 			return
 		}
-		defer f.Close()
 		if isDir {
 			f = DummyReadCloser{
 				Path: path,
@@ -131,6 +130,7 @@ func (r *Result) watcherLoop(
 				logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
 				return
 			}
+			defer f.Close()
 		}
 		parse := func() {
 			d, err := parser(f)
