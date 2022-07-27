@@ -121,7 +121,7 @@ func (r *Result) watcherLoop(
 			return
 		}
 		if isDir {
-			f = DummyReadCloser{
+			f = dummyReadCloser{
 				Path: path,
 			}
 		} else {
@@ -350,7 +350,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		return nil, err
 	}
 	if isDir {
-		f = DummyReadCloser{
+		f = dummyReadCloser{
 			Path: cfg.Path,
 		}
 		// Need to walk recursively because the watcher
@@ -441,12 +441,20 @@ func (fw *MockFileWatcher) Stop() {}
 
 var _ FileWatcher = (*MockFileWatcher)(nil)
 
-// DummyReadCloser is a mock struct used to hold the path for directory watchers
-type DummyReadCloser struct {
+// dummyReadCloser is a mock struct used to hold the path for directory watchers
+type dummyReadCloser struct {
 	io.Reader
 	io.Closer
 
 	Path string
+}
+
+func (drc dummyReadCloser) Close() error {
+	return fmt.Errorf("filewatcher: This operation is not supported for directories")
+}
+
+func (drc dummyReadCloser) Read(p []byte) (int, error) {
+	return 0, fmt.Errorf("filewatcher: This operation is not supported for directories")
 }
 
 func isDirectory(path string) (bool, error) {
