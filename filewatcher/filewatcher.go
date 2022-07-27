@@ -64,6 +64,19 @@ const (
 // Inconsistent type will cause panic, as does returning nil data and nil error.
 type Parser func(f io.Reader) (data interface{}, err error)
 
+// DirParser is a callback function to be called when a file in a watched directory
+// has been touched, or read for the first time.
+// Should always return a constant type or will cause panic
+type DirParser func(path string) (data interface{}, err error)
+
+// DirParserToParser wraps a DirParser so that it may be used as a Parser in a
+// filewatcher
+func DirParserToParser(dp DirParser) Parser {
+	return func(f io.Reader) (interface{}, error) {
+		return dp(f.(dummyReadCloser).Path)
+	}
+}
+
 // Result is the return type of New. Use Get function to get the actual data.
 type Result struct {
 	data atomic.Value

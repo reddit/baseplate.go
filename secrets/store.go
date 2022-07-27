@@ -2,7 +2,6 @@ package secrets
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 
@@ -51,7 +50,7 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares 
 	}
 
 	if fileInfo.IsDir() {
-		parser = store.dirParser
+		parser = filewatcher.DirParserToParser(store.dirParser)
 	}
 
 	result, err := filewatcher.New(
@@ -81,12 +80,8 @@ func (s *Store) parser(r io.Reader) (interface{}, error) {
 	return secrets, nil
 }
 
-func (s *Store) dirParser(r io.Reader) (interface{}, error) {
-	drc, ok := r.(filewatcher.DummyReadCloser)
-	if !ok {
-		return nil, fmt.Errorf("secrets.Store.dirParser: invalid type: %T", r)
-	}
-	secrets, err := NewDirSecrets(drc.Path)
+func (s *Store) dirParser(path string) (interface{}, error) {
+	secrets, err := NewDirSecrets(path)
 	if err != nil {
 		return nil, err
 	}

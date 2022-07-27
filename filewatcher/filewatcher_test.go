@@ -20,11 +20,10 @@ func parser(f io.Reader) (interface{}, error) {
 	return io.ReadAll(f)
 }
 
-func dirParser(f io.Reader) (interface{}, error) {
+func dirParser(path string) (interface{}, error) {
 	var data []byte
-	drc := f.(filewatcher.DummyReadCloser)
 	err := filepath.Walk(
-		drc.Path,
+		path,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -130,7 +129,7 @@ func TestFileWatcher(t *testing.T) {
 				ctx,
 				filewatcher.Config{
 					Path:            dir,
-					Parser:          dirParser,
+					Parser:          filewatcher.DirParserToParser(dirParser),
 					Logger:          log.TestWrapper(t),
 					PollingInterval: c.interval,
 					ParseDelay:      time.Millisecond,
@@ -220,7 +219,7 @@ func TestFileWatcherRename(t *testing.T) {
 		ctx,
 		filewatcher.Config{
 			Path:            dir,
-			Parser:          dirParser,
+			Parser:          filewatcher.DirParserToParser(dirParser),
 			Logger:          log.TestWrapper(t),
 			PollingInterval: writeDelay,
 			ParseDelay:      time.Millisecond,
