@@ -50,7 +50,7 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares 
 	}
 
 	if fileInfo.IsDir() {
-		parser = filewatcher.DirParserToParser(store.dirParser)
+		parser = filewatcher.DirParserWrapper(store.dirParser)
 	}
 
 	result, err := filewatcher.New(

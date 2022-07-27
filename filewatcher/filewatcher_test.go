@@ -37,7 +37,8 @@ func dirParser(path string) (interface{}, error) {
 				return err
 			}
 			return nil
-		})
+		},
+	)
 	return data, err
 }
 
@@ -129,7 +130,7 @@ func TestFileWatcher(t *testing.T) {
 				ctx,
 				filewatcher.Config{
 					Path:            dir,
-					Parser:          filewatcher.DirParserToParser(dirParser),
+					Parser:          filewatcher.DirParserWrapper(dirParser),
 					Logger:          log.TestWrapper(t),
 					PollingInterval: c.interval,
 					ParseDelay:      time.Millisecond,
@@ -219,7 +220,7 @@ func TestFileWatcherRename(t *testing.T) {
 		ctx,
 		filewatcher.Config{
 			Path:            dir,
-			Parser:          filewatcher.DirParserToParser(dirParser),
+			Parser:          filewatcher.DirParserWrapper(dirParser),
 			Logger:          log.TestWrapper(t),
 			PollingInterval: writeDelay,
 			ParseDelay:      time.Millisecond,

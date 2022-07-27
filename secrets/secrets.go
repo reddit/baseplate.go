@@ -346,6 +346,7 @@ func csiPathParser(path string) (Document, error) {
 			}
 			secretsDocument.Secrets[path] = secretFile.Secret
 			return nil
-		})
+		},
+	)
 	return secretsDocument, err
 }

@@ -23,7 +23,7 @@ import (
 const DefaultPollingInterval = 30 * time.Second
 
 // DefaultParseDelay is the default time needed without an event to parse again. Used in
-// directory watchers when many events can happen at once
+// directory watchers when many events can happen in a short period of time
 const DefaultParseDelay = 200 * time.Millisecond
 
 // FileWatcher loads and parses data from a file and watches for changes to that
@@ -64,16 +64,16 @@ const (
 // Inconsistent type will cause panic, as does returning nil data and nil error.
 type Parser func(f io.Reader) (data interface{}, err error)
 
-// DirParser is a callback function to be called when a file in a watched directory
+// DirParser is a callback function to be called when file(s) in a watched directory
 // has been touched, or read for the first time.
 // Should always return a constant type or will cause panic
 type DirParser func(path string) (data interface{}, err error)
 
-// DirParserToParser wraps a DirParser so that it may be used as a Parser in a
+// DirParserWrapper wraps a DirParser so that it may be used as a Parser in a
 // filewatcher
-func DirParserToParser(dp DirParser) Parser {
+func DirParserWrapper(dp DirParser) Parser {
 	return func(f io.Reader) (interface{}, error) {
-		return dp(f.(dummyReadCloser).Path)
+		return dp(f.(dummyReader).Path)
 	}
 }
 
@@ -127,26 +127,27 @@ func (r *Result) watcherLoop(
 	parseDelay time.Duration,
 ) {
 	forceReload := func(mtime time.Time) {
-		var f io.ReadCloser
+		var reader io.Reader
 		isDir, err := isDirectory(path)
 		if err != nil {
 			logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
 			return
 		}
 		if isDir {
-			f = dummyReadCloser{
+			reader = dummyReader{
 				Path: path,
 			}
 		} else {
-			f, err = limitopen.OpenWithLimit(path, softLimit, hardLimit)
+			f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
 			if err != nil {
 				logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
 				return
 			}
 			defer f.Close()
+			reader = f
 		}
 		parse := func() {
-			d, err := parser(f)
+			d, err := parser(reader)
 			if err != nil {
 				logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
 			} else {
@@ -318,7 +319,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	}
 	hardLimit := limit * HardLimitMultiplier
 
-	var f io.ReadCloser
+	var reader io.Reader
 	var mtime time.Time
 
 	for {
@@ -329,7 +330,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		}
 
 		var err error
-		f, err = limitopen.OpenWithLimit(cfg.Path, limit, hardLimit)
+		f, err := limitopen.OpenWithLimit(cfg.Path, limit, hardLimit)
 		if errors.Is(err, os.ErrNotExist) {
 			time.Sleep(InitialReadInterval)
 			continue
@@ -338,6 +339,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 			return nil, err
 		}
 		defer f.Close()
+		reader = f
 
 		mtime, err = getMtime(cfg.Path)
 		if err != nil {
@@ -363,7 +365,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		return nil, err
 	}
 	if isDir {
-		f = dummyReadCloser{
+		reader = dummyReader{
 			Path: cfg.Path,
 		}
 		// Need to walk recursively because the watcher
@@ -380,7 +382,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	}
 
 	var d interface{}
-	d, err = cfg.Parser(f)
+	d, err = cfg.Parser(reader)
 	if err != nil {
 		watcher.Close()
 		return nil, err
@@ -454,19 +456,14 @@ func (fw *MockFileWatcher) Stop() {}
 
 var _ FileWatcher = (*MockFileWatcher)(nil)
 
-// dummyReadCloser is a mock struct used to hold the path for directory watchers
-type dummyReadCloser struct {
+// dummyReader is a mock struct used to hold the path for directory watchers
+type dummyReader struct {
 	io.Reader
-	io.Closer
 
 	Path string
 }
 
-func (drc dummyReadCloser) Close() error {
-	return fmt.Errorf("filewatcher: This operation is not supported for directories")
-}
-
-func (drc dummyReadCloser) Read(p []byte) (int, error) {
+func (drc dummyReader) Read(p []byte) (int, error) {
 	return 0, fmt.Errorf("filewatcher: This operation is not supported for directories")
 }
 
