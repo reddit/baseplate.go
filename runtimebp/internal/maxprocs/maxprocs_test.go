@@ -3,8 +3,6 @@ package maxprocs
 import (
 	"runtime"
 	"testing"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestSet(t *testing.T) {
@@ -99,11 +97,6 @@ func TestSet(t *testing.T) {
 			defer runtime.GOMAXPROCS(orig)
 			// set GOMAXPROCS to a known value
 			runtime.GOMAXPROCS(sentinel)
-
-			// clear out metrics between runs since we care about the zero value
-			for _, m := range []*prometheus.GaugeVec{mEnvGOMAXPROCS, mEnvCPURequest, mEnvCPURequestScale, initialGOMAXPROCS} {
-				m.Reset()
-			}
 
 			for k, v := range tt.env {
 				t.Setenv(k, v)
