@@ -1,9 +1,7 @@
 package runtimebp
 
 import (
-	"fmt"
-	"math"
-	"os"
+	"github.com/reddit/baseplate.go/runtimebp/internal/maxprocs"
 )
 
 // Config is the configuration struct for the runtimebp package.
@@ -20,21 +18,8 @@ type Config struct {
 	} `yaml:"numProcesses"`
 }
 
-// InitFromConfig sets GOMAXPROCS using the given config.
-//
-// NOTE: If the GOMAXPROCS environment variable is set,
-// this function will skip setting GOMAXPROCS,
-// even if the environment variable is set to some bogus value
-// (in that case it will be set to number of physical CPUs).
-func InitFromConfig(cfg Config) {
-	if v, ok := os.LookupEnv("GOMAXPROCS"); ok {
-		fmt.Fprintf(
-			os.Stderr,
-			"runtimebp.InitFromConfig: GOMAXPROCS environment variable is set to %q, skipping setting GOMAXPROCS.",
-			v,
-		)
-	} else {
-		prev, current := GOMAXPROCS(1, math.MaxInt)
-		fmt.Fprintf(os.Stderr, "GOMAXPROCS: Old: %d New: %d\n", prev, current)
-	}
+// InitFromConfig sets GOMAXPROCS based on an overridable heuristic described in maxprocs.
+// N.B. It does NOT respect the passed-in config.
+func InitFromConfig(_ Config) {
+	maxprocs.Set()
 }
