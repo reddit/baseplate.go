@@ -9,6 +9,11 @@ import (
 
 func TestSet(t *testing.T) {
 	sentinel := 99
+	automaxprocsSentinel := 111
+
+	origAutomaxprocs := setWithAutomaxprocs
+	defer func() { setWithAutomaxprocs = origAutomaxprocs }()
+	setWithAutomaxprocs = func() { runtime.GOMAXPROCS(automaxprocsSentinel) }
 
 	for _, tt := range []struct {
 		name           string
@@ -86,7 +91,7 @@ func TestSet(t *testing.T) {
 		{
 			name:           "nothing_set",
 			env:            map[string]string{},
-			wantGOMAXPROCS: sentinel, // since our package abdicates responsibility to Go
+			wantGOMAXPROCS: automaxprocsSentinel,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

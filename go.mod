@@ -19,6 +19,7 @@ require (
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/client_model v0.2.0
 	github.com/sony/gobreaker v0.4.1
+	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/zap v1.15.0
 	golang.org/x/sys v0.0.0-20220328115105-d36c6a25d886
 	google.golang.org/grpc v1.41.0
