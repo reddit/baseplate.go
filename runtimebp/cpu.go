@@ -23,7 +23,7 @@ import (
 // or if there's no limit set in cgroup,
 // it will fallback to runtime.NumCPU() instead.
 //
-// Deprecated: NumCPU is deprecated. See runtimebp/internal/maxprocs.
+// Deprecated: NumCPU is deprecated. Instead, tune GOMAXPROCS as described in runtimebp.InitFromConfig.
 func NumCPU() float64 {
 	// Big enough buffer to read the numbers in the files wholly into memory.
 	buf := make([]byte, 1024)
@@ -134,7 +134,7 @@ func defaultMaxProcsFormula(n float64) int {
 //
 // Currently the default formula is NumCPU() rounding up.
 //
-// Deprecated: GOMAXPROCS is deprecated. See runtimebp/internal/maxprocs.
+// Deprecated: GOMAXPROCS is deprecated. Instead, tune GOMAXPROCS as described in runtimebp.InitFromConfig.
 func GOMAXPROCS(min, max int) (oldVal, newVal int) {
 	return GOMAXPROCSwithFormula(min, max, defaultMaxProcsFormula)
 }
@@ -142,7 +142,7 @@ func GOMAXPROCS(min, max int) (oldVal, newVal int) {
 // GOMAXPROCSwithFormula sets runtime.GOMAXPROCS with the given formula,
 // in bound of [min, max].
 //
-// Deprecated: GOMAXPROCSwithFormula is deprecated. See runtimebp/internal/maxprocs.
+// Deprecated: GOMAXPROCSwithFormula is deprecated. Instead, tune GOMAXPROCS as described in runtimebp.InitFromConfig.
 func GOMAXPROCSwithFormula(min, max int, formula MaxProcsFormula) (oldVal, newVal int) {
 	newVal = boundNtoMinMax(formula(NumCPU()), min, max)
 	oldVal = runtime.GOMAXPROCS(newVal)
