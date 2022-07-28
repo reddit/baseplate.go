@@ -23,7 +23,12 @@ import (
 // or if there's no limit set in cgroup,
 // it will fallback to runtime.NumCPU() instead.
 //
-// Deprecated: NumCPU is deprecated. Instead, tune GOMAXPROCS as described in runtimebp.InitFromConfig.
+// Depending on your application, $BASEPLATE_CPU_REQUEST may also be helpful.
+// Infrared sets $BASEPLATE_CPU_REQUEST to the container's Kubernetes CPU
+// _request_ (rather than _limit_ as this function returns), rounded up to the
+// nearest whole CPU.
+//
+// To tune GOMAXPROCS, see runtimebp.InitFromConfig.
 func NumCPU() float64 {
 	// Big enough buffer to read the numbers in the files wholly into memory.
 	buf := make([]byte, 1024)
