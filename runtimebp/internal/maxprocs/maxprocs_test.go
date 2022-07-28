@@ -1,7 +1,6 @@
 package maxprocs
 
 import (
-	"context"
 	"runtime"
 	"testing"
 
@@ -105,7 +104,7 @@ func TestSet(t *testing.T) {
 				t.Setenv(k, v)
 			}
 
-			Set(context.Background())
+			Set()
 
 			if got, want := runtime.GOMAXPROCS(0), tt.wantGOMAXPROCS; got != want {
 				t.Errorf("got GOMAXPROCS=%d, want %d", got, want)
