@@ -86,7 +86,9 @@ func Set() {
 	}
 
 	setBy := setByGOMAXPROCS
-	defer func() { initialGOMAXPROCS.WithLabelValues(setBy).Set(currentGOMAXPROCS()) }()
+	defer func() {
+		initialGOMAXPROCS.WithLabelValues(setBy).Set(currentGOMAXPROCS())
+	}()
 
 	if envGOMAXPROCS.present {
 		return // let Go runtime handle it
