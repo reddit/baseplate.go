@@ -126,13 +126,13 @@ func (r *Result) watcherLoop(
 	pollingInterval time.Duration,
 	parseDelay time.Duration,
 ) {
+	isDir, err := isDirectory(path)
+	if err != nil {
+		logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
+		return
+	}
 	forceReload := func(mtime time.Time) {
 		var reader io.Reader
-		isDir, err := isDirectory(path)
-		if err != nil {
-			logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
-			return
-		}
 		if isDir {
 			reader = dummyReader{
 				path: path,
@@ -215,7 +215,20 @@ func (r *Result) watcherLoop(
 			switch ev.Op {
 			default:
 				// Ignore uninterested events.
-			case fsnotify.Create, fsnotify.Write:
+			case fsnotify.Create, fsnotify.Write, fsnotify.Chmod:
+				// If a directory is created in a directory watcher we want
+				// to watch that as well
+				if isDir {
+					eventIsDir, err := isDirectory(ev.Name)
+					if err != nil {
+						logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
+						return
+					}
+					if eventIsDir && ev.Op == fsnotify.Create {
+						watcher.Add(ev.Name)
+					}
+				}
+
 				mtime, err := getMtime(path)
 				if err != nil {
 					logger.Log(context.Background(), fmt.Sprintf(

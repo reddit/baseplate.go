@@ -152,6 +152,53 @@ func TestFileWatcher(t *testing.T) {
 	}
 }
 
+func TestDirectoryWatcher(t *testing.T) {
+	t.Run("DirectoryInDirectory", func(t *testing.T) {
+		interval := time.Millisecond
+		filewatcher.InitialReadInterval = interval
+		writeDelay := interval * 10
+		timeout := writeDelay * 20
+		innerDirectoryName := "foo"
+
+		payload1 := []byte("Hello, world!")
+
+		// Make a directory then watch it
+		dir := t.TempDir()
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		t.Cleanup(cancel)
+		dirData, err := filewatcher.New(
+			ctx,
+			filewatcher.Config{
+				Path:       dir,
+				Parser:     filewatcher.DirParserWrapper(dirParser),
+				Logger:     log.TestWrapper(t),
+				ParseDelay: time.Millisecond,
+			},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(dirData.Stop)
+
+		// Make a new directory within the first, then write file inside it
+		if err := os.Mkdir(filepath.Join(dir, innerDirectoryName), os.ModePerm); err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(dir, innerDirectoryName, "bar")
+
+		go func() {
+			// Delay writing the file
+			time.Sleep(writeDelay)
+			writeFile(t, path, payload1)
+		}()
+
+		// Give it some time to handle the file content change
+		time.Sleep(500 * time.Millisecond)
+		compareBytesData(t, dirData.Get(), payload1)
+
+	})
+}
+
 func TestFileWatcherTimeout(t *testing.T) {
 	interval := time.Millisecond
 	filewatcher.InitialReadInterval = interval
