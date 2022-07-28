@@ -215,7 +215,7 @@ func (r *Result) watcherLoop(
 			switch ev.Op {
 			default:
 				// Ignore uninterested events.
-			case fsnotify.Create, fsnotify.Write, fsnotify.Chmod:
+			case fsnotify.Create, fsnotify.Write:
 				// If a directory is created in a directory watcher we want
 				// to watch that as well
 				if isDir {
