@@ -2,6 +2,8 @@
 // It attempts to balance application performance with cluster-level resource utilization.
 // Applications may tune GOMAXPROCS as necessary (see Set).
 // The defaults in this package are subject to change.
+//
+// NOTE: this is manually copied from internal baseplate/v2/internal/maxprocs/maxprocs.go
 package maxprocs
 
 import (
