@@ -483,6 +483,6 @@ func isDirectory(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
-	return fileInfo.IsDir(), nil
+	isDir := fileInfo.IsDir()
+	return isDir, nil
 }
