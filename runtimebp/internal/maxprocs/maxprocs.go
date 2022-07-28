@@ -115,7 +115,9 @@ func Set() {
 
 	if envCPURequest.val <= 0 {
 		// This should always be valid positive float in infrared-deployed applications.
-		fmt.Fprintf(os.Stderr, "maxprocs: $BASEPLATE_CPU_REQUEST=%q, want positive float. Falling back to Go's default", envCPURequest.raw)
+		fmt.Fprintf(os.Stderr, "maxprocs: $BASEPLATE_CPU_REQUEST=%q, want positive float. Falling back to automaxprocs", envCPURequest.raw)
+		setBy = setByAutomaxprocs
+		setWithAutomaxprocs()
 		return
 	}
 

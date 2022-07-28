@@ -45,7 +45,7 @@ func TestSet(t *testing.T) {
 			env: map[string]string{
 				"BASEPLATE_CPU_REQUEST": "not a number",
 			},
-			wantGOMAXPROCS: sentinel,
+			wantGOMAXPROCS: automaxprocsSentinel,
 		},
 		{
 			name: "invalid_scale",
@@ -60,7 +60,7 @@ func TestSet(t *testing.T) {
 			env: map[string]string{
 				"BASEPLATE_CPU_REQUEST": "0",
 			},
-			wantGOMAXPROCS: sentinel,
+			wantGOMAXPROCS: automaxprocsSentinel,
 		},
 		{
 			name: "zero_scale",
