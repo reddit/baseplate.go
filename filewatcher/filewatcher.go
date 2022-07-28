@@ -73,7 +73,7 @@ type DirParser func(path string) (data interface{}, err error)
 // filewatcher
 func DirParserWrapper(dp DirParser) Parser {
 	return func(f io.Reader) (interface{}, error) {
-		return dp(f.(dummyReader).Path)
+		return dp(f.(dummyReader).path)
 	}
 }
 
@@ -135,7 +135,7 @@ func (r *Result) watcherLoop(
 		}
 		if isDir {
 			reader = dummyReader{
-				Path: path,
+				path: path,
 			}
 		} else {
 			f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
@@ -366,7 +366,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	}
 	if isDir {
 		reader = dummyReader{
-			Path: cfg.Path,
+			path: cfg.Path,
 		}
 		// Need to walk recursively because the watcher
 		// doesnt support recursion by itself
@@ -458,9 +458,7 @@ var _ FileWatcher = (*MockFileWatcher)(nil)
 
 // dummyReader is a mock struct used to hold the path for directory watchers
 type dummyReader struct {
-	io.Reader
-
-	Path string
+	path string
 }
 
 func (drc dummyReader) Read(p []byte) (int, error) {
