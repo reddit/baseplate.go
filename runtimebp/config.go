@@ -19,7 +19,8 @@ type Config struct {
 }
 
 // InitFromConfig sets GOMAXPROCS based on an overridable heuristic described in maxprocs.
-// N.B. It does NOT respect the passed-in config.
+//
+// NOTE: It does NOT respect the passed-in config.
 func InitFromConfig(_ Config) {
 	maxprocs.Set()
 }
