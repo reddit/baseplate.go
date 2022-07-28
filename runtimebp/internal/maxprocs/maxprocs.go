@@ -69,7 +69,7 @@ func Set() {
 
 	for _, env := range []*floatEnv{envGOMAXPROCS, envCPURequest, envCPURequestScale} {
 		env.raw, env.present = os.LookupEnv(env.key)
-		env.val, _ = strconv.ParseFloat(env.raw, 64)
+		env.val, _ = strconv.ParseFloat(env.raw, 64) // error not needed as we check val > 0 and save raw
 		env.gauge.WithLabelValues(strconv.FormatBool(env.present)).Set(env.val)
 	}
 
