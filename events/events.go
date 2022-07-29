@@ -109,3 +109,15 @@ func (q *Queue) Put(ctx context.Context, event thrift.TStruct) error {
 
 	return q.queue.Send(ctx, data)
 }
+
+// PutRaw puts a raw, already properly serialized event into the event queue.
+//
+// In most cases you should use Put instead.
+// This is only provided for some special cases like experiments-v2 custom
+// exposers.
+func (q *Queue) PutRaw(ctx context.Context, rawEvent []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, q.maxTimeout)
+	defer cancel()
+
+	return q.queue.Send(ctx, rawEvent)
+}
