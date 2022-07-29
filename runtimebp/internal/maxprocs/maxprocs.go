@@ -79,12 +79,13 @@ var (
 )
 
 // Set configures the runtime's GOMAXPROCS using the following heuristic:
-//   1. If $GOMAXPROCS is set, Set relinquishes control to the Go runtime.
-//      This should cause the runtime to respect this value directly.
-//   2. If $BASEPLATE_CPU_REQUEST is unset/invalid, Set relinquishes control to automaxprocs, minimum 2.
-//      See https://pkg.go.dev/go.uber.org/automaxprocs for specific behavior.
-//   3. Otherwise, $BASEPLATE_CPU_REQUEST is multiplied by $BASEPLATE_CPU_REQUEST_SCALE
-//      (or defaultCPURequestScale) to compute the new GOMAXPROCS, minimum 2.
+//
+// 1. If $GOMAXPROCS is set, Set relinquishes control to the Go runtime.
+//    This should cause the runtime to respect this value directly.
+// 2. If $BASEPLATE_CPU_REQUEST is unset/invalid, Set relinquishes control to automaxprocs, minimum 2.
+//    See https://pkg.go.dev/go.uber.org/automaxprocs for specific behavior.
+// 3. Otherwise, $BASEPLATE_CPU_REQUEST is multiplied by $BASEPLATE_CPU_REQUEST_SCALE
+//    (or defaultCPURequestScale) to compute the new GOMAXPROCS, minimum 2.
 //
 // Set also exports several metrics to facilitate further tuning/analysis.
 func Set() {
