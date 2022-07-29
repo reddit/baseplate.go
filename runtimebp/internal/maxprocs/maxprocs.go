@@ -47,15 +47,15 @@ var (
 	mEnvGOMAXPROCS = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "baseplate_go_env_gomaxprocs",
 		Help: "Value of the GOMAXPROCS environment variable at startup. 0 if not a number",
-	}, []string{"present"})
+	}, []string{"status"})
 	mEnvCPURequest = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "baseplate_go_env_baseplate_cpu_request",
 		Help: "Value of the BASEPLATE_CPU_REQUEST environment variable at startup. 0 if not a number",
-	}, []string{"present"})
+	}, []string{"status"})
 	mEnvCPURequestScale = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "baseplate_go_env_baseplate_cpu_request_scale",
 		Help: "Value of the BASEPLATE_CPU_REQUEST_SCALE environment variable at startup. 0 if not a number",
-	}, []string{"present"})
+	}, []string{"status"})
 
 	initialGOMAXPROCS = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "baseplate_go_initial_gomaxprocs",
@@ -94,8 +94,21 @@ func Set() {
 
 	for _, env := range []*floatEnv{envGOMAXPROCS, envCPURequest, envCPURequestScale} {
 		env.raw, env.present = os.LookupEnv(env.key)
-		env.val, _ = strconv.ParseFloat(env.raw, 64) // error not needed as we check val > 0 and save raw
-		env.gauge.WithLabelValues(strconv.FormatBool(env.present)).Set(env.val)
+
+		var err error
+		env.val, err = strconv.ParseFloat(env.raw, 64)
+
+		var status string
+		switch {
+		case env.present && err == nil:
+			status = "present"
+		case env.present && err != nil:
+			status = "not_a_number"
+		default:
+			status = "absent"
+		}
+
+		env.gauge.WithLabelValues(status).Set(env.val)
 	}
 
 	setBy := setByGOMAXPROCS
