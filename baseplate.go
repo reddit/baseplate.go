@@ -17,6 +17,11 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
+const (
+	// DefaultStopDelay is the default StopDelay to be used in Serve.
+	DefaultStopDelay = 1 * time.Second
+)
+
 // Configer defines the interface that allows you to extend Config with your own
 // configurations.
 type Configer interface {
@@ -45,6 +50,13 @@ type Config struct {
 	// If this is not set, then a default value of 30 seconds will be used.
 	// If this is less than 0, then no timeout will be set on the Stop command.
 	StopTimeout time.Duration `yaml:"stopTimeout"`
+
+	// Delay after receiving termination signal (SIGTERM, etc.) before kicking off
+	// the graceful shutdown process. This happens before the PreShutdown closers.
+	//
+	// By default this is 1s (DefaultStopDelay).
+	// To disable it, set it to a negative value.
+	StopDelay time.Duration
 
 	Log     log.Config       `yaml:"log"`
 	Metrics metricsbp.Config `yaml:"metrics"`
@@ -161,6 +173,11 @@ func Serve(ctx context.Context, args ServeArgs) error {
 				defer cancel()
 			}
 
+			delay := server.Baseplate().GetConfig().StopDelay
+			if delay == 0 {
+				delay = DefaultStopDelay
+			}
+
 			// Initialize a channel to pass the result of server.Close().
 			//
 			// It's buffered with size 1 to avoid blocking the goroutine forever.
@@ -170,7 +187,14 @@ func Serve(ctx context.Context, args ServeArgs) error {
 			//
 			// This is a blocking call, so it is called in a separate goroutine.
 			go func() {
-				bc := batchcloser.New(args.PreShutdown...)
+				var bc batchcloser.BatchCloser
+				if delay > 0 {
+					bc.Add(batchcloser.Wrap(func() error {
+						time.Sleep(delay)
+						return nil
+					}))
+				}
+				bc.Add(args.PreShutdown...)
 				bc.Add(server)
 				bc.Add(args.PostShutdown...)
 				closeChannel <- bc.Close()
