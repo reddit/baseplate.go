@@ -56,7 +56,7 @@ type Config struct {
 	//
 	// By default this is 1s (DefaultStopDelay).
 	// To disable it, set it to a negative value.
-	StopDelay time.Duration
+	StopDelay time.Duration `yaml:"stopDelay"`
 
 	Log     log.Config       `yaml:"log"`
 	Metrics metricsbp.Config `yaml:"metrics"`
