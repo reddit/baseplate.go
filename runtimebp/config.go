@@ -1,9 +1,7 @@
 package runtimebp
 
 import (
-	"fmt"
-	"math"
-	"os"
+	"github.com/reddit/baseplate.go/runtimebp/internal/maxprocs"
 )
 
 // Config is the configuration struct for the runtimebp package.
@@ -20,21 +18,18 @@ type Config struct {
 	} `yaml:"numProcesses"`
 }
 
-// InitFromConfig sets GOMAXPROCS using the given config.
+// InitFromConfig configures the runtime's GOMAXPROCS using the following heuristic:
 //
-// NOTE: If the GOMAXPROCS environment variable is set,
-// this function will skip setting GOMAXPROCS,
-// even if the environment variable is set to some bogus value
-// (in that case it will be set to number of physical CPUs).
-func InitFromConfig(cfg Config) {
-	if v, ok := os.LookupEnv("GOMAXPROCS"); ok {
-		fmt.Fprintf(
-			os.Stderr,
-			"runtimebp.InitFromConfig: GOMAXPROCS environment variable is set to %q, skipping setting GOMAXPROCS.",
-			v,
-		)
-	} else {
-		prev, current := GOMAXPROCS(1, math.MaxInt)
-		fmt.Fprintf(os.Stderr, "GOMAXPROCS: Old: %d New: %d\n", prev, current)
-	}
+// 1. If $GOMAXPROCS is set, it relinquishes control to the Go runtime.
+//    This should cause the runtime to respect this value directly.
+// 2. If $BASEPLATE_CPU_REQUEST is unset/invalid, it relinquishes control to automaxprocs, minimum 2.
+//    See https://pkg.go.dev/go.uber.org/automaxprocs for specific behavior.
+// 3. Otherwise, $BASEPLATE_CPU_REQUEST is multiplied by $BASEPLATE_CPU_REQUEST_SCALE
+//    (or defaultCPURequestScale) to compute the new GOMAXPROCS, minimum 2.
+//
+// InitFromConfig also exports several metrics to facilitate further tuning/analysis.
+//
+// NOTE: It does NOT respect the passed-in config.
+func InitFromConfig(_ Config) {
+	maxprocs.Set()
 }
