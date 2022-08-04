@@ -21,51 +21,51 @@ import (
 // results.
 // In addition to errors, Redis commands return one of 4 types of responses:
 //
-// 1. Simple Strings: "*string" is the only type you can use as the response
-//    input.
-// 2. Integers: "*int64" is the only type you can use as the response input.
-// 3. Bulk strings: "*[]byte", the type returned by redispipe for these commands,
-//    is supported as a response input.  In additon, you may use a "string" or
-//    "int64" and we will attempt to convert the "[]byte" response to that value.
-//    Note that this is done by converting it to a "string" first and, in the
-//    case of "int64", parsing it into an integer. You can also use "*string"
-//    or "*int64", to be able to represent null value.
-// 4. Arrays: Arrays are the most flexible type returned by Redis as an array
-//    can contain elements of any of the types above. "[]interface{}" is the
-//    type that redispipe returns on these commands and is supported as a
-//    response input.  Certain commands support more specific inputs though,
-//    specifically "*[]int64" or "*[][]byte" since they always return arrays
-//    that only contain a specific type.
+//  1. Simple Strings: "*string" is the only type you can use as the response
+//     input.
+//  2. Integers: "*int64" is the only type you can use as the response input.
+//  3. Bulk strings: "*[]byte", the type returned by redispipe for these commands,
+//     is supported as a response input.  In additon, you may use a "string" or
+//     "int64" and we will attempt to convert the "[]byte" response to that value.
+//     Note that this is done by converting it to a "string" first and, in the
+//     case of "int64", parsing it into an integer. You can also use "*string"
+//     or "*int64", to be able to represent null value.
+//  4. Arrays: Arrays are the most flexible type returned by Redis as an array
+//     can contain elements of any of the types above. "[]interface{}" is the
+//     type that redispipe returns on these commands and is supported as a
+//     response input.  Certain commands support more specific inputs though,
+//     specifically "*[]int64" or "*[][]byte" since they always return arrays
+//     that only contain a specific type.
 //
 // Array Commands that support "*[][]byte":
 //
-//	BLPOP
-//	BRPOP
-//	GEOHASH
-//	HKEYS
-//	HVALS
-//	KEYS
-//	LRANGE
-//	SDIFF
-//	SINTER
-//	SMEMBERS
-//	SPOPN
-//	SRANDMEMBERN
-//	SUNION
-//	XCLAIMJUSTID
-//  ZPOPMAX
-//  ZPOPMIN
-//	ZRANGE
-//	ZRANGEBYLEX
-//	ZRANGEBYSCORE
-//	ZREVRANGE
-//	ZREVRANGEBYLEX
-//	ZREVRANGEBYSCORE
+//   - BLPOP
+//   - BRPOP
+//   - GEOHASH
+//   - HKEYS
+//   - HVALS
+//   - KEYS
+//   - LRANGE
+//   - SDIFF
+//   - SINTER
+//   - SMEMBERS
+//   - SPOPN
+//   - SRANDMEMBERN
+//   - SUNION
+//   - XCLAIMJUSTID
+//   - ZPOPMAX
+//   - ZPOPMIN
+//   - ZRANGE
+//   - ZRANGEBYLEX
+//   - ZRANGEBYSCORE
+//   - ZREVRANGE
+//   - ZREVRANGEBYLEX
+//   - ZREVRANGEBYSCORE
 //
 // Array Commands that support "*[]int64":
 //
-//	BITFIELD
-//	SCRIPT EXISTS
+//   - BITFIELD
+//   - SCRIPT EXISTS
 //
 // In addition, some commands, specifically key/value commands, support
 // Struct Scanning where you can pass in a pointer to an arbitrary struct and
@@ -79,8 +79,8 @@ import (
 //
 // Array Commands that support Struct Scanning:
 //
-//	HMGET
-//	MGET
+//   - HMGET
+//   - MGET
 type Syncx struct {
 	Sync Sync
 }

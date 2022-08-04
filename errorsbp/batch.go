@@ -125,7 +125,7 @@ func (be *Batch) Add(errs ...error) {
 //
 // The actual error(s) added into the batch will produce the error message of:
 //
-//     "prefix: err.Error()"
+//	"prefix: err.Error()"
 //
 // It's useful in Closer implementations that need to call multiple Closers.
 func (be *Batch) AddPrefix(prefix string, errs ...error) {

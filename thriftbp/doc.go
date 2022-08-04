@@ -1,6 +1,6 @@
 // Package thriftbp provides Baseplate specific thrift related helpers.
 //
-// Clients
+// # Clients
 //
 // On the client side,
 // this package provides a middleware framework for thrift.TClient to allow you
@@ -9,7 +9,7 @@
 // client span as well as a function that most services can use as the
 // "golden path" for setting up a Thrift client pool.
 //
-// Servers
+// # Servers
 //
 // On the server side,
 // this package provides middleware implementations for EdgeRequestContext

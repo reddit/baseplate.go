@@ -190,7 +190,7 @@ func (h AlwaysTrustHeaders) TrustSpan(r *http.Request) bool {
 // For both the span and edge context headers, the trust handler expects the
 // caller to provide the signature of a message in the following format:
 //
-// 		"{header0}:{value0}|{header1}|{value1}|...|{headerN}:{valueN}"
+//	"{header0}:{value0}|{header1}|{value1}|...|{headerN}:{valueN}"
 //
 // where the headers are sorted lexicographically.  Additionally, the signature
 // should be generated using the baseplate provided `signing.Sign` function.
@@ -260,7 +260,7 @@ func (h TrustHeaderSignature) verifyHeaders(headers Headers, signature string, s
 //
 // The message that is signed has the following format:
 //
-//		"X-Edge-Request:{headerValue}
+//	"X-Edge-Request:{headerValue}
 func (h TrustHeaderSignature) SignEdgeContextHeader(headers EdgeContextHeaders, expiresIn time.Duration) (string, error) {
 	return h.signHeaders(headers, h.edgeContextSecretPath, expiresIn)
 }
@@ -274,7 +274,7 @@ func (h TrustHeaderSignature) VerifyEdgeContextHeader(headers EdgeContextHeaders
 //
 // The message that is signed has the following format:
 //
-//		"{header0}:{value0}|{header1}|{value1}|...|{headerN}:{valueN}"
+//	"{header0}:{value0}|{header1}|{value1}|...|{headerN}:{valueN}"
 //
 // where the headers are sorted lexicographically.
 func (h TrustHeaderSignature) SignSpanHeaders(headers SpanHeaders, expiresIn time.Duration) (string, error) {
@@ -288,11 +288,12 @@ func (h TrustHeaderSignature) VerifySpanHeaders(headers SpanHeaders, signature s
 
 // TrustEdgeContext returns true if the request has the header
 // "X-Edge-Request-Signature" set and is a valid signature of the header:
-//		"X-Edge-Request"
+//
+//	"X-Edge-Request"
 //
 // The message that should be signed is:
 //
-//		"X-Edge-Request:{headerValue}"
+//	"X-Edge-Request:{headerValue}"
 func (h TrustHeaderSignature) TrustEdgeContext(r *http.Request) bool {
 	signature := r.Header.Get(EdgeContextSignatureHeader)
 	edgeContextHeader, err := NewEdgeContextHeaders(r.Header)
@@ -309,15 +310,15 @@ func (h TrustHeaderSignature) TrustEdgeContext(r *http.Request) bool {
 // TrustSpan returns true if the request has the header
 // "X-Span-Signature" set and is a valid signature of the headers:
 //
-//		"X-Flags"
-//		"X-Parent"
-//		"X-Sampled"
-//		"X-Span"
-//		"X-Trace"
+//	"X-Flags"
+//	"X-Parent"
+//	"X-Sampled"
+//	"X-Span"
+//	"X-Trace"
 //
 // The message that should be signed is:
 //
-//		"{header0}:{value0}|{header1}|{value1}|...|{headerN}:{valueN}"
+//	"{header0}:{value0}|{header1}|{value1}|...|{headerN}:{valueN}"
 //
 // where the headers are sorted lexicographically.
 func (h TrustHeaderSignature) TrustSpan(r *http.Request) bool {

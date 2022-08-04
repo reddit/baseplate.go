@@ -288,22 +288,22 @@ type Counter interface {
 // yaml, so you usually need to override it in your main function, after
 // baseplate.ParseConfigYAML call, for example:
 //
-//     // a global variable
-//     var tracingFailures = promauto.NewCounter(prometheus.CounterOpts{
-//       Namespace: "myservice",
-//       Subsystem: "tracing",
-//       Name:      "failures_total",
-//       Help:      "Total number of failures when sending tracing spans to the sidecar",
-//     })
+//	// a global variable
+//	var tracingFailures = promauto.NewCounter(prometheus.CounterOpts{
+//	  Namespace: "myservice",
+//	  Subsystem: "tracing",
+//	  Name:      "failures_total",
+//	  Help:      "Total number of failures when sending tracing spans to the sidecar",
+//	})
 //
-//     // in main
-//     if err := baseplate.ParseConfigYAML(&cfg); err != nil {
-//       log.Fatal(err)
-//     }
-//     cfg.Config.Tracing.Logger = log.CounterWrapper(
-//       cfg.Config.Tracing.Logger, // delegate
-//       tracingFailures,           // counter
-//     }
+//	// in main
+//	if err := baseplate.ParseConfigYAML(&cfg); err != nil {
+//	  log.Fatal(err)
+//	}
+//	cfg.Config.Tracing.Logger = log.CounterWrapper(
+//	  cfg.Config.Tracing.Logger, // delegate
+//	  tracingFailures,           // counter
+//	}
 func CounterWrapper(delegate Wrapper, counter Counter) Wrapper {
 	return func(ctx context.Context, msg string) {
 		counter.Add(1)

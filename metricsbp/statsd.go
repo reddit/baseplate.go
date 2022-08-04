@@ -51,8 +51,8 @@ var M = NewStatsd(context.Background(), Config{})
 // so they are gonna be safe to use (unless M was explicitly overridden as nil).
 // For example:
 //
-//     st := (*metricsbp.Statsd)(nil)
-//     st.Counter("my-counter").Add(1) // does not panic unless metricsbp.M is nil
+//	st := (*metricsbp.Statsd)(nil)
+//	st.Counter("my-counter").Add(1) // does not panic unless metricsbp.M is nil
 type Statsd struct {
 	statsd *influxstatsd.Influxstatsd
 
@@ -279,22 +279,22 @@ func (st *Statsd) fallback() *Statsd {
 // and be able to stop that goroutine gracefully.
 // For example:
 //
-//     func reportGauges() {
-//       gauge := metricsbp.M.Gauge("my-gauge")
-//       go func() {
-//         ticker := time.NewTicker(time.Minute)
-//         defer ticker.Stop()
+//	func reportGauges() {
+//	  gauge := metricsbp.M.Gauge("my-gauge")
+//	  go func() {
+//	    ticker := time.NewTicker(time.Minute)
+//	    defer ticker.Stop()
 //
-//         for {
-//           select {
-//           case <- metricsbp.M.Ctx().Done():
-//             return
-//           case <- ticker.C:
-//             gauge.Set(getValue())
-//           }
-//         }
-//       }
-//     }
+//	    for {
+//	      select {
+//	      case <- metricsbp.M.Ctx().Done():
+//	        return
+//	      case <- ticker.C:
+//	        gauge.Set(getValue())
+//	      }
+//	    }
+//	  }
+//	}
 func (st *Statsd) Ctx() context.Context {
 	return st.ctx
 }

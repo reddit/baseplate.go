@@ -99,7 +99,7 @@ func Attach(ctx context.Context, args AttachArgs) context.Context {
 // you should always use this one instead of the global one.
 // For example:
 //
-//     log.C(ctx).Errorw("Something went wrong!", "err", err)
+//	log.C(ctx).Errorw("Something went wrong!", "err", err)
 //
 // The return value is guaranteed to be non-nil.
 func C(ctx context.Context) *zap.SugaredLogger {

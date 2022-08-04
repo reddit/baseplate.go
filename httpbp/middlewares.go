@@ -35,10 +35,10 @@ type Middleware func(name string, next HandlerFunc) HandlerFunc
 //
 // Middlewares will be called in the order that they are defined:
 //
-//		1. Middlewares[0]
-//		2. Middlewares[1]
-//		...
-//		N. Middlewares[n]
+//	1: Middlewares[0]
+//	2: Middlewares[1]
+//	...
+//	N: Middlewares[n]
 //
 // Wrap is provided for clarity and testing purposes and should not generally be
 // called directly. Instead use one of the provided Handler constructors which
@@ -68,10 +68,10 @@ type DefaultMiddlewareArgs struct {
 // DefaultMiddleware returns a slice of all the default Middleware for a
 // Baseplate HTTP server. The default middleware are (in order):
 //
-//   1. InjectServerSpan
-//   2. InjectEdgeRequestContext
-//   3. RecordStatusCode
-//   4. PrometheusServerMetrics
+//  1. InjectServerSpan
+//  2. InjectEdgeRequestContext
+//  3. RecordStatusCode
+//  4. PrometheusServerMetrics
 func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	if args.TrustHandler == nil {
 		args.TrustHandler = NeverTrustHeaders{}
@@ -407,11 +407,11 @@ func recordStatusCode(counters counterGenerator) Middleware {
 
 // RecordStatusCode extracts the status code set on the request in the following
 // order:
-//	1. Check if WriteHeader was called on the ResponseWriter and use that code
-//	if it was.
-//	2. If an error was returned, check if it is an HTTPError. If it is, use the
-//	code from the error, otherwise assume 500.
-//	3. Assume 200.
+//  1. Check if WriteHeader was called on the ResponseWriter and use that code
+//     if it was.
+//  2. If an error was returned, check if it is an HTTPError. If it is, use the
+//     code from the error, otherwise assume 500.
+//  3. Assume 200.
 //
 // If it sees an invalid status code (<100 or >599), it will record the status
 // as "-nan" for codes <100 and "nan" for codes >599. Note that a code that is
@@ -484,15 +484,15 @@ func PrometheusServerMetrics(_ string) Middleware {
 
 // isRequestSuccessful returns the success of an HTTP request as a string, i.e. "true" or "false".
 // A HTTP request is successful when:
-//   1) no error is returned from the request and
-//   2) the HTTP status code is in the range [100, 400).
+//  1. no error is returned from the request and
+//  2. the HTTP status code is in the range [100, 400).
 func isRequestSuccessful(httpStatusCode int, requestErr error) string {
 	return prometheusbp.BoolString(requestErr == nil && isSuccessStatusCode(httpStatusCode))
 }
 
 // responeRecorder records the following:
-//   1. HTTP response code passed to a call to WriteHeader.
-//   2. how many bytes were written if any.
+//  1. HTTP response code passed to a call to WriteHeader.
+//  2. how many bytes were written if any.
 type responseRecorder struct {
 	http.ResponseWriter
 

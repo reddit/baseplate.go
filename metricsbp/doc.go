@@ -14,22 +14,22 @@
 // between pre-created metrics, on-the-fly metrics, and on-the-fly with
 // additional tags metrics:
 //
-//     $ go test -bench . -benchmem
-//     goos: darwin
-//     goarch: amd64
-//     pkg: github.com/reddit/baseplate.go/metricsbp
-//     BenchmarkStatsd/pre-create/histogram-8         	 8583646	       124 ns/op	      44 B/op	       0 allocs/op
-//     BenchmarkStatsd/pre-create/timing-8            	10221859	       120 ns/op	      47 B/op	       0 allocs/op
-//     BenchmarkStatsd/pre-create/counter-8           	10205341	       120 ns/op	      47 B/op	       0 allocs/op
-//     BenchmarkStatsd/pre-create/gauge-8             	96462238	        12.4 ns/op	       0 B/op	       0 allocs/op
-//     BenchmarkStatsd/on-the-fly/histogram-8         	 4665778	       256 ns/op	      99 B/op	       2 allocs/op
-//     BenchmarkStatsd/on-the-fly/timing-8            	 4784816	       273 ns/op	     126 B/op	       2 allocs/op
-//     BenchmarkStatsd/on-the-fly/counter-8           	 4818908	       259 ns/op	     125 B/op	       2 allocs/op
-//     BenchmarkStatsd/on-the-fly/gauge-8             	28754060	        40.6 ns/op	       0 B/op	       0 allocs/op
-//     BenchmarkStatsd/on-the-fly-with-tags/histogram-8         	 2624264	       453 ns/op	     192 B/op	       4 allocs/op
-//     BenchmarkStatsd/on-the-fly-with-tags/timing-8            	 2639377	       449 ns/op	     192 B/op	       4 allocs/op
-//     BenchmarkStatsd/on-the-fly-with-tags/counter-8           	 2600418	       457 ns/op	     193 B/op	       4 allocs/op
-//     BenchmarkStatsd/on-the-fly-with-tags/gauge-8             	 3429901	       339 ns/op	     112 B/op	       3 allocs/op
-//     PASS
-//     ok  	github.com/reddit/baseplate.go/metricsbp	18.675s
+//	$ go test -bench . -benchmem
+//	goos: darwin
+//	goarch: amd64
+//	pkg: github.com/reddit/baseplate.go/metricsbp
+//	BenchmarkStatsd/pre-create/histogram-8         	 8583646	       124 ns/op	      44 B/op	       0 allocs/op
+//	BenchmarkStatsd/pre-create/timing-8            	10221859	       120 ns/op	      47 B/op	       0 allocs/op
+//	BenchmarkStatsd/pre-create/counter-8           	10205341	       120 ns/op	      47 B/op	       0 allocs/op
+//	BenchmarkStatsd/pre-create/gauge-8             	96462238	        12.4 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkStatsd/on-the-fly/histogram-8         	 4665778	       256 ns/op	      99 B/op	       2 allocs/op
+//	BenchmarkStatsd/on-the-fly/timing-8            	 4784816	       273 ns/op	     126 B/op	       2 allocs/op
+//	BenchmarkStatsd/on-the-fly/counter-8           	 4818908	       259 ns/op	     125 B/op	       2 allocs/op
+//	BenchmarkStatsd/on-the-fly/gauge-8             	28754060	        40.6 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkStatsd/on-the-fly-with-tags/histogram-8         	 2624264	       453 ns/op	     192 B/op	       4 allocs/op
+//	BenchmarkStatsd/on-the-fly-with-tags/timing-8            	 2639377	       449 ns/op	     192 B/op	       4 allocs/op
+//	BenchmarkStatsd/on-the-fly-with-tags/counter-8           	 2600418	       457 ns/op	     193 B/op	       4 allocs/op
+//	BenchmarkStatsd/on-the-fly-with-tags/gauge-8             	 3429901	       339 ns/op	     112 B/op	       3 allocs/op
+//	PASS
+//	ok  	github.com/reddit/baseplate.go/metricsbp	18.675s
 package metricsbp

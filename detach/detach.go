@@ -8,7 +8,7 @@ import (
 
 // Hooks are functions that are called with specific detach helpers to attach
 // values from the parent context to the new context. In order to be registered,
-//at least one function in Hooks must be non-nil. Nil functions will be skipped.
+// at least one function in Hooks must be non-nil. Nil functions will be skipped.
 type Hooks struct {
 	// Inline functions are used to attach values from the src context to the dst
 	// context in calls to Inline.
@@ -82,7 +82,7 @@ func Inline(parent context.Context, timeout time.Duration) (context.Context, con
 // Async wraps run in the Async Hooks registered with the library, creates a new
 // context, and calls the wrapped run function with that context. The wrappers
 // may attach values from the parent context to the new context and perform any
-//cleanup tasks after run completes.
+// cleanup tasks after run completes.
 //
 // Async should be used when you want to run an async task as a part of another
 // all, but need to keep some values from the parent context.

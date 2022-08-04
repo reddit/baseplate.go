@@ -28,13 +28,13 @@ import (
 //
 // The MonitorClient with this suffix will have span operation names like:
 //
-//     service-with-retry.endpointName
+//	service-with-retry.endpointName
 //
 // Which groups all retries of the same client call together,
 // while the MonitorClient without this suffix will have span operation names
 // like:
 //
-//     service.endpointName
+//	service.endpointName
 const MonitorClientWrappedSlugSuffix = transport.WithRetrySlugSuffix
 
 // WithDefaultRetryFilters returns a list of retrybp.Filters by appending the
@@ -403,20 +403,20 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 
 // For a endpoint defined in thrift IDL like this:
 //
-//     service MyService {
-//       FooResponse foo(1: FooRequest request) throws (
-//         1: Exception1 error1,
-//         2: Exception2 error2,
-//       )
-//     }
+//	service MyService {
+//	  FooResponse foo(1: FooRequest request) throws (
+//	    1: Exception1 error1,
+//	    2: Exception2 error2,
+//	  )
+//	}
 //
 // The thrift compiler generated go code for the result TStruct would be like:
 //
-//     type MyServiceFooResult struct {
-//       Success *FooResponse `thrift:"success,0" db:"success" json:"success,omitempty"`
-//       Error1 *Exception1 `thrift:"error1,1" db:"error1" json:"error1,omitempty"`
-//       Error2 *Exception2 `thrift:"error2,2" db:"error2" json:"error2,omitempty"`
-//     }
+//	type MyServiceFooResult struct {
+//	  Success *FooResponse `thrift:"success,0" db:"success" json:"success,omitempty"`
+//	  Error1 *Exception1 `thrift:"error1,1" db:"error1" json:"error1,omitempty"`
+//	  Error2 *Exception2 `thrift:"error2,2" db:"error2" json:"error2,omitempty"`
+//	}
 func getClientError(result thrift.TStruct, err error) error {
 	if err != nil {
 		return err

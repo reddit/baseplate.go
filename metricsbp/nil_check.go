@@ -12,26 +12,26 @@ import (
 //
 // For example, for the following code:
 //
-//     type Bar struct {
-//       A io.Reader
-//       B io.Reader
-//       c io.Reader
-//       D struct{
-//         A io.Reader
-//         B io.Reader
-//       }
-//     }
+//	type Bar struct {
+//	  A io.Reader
+//	  B io.Reader
+//	  c io.Reader
+//	  D struct{
+//	    A io.Reader
+//	    B io.Reader
+//	  }
+//	}
 //
-//     func main() {
-//       fields := CheckNilInterfaceFields(
-//         &Bar{
-//           A: strings.NewReader("foo"),
-//           D: {
-//             B: bytes.NewReader([]bytes("bar")),
-//           },
-//         },
-//       )
-//     }
+//	func main() {
+//	  fields := CheckNilInterfaceFields(
+//	    &Bar{
+//	      A: strings.NewReader("foo"),
+//	      D: {
+//	        B: bytes.NewReader([]bytes("bar")),
+//	      },
+//	    },
+//	  )
+//	}
 //
 // fields should contain 3 strings: "Bar.B", "Bar.c", and "Bar.D.A".
 //

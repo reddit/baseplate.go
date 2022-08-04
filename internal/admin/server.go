@@ -13,8 +13,9 @@ const Addr = ":6060"
 
 // Mux is the default ServeMux to be used for admin servers in packages like httpbp, thriftbp, etc.
 // Mux configures the following routes:
-//    metrics       - serve /metrics for prometheus
-//    profiling     - serve /debug/pprof for profiling, ref: https://pkg.go.dev/net/http/pprof
+//
+//	metrics       - serve /metrics for prometheus
+//	profiling     - serve /debug/pprof for profiling, ref: https://pkg.go.dev/net/http/pprof
 var Mux = http.NewServeMux()
 
 func init() {

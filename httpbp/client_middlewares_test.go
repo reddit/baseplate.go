@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -40,7 +39,7 @@ func TestNewClient(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, err := ioutil.ReadAll(resp.Body)
+		b, err := io.ReadAll(resp.Body)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -204,7 +203,7 @@ func TestClientErrorWrapper(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, err := ioutil.ReadAll(resp.Body)
+		b, err := io.ReadAll(resp.Body)
 		if err != nil {
 			t.Fatal(err)
 		}

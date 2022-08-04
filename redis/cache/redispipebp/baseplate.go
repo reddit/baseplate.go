@@ -20,13 +20,13 @@ var ErrBaseplateNameRequired = errors.New("redispipebp: Name is a required field
 // BaseplateRedisClientArgs is used to configure a baseplate redis client (cluster or single instance).
 // The underlying client is wrapped in the following order, depending on the config:
 //
-//	- MonitoredSync
-//	- If retrys are configured:
-//		- RetrySync
-//		- MonitoredSync for monitoring each request
-//	- If a circuit breaker is configured:
-//		- BreakerSync
-//	- WrapErrorsSync
+//   - MonitoredSync
+//   - If retrys are configured:
+//   - RetrySync
+//   - MonitoredSync for monitoring each request
+//   - If a circuit breaker is configured:
+//   - BreakerSync
+//   - WrapErrorsSync
 type BaseplateRedisClientArgs struct {
 	// Name is the name of the redis client for use in client tracing.
 	// This is a required field.

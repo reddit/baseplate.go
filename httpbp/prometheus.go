@@ -131,8 +131,8 @@ var (
 )
 
 // PerformanceMonitoringMiddleware returns optional Prometheus historgram metrics for monitoring the following:
-//    1) http server time to write header in seconds
-//    2) http server time to write header in seconds
+//  1. http server time to write header in seconds
+//  2. http server time to write header in seconds
 func PerformanceMonitoringMiddleware() (timeToWriteHeader, timeToFirstByte *prometheus.HistogramVec) {
 	return serverTimeToWriteHeader, serverTimeToFirstByte
 }

@@ -186,6 +186,7 @@ type ErrorResponse struct {
 // can be chained in a call to `HTMLError`.
 //
 // Ex:
+//
 //	return httpbp.JSONError(
 //		httpbp.InvalidRequest().WithDetails(map[string]string{
 //			"foo": "foo must be > 0",
@@ -694,9 +695,9 @@ func (ce ClientError) RetryAfterDuration() time.Duration {
 //
 // - The status code was one of:
 //
-//   * 425 (too early)
-//   * 429 (too many requests)
-//   * 503 (service unavailable)
+//   - 425 (too early)
+//   - 429 (too many requests)
+//   - 503 (service unavailable)
 func (ce ClientError) Retryable() int {
 	if ce.StatusCode == 0 {
 		// We didn't even get a response, not enough information to make a decision.

@@ -29,9 +29,9 @@ const (
 //
 // Your main function usually should look like:
 //
-//     func main() {
-//       os.Exit(healthcheck.Run())
-//     }
+//	func main() {
+//	  os.Exit(healthcheck.Run())
+//	}
 func Run() (ret int) {
 	if err := RunArgs(os.Args); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

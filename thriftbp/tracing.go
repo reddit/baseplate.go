@@ -20,17 +20,17 @@ import (
 // then use the returned context object in the thrift call.
 // Something like:
 //
-//     span, clientCtx := opentracing.StartSpanFromContext(
-//       ctx,
-//       "myCall",
-//       tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
-//     )
-//     clientCtx = thriftbp.CreateThriftContextFromSpan(clientCtx, tracing.AsSpan(span))
-//     result, err := client.MyCall(clientCtx, arg1, arg2)
-//     span.FinishWithOptions(tracing.FinishOptions{
-//       Ctx: clientCtx,
-//       Err: err,
-//     }.Convert())
+//	span, clientCtx := opentracing.StartSpanFromContext(
+//	  ctx,
+//	  "myCall",
+//	  tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
+//	)
+//	clientCtx = thriftbp.CreateThriftContextFromSpan(clientCtx, tracing.AsSpan(span))
+//	result, err := client.MyCall(clientCtx, arg1, arg2)
+//	span.FinishWithOptions(tracing.FinishOptions{
+//	  Ctx: clientCtx,
+//	  Err: err,
+//	}.Convert())
 func CreateThriftContextFromSpan(ctx context.Context, span *tracing.Span) context.Context {
 	headers := thrift.GetWriteHeaderList(ctx)
 
