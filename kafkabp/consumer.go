@@ -38,19 +38,19 @@ type ConsumeMessageFunc func(ctx context.Context, msg *sarama.ConsumerMessage)
 // In most cases the implementation just needs to log the error and emit a
 // counter, for example:
 //
-//     consumer.Consume(
-//       consumeMessageFunc,
-//       func(err error) {
-//         log.Errorw(
-//           context.Background(),
-//           "kafka consumer error",
-//           "err", err,
-//           // additional key value pairs, for example topic info
-//         )
-//         // or a prometheus counter
-//         metricsbp.M.Counter("kafka.consumer.errors").With(/* key value pairs */).Add(1)
-//       },
-//     )
+//	consumer.Consume(
+//	  consumeMessageFunc,
+//	  func(err error) {
+//	    log.Errorw(
+//	      context.Background(),
+//	      "kafka consumer error",
+//	      "err", err,
+//	      // additional key value pairs, for example topic info
+//	    )
+//	    // or a prometheus counter
+//	    metricsbp.M.Counter("kafka.consumer.errors").With(/* key value pairs */).Add(1)
+//	  },
+//	)
 type ConsumeErrorFunc func(err error)
 
 // Consumer defines the interface of a consumer struct.

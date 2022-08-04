@@ -138,12 +138,12 @@ func InitSentry(cfg SentryConfig) (io.Closer, error) {
 // If you have other things you want to do in your BeforeSend,
 // you can call this function in your BeforeSend implementation instead. e.g.:
 //
-//     sentryConfig.BeforeSend = func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
-//       // Do other things you want to do here.
+//	sentryConfig.BeforeSend = func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+//	  // Do other things you want to do here.
 //
-//       // Also do the swapping.
-//       return log.SentryBeforeSendSwapExceptionTypeAndValue(event, hint)
-//     }
+//	  // Also do the swapping.
+//	  return log.SentryBeforeSendSwapExceptionTypeAndValue(event, hint)
+//	}
 //
 // [1]: https://github.com/getsentry/sentry-go/issues/307#issuecomment-737871530
 func SentryBeforeSendSwapExceptionTypeAndValue(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {

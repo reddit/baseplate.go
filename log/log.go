@@ -193,7 +193,7 @@ func Fatalf(template string, args ...interface{}) {
 //
 // When debug-level logging is disabled, this is much faster than
 //
-//     With(keysAndValues).Debug(msg)
+//	With(keysAndValues).Debug(msg)
 func Debugw(msg string, keysAndValues ...interface{}) {
 	internalv2compat.GlobalLogger().Debugw(msg, keysAndValues...)
 }

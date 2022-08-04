@@ -18,17 +18,17 @@ import (
 // with the value coming from flag/config file/etc..
 // For example:
 //
-//     func main() {
-//       log.Version = *flagVersion
-//       log.InitLoggerJSON(log.Level(*logLevel))
-//       // ...
-//     }
+//	func main() {
+//	  log.Version = *flagVersion
+//	  log.InitLoggerJSON(log.Level(*logLevel))
+//	  // ...
+//	}
 //
 // Or just "stamp" it during build time,
 // by passing additional ldflags to go build command.
 // For example:
 //
-//     go build -ldflags "-X github.com/reddit/baseplate.go/log.Version=$(git rev-parse HEAD)"
+//	go build -ldflags "-X github.com/reddit/baseplate.go/log.Version=$(git rev-parse HEAD)"
 //
 // Change its value after calling Init* functions will have no effects,
 // unless you call Init* functions again.

@@ -183,16 +183,16 @@ const awsAZurl = "http://169.254.169.254/latest/meta-data/placement/availability
 // AWSAvailabilityZoneRackID in your process only the first one actually makes
 // the HTTP request, for example:
 //
-//    consumer1 := kafkabp.NewConsumer(kafkabp.ConsumerConfig{
-//        RackID: kafkabp.AWSAvailabilityZoneRackID,
-//        Topic:  "topic1",
-//        // other configs
-//    })
-//    consumer2 := kafkabp.NewConsumer(kafkabp.ConsumerConfig{
-//        RackID: kafkabp.AWSAvailabilityZoneRackID,
-//        Topic:  "topic2",
-//        // other configs
-//    })
+//	consumer1 := kafkabp.NewConsumer(kafkabp.ConsumerConfig{
+//	    RackID: kafkabp.AWSAvailabilityZoneRackID,
+//	    Topic:  "topic1",
+//	    // other configs
+//	})
+//	consumer2 := kafkabp.NewConsumer(kafkabp.ConsumerConfig{
+//	    RackID: kafkabp.AWSAvailabilityZoneRackID,
+//	    Topic:  "topic2",
+//	    // other configs
+//	})
 //
 // It uses SimpleHTTPRackIDConfig underneath with log.DefaultWrapper with a
 // prometheus counter of kafkabp_aws_rack_id_failure_total and default

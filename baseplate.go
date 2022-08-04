@@ -250,33 +250,33 @@ func Serve(ctx context.Context, args ServeArgs) error {
 // If you don't have any customized configurations to decode from YAML,
 // you can just pass in a *pointer* to baseplate.Config:
 //
-//     var cfg baseplate.Config
-//     if err := baseplate.ParseConfigYAML(&cfg); err != nil {
-//       log.Fatalf("Parsing config: %s", err)
-//     }
-//     ctx, bp, err := baseplate.New(baseplate.NewArgs{
-//       EdgeContextFactory: edgecontext.Factory(...),
-//       Config:             cfg,
-//     })
+//	var cfg baseplate.Config
+//	if err := baseplate.ParseConfigYAML(&cfg); err != nil {
+//	  log.Fatalf("Parsing config: %s", err)
+//	}
+//	ctx, bp, err := baseplate.New(baseplate.NewArgs{
+//	  EdgeContextFactory: edgecontext.Factory(...),
+//	  Config:             cfg,
+//	})
 //
 // If you do have customized configurations to decode from YAML,
 // embed a baseplate.Config with `yaml:",inline"` yaml tags, for example:
 //
-//     type myServiceConfig struct {
-//       // The yaml tag is required to pass strict parsing.
-//       baseplate.Config `yaml:",inline"`
+//	type myServiceConfig struct {
+//	  // The yaml tag is required to pass strict parsing.
+//	  baseplate.Config `yaml:",inline"`
 //
-//       // Actual configs
-//       FancyName string `yaml:"fancy_name"`
-//     }
-//     var cfg myServiceCfg
-//     if err := baseplate.ParseConfigYAML(&cfg); err != nil {
-//       log.Fatalf("Parsing config: %s", err)
-//     }
-//     ctx, bp, err := baseplate.New(baseplate.NewArgs{
-//       EdgeContextFactory: edgecontext.Factory(...),
-//       Config:             cfg,
-//     })
+//	  // Actual configs
+//	  FancyName string `yaml:"fancy_name"`
+//	}
+//	var cfg myServiceCfg
+//	if err := baseplate.ParseConfigYAML(&cfg); err != nil {
+//	  log.Fatalf("Parsing config: %s", err)
+//	}
+//	ctx, bp, err := baseplate.New(baseplate.NewArgs{
+//	  EdgeContextFactory: edgecontext.Factory(...),
+//	  Config:             cfg,
+//	})
 //
 // Environment variable references (e.g. $FOO and ${FOO}) are substituted into the
 // YAML from the process-level environment before parsing the configuration.

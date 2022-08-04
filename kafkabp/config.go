@@ -35,14 +35,14 @@ var (
 //
 // Example:
 //
-//     kafka:
-//       brokers:
-//         - 127.0.0.1:9090
-//         - 127.0.0.2:9090
-//       topic: sample-topic
-//       clientID: myclient
-//       version: 2.4.0
-//       offset: oldest
+//	kafka:
+//	  brokers:
+//	    - 127.0.0.1:9090
+//	    - 127.0.0.2:9090
+//	  topic: sample-topic
+//	  clientID: myclient
+//	  version: 2.4.0
+//	  offset: oldest
 type ConsumerConfig struct {
 	// Required. Brokers specifies a slice of broker addresses.
 	Brokers []string `yaml:"brokers"`

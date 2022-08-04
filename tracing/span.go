@@ -62,8 +62,8 @@ func (st SpanType) String() string {
 // This function is provided for convenience calling functions not in
 // opentracing Span API, for example:
 //
-//     span := opentracing.StartSpan(name, opts...)
-//     tracing.AsSpan(span).AddHooks(hooks...)
+//	span := opentracing.StartSpan(name, opts...)
+//	tracing.AsSpan(span).AddHooks(hooks...)
 func AsSpan(s opentracing.Span) *Span {
 	if span, ok := s.(*Span); ok && span != nil {
 		return span

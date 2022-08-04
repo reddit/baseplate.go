@@ -275,20 +275,20 @@ func (m MockClientPool) getClient() (thriftbp.Client, error) {
 //
 // Example:
 //
-//     myMockClient.AddMockCall(
-//       "myEndpoint",
-//       func(ctx context.Context, args, result thrift.TStruct) error {
-//         return thrifttest.CopyTStruct(
-//           ctx,
-//           result,
-//           &myservice.MyServiceMyEndpointResult{
-//             Success: &myservice.MyEndpointResponse{
-//               // Set the response fields.
-//             },
-//           },
-//         )
-//       },
-//     )
+//	myMockClient.AddMockCall(
+//	  "myEndpoint",
+//	  func(ctx context.Context, args, result thrift.TStruct) error {
+//	    return thrifttest.CopyTStruct(
+//	      ctx,
+//	      result,
+//	      &myservice.MyServiceMyEndpointResult{
+//	        Success: &myservice.MyEndpointResponse{
+//	          // Set the response fields.
+//	        },
+//	      },
+//	    )
+//	  },
+//	)
 func CopyTStruct(ctx context.Context, dst, src thrift.TStruct) error {
 	proto := thrift.NewTBinaryProtocolConf(thrift.NewTMemoryBuffer(), nil)
 	if err := src.Write(ctx, proto); err != nil {

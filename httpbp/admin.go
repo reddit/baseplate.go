@@ -9,9 +9,10 @@ import (
 )
 
 // ServeAdmin starts a blocking HTTP server for internal functions:
-//    health        - serve /health for health checking
-//    metrics       - serve /metrics for prometheus
-//    profiling     - serve /debug/pprof for profiling, ref: https://pkg.go.dev/net/http/pprof
+//
+//	health        - serve /health for health checking
+//	metrics       - serve /metrics for prometheus
+//	profiling     - serve /debug/pprof for profiling, ref: https://pkg.go.dev/net/http/pprof
 //
 // Default server address is admin.Addr.
 //
