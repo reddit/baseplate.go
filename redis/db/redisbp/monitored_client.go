@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -21,11 +23,24 @@ type PoolStatser interface {
 	PoolStats() *redis.PoolStats
 }
 
+func getDeploymentType(addr string) string {
+	if strings.Contains(addr, "cache.amazonaws") {
+		return "elasticache"
+	} else {
+		return "reddit"
+	}
+}
+
 // NewMonitoredClient creates a new *redis.Client object with a redisbp.SpanHook
 // attached that connects to a single Redis instance.
 func NewMonitoredClient(name string, opt *redis.Options) *redis.Client {
 	client := redis.NewClient(opt)
-	client.AddHook(SpanHook{ClientName: name})
+	client.AddHook(SpanHook{
+		ClientName: name,
+		Type:       "standalone",
+		Deployment: getDeploymentType(opt.Addr),
+		Database:   strconv.Itoa(opt.DB),
+	})
 
 	if err := prometheus.Register(exporter{
 		client: client,
@@ -43,7 +58,12 @@ func NewMonitoredClient(name string, opt *redis.Options) *redis.Client {
 // Sentinel with a redisbp.SpanHook attached.
 func NewMonitoredFailoverClient(name string, opt *redis.FailoverOptions) *redis.Client {
 	client := redis.NewFailoverClient(opt)
-	client.AddHook(SpanHook{ClientName: name})
+	client.AddHook(SpanHook{
+		ClientName: name,
+		Type:       "sentinel",
+		Deployment: getDeploymentType(opt.SentinelAddrs[0]),
+		Database:   strconv.Itoa(opt.DB),
+	})
 
 	if err := prometheus.Register(exporter{
 		client: client,
@@ -97,7 +117,12 @@ func (cc *ClusterClient) Wait(ctx context.Context, args WaitArgs) (replicas int6
 // redisbp.SpanHook attached.
 func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *ClusterClient {
 	client := redis.NewClusterClient(opt)
-	client.AddHook(SpanHook{ClientName: name})
+	client.AddHook(SpanHook{
+		ClientName: name,
+		Type:       "cluster",
+		Deployment: getDeploymentType(opt.Addrs[0]),
+		Database:   "", // We don't have that for cluster clients
+	})
 
 	if err := prometheus.Register(exporter{
 		client: client,

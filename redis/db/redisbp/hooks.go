@@ -12,6 +12,7 @@ import (
 
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/prometheusbp"
+	"github.com/reddit/baseplate.go/redis/internal/redisprom"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -28,6 +29,9 @@ type promCtx struct {
 // in Client Spans and metrics.
 type SpanHook struct {
 	ClientName string
+	Type       string
+	Deployment string
+	Database   string
 }
 
 var _ redis.Hook = SpanHook{}
@@ -79,6 +83,13 @@ func (h SpanHook) startChildSpan(ctx context.Context, cmdName string) context.Co
 		name,
 		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 	)
+	redisprom.ActiveRequests.With(prometheus.Labels{
+		redisprom.ClientNameLabel: h.ClientName,
+		redisprom.TypeLabel:       h.Type,
+		redisprom.CommandLabel:    cmdName,
+		redisprom.DeploymentLabel: h.Deployment,
+		redisprom.DatabaseLabel:   h.Database,
+	}).Inc()
 	return context.WithValue(ctx, promCtxKey, &promCtx{
 		command: cmdName,
 		start:   time.Now(),
@@ -86,13 +97,40 @@ func (h SpanHook) startChildSpan(ctx context.Context, cmdName string) context.Co
 }
 
 func (h SpanHook) endChildSpan(ctx context.Context, err error) {
+	command := "unknown"
 	if v, _ := ctx.Value(promCtxKey).(*promCtx); v != nil {
+		command = v.command
+		durationSeconds := time.Since(v.start).Seconds()
 		latencyTimer.With(prometheus.Labels{
 			nameLabel:    h.ClientName,
 			commandLabel: v.command,
 			successLabel: prometheusbp.BoolString(err == nil),
-		}).Observe(time.Since(v.start).Seconds())
+		}).Observe(durationSeconds)
+		redisprom.LatencySeconds.With(prometheus.Labels{
+			redisprom.ClientNameLabel: h.ClientName,
+			redisprom.TypeLabel:       h.Type,
+			redisprom.CommandLabel:    command,
+			redisprom.DeploymentLabel: h.Deployment,
+			redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
+			redisprom.DatabaseLabel:   h.Database,
+		}).Observe(durationSeconds)
 	}
+	// Outside of the context casting because we always want this to work.
+	redisprom.RequestsTotal.With(prometheus.Labels{
+		redisprom.ClientNameLabel: h.ClientName,
+		redisprom.TypeLabel:       h.Type,
+		redisprom.CommandLabel:    command,
+		redisprom.DeploymentLabel: h.Deployment,
+		redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
+		redisprom.DatabaseLabel:   h.Database,
+	}).Inc()
+	redisprom.ActiveRequests.With(prometheus.Labels{
+		redisprom.ClientNameLabel: h.ClientName,
+		redisprom.TypeLabel:       h.Type,
+		redisprom.CommandLabel:    command,
+		redisprom.DeploymentLabel: h.Deployment,
+		redisprom.DatabaseLabel:   h.Database,
+	}).Dec()
 
 	if span := opentracing.SpanFromContext(ctx); span != nil {
 		span.FinishWithOptions(tracing.FinishOptions{
