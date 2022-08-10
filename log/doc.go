@@ -8,10 +8,10 @@
 // When you need to use the zap logger and you have a context object,
 // you should use the logger attached to the context, like:
 //
-//     log.C(ctx).Errorw("Something went wrong!", "err", err)
+//	log.C(ctx).Errorw("Something went wrong!", "err", err)
 //
 // But if you don't have a context object,
 // instead of creating one to use logger, you should use the global one:
 //
-//     log.Errorw("Something went wrong!", "err", err)
+//	log.Errorw("Something went wrong!", "err", err)
 package log

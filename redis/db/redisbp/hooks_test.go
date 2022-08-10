@@ -9,13 +9,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/prometheusbp/promtest"
+	"github.com/reddit/baseplate.go/redis/internal/redisprom"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
 func TestSpanHook(t *testing.T) {
 	ctx, _ := thriftbp.StartSpanFromThriftContext(context.Background(), "foo")
-	hooks := SpanHook{ClientName: "redis"}
+	hooks := SpanHook{ClientName: "redis", Type: "type", Deployment: "Deployment"}
 	statusCmd := redis.NewStatusCmd(ctx, "ping")
 	stringCmd := redis.NewStringCmd(ctx, "get", "1")
 	stringCmd.SetErr(nil)
@@ -28,6 +29,16 @@ func TestSpanHook(t *testing.T) {
 				commandLabel: "ping",
 				successLabel: "true",
 			}).CheckSampleCountDelta(1)
+			labels := prometheus.Labels{
+				redisprom.ClientNameLabel: "redis",
+				redisprom.TypeLabel:       "type",
+				redisprom.CommandLabel:    "ping",
+				redisprom.DeploymentLabel: "Deployment",
+				redisprom.SuccessLabel:    "true",
+				redisprom.DatabaseLabel:   "",
+			}
+			defer promtest.NewPrometheusMetricTest(t, "spec latency timer", redisprom.LatencySeconds, labels).CheckSampleCountDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "spec requests total", redisprom.RequestsTotal, labels).CheckDelta(1)
 
 			ctx, err := hooks.BeforeProcess(ctx, statusCmd)
 			if err != nil {

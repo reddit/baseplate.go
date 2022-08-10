@@ -3,6 +3,7 @@ package baseplate_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -96,7 +97,10 @@ func TestServe(t *testing.T) {
 	defer store.Close()
 
 	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
-		Config:          baseplate.Config{StopTimeout: testTimeout},
+		Config: baseplate.Config{
+			StopTimeout: testTimeout,
+			StopDelay:   -1,
+		},
 		Store:           store,
 		EdgeContextImpl: ecinterface.Mock(),
 	})
@@ -156,13 +160,76 @@ func TestServe(t *testing.T) {
 	}
 }
 
+func TestServeStopDelay(t *testing.T) {
+	t.Parallel()
+
+	const delay = 20 * time.Millisecond
+
+	store := newSecretsStore(t)
+	defer store.Close()
+
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config: baseplate.Config{
+			StopTimeout: testTimeout,
+			StopDelay:   delay,
+		},
+		Store:           store,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
+
+	ch := make(chan error)
+
+	go func() {
+		// Run Serve in a goroutine since it is blocking
+		ch <- baseplate.Serve(
+			context.Background(),
+			baseplate.ServeArgs{Server: newWaitServer(t, bp, time.Millisecond)},
+		)
+	}()
+
+	time.Sleep(time.Millisecond)
+	p, err := os.FindProcess(syscall.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p.Signal(os.Interrupt)
+	before := time.Now()
+	<-ch
+	duration := time.Since(before)
+
+	if duration < delay {
+		t.Errorf("Expected graceful shutdown to take at least %v, got %v", delay, duration)
+	}
+}
+
 type timestampCloser struct {
-	ts []time.Time
+	lock sync.Mutex
+	ts   []time.Time
 }
 
 func (c *timestampCloser) Close() error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	c.ts = append(c.ts, time.Now())
 	return nil
+}
+
+func (c *timestampCloser) get() []time.Time {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if len(c.ts) == 0 {
+		return nil
+	}
+	ret := make([]time.Time, len(c.ts))
+	copy(ret, c.ts)
+	return ret
+}
+
+func (c *timestampCloser) GoString() string {
+	return fmt.Sprintf("timestampCloser:%#v", c.get())
 }
 
 func TestServeClosers(t *testing.T) {
@@ -202,11 +269,11 @@ func TestServeClosers(t *testing.T) {
 	p.Signal(os.Interrupt)
 	<-ch
 
-	if len(pre.ts) != 1 {
-		t.Fatalf("Unexpected number of PreShutdown calls: expected 1, got %v", len(pre.ts))
+	if got := pre.get(); len(got) != 1 {
+		t.Fatalf("Unexpected number of PreShutdown calls: expected 1, got %v", len(got))
 	}
-	if len(post.ts) != 1 {
-		t.Fatalf("Unexpected number of PostShutdown calls: expected 1, got %v", len(post.ts))
+	if got := post.get(); len(got) != 1 {
+		t.Fatalf("Unexpected number of PostShutdown calls: expected 1, got %v", len(got))
 	}
 
 	if !pre.ts[0].Before(post.ts[0]) {

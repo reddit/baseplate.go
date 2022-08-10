@@ -17,6 +17,11 @@ import (
 	"github.com/reddit/baseplate.go/tracing"
 )
 
+const (
+	// DefaultStopDelay is the default StopDelay to be used in Serve.
+	DefaultStopDelay = 1 * time.Second
+)
+
 // Configer defines the interface that allows you to extend Config with your own
 // configurations.
 type Configer interface {
@@ -45,6 +50,13 @@ type Config struct {
 	// If this is not set, then a default value of 30 seconds will be used.
 	// If this is less than 0, then no timeout will be set on the Stop command.
 	StopTimeout time.Duration `yaml:"stopTimeout"`
+
+	// Delay after receiving termination signal (SIGTERM, etc.) before kicking off
+	// the graceful shutdown process. This happens before the PreShutdown closers.
+	//
+	// By default this is 1s (DefaultStopDelay).
+	// To disable it, set it to a negative value.
+	StopDelay time.Duration `yaml:"stopDelay"`
 
 	Log     log.Config       `yaml:"log"`
 	Metrics metricsbp.Config `yaml:"metrics"`
@@ -161,6 +173,11 @@ func Serve(ctx context.Context, args ServeArgs) error {
 				defer cancel()
 			}
 
+			delay := server.Baseplate().GetConfig().StopDelay
+			if delay == 0 {
+				delay = DefaultStopDelay
+			}
+
 			// Initialize a channel to pass the result of server.Close().
 			//
 			// It's buffered with size 1 to avoid blocking the goroutine forever.
@@ -170,7 +187,14 @@ func Serve(ctx context.Context, args ServeArgs) error {
 			//
 			// This is a blocking call, so it is called in a separate goroutine.
 			go func() {
-				bc := batchcloser.New(args.PreShutdown...)
+				var bc batchcloser.BatchCloser
+				if delay > 0 {
+					bc.Add(batchcloser.Wrap(func() error {
+						time.Sleep(delay)
+						return nil
+					}))
+				}
+				bc.Add(args.PreShutdown...)
 				bc.Add(server)
 				bc.Add(args.PostShutdown...)
 				closeChannel <- bc.Close()
@@ -226,33 +250,33 @@ func Serve(ctx context.Context, args ServeArgs) error {
 // If you don't have any customized configurations to decode from YAML,
 // you can just pass in a *pointer* to baseplate.Config:
 //
-//     var cfg baseplate.Config
-//     if err := baseplate.ParseConfigYAML(&cfg); err != nil {
-//       log.Fatalf("Parsing config: %s", err)
-//     }
-//     ctx, bp, err := baseplate.New(baseplate.NewArgs{
-//       EdgeContextFactory: edgecontext.Factory(...),
-//       Config:             cfg,
-//     })
+//	var cfg baseplate.Config
+//	if err := baseplate.ParseConfigYAML(&cfg); err != nil {
+//	  log.Fatalf("Parsing config: %s", err)
+//	}
+//	ctx, bp, err := baseplate.New(baseplate.NewArgs{
+//	  EdgeContextFactory: edgecontext.Factory(...),
+//	  Config:             cfg,
+//	})
 //
 // If you do have customized configurations to decode from YAML,
 // embed a baseplate.Config with `yaml:",inline"` yaml tags, for example:
 //
-//     type myServiceConfig struct {
-//       // The yaml tag is required to pass strict parsing.
-//       baseplate.Config `yaml:",inline"`
+//	type myServiceConfig struct {
+//	  // The yaml tag is required to pass strict parsing.
+//	  baseplate.Config `yaml:",inline"`
 //
-//       // Actual configs
-//       FancyName string `yaml:"fancy_name"`
-//     }
-//     var cfg myServiceCfg
-//     if err := baseplate.ParseConfigYAML(&cfg); err != nil {
-//       log.Fatalf("Parsing config: %s", err)
-//     }
-//     ctx, bp, err := baseplate.New(baseplate.NewArgs{
-//       EdgeContextFactory: edgecontext.Factory(...),
-//       Config:             cfg,
-//     })
+//	  // Actual configs
+//	  FancyName string `yaml:"fancy_name"`
+//	}
+//	var cfg myServiceCfg
+//	if err := baseplate.ParseConfigYAML(&cfg); err != nil {
+//	  log.Fatalf("Parsing config: %s", err)
+//	}
+//	ctx, bp, err := baseplate.New(baseplate.NewArgs{
+//	  EdgeContextFactory: edgecontext.Factory(...),
+//	  Config:             cfg,
+//	})
 //
 // Environment variable references (e.g. $FOO and ${FOO}) are substituted into the
 // YAML from the process-level environment before parsing the configuration.

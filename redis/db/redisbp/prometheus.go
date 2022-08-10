@@ -40,6 +40,12 @@ var (
 		promLabels,
 		nil,
 	)
+	staleConnectionsCounterDesc = prometheus.NewDesc(
+		prometheus.BuildFQName(promNamespace, subsystemPool, "stale_connections_total"),
+		"Number of stale connections removed from this redisbp pool",
+		promLabels,
+		nil,
+	)
 
 	// Gauges.
 	totalConnectionsDesc = prometheus.NewDesc(
@@ -51,12 +57,6 @@ var (
 	idleConnectionsDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(promNamespace, subsystemPool, "idle_connections"),
 		"Number of idle connections in this redisbp pool",
-		promLabels,
-		nil,
-	)
-	staleConnectionsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(promNamespace, subsystemPool, "stale_connections"),
-		"Number of stale connections in this redisbp pool",
 		promLabels,
 		nil,
 	)
@@ -111,6 +111,12 @@ func (e exporter) Collect(ch chan<- prometheus.Metric) {
 		float64(stats.Timeouts),
 		e.name,
 	)
+	ch <- prometheus.MustNewConstMetric(
+		staleConnectionsCounterDesc,
+		prometheus.CounterValue,
+		float64(stats.StaleConns),
+		e.name,
+	)
 
 	// Gauges.
 	ch <- prometheus.MustNewConstMetric(
@@ -123,12 +129,6 @@ func (e exporter) Collect(ch chan<- prometheus.Metric) {
 		idleConnectionsDesc,
 		prometheus.GaugeValue,
 		float64(stats.IdleConns),
-		e.name,
-	)
-	ch <- prometheus.MustNewConstMetric(
-		staleConnectionsDesc,
-		prometheus.GaugeValue,
-		float64(stats.StaleConns),
 		e.name,
 	)
 }

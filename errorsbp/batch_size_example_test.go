@@ -35,7 +35,7 @@ func MyFunction(i int) error {
 
 // NOTE: In real unit test code this function signature should be:
 //
-//     func TestMyFunction(t *testing.T)
+//	func TestMyFunction(t *testing.T)
 //
 // But doing that will break this example.
 func MyFunctionTest() {

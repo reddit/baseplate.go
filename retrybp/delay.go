@@ -135,7 +135,7 @@ func actualMaxExponent(base time.Duration) int {
 // If you want to combine FixedDelay with a random jitter,
 // you could use FixedDelayFunc with retry.RandomDelay, example:
 //
-//     retry.DelayType(retry.CombineDelay(retry.RandomDelay, retrybp.FixedDelayFunc(delay)))
+//	retry.DelayType(retry.CombineDelay(retry.RandomDelay, retrybp.FixedDelayFunc(delay)))
 func FixedDelay(delay time.Duration) retry.Option {
 	return retry.DelayType(FixedDelayFunc(delay))
 }

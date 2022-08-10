@@ -139,20 +139,19 @@ func (n *AllNode) Evaluate(inputs map[string]interface{}) bool {
 //
 // A full EqualNode in a targeting tree configuration looks like this:
 //
-//     {
-//        EQ: {
-//             field: <field_name>
-//             value: <accepted_value>
-//         }
-//     }
+//	{
+//	   EQ: {
+//	        field: <field_name>
+//	        value: <accepted_value>
+//	    }
+//	}
 //
 // The expected input to this constructor from the above example would be::
 //
-//     {
-//         field: <field_name>,
-//         value: <accepted_value>
-//     }
-//
+//	{
+//	    field: <field_name>,
+//	    value: <accepted_value>
+//	}
 type EqualNode struct {
 	fieldName      string
 	acceptedValues []interface{}

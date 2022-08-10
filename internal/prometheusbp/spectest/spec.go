@@ -110,11 +110,11 @@ func buildMetricNames(prefix, clientOrServer string) map[string]struct{} {
 }
 
 // validateName checks the following:
-//   1) the metric name has at least 3 parts separated by "_".
+//  1. the metric name has at least 3 parts separated by "_".
 //     The parts are <namespace>_<client/server>_<name>_<suffix>, where suffix is optional.
 //     Ref: https://prometheus.io/docs/practices/naming
-//   2) the metric name has the correct prefix.
-//   3) the metric contains either "client" or "server" as the second part.
+//  2. the metric name has the correct prefix.
+//  3. the metric contains either "client" or "server" as the second part.
 func validateName(name, prefix, clientOrServer string) error {
 	var batch errorsbp.Batch
 
@@ -172,12 +172,14 @@ func buildLabels(name, prefix, clientOrServer string) map[string]struct{} {
 // latency_seconds metrics expect the following labels:
 //   - "method"
 //   - "success"
+//
 // requests_total metrics expect the following labels:
 //   - "method"
 //   - "success"
 //   - "exception_type"
 //   - "baseplate_status"
 //   - "baseplate_status_code"
+//
 // active_requests metrics expect the following labels:
 //   - "method"
 func thriftSpecificLabels(name string) []string {
@@ -201,12 +203,14 @@ func thriftSpecificLabels(name string) []string {
 //   - "method"
 //   - "success"
 //   - "type"
+//
 // requests_total metrics expect the following labels:
 //   - "service"
 //   - "method"
 //   - "success"
 //   - "type"
 //   - "code"
+//
 // active_requests metrics expect the following labels:
 //   - "service"
 //   - "method"
@@ -229,10 +233,12 @@ func grpcSpecificLabels(name string) []string {
 // latency_seconds, server_request_size_bytes, server_response_size_bytes metrics expect the following labels:
 //   - "method"
 //   - "success"
+//
 // requests_total metrics expect the following labels:
 //   - "method"
 //   - "success"
 //   - "response_code"
+//
 // active_requests metrics expect the following labels:
 //   - "service"
 //   - "method"

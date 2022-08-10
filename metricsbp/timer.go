@@ -33,7 +33,7 @@ func NewTimer(h metrics.Histogram) *Timer {
 //
 // This is a shortcut for:
 //
-//     t.OverrideStartTime(time.Now())
+//	t.OverrideStartTime(time.Now())
 //
 // If t is nil, it will be no-op.
 //
@@ -58,7 +58,7 @@ func (t *Timer) OverrideStartTime(s time.Time) *Timer {
 //
 // This is a shortcut for:
 //
-//     t.ObserveWithEndTime(time.Now())
+//	t.ObserveWithEndTime(time.Now())
 //
 // If either t or *t is zero value, it will be no-op.
 //

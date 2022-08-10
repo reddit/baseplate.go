@@ -14,6 +14,7 @@ import (
 
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/redis/cache/redisx"
+	"github.com/reddit/baseplate.go/redis/internal/redisprom"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
@@ -60,13 +61,40 @@ func (s MonitoredSync) Do(ctx context.Context, cmd string, args ...interface{}) 
 		s.Name+".do",
 		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 	)
+	command := extractCommand(cmd)
+	active := redisprom.ActiveRequests.With(prometheus.Labels{
+		redisprom.ClientNameLabel: s.Name,
+		redisprom.CommandLabel:    command,
+		redisprom.DatabaseLabel:   "", // We don't have that info
+		redisprom.TypeLabel:       "", // We don't have that info
+		redisprom.DeploymentLabel: "", // We don't have that info
+	})
+	active.Inc()
 	defer func(start time.Time) {
+		active.Dec()
 		err := redis.AsError(result)
+		durationSeconds := time.Since(start).Seconds()
 		promHistogram.With(prometheus.Labels{
 			labelSlug:    s.Name,
-			labelCommand: extractCommand(cmd),
+			labelCommand: command,
 			labelSuccess: prometheusbp.BoolString(err == nil),
-		}).Observe(time.Since(start).Seconds())
+		}).Observe(durationSeconds)
+		redisprom.LatencySeconds.With(prometheus.Labels{
+			redisprom.ClientNameLabel: s.Name,
+			redisprom.CommandLabel:    command,
+			redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
+			redisprom.DatabaseLabel:   "", // We don't have that info
+			redisprom.TypeLabel:       "", // We don't have that info
+			redisprom.DeploymentLabel: "", // We don't have that info
+		}).Observe(durationSeconds)
+		redisprom.RequestsTotal.With(prometheus.Labels{
+			redisprom.ClientNameLabel: s.Name,
+			redisprom.CommandLabel:    command,
+			redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
+			redisprom.DatabaseLabel:   "", // We don't have that info
+			redisprom.TypeLabel:       "", // We don't have that info
+			redisprom.DeploymentLabel: "", // We don't have that info
+		}).Inc()
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
 			Err: err,
@@ -83,17 +111,43 @@ func (s MonitoredSync) Send(ctx context.Context, r redis.Request) (result interf
 		s.Name+".send",
 		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 	)
+	command := extractCommand(r.Cmd)
+	if command == "" {
+		command = "send"
+	}
+	active := redisprom.ActiveRequests.With(prometheus.Labels{
+		redisprom.ClientNameLabel: s.Name,
+		redisprom.CommandLabel:    command,
+		redisprom.DatabaseLabel:   "", // We don't have that info
+		redisprom.TypeLabel:       "", // We don't have that info
+		redisprom.DeploymentLabel: "", // We don't have that info
+	})
+	active.Inc()
 	defer func(start time.Time) {
+		active.Dec()
 		err := redis.AsError(result)
-		cmd := extractCommand(r.Cmd)
-		if cmd == "" {
-			cmd = "send"
-		}
+		durationSeconds := time.Since(start).Seconds()
 		promHistogram.With(prometheus.Labels{
 			labelSlug:    s.Name,
-			labelCommand: cmd,
+			labelCommand: command,
 			labelSuccess: prometheusbp.BoolString(err == nil),
-		}).Observe(time.Since(start).Seconds())
+		}).Observe(durationSeconds)
+		redisprom.LatencySeconds.With(prometheus.Labels{
+			redisprom.ClientNameLabel: s.Name,
+			redisprom.CommandLabel:    command,
+			redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
+			redisprom.DatabaseLabel:   "", // We don't have that info
+			redisprom.TypeLabel:       "", // We don't have that info
+			redisprom.DeploymentLabel: "", // We don't have that info
+		}).Observe(durationSeconds)
+		redisprom.RequestsTotal.With(prometheus.Labels{
+			redisprom.ClientNameLabel: s.Name,
+			redisprom.CommandLabel:    command,
+			redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
+			redisprom.DatabaseLabel:   "", // We don't have that info
+			redisprom.TypeLabel:       "", // We don't have that info
+			redisprom.DeploymentLabel: "", // We don't have that info
+		}).Inc()
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
 			Err: redis.AsError(result),
@@ -105,13 +159,22 @@ func (s MonitoredSync) Send(ctx context.Context, r redis.Request) (result interf
 
 // SendMany wraps s.Sync.SendMany in a client span.
 func (s MonitoredSync) SendMany(ctx context.Context, reqs []redis.Request) (results []interface{}) {
-	const cmd = "send-many"
+	const command = "send-many"
 	span, ctx := opentracing.StartSpanFromContext(
 		ctx,
-		s.Name+"."+cmd,
+		s.Name+"."+command,
 		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 	)
+	active := redisprom.ActiveRequests.With(prometheus.Labels{
+		redisprom.ClientNameLabel: s.Name,
+		redisprom.CommandLabel:    command,
+		redisprom.DatabaseLabel:   "", // We don't have that info
+		redisprom.TypeLabel:       "", // We don't have that info
+		redisprom.DeploymentLabel: "", // We don't have that info
+	})
+	active.Inc()
 	defer func(start time.Time) {
+		active.Dec()
 		var err error
 		if len(results) > 0 {
 			first := redis.AsError(results[0])
@@ -132,11 +195,28 @@ func (s MonitoredSync) SendMany(ctx context.Context, reqs []redis.Request) (resu
 				}
 			}
 		}
+		durationSeconds := time.Since(start).Seconds()
 		promHistogram.With(prometheus.Labels{
 			labelSlug:    s.Name,
-			labelCommand: cmd,
+			labelCommand: command,
 			labelSuccess: prometheusbp.BoolString(err == nil),
-		}).Observe(time.Since(start).Seconds())
+		}).Observe(durationSeconds)
+		redisprom.LatencySeconds.With(prometheus.Labels{
+			redisprom.ClientNameLabel: s.Name,
+			redisprom.CommandLabel:    command,
+			redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
+			redisprom.DatabaseLabel:   "", // We don't have that info
+			redisprom.TypeLabel:       "", // We don't have that info
+			redisprom.DeploymentLabel: "", // We don't have that info
+		}).Observe(durationSeconds)
+		redisprom.RequestsTotal.With(prometheus.Labels{
+			redisprom.ClientNameLabel: s.Name,
+			redisprom.CommandLabel:    command,
+			redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
+			redisprom.DatabaseLabel:   "", // We don't have that info
+			redisprom.TypeLabel:       "", // We don't have that info
+			redisprom.DeploymentLabel: "", // We don't have that info
+		}).Inc()
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
 			Err: err,
@@ -148,18 +228,44 @@ func (s MonitoredSync) SendMany(ctx context.Context, reqs []redis.Request) (resu
 
 // SendTransaction wraps s.Sync.SendTransaction in a client span.
 func (s MonitoredSync) SendTransaction(ctx context.Context, reqs []redis.Request) (results []interface{}, err error) {
-	const cmd = "send-transaction"
+	const command = "send-transaction"
 	span, ctx := opentracing.StartSpanFromContext(
 		ctx,
-		s.Name+"."+cmd,
+		s.Name+"."+command,
 		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 	)
+	active := redisprom.ActiveRequests.With(prometheus.Labels{
+		redisprom.ClientNameLabel: s.Name,
+		redisprom.CommandLabel:    command,
+		redisprom.DatabaseLabel:   "", // We don't have that info
+		redisprom.TypeLabel:       "", // We don't have that info
+		redisprom.DeploymentLabel: "", // We don't have that info
+	})
+	active.Inc()
 	defer func(start time.Time) {
+		active.Dec()
+		durationSeconds := time.Since(start).Seconds()
 		promHistogram.With(prometheus.Labels{
 			labelSlug:    s.Name,
-			labelCommand: cmd,
+			labelCommand: command,
 			labelSuccess: prometheusbp.BoolString(err == nil),
-		}).Observe(time.Since(start).Seconds())
+		}).Observe(durationSeconds)
+		redisprom.LatencySeconds.With(prometheus.Labels{
+			redisprom.ClientNameLabel: s.Name,
+			redisprom.CommandLabel:    command,
+			redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
+			redisprom.DatabaseLabel:   "", // We don't have that info
+			redisprom.TypeLabel:       "", // We don't have that info
+			redisprom.DeploymentLabel: "", // We don't have that info
+		}).Observe(durationSeconds)
+		redisprom.RequestsTotal.With(prometheus.Labels{
+			redisprom.ClientNameLabel: s.Name,
+			redisprom.CommandLabel:    command,
+			redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
+			redisprom.DatabaseLabel:   "", // We don't have that info
+			redisprom.TypeLabel:       "", // We don't have that info
+			redisprom.DeploymentLabel: "", // We don't have that info
+		}).Inc()
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
 			Err: err,
@@ -193,18 +299,45 @@ func (s MonitoredScanIterator) Next() (results []string, err error) {
 		s.name+".scanner.next",
 		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 	)
+	const command = "scanner-next"
+	active := redisprom.ActiveRequests.With(prometheus.Labels{
+		redisprom.ClientNameLabel: s.name,
+		redisprom.CommandLabel:    command,
+		redisprom.DatabaseLabel:   "", // We don't have that info
+		redisprom.TypeLabel:       "", // We don't have that info
+		redisprom.DeploymentLabel: "", // We don't have that info
+	})
+	active.Inc()
 	defer func(start time.Time) {
-		const cmd = "scanner-next"
+		active.Dec()
+		durationSeconds := time.Since(start).Seconds()
 		promHistogram.With(prometheus.Labels{
 			labelSlug:    s.name,
-			labelCommand: cmd,
+			labelCommand: command,
 			labelSuccess: prometheusbp.BoolString(err == nil),
-		}).Observe(time.Since(start).Seconds())
+		}).Observe(durationSeconds)
+		redisprom.LatencySeconds.With(prometheus.Labels{
+			redisprom.ClientNameLabel: s.name,
+			redisprom.CommandLabel:    command,
+			redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
+			redisprom.DatabaseLabel:   "", // We don't have that info
+			redisprom.TypeLabel:       "", // We don't have that info
+			redisprom.DeploymentLabel: "", // We don't have that info
+		}).Observe(durationSeconds)
+		redisprom.RequestsTotal.With(prometheus.Labels{
+			redisprom.ClientNameLabel: s.name,
+			redisprom.CommandLabel:    command,
+			redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
+			redisprom.DatabaseLabel:   "", // We don't have that info
+			redisprom.TypeLabel:       "", // We don't have that info
+			redisprom.DeploymentLabel: "", // We don't have that info
+		}).Inc()
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
 			Err: err,
 		}.Convert())
 	}(time.Now())
+
 	return s.ScanIterator.Next()
 }
 

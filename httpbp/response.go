@@ -62,6 +62,7 @@ type Response struct {
 // chained in a call to one of the Write methods.
 //
 // Ex:
+//
 //	httpbp.WriteRawContent(
 //		w,
 //		httpbp.NewResponse(nil).WithCode(http.StatusAccepted),
