@@ -84,6 +84,7 @@ func (p *PrometheusMetricTest) CheckExistsN(count int) {
 // NewPrometheusMetricTest creates a new test object for a Prometheus metric.
 // It stores the current value of the metric along with the metric name.
 func NewPrometheusMetricTest(tb testing.TB, name string, metric prometheus.Collector, labels prometheus.Labels) *PrometheusMetricTest {
+	tb.Helper()
 	p := &PrometheusMetricTest{
 		tb:     tb,
 		metric: metric,
@@ -97,6 +98,7 @@ func NewPrometheusMetricTest(tb testing.TB, name string, metric prometheus.Colle
 // getValueAndSampleCount returns the current value and histogram sample count
 // of the metric.
 func (p *PrometheusMetricTest) getValueAndSampleCount() (float64, int) {
+	p.tb.Helper()
 	var value float64
 	var histoCount int
 	switch m := p.metric.(type) {

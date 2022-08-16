@@ -165,6 +165,7 @@ func buildLabels(name, prefix, clientOrServer string) map[string]struct{} {
 	for _, label := range labelSuffixes {
 		wantLabels[prefix+"_"+label] = struct{}{}
 	}
+	wantLabels["baseplate_go_is_v0"] = struct{}{}
 	return wantLabels
 }
 

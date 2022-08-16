@@ -3,6 +3,8 @@ package redisprom
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/prometheusbp"
 )
 
@@ -16,7 +18,7 @@ const (
 )
 
 var (
-	LatencySeconds = promauto.NewHistogramVec(
+	LatencySeconds = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "redis_client_latency_seconds",
 			Help:    "latency histogram",
@@ -24,14 +26,14 @@ var (
 		},
 		[]string{ClientNameLabel, DatabaseLabel, TypeLabel, DeploymentLabel, CommandLabel, SuccessLabel},
 	)
-	ActiveRequests = promauto.NewGaugeVec(
+	ActiveRequests = promauto.With(internalv2compat.GlobalRegistry).NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "redis_client_active_requests",
 			Help: "total requests that are in-flight",
 		},
 		[]string{ClientNameLabel, DatabaseLabel, TypeLabel, DeploymentLabel, CommandLabel},
 	)
-	RequestsTotal = promauto.NewCounterVec(
+	RequestsTotal = promauto.With(internalv2compat.GlobalRegistry).NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "redis_client_requests_total",
 			Help: "total request counter",

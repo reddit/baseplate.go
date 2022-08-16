@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sony/gobreaker"
 
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 )
@@ -24,7 +25,7 @@ var (
 		nameLabel,
 	}
 
-	breakerClosed = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	breakerClosed = promauto.With(internalv2compat.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Name:      "closed",
 		Help:      "0 means the breaker is currently tripped, 1 otherwise (closed)",

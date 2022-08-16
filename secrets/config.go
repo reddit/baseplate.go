@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
 )
 
@@ -15,7 +16,7 @@ const (
 )
 
 var (
-	parserFailures = promauto.NewCounter(prometheus.CounterOpts{
+	parserFailures = promauto.With(internalv2compat.GlobalRegistry).NewCounter(prometheus.CounterOpts{
 		Namespace: promNamespace,
 		Name:      "parser_failure_total",
 		Help:      "Total number of secret parser failures",
