@@ -289,7 +289,7 @@ type Counter interface {
 // baseplate.ParseConfigYAML call, for example:
 //
 //	// a global variable
-//	var tracingFailures = promauto.With(internalv2compat.GlobalRegistry).NewCounter(prometheus.CounterOpts{
+//	var tracingFailures = promauto.NewCounter(prometheus.CounterOpts{
 //	  Namespace: "myservice",
 //	  Subsystem: "tracing",
 //	  Name:      "failures_total",
