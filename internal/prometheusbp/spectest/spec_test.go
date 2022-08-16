@@ -225,7 +225,7 @@ func TestValidateLabels(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.gotLabels["baseplate_go_is_v0"] = struct{}{} // set const label
+			tt.gotLabels["baseplate_go"] = struct{}{} // set const label
 			gotErr := validateLabels(tt.metricName, tt.prefix, tt.clientOrServer, tt.gotLabels)
 			checkErrors(t, gotErr, tt.wantErrs)
 		})
@@ -280,7 +280,7 @@ func TestBuildLabelsThrift(t *testing.T) {
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.want["baseplate_go_is_v0"] = struct{}{} // set const label
+			tt.want["baseplate_go"] = struct{}{} // set const label
 			if got, want := buildLabels(tt.metricName, tt.prefix, tt.clientOrServer), tt.want; !reflect.DeepEqual(got, want) {
 				t.Fatalf("got %v, want %v", got, want)
 			}
@@ -369,7 +369,7 @@ func TestBuildLabelsHTTP(t *testing.T) {
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.want["baseplate_go_is_v0"] = struct{}{} // set const label
+			tt.want["baseplate_go"] = struct{}{} // set const label
 			if got, want := buildLabels(tt.metricName, tt.prefix, tt.clientOrServer), tt.want; !reflect.DeepEqual(got, want) {
 				t.Fatalf("got %v, want %v", got, want)
 			}
@@ -430,7 +430,7 @@ func TestBuildLabelsGPRC(t *testing.T) {
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.want["baseplate_go_is_v0"] = struct{}{} // set const label
+			tt.want["baseplate_go"] = struct{}{} // set const label
 			if got, want := buildLabels(tt.metricName, tt.prefix, tt.clientOrServer), tt.want; !reflect.DeepEqual(got, want) {
 				t.Fatalf("got %v, want %v", got, want)
 			}
