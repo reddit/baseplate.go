@@ -6,6 +6,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/prometheusbp"
 )
 
@@ -32,7 +34,7 @@ var (
 		successLabel,
 	}
 
-	serverLatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	serverLatencyDistribution = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "grpc_server_latency_seconds",
 		Help:    "RPC latencies",
 		Buckets: prometheusbp.DefaultBuckets,
@@ -46,7 +48,7 @@ var (
 		codeLabel,
 	}
 
-	serverTotalRequests = promauto.NewCounterVec(prometheus.CounterOpts{
+	serverTotalRequests = promauto.With(internalv2compat.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Name: "grpc_server_requests_total",
 		Help: "Total RPC request count",
 	}, serverTotalRequestLabels)
@@ -56,7 +58,7 @@ var (
 		methodLabel,
 	}
 
-	serverActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	serverActiveRequests = promauto.With(internalv2compat.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
 		Name: "grpc_server_active_requests",
 		Help: "The number of in-flight requests being handled by the service",
 	}, serverActiveRequestsLabels)
@@ -71,7 +73,7 @@ var (
 		serverSlugLabel,
 	}
 
-	clientLatencyDistribution = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	clientLatencyDistribution = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "grpc_client_latency_seconds",
 		Help:    "RPC latencies",
 		Buckets: prometheusbp.DefaultBuckets,
@@ -86,7 +88,7 @@ var (
 		serverSlugLabel,
 	}
 
-	clientTotalRequests = promauto.NewCounterVec(prometheus.CounterOpts{
+	clientTotalRequests = promauto.With(internalv2compat.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Name: "grpc_client_requests_total",
 		Help: "Total RPC request count",
 	}, clientTotalRequestLabels)
@@ -97,7 +99,7 @@ var (
 		serverSlugLabel,
 	}
 
-	clientActiveRequests = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	clientActiveRequests = promauto.With(internalv2compat.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
 		Name: "grpc_client_active_requests",
 		Help: "The number of in-flight requests",
 	}, clientActiveRequestsLabels)
