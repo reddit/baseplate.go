@@ -221,13 +221,13 @@ func (r *Result) watcherLoop(
 				isDir, err := isDirectory(path)
 				if err != nil {
 					logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
-					return
+					continue
 				}
 				if isDir {
 					eventIsDir, err := isDirectory(ev.Name)
 					if err != nil {
 						logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
-						return
+						continue
 					}
 					if eventIsDir && ev.Op == fsnotify.Create {
 						watcher.Add(ev.Name)
