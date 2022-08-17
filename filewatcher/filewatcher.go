@@ -119,6 +119,7 @@ func getMtime(path string) (time.Time, error) {
 
 func (r *Result) watcherLoop(
 	watcher *fsnotify.Watcher,
+	watched map[string]bool,
 	path string,
 	parser Parser,
 	softLimit, hardLimit int64,
@@ -186,6 +187,20 @@ func (r *Result) watcherLoop(
 			forceReload(mtime)
 		}
 	}
+	refreshWatched := func() {
+		for path := range watched {
+			watcher.Remove(path)
+			delete(watched, path)
+		}
+		err := filepath.WalkDir(path, func(p string, info fs.DirEntry, err error) error {
+			watched[p] = true
+			return watcher.Add(p)
+		})
+		if err != nil {
+			logger.Log(context.Background(), "filewatcher: refreshWatched error: "+err.Error())
+			return
+		}
+	}
 
 	var tickerChan <-chan time.Time
 	if pollingInterval > 0 {
@@ -224,14 +239,7 @@ func (r *Result) watcherLoop(
 					continue
 				}
 				if isDir {
-					eventIsDir, err := isDirectory(ev.Name)
-					if err != nil {
-						logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
-						continue
-					}
-					if eventIsDir && ev.Op == fsnotify.Create {
-						watcher.Add(ev.Name)
-					}
+					refreshWatched()
 				}
 
 				mtime, err := getMtime(path)
@@ -339,6 +347,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 
 	var reader io.Reader
 	var mtime time.Time
+	watched := make(map[string]bool)
 
 	for {
 		select {
@@ -389,10 +398,8 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		// Need to walk recursively because the watcher
 		// doesnt support recursion by itself
 		err := filepath.WalkDir(cfg.Path, func(path string, info fs.DirEntry, err error) error {
-			if info.IsDir() {
-				return watcher.Add(path)
-			}
-			return nil
+			watched[path] = true
+			return watcher.Add(path)
 		})
 		if err != nil {
 			return nil, fmt.Errorf("filewatcher.New: Error while walking directory '%s': %s", cfg.Path, err)
@@ -420,6 +427,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	}
 	go res.watcherLoop(
 		watcher,
+		watched,
 		cfg.Path,
 		cfg.Parser,
 		limit,
