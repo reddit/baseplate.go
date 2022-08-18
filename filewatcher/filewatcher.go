@@ -237,7 +237,7 @@ func (r *Result) watcherLoop(
 			switch ev.Op {
 			default:
 				// Ignore uninterested events.
-			case fsnotify.Create, fsnotify.Write:
+			case fsnotify.Create, fsnotify.Write, fsnotify.Remove:
 				mtime, err := getMtime(path)
 				if err != nil {
 					logger.Log(context.Background(), fmt.Sprintf(
