@@ -347,6 +347,7 @@ func TestParserFailure(t *testing.T) {
 		t.Error("Expected logger being called")
 	}
 	value = data.Get().(int64)
+	expected = 3
 	if value != expected {
 		t.Errorf("data.Get().(int64) expected %d, got %d", expected, value)
 	}
@@ -358,7 +359,7 @@ func TestParserFailure(t *testing.T) {
 	}
 	// Give it some time to handle the file content change
 	time.Sleep(500 * time.Millisecond)
-	expected = 3
+	expected = 5
 	value = data.Get().(int64)
 	if value != expected {
 		t.Errorf("data.Get().(int64) expected %d, got %d", expected, value)
