@@ -121,6 +121,7 @@ func (r *Result) watcherLoop(
 	watcher *fsnotify.Watcher,
 	watched []string,
 	path string,
+	isDir bool,
 	parser Parser,
 	softLimit, hardLimit int64,
 	logger log.Wrapper,
@@ -148,11 +149,6 @@ func (r *Result) watcherLoop(
 		}
 	}
 	forceReload := func(mtime time.Time) {
-		isDir, err := isDirectory(path)
-		if err != nil {
-			logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
-			return
-		}
 		var reader io.Reader
 		if isDir {
 			reader = dummyReader{
@@ -238,11 +234,6 @@ func (r *Result) watcherLoop(
 			default:
 				// Ignore uninterested events.
 			case fsnotify.Create, fsnotify.Write, fsnotify.Remove:
-				isDir, err := isDirectory(path)
-				if err != nil {
-					logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
-					continue
-				}
 				if ev.Op == fsnotify.Remove && !isDir {
 					continue
 				}
@@ -437,6 +428,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		watcher,
 		watched,
 		cfg.Path,
+		isDir,
 		cfg.Parser,
 		limit,
 		hardLimit,
