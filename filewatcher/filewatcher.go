@@ -130,7 +130,6 @@ func (r *Result) watcherLoop(
 	isDir, err := isDirectory(path)
 	if err != nil {
 		logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
-		return
 	}
 	refreshWatched := func() {
 		for _, p := range watched {
