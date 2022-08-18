@@ -336,23 +336,29 @@ func TestParserFailure(t *testing.T) {
 	}
 
 	// Next call to parser should return nil, err
-	writeFile(t, path, nil)
+	newpath := path + ".bar"
+	writeFile(t, newpath, nil)
+	if err := os.Rename(newpath, path); err != nil {
+		t.Fatal(err)
+	}
 	// Give it some time to handle the file content change
 	time.Sleep(500 * time.Millisecond)
 	if atomic.LoadInt64(&loggerCalled) == 0 {
 		t.Error("Expected logger being called")
 	}
-	expected = 3
 	value = data.Get().(int64)
 	if value != expected {
 		t.Errorf("data.Get().(int64) expected %d, got %d", expected, value)
 	}
 
 	// Next call to parser should return 3, nil
-	writeFile(t, path, nil)
+	writeFile(t, newpath, nil)
+	if err := os.Rename(newpath, path); err != nil {
+		t.Fatal(err)
+	}
 	// Give it some time to handle the file content change
 	time.Sleep(500 * time.Millisecond)
-	expected = 5
+	expected = 3
 	value = data.Get().(int64)
 	if value != expected {
 		t.Errorf("data.Get().(int64) expected %d, got %d", expected, value)
