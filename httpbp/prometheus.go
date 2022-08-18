@@ -13,7 +13,7 @@ const (
 	methodLabel     = "http_method"
 	successLabel    = "http_success"
 	codeLabel       = "http_response_code"
-	serverSlugLabel = "http_slug"
+	serverSlugLabel = "http_client_name"
 	endpointLabel   = "http_endpoint"
 )
 

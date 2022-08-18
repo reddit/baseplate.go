@@ -472,7 +472,7 @@ const (
 	exceptionLabel           = "thrift_exception_type"
 	baseplateStatusLabel     = "thrift_baseplate_status"
 	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
-	remoteServiceSlugLabel   = "thrift_slug"
+	remoteServiceSlugLabel   = "thrift_client_name"
 )
 
 func TestPrometheusClientMiddleware(t *testing.T) {

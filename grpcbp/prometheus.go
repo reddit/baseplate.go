@@ -17,7 +17,7 @@ const (
 	typeLabel       = "grpc_type"
 	successLabel    = "grpc_success"
 	codeLabel       = "grpc_code"
-	serverSlugLabel = "grpc_slug"
+	serverSlugLabel = "grpc_client_name"
 )
 
 const (

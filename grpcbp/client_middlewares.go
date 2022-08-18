@@ -115,7 +115,7 @@ func ForwardEdgeContextStreaming(ecImpl ecinterface.Interface) grpc.StreamClient
 //
 //   - grpc_service: the fully qualified name of the gRPC service
 //   - grpc_method: the name of the method called on the gRPC service
-//   - grpc_slug: an arbitray short string representing the backend the client is connecting to, the serverSlug arg
+//   - grpc_client_name: an arbitray short string representing the backend the client is connecting to, the serverSlug arg
 //
 // * grpc_client_latency_seconds histogram with labels:
 //

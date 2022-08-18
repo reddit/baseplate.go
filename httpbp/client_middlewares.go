@@ -271,7 +271,7 @@ func MonitorClient(slug string) ClientMiddleware {
 // * http_client_active_requests gauge with labels:
 //
 //   - http_method: method of the HTTP request
-//   - http_slug: the remote service being contacted, the serverSlug arg
+//   - http_client_name: the remote service being contacted, the serverSlug arg
 //
 // * http_client_latency_seconds histogram with labels above plus:
 //

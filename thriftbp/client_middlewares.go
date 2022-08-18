@@ -335,7 +335,7 @@ var (
 // * thrift_client_active_requests gauge with labels:
 //
 //   - thrift_method: the method of the endpoint called
-//   - thrift_slug: an arbitray short string representing the backend the client is connecting to, the remoteServerSlug arg
+//   - thrift_client_name: an arbitray short string representing the backend the client is connecting to, the remoteServerSlug arg
 //
 // * thrift_client_latency_seconds histogram with labels above plus:
 //

@@ -21,7 +21,7 @@ const (
 	exceptionLabel           = "thrift_exception_type"
 	baseplateStatusLabel     = "thrift_baseplate_status"
 	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
-	serverSlugLabel          = "thrift_slug"
+	serverSlugLabel          = "thrift_client_name"
 )
 
 var (

@@ -176,7 +176,7 @@ func TestClientPoolGaugeExporterRegister(t *testing.T) {
 
 func TestClientPoolGaugeExporterCollect(t *testing.T) {
 	exporter := clientPoolGaugeExporter{
-		slug: "slug",
+		slug: "client_name",
 		pool: fakePool{},
 	}
 	ch := make(chan prometheus.Metric)
