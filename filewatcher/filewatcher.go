@@ -119,7 +119,7 @@ func getMtime(path string) (time.Time, error) {
 
 func (r *Result) watcherLoop(
 	watcher *fsnotify.Watcher,
-	watched map[string]bool,
+	watched []string,
 	path string,
 	parser Parser,
 	softLimit, hardLimit int64,
@@ -127,6 +127,26 @@ func (r *Result) watcherLoop(
 	pollingInterval time.Duration,
 	parseDelay time.Duration,
 ) {
+	refreshWatched := func() {
+		for _, p := range watched {
+			watcher.Remove(p)
+		}
+		watched = []string{}
+
+		parentDir := filepath.Dir(path)
+		watcher.Add(parentDir)
+		watched = append(watched, parentDir)
+
+		err := filepath.WalkDir(path, func(p string, info fs.DirEntry, err error) error {
+			watched = append(watched, p)
+			watcher.Add(p)
+			return nil
+		})
+		if err != nil {
+			logger.Log(context.Background(), "filewatcher: refreshWatched error: "+err.Error())
+			return
+		}
+	}
 	forceReload := func(mtime time.Time) {
 		isDir, err := isDirectory(path)
 		if err != nil {
@@ -166,6 +186,7 @@ func (r *Result) watcherLoop(
 			}
 
 			r.timer = time.AfterFunc(parseDelay, func() {
+				refreshWatched()
 				parse()
 			})
 		} else {
@@ -185,20 +206,6 @@ func (r *Result) watcherLoop(
 		}
 		if r.data.Load().(*atomicData).mtime.Before(mtime) {
 			forceReload(mtime)
-		}
-	}
-	refreshWatched := func() {
-		for path := range watched {
-			watcher.Remove(path)
-			delete(watched, path)
-		}
-		err := filepath.WalkDir(path, func(p string, info fs.DirEntry, err error) error {
-			watched[p] = true
-			return watcher.Add(p)
-		})
-		if err != nil {
-			logger.Log(context.Background(), "filewatcher: refreshWatched error: "+err.Error())
-			return
 		}
 	}
 
@@ -231,17 +238,6 @@ func (r *Result) watcherLoop(
 			default:
 				// Ignore uninterested events.
 			case fsnotify.Create, fsnotify.Write:
-				// If a directory is created in a directory watcher we want
-				// to watch that as well
-				isDir, err := isDirectory(path)
-				if err != nil {
-					logger.Log(context.Background(), "filewatcher: isDirectory error: "+err.Error())
-					continue
-				}
-				if isDir {
-					refreshWatched()
-				}
-
 				mtime, err := getMtime(path)
 				if err != nil {
 					logger.Log(context.Background(), fmt.Sprintf(
@@ -347,7 +343,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 
 	var reader io.Reader
 	var mtime time.Time
-	watched := make(map[string]bool)
+	var watched []string
 
 	for {
 		select {
@@ -383,7 +379,10 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	// Note: We need to watch the parent directory instead of the file itself,
 	// because only watching the file won't give us CREATE events,
 	// which will happen with atomic renames.
-	err = watcher.Add(filepath.Dir(cfg.Path))
+	parentDir := filepath.Dir(cfg.Path)
+	err = watcher.Add(parentDir)
+	watched = append(watched, parentDir)
+
 	if err != nil {
 		return nil, err
 	}
@@ -397,9 +396,10 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		}
 		// Need to walk recursively because the watcher
 		// doesnt support recursion by itself
-		err := filepath.WalkDir(cfg.Path, func(path string, info fs.DirEntry, err error) error {
-			watched[path] = true
-			return watcher.Add(path)
+		err := filepath.WalkDir(cfg.Path, func(p string, info fs.DirEntry, err error) error {
+			watched = append(watched, p)
+			watcher.Add(p)
+			return nil
 		})
 		if err != nil {
 			return nil, fmt.Errorf("filewatcher.New: Error while walking directory '%s': %s", cfg.Path, err)
