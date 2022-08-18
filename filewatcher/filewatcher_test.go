@@ -323,6 +323,7 @@ func TestParserFailure(t *testing.T) {
 			Parser:          parser,
 			Logger:          logger,
 			PollingInterval: -1, // disable polling as we need exact numbers of parser calls in this test
+			ParseDelay:      time.Millisecond,
 		},
 	)
 	if err != nil {
