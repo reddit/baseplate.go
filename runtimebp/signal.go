@@ -45,6 +45,7 @@ func HandleShutdown(ctx context.Context, handler ShutdownHandler, signals ...os.
 	case signal := <-c:
 		handler(signal)
 	case <-ctx.Done():
-		// do nothing, just unblock the select block so it will return after it.
+		// Notify, that shutdown was without signal
+		handler(nil)
 	}
 }

@@ -203,6 +203,69 @@ func TestServeStopDelay(t *testing.T) {
 	}
 }
 
+func TestServeStopByCancel(t *testing.T) {
+
+	store := newSecretsStore(t)
+	defer store.Close()
+
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config: baseplate.Config{
+			StopTimeout: testTimeout,
+			StopDelay:   -1,
+		},
+		Store:           store,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
+
+	closeError := errors.New("test close error")
+
+	server := newErrorServer(t, bp, closeError)
+
+	ch := make(chan error)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		// Run Serve in a goroutine since it is blocking
+		ch <- baseplate.Serve(
+			ctx,
+			baseplate.ServeArgs{Server: server},
+		)
+	}()
+
+	var resultError error
+	go func() {
+		// Let server be closed with context.
+		time.Sleep(time.Second*5)
+		if resultError == nil {
+			return
+		}
+
+		// Else - close it by os.Interrupt
+		p, err := os.FindProcess(syscall.Getpid())
+		if err != nil {
+			ch <- err
+		}
+
+		p.Signal(os.Interrupt)
+
+		// wait if the serving is still not closed.
+		time.Sleep(time.Second*5)
+		if resultError == nil {
+			ch <- errors.New("Serving was not closed after closing of context closing and sending os.Interrupt.")
+		}
+	}()
+
+	time.Sleep(time.Millisecond)
+	cancel()
+
+	resultError = <-ch
+
+	errExpected := context.Canceled
+	if !errors.Is(resultError, errExpected) {
+		t.Fatalf("error mismatch, expected %#v, got %#v", errExpected, resultError)
+	}
+}
+
 type timestampCloser struct {
 	lock sync.Mutex
 	ts   []time.Time
