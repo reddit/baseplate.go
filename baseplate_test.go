@@ -235,7 +235,7 @@ func TestServeStopByCancel(t *testing.T) {
 	var resultError error
 	go func() {
 		// Let server be closed with context.
-		time.Sleep(time.Second*5)
+		time.Sleep(time.Second * 5)
 		if resultError == nil {
 			return
 		}
@@ -249,7 +249,7 @@ func TestServeStopByCancel(t *testing.T) {
 		p.Signal(os.Interrupt)
 
 		// wait if the serving is still not closed.
-		time.Sleep(time.Second*5)
+		time.Sleep(time.Second * 5)
 		if resultError == nil {
 			ch <- errors.New("Serving was not closed after closing of context closing and sending os.Interrupt.")
 		}
