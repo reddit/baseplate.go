@@ -115,7 +115,7 @@ func ForwardEdgeContextStreaming(ecImpl ecinterface.Interface) grpc.StreamClient
 //
 //   - grpc_service: the fully qualified name of the gRPC service
 //   - grpc_method: the name of the method called on the gRPC service
-//   - grpc_slug: an arbitray short string representing the backend the client is connecting to, the serverSlug arg
+//   - grpc_client_name: an arbitray short string representing the backend the client is connecting to, the serverSlug arg
 //
 // * grpc_client_latency_seconds histogram with labels:
 //
@@ -143,6 +143,7 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 			serviceLabel:    serviceName,
 			methodLabel:     method,
 			serverSlugLabel: serverSlug,
+			clientNameLabel: serverSlug,
 		}
 		clientActiveRequests.With(activeRequestLabels).Inc()
 
@@ -156,6 +157,7 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 				typeLabel:       unary,
 				successLabel:    success,
 				serverSlugLabel: serverSlug,
+				clientNameLabel: serverSlug,
 			}
 
 			clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
@@ -166,6 +168,7 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 				typeLabel:       unary,
 				successLabel:    success,
 				serverSlugLabel: serverSlug,
+				clientNameLabel: serverSlug,
 				codeLabel:       status.Code().String(),
 			}
 			clientTotalRequests.With(totalRequestLabels).Inc()

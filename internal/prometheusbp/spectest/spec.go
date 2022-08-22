@@ -159,6 +159,7 @@ func buildLabels(name, prefix, clientOrServer string) map[string]struct{} {
 
 	if clientOrServer == client {
 		labelSuffixes = append(labelSuffixes, "slug")
+		labelSuffixes = append(labelSuffixes, "client_name")
 	}
 
 	wantLabels := make(map[string]struct{}, len(labelSuffixes))

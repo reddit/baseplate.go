@@ -13,7 +13,8 @@ const (
 	methodLabel     = "http_method"
 	successLabel    = "http_success"
 	codeLabel       = "http_response_code"
-	serverSlugLabel = "http_slug"
+	serverSlugLabel = "http_slug" // Deprecated, will be removed after 2022-09-01
+	clientNameLabel = "http_client_name"
 	endpointLabel   = "http_endpoint"
 )
 
@@ -82,6 +83,7 @@ var (
 		methodLabel,
 		successLabel,
 		serverSlugLabel,
+		clientNameLabel,
 	}
 
 	clientLatencyDistribution = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
@@ -95,6 +97,7 @@ var (
 		successLabel,
 		codeLabel,
 		serverSlugLabel,
+		clientNameLabel,
 	}
 
 	clientTotalRequests = promauto.With(internalv2compat.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
@@ -105,6 +108,7 @@ var (
 	clientActiveRequestsLabels = []string{
 		methodLabel,
 		serverSlugLabel,
+		clientNameLabel,
 	}
 
 	clientActiveRequests = promauto.With(internalv2compat.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{

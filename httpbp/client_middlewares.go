@@ -271,7 +271,7 @@ func MonitorClient(slug string) ClientMiddleware {
 // * http_client_active_requests gauge with labels:
 //
 //   - http_method: method of the HTTP request
-//   - http_slug: the remote service being contacted, the serverSlug arg
+//   - http_client_name: the remote service being contacted, the serverSlug arg
 //
 // * http_client_latency_seconds histogram with labels above plus:
 //
@@ -288,6 +288,7 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 			activeRequestLabels := prometheus.Labels{
 				methodLabel:     method,
 				serverSlugLabel: serverSlug,
+				clientNameLabel: serverSlug,
 			}
 			clientActiveRequests.With(activeRequestLabels).Inc()
 
@@ -309,6 +310,7 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 					methodLabel:     method,
 					successLabel:    success,
 					serverSlugLabel: serverSlug,
+					clientNameLabel: serverSlug,
 				}
 
 				clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
@@ -318,6 +320,7 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 					successLabel:    success,
 					codeLabel:       strconv.Itoa(code),
 					serverSlugLabel: serverSlug,
+					clientNameLabel: serverSlug,
 				}
 
 				clientTotalRequests.With(totalRequestLabels).Inc()

@@ -159,9 +159,10 @@ func TestValidateLabels(t *testing.T) {
 			prefix:         thriftPrefix,
 			clientOrServer: client,
 			gotLabels: map[string]struct{}{
-				"thrift_method":  {},
-				"thrift_success": {},
-				"thrift_slug":    {},
+				"thrift_method":      {},
+				"thrift_success":     {},
+				"thrift_slug":        {},
+				"thrift_client_name": {},
 			},
 			wantErrs: []error{},
 		},
@@ -262,6 +263,7 @@ func TestBuildLabelsThrift(t *testing.T) {
 				"thrift_baseplate_status_code": {},
 				"thrift_exception_type":        {},
 				"thrift_slug":                  {},
+				"thrift_client_name":           {},
 			},
 		},
 		{
@@ -335,7 +337,8 @@ func TestBuildLabelsHTTP(t *testing.T) {
 			prefix:         httpPrefix,
 			clientOrServer: client,
 			want: map[string]struct{}{
-				"http_slug": {},
+				"http_slug":        {},
+				"http_client_name": {},
 			},
 		},
 		{
@@ -348,6 +351,7 @@ func TestBuildLabelsHTTP(t *testing.T) {
 				"http_success":       {},
 				"http_response_code": {},
 				"http_slug":          {},
+				"http_client_name":   {},
 			},
 		},
 		{
@@ -403,12 +407,13 @@ func TestBuildLabelsGPRC(t *testing.T) {
 			prefix:         grpcPrefix,
 			clientOrServer: client,
 			want: map[string]struct{}{
-				"grpc_service": {},
-				"grpc_method":  {},
-				"grpc_type":    {},
-				"grpc_success": {},
-				"grpc_code":    {},
-				"grpc_slug":    {},
+				"grpc_service":     {},
+				"grpc_method":      {},
+				"grpc_type":        {},
+				"grpc_success":     {},
+				"grpc_code":        {},
+				"grpc_slug":        {},
+				"grpc_client_name": {},
 			},
 		},
 		{

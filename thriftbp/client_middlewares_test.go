@@ -467,12 +467,13 @@ const (
 )
 
 const (
-	methodLabel              = "thrift_method"
-	successLabel             = "thrift_success"
-	exceptionLabel           = "thrift_exception_type"
-	baseplateStatusLabel     = "thrift_baseplate_status"
-	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
-	remoteServiceSlugLabel   = "thrift_slug"
+	methodLabel                  = "thrift_method"
+	successLabel                 = "thrift_success"
+	exceptionLabel               = "thrift_exception_type"
+	baseplateStatusLabel         = "thrift_baseplate_status"
+	baseplateStatusCodeLabel     = "thrift_baseplate_status_code"
+	remoteServiceSlugLabel       = "thrift_slug" // Deprecated, will be removed after 2022-09-01
+	remoteServiceClientNameLabel = "thrift_client_name"
 )
 
 func TestPrometheusClientMiddleware(t *testing.T) {
@@ -500,23 +501,26 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			latencyLabels := prometheus.Labels{
-				methodLabel:            methodIsHealthy,
-				successLabel:           prometheusbp.BoolString(!tt.wantFail),
-				remoteServiceSlugLabel: thrifttest.DefaultServiceSlug,
+				methodLabel:                  methodIsHealthy,
+				successLabel:                 prometheusbp.BoolString(!tt.wantFail),
+				remoteServiceSlugLabel:       thrifttest.DefaultServiceSlug,
+				remoteServiceClientNameLabel: thrifttest.DefaultServiceSlug,
 			}
 
 			totalRequestLabels := prometheus.Labels{
-				methodLabel:              methodIsHealthy,
-				successLabel:             prometheusbp.BoolString(!tt.wantFail),
-				exceptionLabel:           tt.exceptionType,
-				baseplateStatusCodeLabel: "",
-				baseplateStatusLabel:     "",
-				remoteServiceSlugLabel:   thrifttest.DefaultServiceSlug,
+				methodLabel:                  methodIsHealthy,
+				successLabel:                 prometheusbp.BoolString(!tt.wantFail),
+				exceptionLabel:               tt.exceptionType,
+				baseplateStatusCodeLabel:     "",
+				baseplateStatusLabel:         "",
+				remoteServiceSlugLabel:       thrifttest.DefaultServiceSlug,
+				remoteServiceClientNameLabel: thrifttest.DefaultServiceSlug,
 			}
 
 			activeRequestLabels := prometheus.Labels{
-				methodLabel:            methodIsHealthy,
-				remoteServiceSlugLabel: thrifttest.DefaultServiceSlug,
+				methodLabel:                  methodIsHealthy,
+				remoteServiceSlugLabel:       thrifttest.DefaultServiceSlug,
+				remoteServiceClientNameLabel: thrifttest.DefaultServiceSlug,
 			}
 
 			defer thriftbp.PrometheusClientMetricsTest(t, latencyLabels, totalRequestLabels, activeRequestLabels).CheckMetrics()
