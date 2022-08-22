@@ -472,7 +472,7 @@ const (
 	exceptionLabel               = "thrift_exception_type"
 	baseplateStatusLabel         = "thrift_baseplate_status"
 	baseplateStatusCodeLabel     = "thrift_baseplate_status_code"
-	remoteServiceSlugLabel       = "thrift_slug"
+	remoteServiceSlugLabel       = "thrift_slug" // Deprecated, will be removed after 2022-09-01
 	remoteServiceClientNameLabel = "thrift_client_name"
 )
 
