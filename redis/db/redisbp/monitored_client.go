@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/reddit/baseplate.go/internal/prometheusbp"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/redis/internal/redisprom"
 )
@@ -41,6 +42,13 @@ func NewMonitoredClient(name string, opt *redis.Options) *redis.Client {
 		Type:       "standalone",
 		Deployment: getDeploymentType(opt.Addr),
 		Database:   strconv.Itoa(opt.DB),
+		PromActive: &prometheusbp.HighWatermarkGauge{
+			HighWatermarkValue:   &prometheusbp.HighWatermarkValue{},
+			CurrGauge:            redisprom.ActiveConnectionsDesc,
+			CurrGaugeLabelValues: []string{name},
+			MaxGauge:             redisprom.PeakActiveConnectionsDesc,
+			MaxGaugeLabelValues:  []string{name},
+		},
 	})
 	redisprom.MaxSizeGauge.WithLabelValues(name).Set(float64(opt.PoolSize))
 
@@ -65,6 +73,13 @@ func NewMonitoredFailoverClient(name string, opt *redis.FailoverOptions) *redis.
 		Type:       "sentinel",
 		Deployment: getDeploymentType(opt.SentinelAddrs[0]),
 		Database:   strconv.Itoa(opt.DB),
+		PromActive: &prometheusbp.HighWatermarkGauge{
+			HighWatermarkValue:   &prometheusbp.HighWatermarkValue{},
+			CurrGauge:            redisprom.ActiveConnectionsDesc,
+			CurrGaugeLabelValues: []string{name},
+			MaxGauge:             redisprom.PeakActiveConnectionsDesc,
+			MaxGaugeLabelValues:  []string{name},
+		},
 	})
 	redisprom.MaxSizeGauge.WithLabelValues(name).Set(float64(opt.PoolSize))
 
@@ -125,6 +140,13 @@ func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *ClusterC
 		Type:       "cluster",
 		Deployment: getDeploymentType(opt.Addrs[0]),
 		Database:   "", // We don't have that for cluster clients
+		PromActive: &prometheusbp.HighWatermarkGauge{
+			HighWatermarkValue:   &prometheusbp.HighWatermarkValue{},
+			CurrGauge:            redisprom.ActiveConnectionsDesc,
+			CurrGaugeLabelValues: []string{name},
+			MaxGauge:             redisprom.PeakActiveConnectionsDesc,
+			MaxGaugeLabelValues:  []string{name},
+		},
 	})
 	redisprom.MaxSizeGauge.WithLabelValues(name).Set(float64(opt.PoolSize))
 

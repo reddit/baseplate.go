@@ -137,23 +137,11 @@ func (e exporter) Collect(ch chan<- prometheus.Metric) {
 
 	// Baseplate spec
 	ch <- prometheus.MustNewConstMetric(
-		redisprom.ActiveConnectionsDesc,
-		prometheus.GaugeValue,
-		float64(stats.TotalConns-stats.IdleConns),
-		e.name,
-	)
-	ch <- prometheus.MustNewConstMetric(
 		redisprom.IdleConnectionsDesc,
 		prometheus.GaugeValue,
 		float64(stats.IdleConns),
 		e.name,
 	)
-	// ch <- prometheus.MustNewConstMetric(
-	// 	redisprom.PeakActiveConnectionsDesc,
-	// 	prometheus.GaugeValue,
-	// 	float64(xxx),
-	// 	e.name,
-	// )
 	ch <- prometheus.MustNewConstMetric(
 		redisprom.TotalConnectionGetsDesc,
 		prometheus.CounterValue,
