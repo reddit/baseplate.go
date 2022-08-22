@@ -11,6 +11,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/reddit/baseplate.go/redis/internal/redisprom"
 )
 
 // ErrReplicationFactorFailed returns when the cluster client wait function returns replica reached count
@@ -41,6 +42,7 @@ func NewMonitoredClient(name string, opt *redis.Options) *redis.Client {
 		Deployment: getDeploymentType(opt.Addr),
 		Database:   strconv.Itoa(opt.DB),
 	})
+	redisprom.MaxSizeGauge.WithLabelValues(name).Set(float64(opt.PoolSize))
 
 	if err := prometheus.Register(exporter{
 		client: client,
@@ -64,6 +66,7 @@ func NewMonitoredFailoverClient(name string, opt *redis.FailoverOptions) *redis.
 		Deployment: getDeploymentType(opt.SentinelAddrs[0]),
 		Database:   strconv.Itoa(opt.DB),
 	})
+	redisprom.MaxSizeGauge.WithLabelValues(name).Set(float64(opt.PoolSize))
 
 	if err := prometheus.Register(exporter{
 		client: client,
@@ -123,6 +126,7 @@ func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *ClusterC
 		Deployment: getDeploymentType(opt.Addrs[0]),
 		Database:   "", // We don't have that for cluster clients
 	})
+	redisprom.MaxSizeGauge.WithLabelValues(name).Set(float64(opt.PoolSize))
 
 	if err := prometheus.Register(exporter{
 		client: client,

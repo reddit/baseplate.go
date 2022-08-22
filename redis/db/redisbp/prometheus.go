@@ -7,6 +7,7 @@ import (
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/prometheusbp"
+	"github.com/reddit/baseplate.go/redis/internal/redisprom"
 )
 
 const (
@@ -131,6 +132,32 @@ func (e exporter) Collect(ch chan<- prometheus.Metric) {
 		idleConnectionsDesc,
 		prometheus.GaugeValue,
 		float64(stats.IdleConns),
+		e.name,
+	)
+
+	// Baseplate spec
+	ch <- prometheus.MustNewConstMetric(
+		redisprom.ActiveConnectionsDesc,
+		prometheus.GaugeValue,
+		float64(stats.TotalConns-stats.IdleConns),
+		e.name,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		redisprom.IdleConnectionsDesc,
+		prometheus.GaugeValue,
+		float64(stats.IdleConns),
+		e.name,
+	)
+	// ch <- prometheus.MustNewConstMetric(
+	// 	redisprom.PeakActiveConnectionsDesc,
+	// 	prometheus.GaugeValue,
+	// 	float64(xxx),
+	// 	e.name,
+	// )
+	ch <- prometheus.MustNewConstMetric(
+		redisprom.TotalConnectionGetsDesc,
+		prometheus.CounterValue,
+		float64(stats.Hits),
 		e.name,
 	)
 }
