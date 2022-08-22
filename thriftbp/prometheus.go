@@ -21,7 +21,8 @@ const (
 	exceptionLabel           = "thrift_exception_type"
 	baseplateStatusLabel     = "thrift_baseplate_status"
 	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
-	serverSlugLabel          = "thrift_client_name"
+	serverSlugLabel          = "thrift_slug" // Deprecated, will be removed after 2022-09-01
+	clientNameLabel          = "thrift_client_name"
 )
 
 var (
@@ -64,6 +65,7 @@ var (
 		methodLabel,
 		successLabel,
 		serverSlugLabel,
+		clientNameLabel,
 	}
 
 	clientLatencyDistribution = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
@@ -79,6 +81,7 @@ var (
 		baseplateStatusLabel,
 		baseplateStatusCodeLabel,
 		serverSlugLabel,
+		clientNameLabel,
 	}
 
 	clientTotalRequests = promauto.With(internalv2compat.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
@@ -89,6 +92,7 @@ var (
 	clientActiveRequestsLabels = []string{
 		methodLabel,
 		serverSlugLabel,
+		clientNameLabel,
 	}
 
 	clientActiveRequests = promauto.With(internalv2compat.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
@@ -119,6 +123,7 @@ var (
 var (
 	ttlClientReplaceLabels = []string{
 		serverSlugLabel,
+		clientNameLabel,
 		successLabel,
 	}
 
@@ -179,6 +184,7 @@ var (
 var (
 	clientPoolLabels = []string{
 		serverSlugLabel,
+		clientNameLabel,
 	}
 
 	clientPoolExhaustedCounter = promauto.With(internalv2compat.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
@@ -253,11 +259,13 @@ func (e clientPoolGaugeExporter) Collect(ch chan<- prometheus.Metric) {
 		prometheus.GaugeValue,
 		float64(e.pool.NumActiveClients()),
 		e.slug,
+		e.slug,
 	)
 	ch <- prometheus.MustNewConstMetric(
 		clientPoolAllocatedClientsDesc,
 		prometheus.GaugeValue,
 		float64(e.pool.NumAllocated()),
+		e.slug,
 		e.slug,
 	)
 }

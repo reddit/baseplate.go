@@ -17,7 +17,8 @@ const (
 	typeLabel       = "grpc_type"
 	successLabel    = "grpc_success"
 	codeLabel       = "grpc_code"
-	serverSlugLabel = "grpc_client_name"
+	serverSlugLabel = "grpc_slug" // Deprecated, will be removed after 2022-09-01
+	clientNameLabel = "grpc_client_name"
 )
 
 const (
@@ -71,6 +72,7 @@ var (
 		typeLabel,
 		successLabel,
 		serverSlugLabel,
+		clientNameLabel,
 	}
 
 	clientLatencyDistribution = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
@@ -86,6 +88,7 @@ var (
 		successLabel,
 		codeLabel,
 		serverSlugLabel,
+		clientNameLabel,
 	}
 
 	clientTotalRequests = promauto.With(internalv2compat.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
@@ -97,6 +100,7 @@ var (
 		serviceLabel,
 		methodLabel,
 		serverSlugLabel,
+		clientNameLabel,
 	}
 
 	clientActiveRequests = promauto.With(internalv2compat.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{

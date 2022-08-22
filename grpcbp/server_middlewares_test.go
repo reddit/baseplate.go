@@ -263,6 +263,7 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 				typeLabel:       unary,
 				successLabel:    tt.success,
 				serverSlugLabel: serverSlug,
+				clientNameLabel: serverSlug,
 			}
 
 			clientTotalRequestLabels := prometheus.Labels{
@@ -271,6 +272,7 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 				typeLabel:       unary,
 				successLabel:    tt.success,
 				serverSlugLabel: serverSlug,
+				clientNameLabel: serverSlug,
 				codeLabel:       tt.code,
 			}
 
@@ -278,6 +280,7 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 				serviceLabel:    serviceName,
 				methodLabel:     tt.method,
 				serverSlugLabel: serverSlug,
+				clientNameLabel: serverSlug,
 			}
 
 			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution, serverLatencyLabels).CheckSampleCountDelta(1)

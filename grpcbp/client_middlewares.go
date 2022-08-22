@@ -143,6 +143,7 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 			serviceLabel:    serviceName,
 			methodLabel:     method,
 			serverSlugLabel: serverSlug,
+			clientNameLabel: serverSlug,
 		}
 		clientActiveRequests.With(activeRequestLabels).Inc()
 
@@ -156,6 +157,7 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 				typeLabel:       unary,
 				successLabel:    success,
 				serverSlugLabel: serverSlug,
+				clientNameLabel: serverSlug,
 			}
 
 			clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
@@ -166,6 +168,7 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 				typeLabel:       unary,
 				successLabel:    success,
 				serverSlugLabel: serverSlug,
+				clientNameLabel: serverSlug,
 				codeLabel:       status.Code().String(),
 			}
 			clientTotalRequests.With(totalRequestLabels).Inc()
