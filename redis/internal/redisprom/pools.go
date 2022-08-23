@@ -3,12 +3,15 @@ package redisprom
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 )
 
 const redisPoolLabel = "redis_pool"
 
 var (
-	MaxSizeGauge = promauto.NewGaugeVec(
+	MaxSizeGauge = promauto.With(internalv2compat.GlobalRegistry).NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "redis_client_max_size",
 			Help: "configured maximum number of clients to keep in the pool (for showing % used in dashboards)",
