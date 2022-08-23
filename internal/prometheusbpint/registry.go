@@ -1,4 +1,4 @@
-package internalv2compat
+package prometheusbpint
 
 import (
 	"github.com/prometheus/client_golang/prometheus"

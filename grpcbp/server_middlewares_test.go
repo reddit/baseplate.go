@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/reddit/baseplate.go/ecinterface"
-	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
+	"github.com/reddit/baseplate.go/internal/prometheusbpint/spectest"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 	"github.com/reddit/baseplate.go/tracing"

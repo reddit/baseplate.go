@@ -15,7 +15,7 @@ import (
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
-	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
+	"github.com/reddit/baseplate.go/internal/prometheusbpint/spectest"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/retrybp"

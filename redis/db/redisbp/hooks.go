@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/errorsbp"
-	internal_prometheusbp "github.com/reddit/baseplate.go/internal/prometheusbp"
+	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/redis/internal/redisprom"
 	"github.com/reddit/baseplate.go/tracing"
@@ -33,7 +33,8 @@ type SpanHook struct {
 	Type       string
 	Deployment string
 	Database   string
-	PromActive *internal_prometheusbp.HighWatermarkGauge
+
+	promActive *prometheusbpint.HighWatermarkGauge
 }
 
 var _ redis.Hook = SpanHook{}
@@ -85,7 +86,9 @@ func (h SpanHook) startChildSpan(ctx context.Context, cmdName string) context.Co
 		name,
 		tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
 	)
-	h.PromActive.Inc()
+	if h.promActive != nil {
+		h.promActive.Inc()
+	}
 	redisprom.ActiveRequests.With(prometheus.Labels{
 		redisprom.ClientNameLabel: h.ClientName,
 		redisprom.TypeLabel:       h.Type,
@@ -134,7 +137,9 @@ func (h SpanHook) endChildSpan(ctx context.Context, err error) {
 		redisprom.DeploymentLabel: h.Deployment,
 		redisprom.DatabaseLabel:   h.Database,
 	}).Dec()
-	h.PromActive.Dec()
+	if h.promActive != nil {
+		h.promActive.Dec()
+	}
 
 	if span := opentracing.SpanFromContext(ctx); span != nil {
 		span.FinishWithOptions(tracing.FinishOptions{

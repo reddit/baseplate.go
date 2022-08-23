@@ -6,6 +6,8 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 )
 
 type fakeClient redis.Client
@@ -35,7 +37,7 @@ func TestRedisPoolExporterRegister(t *testing.T) {
 		},
 	}
 	for i, exporter := range exporters {
-		if err := prometheus.Register(exporter); err != nil {
+		if err := prometheusbpint.GlobalRegistry.Register(exporter); err != nil {
 			t.Errorf("Register #%d failed: %v", i, err)
 		}
 	}

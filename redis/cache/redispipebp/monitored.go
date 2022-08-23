@@ -12,8 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	//lint:ignore SA1019 This library is internal only, not actually deprecated
-	"github.com/reddit/baseplate.go/internalv2compat"
+	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/redis/cache/redisx"
 	"github.com/reddit/baseplate.go/redis/internal/redisprom"
@@ -35,7 +34,7 @@ var (
 		labelSuccess,
 	}
 
-	promHistogram = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+	promHistogram = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: promNamespace,
 		Name:      "latency_seconds",
 		Help:      "Redis latency in seconds",
