@@ -6,6 +6,9 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/prometheus/client_golang/prometheus"
+
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 )
 
 type fakeClient redis.Client
@@ -35,7 +38,7 @@ func TestRedisPoolExporterRegister(t *testing.T) {
 		},
 	}
 	for i, exporter := range exporters {
-		if err := prometheus.Register(exporter); err != nil {
+		if err := internalv2compat.GlobalRegistry.Register(exporter); err != nil {
 			t.Errorf("Register #%d failed: %v", i, err)
 		}
 	}

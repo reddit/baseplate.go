@@ -14,6 +14,8 @@ import (
 	"github.com/reddit/baseplate.go/clientpool"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/prometheusbp/spectest"
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 )
@@ -168,7 +170,7 @@ func TestClientPoolGaugeExporterRegister(t *testing.T) {
 		},
 	}
 	for i, exporter := range exporters {
-		if err := prometheus.Register(exporter); err != nil {
+		if err := internalv2compat.GlobalRegistry.Register(exporter); err != nil {
 			t.Errorf("Register #%d failed: %v", i, err)
 		}
 	}

@@ -42,4 +42,12 @@ if [ -n "$STATICCHECK" ]; then
   FAILED=1
 fi
 
+if grep -ri 'promauto.New' $(find . -name "*.go" -not -name "*_test.go") | grep -v "//.*promauto.New"; then
+  echo "*** Uses of promauto above should use With(internalv2compat.GlobalRegistry)"
+fi
+if grep -ri 'prometheus.Register' $(find . -name "*.go" -not -name "*_test.go") | grep -v "//.*prometheus.Register"; then
+  echo "*** Uses of prometheus.Register above should use internalv2compat.GlobalRegistry.Register instead"
+fi
+
+
 exit $FAILED

@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/reddit/baseplate.go/internal/prometheusbp"
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/redis/internal/redisprom"
 )
@@ -52,7 +54,7 @@ func NewMonitoredClient(name string, opt *redis.Options) *redis.Client {
 	})
 	redisprom.MaxSizeGauge.WithLabelValues(name).Set(float64(opt.PoolSize))
 
-	if err := prometheus.Register(exporter{
+	if err := internalv2compat.GlobalRegistry.Register(exporter{
 		client: client,
 		name:   name,
 	}); err != nil {
@@ -83,7 +85,7 @@ func NewMonitoredFailoverClient(name string, opt *redis.FailoverOptions) *redis.
 	})
 	redisprom.MaxSizeGauge.WithLabelValues(name).Set(float64(opt.PoolSize))
 
-	if err := prometheus.Register(exporter{
+	if err := internalv2compat.GlobalRegistry.Register(exporter{
 		client: client,
 		name:   name,
 	}); err != nil {
@@ -150,7 +152,7 @@ func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *ClusterC
 	})
 	redisprom.MaxSizeGauge.WithLabelValues(name).Set(float64(opt.PoolSize))
 
-	if err := prometheus.Register(exporter{
+	if err := internalv2compat.GlobalRegistry.Register(exporter{
 		client: client,
 		name:   name,
 	}); err != nil {
