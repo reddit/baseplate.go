@@ -1,10 +1,10 @@
-package prometheusbp_test
+package prometheusbpint_test
 
 import (
 	"sync"
 	"testing"
 
-	"github.com/reddit/baseplate.go/internal/prometheusbp"
+	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 )
 
 func TestHighWatermarkValue(t *testing.T) {
@@ -12,13 +12,13 @@ func TestHighWatermarkValue(t *testing.T) {
 		label string
 		get   int64
 		max   int64
-		setup func(*prometheusbp.HighWatermarkValue)
+		setup func(*prometheusbpint.HighWatermarkValue)
 	}{
 		{
 			label: "inc-once",
 			get:   1,
 			max:   1,
-			setup: func(hwv *prometheusbp.HighWatermarkValue) {
+			setup: func(hwv *prometheusbpint.HighWatermarkValue) {
 				hwv.Inc()
 			},
 		},
@@ -26,7 +26,7 @@ func TestHighWatermarkValue(t *testing.T) {
 			label: "inc-inc-dec",
 			get:   1,
 			max:   2,
-			setup: func(hwv *prometheusbp.HighWatermarkValue) {
+			setup: func(hwv *prometheusbpint.HighWatermarkValue) {
 				hwv.Inc()
 				hwv.Inc()
 				hwv.Dec()
@@ -36,7 +36,7 @@ func TestHighWatermarkValue(t *testing.T) {
 			label: "dec-once",
 			get:   -1,
 			max:   0,
-			setup: func(hwv *prometheusbp.HighWatermarkValue) {
+			setup: func(hwv *prometheusbpint.HighWatermarkValue) {
 				hwv.Dec()
 			},
 		},
@@ -44,7 +44,7 @@ func TestHighWatermarkValue(t *testing.T) {
 			label: "set-2-3-5-8-1",
 			get:   1,
 			max:   8,
-			setup: func(hwv *prometheusbp.HighWatermarkValue) {
+			setup: func(hwv *prometheusbpint.HighWatermarkValue) {
 				hwv.Set(2)
 				hwv.Set(3)
 				hwv.Set(5)
@@ -56,7 +56,7 @@ func TestHighWatermarkValue(t *testing.T) {
 			label: "parallel-100",
 			get:   100,
 			max:   100,
-			setup: func(hwv *prometheusbp.HighWatermarkValue) {
+			setup: func(hwv *prometheusbpint.HighWatermarkValue) {
 				const n = 100
 				var wg sync.WaitGroup
 				wg.Add(n)
@@ -71,7 +71,7 @@ func TestHighWatermarkValue(t *testing.T) {
 		},
 	} {
 		t.Run(c.label, func(t *testing.T) {
-			var hwv prometheusbp.HighWatermarkValue
+			var hwv prometheusbpint.HighWatermarkValue
 			c.setup(&hwv)
 			if got, want := hwv.Get(), c.get; got != want {
 				t.Errorf("Get() got %d, want %d", got, want)
@@ -84,33 +84,33 @@ func TestHighWatermarkValue(t *testing.T) {
 }
 
 func BenchmarkHighWatermarkValue(b *testing.B) {
-	operations := [...]func(*prometheusbp.HighWatermarkValue){
-		func(hwv *prometheusbp.HighWatermarkValue) {
+	operations := [...]func(*prometheusbpint.HighWatermarkValue){
+		func(hwv *prometheusbpint.HighWatermarkValue) {
 			hwv.Inc()
 		},
-		func(hwv *prometheusbp.HighWatermarkValue) {
+		func(hwv *prometheusbpint.HighWatermarkValue) {
 			hwv.Dec()
 		},
-		func(hwv *prometheusbp.HighWatermarkValue) {
+		func(hwv *prometheusbpint.HighWatermarkValue) {
 			hwv.Set(2)
 		},
-		func(hwv *prometheusbp.HighWatermarkValue) {
+		func(hwv *prometheusbpint.HighWatermarkValue) {
 			hwv.Set(3)
 		},
-		func(hwv *prometheusbp.HighWatermarkValue) {
+		func(hwv *prometheusbpint.HighWatermarkValue) {
 			hwv.Set(5)
 		},
-		func(hwv *prometheusbp.HighWatermarkValue) {
+		func(hwv *prometheusbpint.HighWatermarkValue) {
 			hwv.Set(8)
 		},
-		func(hwv *prometheusbp.HighWatermarkValue) {
+		func(hwv *prometheusbpint.HighWatermarkValue) {
 			hwv.Get()
 		},
-		func(hwv *prometheusbp.HighWatermarkValue) {
+		func(hwv *prometheusbpint.HighWatermarkValue) {
 			hwv.Max()
 		},
 	}
-	hwv := new(prometheusbp.HighWatermarkValue)
+	hwv := new(prometheusbpint.HighWatermarkValue)
 
 	b.ReportAllocs()
 	b.ResetTimer()

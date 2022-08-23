@@ -9,8 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/reddit/baseplate.go/errorsbp"
-	//lint:ignore SA1019 This library is internal only, not actually deprecated
-	"github.com/reddit/baseplate.go/internalv2compat"
+	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 )
 
 func TestMissingMetrics(t *testing.T) {
@@ -451,7 +450,7 @@ func TestValidateSpec(t *testing.T) {
 			"thrift_baseplate_status",
 		}
 
-		testMetric = promauto.With(internalv2compat.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+		testMetric = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 			Name: "thrift_client_latency_seconds",
 			Help: "Test help message",
 		}, testLabels)

@@ -17,6 +17,7 @@ import (
 	"github.com/reddit/baseplate.go/clientpool"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 )
@@ -445,12 +446,12 @@ func newClientPool(
 			tags,
 		)
 
-		if err := prometheus.Register(clientPoolGaugeExporter{
+		if err := prometheusbpint.GlobalRegistry.Register(clientPoolGaugeExporter{
 			slug: cfg.ServiceSlug,
 			pool: pool,
 		}); err != nil {
-			// prometheus.Register should never fail because
-			// clientPoolGaugeExporter.Describe is a no-op, but just in case.
+			// Register should never fail because clientPoolGaugeExporter.Describe is
+			// a no-op, but just in case.
 
 			var batch errorsbp.Batch
 			batch.Add(err)

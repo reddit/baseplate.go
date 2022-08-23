@@ -8,7 +8,6 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/reddit/baseplate.go/internal/prometheusbp"
 	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 	"github.com/reddit/baseplate.go/redis/internal/redisprom"
 	"github.com/reddit/baseplate.go/thriftbp"
@@ -21,13 +20,6 @@ func TestSpanHook(t *testing.T) {
 		ClientName: "redis",
 		Type:       "type",
 		Deployment: "Deployment",
-		PromActive: &prometheusbp.HighWatermarkGauge{
-			HighWatermarkValue:   &prometheusbp.HighWatermarkValue{},
-			CurrGauge:            redisprom.ActiveConnectionsDesc,
-			CurrGaugeLabelValues: []string{"redis"},
-			MaxGauge:             redisprom.PeakActiveConnectionsDesc,
-			MaxGaugeLabelValues:  []string{"redis"},
-		},
 	}
 	statusCmd := redis.NewStatusCmd(ctx, "ping")
 	stringCmd := redis.NewStringCmd(ctx, "get", "1")

@@ -3,12 +3,14 @@ package redisprom
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 )
 
 const redisPoolLabel = "redis_pool"
 
 var (
-	MaxSizeGauge = promauto.NewGaugeVec(
+	MaxSizeGauge = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "redis_client_max_size",
 			Help: "configured maximum number of clients to keep in the pool (for showing % used in dashboards)",

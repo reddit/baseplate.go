@@ -4,8 +4,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	//lint:ignore SA1019 This library is internal only, not actually deprecated
-	"github.com/reddit/baseplate.go/internalv2compat"
+	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/prometheusbp"
 )
 
@@ -25,31 +24,31 @@ var (
 		endpointLabel,
 	}
 
-	serverLatency = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+	serverLatency = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_latency_seconds",
 		Help:    "HTTP server request latencies",
 		Buckets: prometheusbp.DefaultBuckets,
 	}, serverLabels)
 
-	serverRequestSize = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+	serverRequestSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_request_size_bytes",
 		Help:    "Request size",
 		Buckets: prometheusbp.DefaultBuckets,
 	}, serverLabels)
 
-	serverResponseSize = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+	serverResponseSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_response_size_bytes",
 		Help:    "Response size",
 		Buckets: prometheusbp.DefaultBuckets,
 	}, serverLabels)
 
-	serverTimeToWriteHeader = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+	serverTimeToWriteHeader = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_time_to_write_header_seconds",
 		Help:    "Request size",
 		Buckets: prometheusbp.DefaultBuckets,
 	}, serverLabels)
 
-	serverTimeToFirstByte = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+	serverTimeToFirstByte = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_time_to_first_byte_seconds",
 		Help:    "Response size",
 		Buckets: prometheusbp.DefaultBuckets,
@@ -62,7 +61,7 @@ var (
 		endpointLabel,
 	}
 
-	serverTotalRequests = promauto.With(internalv2compat.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+	serverTotalRequests = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Name: "http_server_requests_total",
 		Help: "Total request count",
 	}, serverTotalRequestLabels)
@@ -72,7 +71,7 @@ var (
 		endpointLabel,
 	}
 
-	serverActiveRequests = promauto.With(internalv2compat.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
+	serverActiveRequests = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
 		Name: "http_server_active_requests",
 		Help: "The number of in-flight requests being handled by the service",
 	}, serverActiveRequestsLabels)
@@ -86,7 +85,7 @@ var (
 		clientNameLabel,
 	}
 
-	clientLatencyDistribution = promauto.With(internalv2compat.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+	clientLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_client_latency_seconds",
 		Help:    "HTTP client request latencies",
 		Buckets: prometheusbp.DefaultBuckets,
@@ -100,7 +99,7 @@ var (
 		clientNameLabel,
 	}
 
-	clientTotalRequests = promauto.With(internalv2compat.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+	clientTotalRequests = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Name: "http_client_requests_total",
 		Help: "Total request count",
 	}, clientTotalRequestLabels)
@@ -111,7 +110,7 @@ var (
 		clientNameLabel,
 	}
 
-	clientActiveRequests = promauto.With(internalv2compat.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
+	clientActiveRequests = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
 		Name: "http_client_active_requests",
 		Help: "The number of in-flight requests",
 	}, clientActiveRequestsLabels)
@@ -128,7 +127,7 @@ var (
 		methodLabel,
 	}
 
-	panicRecoverCounter = promauto.With(internalv2compat.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+	panicRecoverCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Namespace: promNamespace,
 		Subsystem: subsystemServer,
 		Name:      "panic_recover_total",

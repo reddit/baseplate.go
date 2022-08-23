@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/reddit/baseplate.go/internal/prometheusbp"
+
+	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/redis/internal/redisprom"
 )
@@ -36,28 +36,36 @@ func getDeploymentType(addr string) string {
 // NewMonitoredClient creates a new *redis.Client object with a redisbp.SpanHook
 // attached that connects to a single Redis instance.
 func NewMonitoredClient(name string, opt *redis.Options) *redis.Client {
-	client := redis.NewClient(opt)
-	client.AddHook(SpanHook{
+	hook := SpanHook{
 		ClientName: name,
 		Type:       "standalone",
 		Deployment: getDeploymentType(opt.Addr),
 		Database:   strconv.Itoa(opt.DB),
-		PromActive: &prometheusbp.HighWatermarkGauge{
-			HighWatermarkValue:   &prometheusbp.HighWatermarkValue{},
+		promActive: &prometheusbpint.HighWatermarkGauge{
+			HighWatermarkValue:   &prometheusbpint.HighWatermarkValue{},
 			CurrGauge:            redisprom.ActiveConnectionsDesc,
 			CurrGaugeLabelValues: []string{name},
 			MaxGauge:             redisprom.PeakActiveConnectionsDesc,
 			MaxGaugeLabelValues:  []string{name},
 		},
-	})
+	}
+	if err := prometheusbpint.GlobalRegistry.Register(hook.promActive); err != nil {
+		// Register should never fail because HighWatermarkGauge.Describe is a no-op,
+		// but just in case.
+		return nil
+	}
+
+	client := redis.NewClient(opt)
+	client.AddHook(hook)
 	redisprom.MaxSizeGauge.WithLabelValues(name).Set(float64(opt.PoolSize))
 
-	if err := prometheus.Register(exporter{
+	if err := prometheusbpint.GlobalRegistry.Register(exporter{
 		client: client,
 		name:   name,
 	}); err != nil {
-		// prometheus.Register should never fail because
-		// exporter.Describe is a no-op, but just in case.
+		// Register should never fail because exporter.Describe is a no-op,
+		// but just in case.
+		client.Close()
 		return nil
 	}
 
@@ -67,28 +75,36 @@ func NewMonitoredClient(name string, opt *redis.Options) *redis.Client {
 // NewMonitoredFailoverClient creates a new failover *redis.Client using Redis
 // Sentinel with a redisbp.SpanHook attached.
 func NewMonitoredFailoverClient(name string, opt *redis.FailoverOptions) *redis.Client {
-	client := redis.NewFailoverClient(opt)
-	client.AddHook(SpanHook{
+	hook := SpanHook{
 		ClientName: name,
 		Type:       "sentinel",
 		Deployment: getDeploymentType(opt.SentinelAddrs[0]),
 		Database:   strconv.Itoa(opt.DB),
-		PromActive: &prometheusbp.HighWatermarkGauge{
-			HighWatermarkValue:   &prometheusbp.HighWatermarkValue{},
+		promActive: &prometheusbpint.HighWatermarkGauge{
+			HighWatermarkValue:   &prometheusbpint.HighWatermarkValue{},
 			CurrGauge:            redisprom.ActiveConnectionsDesc,
 			CurrGaugeLabelValues: []string{name},
 			MaxGauge:             redisprom.PeakActiveConnectionsDesc,
 			MaxGaugeLabelValues:  []string{name},
 		},
-	})
+	}
+	if err := prometheusbpint.GlobalRegistry.Register(hook.promActive); err != nil {
+		// Register should never fail because HighWatermarkGauge.Describe is a no-op,
+		// but just in case.
+		return nil
+	}
+
+	client := redis.NewFailoverClient(opt)
+	client.AddHook(hook)
 	redisprom.MaxSizeGauge.WithLabelValues(name).Set(float64(opt.PoolSize))
 
-	if err := prometheus.Register(exporter{
+	if err := prometheusbpint.GlobalRegistry.Register(exporter{
 		client: client,
 		name:   name,
 	}); err != nil {
-		// prometheus.Register should never fail because
-		// exporter.Describe is a no-op, but just in case.
+		// Register should never fail because exporter.Describe is a no-op,
+		// but just in case.
+		client.Close()
 		return nil
 	}
 
@@ -134,28 +150,36 @@ func (cc *ClusterClient) Wait(ctx context.Context, args WaitArgs) (replicas int6
 // NewMonitoredClusterClient creates a new *redis.ClusterClient object with a
 // redisbp.SpanHook attached.
 func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *ClusterClient {
-	client := redis.NewClusterClient(opt)
-	client.AddHook(SpanHook{
+	hook := SpanHook{
 		ClientName: name,
 		Type:       "cluster",
 		Deployment: getDeploymentType(opt.Addrs[0]),
 		Database:   "", // We don't have that for cluster clients
-		PromActive: &prometheusbp.HighWatermarkGauge{
-			HighWatermarkValue:   &prometheusbp.HighWatermarkValue{},
+		promActive: &prometheusbpint.HighWatermarkGauge{
+			HighWatermarkValue:   &prometheusbpint.HighWatermarkValue{},
 			CurrGauge:            redisprom.ActiveConnectionsDesc,
 			CurrGaugeLabelValues: []string{name},
 			MaxGauge:             redisprom.PeakActiveConnectionsDesc,
 			MaxGaugeLabelValues:  []string{name},
 		},
-	})
+	}
+	if err := prometheusbpint.GlobalRegistry.Register(hook.promActive); err != nil {
+		// Register should never fail because HighWatermarkGauge.Describe is a no-op,
+		// but just in case.
+		return nil
+	}
+
+	client := redis.NewClusterClient(opt)
+	client.AddHook(hook)
 	redisprom.MaxSizeGauge.WithLabelValues(name).Set(float64(opt.PoolSize))
 
-	if err := prometheus.Register(exporter{
+	if err := prometheusbpint.GlobalRegistry.Register(exporter{
 		client: client,
 		name:   name,
 	}); err != nil {
-		// prometheus.Register should never fail because
-		// exporter.Describe is a no-op, but just in case.
+		// Register should never fail because exporter.Describe is a no-op,
+		// but just in case.
+		client.Close()
 		return nil
 	}
 
