@@ -5,26 +5,32 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 
-	"gopkg.in/fsnotify.v1"
+	"github.com/fsnotify/fsnotify"
 
 	"github.com/reddit/baseplate.go/internal/limitopen"
 	"github.com/reddit/baseplate.go/log"
 )
 
+// DefaultFSEventsDelay is the default FSEventsDelay used when creating a new
+// FileWatcher.
+const DefaultFSEventsDelay = 1 * time.Second
+
 // DefaultPollingInterval is the default PollingInterval used when creating a
-// new file watcher.
+// new FileWatcher.
 const DefaultPollingInterval = 30 * time.Second
 
-// FileWatcher loads and parses data from a file and watches for changes to that
-// file in order to refresh it's stored data.
+// FileWatcher loads and parses data from a file or directory, and watches for
+// changes in order to refresh its stored data.
 type FileWatcher interface {
 	// Get returns the latest, parsed data from the FileWatcher.
-	Get() interface{}
+	Get() any
 
 	// Stop stops the FileWatcher.
 	//
@@ -37,7 +43,7 @@ type FileWatcher interface {
 }
 
 // InitialReadInterval is the interval to keep retrying to open the file when
-// creating a new file watcher, when the file was not initially available.
+// creating a new FileWatcher, when the file was not initially available.
 //
 // It's intentionally defined as a variable instead of constant, so that the
 // caller can tweak its value when needed.
@@ -56,7 +62,29 @@ const (
 //
 // Please note that Parser should always return the consistent type.
 // Inconsistent type will cause panic, as does returning nil data and nil error.
-type Parser func(f io.Reader) (data interface{}, err error)
+type Parser func(f io.Reader) (data any, err error)
+
+// A DirParser is a callback function that will be called when the watched
+// directory has its content changed or is read for the first time.
+//
+// Please note that a DirParser must return a consistent type.
+// Inconsistent types will cause a panic,
+// as does returning nil data and nil error.
+//
+// Use WrapDirParser to wrap it into a Parser to be used with FileWatcher.
+type DirParser func(dir fs.FS) (data any, err error)
+
+// WrapDirParser wraps a DirParser for a directory to a Parser.
+//
+// When using FileWatcher to watch a directory instead of a single file,
+// you MUST use WrapDirParser instead of any other Parser implementations.
+func WrapDirParser(dp DirParser) Parser {
+	return func(r io.Reader) (data any, err error) {
+		path := string(r.(fakeDirectoryReader))
+		dir := os.DirFS(path)
+		return dp(dir)
+	}
+}
 
 // Result is the return type of New. Use Get function to get the actual data.
 type Result struct {
@@ -66,17 +94,15 @@ type Result struct {
 	cancel context.CancelFunc
 }
 
-// Get returns the latest parsed data from the file watcher.
+// Get returns the latest parsed data from the FileWatcher.
 //
-// It might also call Parser if the file is changed from the latest parsed data.
-//
-// Although the type is interface{},
+// Although the type is any,
 // it's guaranteed to be whatever actual type is implemented inside Parser.
-func (r *Result) Get() interface{} {
+func (r *Result) Get() any {
 	return r.data.Load().(*atomicData).data
 }
 
-// Stop stops the file watcher.
+// Stop stops the FileWatcher.
 //
 // After Stop is called you won't get any updates on the file content,
 // but you can still call Get to get the last content before stopping.
@@ -102,22 +128,36 @@ func (r *Result) watcherLoop(
 	softLimit, hardLimit int64,
 	logger log.Wrapper,
 	pollingInterval time.Duration,
+	fsEventsDelay time.Duration,
 ) {
-	forceReload := func(mtime time.Time) {
-		f, err := limitopen.OpenWithLimit(path, softLimit, hardLimit)
+	var lock sync.Mutex
+	forceReload := func() {
+		// make sure we don't run forceReload concurrently
+		lock.Lock()
+		defer lock.Unlock()
+
+		d, mtime, files, err := openAndParse(path, parser, softLimit, hardLimit)
 		if err != nil {
-			logger.Log(context.Background(), "filewatcher: I/O error: "+err.Error())
-			return
-		}
-		defer f.Close()
-		d, err := parser(f)
-		if err != nil {
-			logger.Log(context.Background(), "filewatcher: parser error: "+err.Error())
+			logger.Log(context.Background(), err.Error())
 		} else {
 			r.data.Store(&atomicData{
 				data:  d,
 				mtime: mtime,
 			})
+			// remove all previously watched files
+			for _, path := range watcher.WatchList() {
+				watcher.Remove(path)
+			}
+			// then read all new files to watch
+			for _, path := range files {
+				if err := watcher.Add(path); err != nil {
+					logger.Log(context.Background(), fmt.Sprintf(
+						"filewatcher: failed to watch file %q: %v",
+						path,
+						err,
+					))
+				}
+			}
 		}
 	}
 
@@ -132,17 +172,17 @@ func (r *Result) watcherLoop(
 			return
 		}
 		if r.data.Load().(*atomicData).mtime.Before(mtime) {
-			forceReload(mtime)
+			forceReload()
 		}
 	}
 
-	file := filepath.Base(path)
 	var tickerChan <-chan time.Time
 	if pollingInterval > 0 {
 		ticker := time.NewTicker(pollingInterval)
 		defer ticker.Stop()
 		tickerChan = ticker.C
 	}
+	var timer *time.Timer
 	for {
 		select {
 		case <-r.ctx.Done():
@@ -161,24 +201,18 @@ func (r *Result) watcherLoop(
 				continue
 			}
 
-			if filepath.Base(ev.Name) != file {
-				continue
-			}
-
 			switch ev.Op {
 			default:
 				// Ignore uninterested events.
-			case fsnotify.Create, fsnotify.Write:
-				mtime, err := getMtime(path)
-				if err != nil {
-					logger.Log(context.Background(), fmt.Sprintf(
-						"filewatcher: failed to get mtime for %q: %v",
-						path,
-						err,
-					))
-					continue
+			case fsnotify.Create, fsnotify.Write, fsnotify.Rename, fsnotify.Remove:
+				// Use fsEventDelay to avoid calling forceReload repetively when a burst
+				// of fs events happens (for example, when multiple files within the
+				// directory changed).
+				if timer == nil {
+					timer = time.AfterFunc(fsEventsDelay, forceReload)
+				} else {
+					timer.Reset(fsEventsDelay)
 				}
-				forceReload(mtime)
 			}
 
 		case <-tickerChan:
@@ -198,7 +232,7 @@ func (r *Result) watcherLoop(
 // The actual data held in Result.data.
 type atomicData struct {
 	// actual parsed data
-	data interface{}
+	data any
 
 	// other metadata
 	mtime time.Time
@@ -249,9 +283,66 @@ type Config struct {
 	// the parent directory will be remount upon change
 	// (for example, k8s ConfigMap).
 	PollingInterval time.Duration `yaml:"pollingInterval"`
+
+	// Optional, the delay between receiving the fs events and actually reading
+	// and parsing the changes.
+	//
+	// It's used to avoid short bursts of fs events (for example, when watching a
+	// directory) causing reading and parsing repetively.
+	//
+	// Defaut to DefaultFSEventsDelay.
+	FSEventsDelay time.Duration `yaml:"fsEventsDelay"`
 }
 
-// New creates a new file watcher.
+type fakeDirectoryReader string
+
+func (fakeDirectoryReader) Read([]byte) (int, error) {
+	return 0, errors.New("filewatcher: you are most likely watching a directory without using DirParser")
+}
+
+func openAndParse(path string, parser Parser, limit, hardLimit int64) (data any, mtime time.Time, files []string, _ error) {
+	stats, err := os.Stat(path)
+	if err != nil {
+		return nil, time.Time{}, nil, fmt.Errorf("filewatcher: i/o error: %w", err)
+	}
+	mtime = stats.ModTime()
+	files = []string{
+		// Note: We need to also watch the parent directory,
+		// because only watching the file won't give us CREATE events,
+		// which will happen with atomic renames.
+		filepath.Dir(path),
+		path,
+	}
+
+	var reader io.Reader
+	if stats.IsDir() {
+		reader = fakeDirectoryReader(path)
+		if err := filepath.Walk(path, func(p string, _ fs.FileInfo, err error) error {
+			if err == nil {
+				files = append(files, p)
+			}
+			return nil
+		}); err != nil {
+			return nil, time.Time{}, nil, fmt.Errorf("filewatcher: i/o error: %w", err)
+		}
+	} else {
+		// file
+		f, err := limitopen.OpenWithLimit(path, limit, hardLimit)
+		if err != nil {
+			return nil, time.Time{}, nil, fmt.Errorf("filewatcher: i/o error: %w", err)
+		}
+		defer f.Close()
+		reader = f
+	}
+
+	d, err := parser(reader)
+	if err != nil {
+		return nil, time.Time{}, nil, fmt.Errorf("filewatcher: parser error: %w", err)
+	}
+	return d, mtime, files, nil
+}
+
+// New creates a new FileWatcher.
 //
 // If the path is not available at the time of calling,
 // it blocks until the file becomes available, or context is cancelled,
@@ -268,8 +359,9 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 	}
 	hardLimit := limit * HardLimitMultiplier
 
-	var f io.ReadCloser
+	var data any
 	var mtime time.Time
+	var files []string
 
 	for {
 		select {
@@ -279,7 +371,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		}
 
 		var err error
-		f, err = limitopen.OpenWithLimit(cfg.Path, limit, hardLimit)
+		data, mtime, files, err = openAndParse(cfg.Path, cfg.Parser, limit, hardLimit)
 		if errors.Is(err, os.ErrNotExist) {
 			time.Sleep(InitialReadInterval)
 			continue
@@ -287,43 +379,35 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer f.Close()
-
-		mtime, err = getMtime(cfg.Path)
-		if err != nil {
-			return nil, err
-		}
 		break
 	}
 
-	var watcher *fsnotify.Watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
-	// Note: We need to watch the parent directory instead of the file itself,
-	// because only watching the file won't give us CREATE events,
-	// which will happen with atomic renames.
-	err = watcher.Add(filepath.Dir(cfg.Path))
-	if err != nil {
-		return nil, err
+	for _, path := range files {
+		if err := watcher.Add(path); err != nil {
+			return nil, fmt.Errorf(
+				"filewatcher: failed to watch %q: %w",
+				path,
+				err,
+			)
+		}
 	}
 
-	var d interface{}
-	d, err = cfg.Parser(f)
-	if err != nil {
-		watcher.Close()
-		return nil, err
-	}
 	res := new(Result)
 	res.data.Store(&atomicData{
-		data:  d,
+		data:  data,
 		mtime: mtime,
 	})
 	res.ctx, res.cancel = context.WithCancel(context.Background())
 
 	if cfg.PollingInterval == 0 {
 		cfg.PollingInterval = DefaultPollingInterval
+	}
+	if cfg.FSEventsDelay <= 0 {
+		cfg.FSEventsDelay = DefaultFSEventsDelay
 	}
 	go res.watcherLoop(
 		watcher,
@@ -333,6 +417,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		hardLimit,
 		cfg.Logger,
 		cfg.PollingInterval,
+		cfg.FSEventsDelay,
 	)
 
 	return res, nil
@@ -358,7 +443,7 @@ type MockFileWatcher struct {
 }
 
 // Update updates the data of the MockFileWatcher using the given io.Reader and
-// the Parser used to initialize the file watcher.
+// the Parser used to initialize the FileWatcher.
 //
 // This method is not threadsafe.
 func (fw *MockFileWatcher) Update(r io.Reader) error {
@@ -371,11 +456,51 @@ func (fw *MockFileWatcher) Update(r io.Reader) error {
 }
 
 // Get returns the parsed data.
-func (fw *MockFileWatcher) Get() interface{} {
+func (fw *MockFileWatcher) Get() any {
 	return fw.data.Load()
 }
 
 // Stop is a no-op.
 func (fw *MockFileWatcher) Stop() {}
 
-var _ FileWatcher = (*MockFileWatcher)(nil)
+// MockDirWatcher is an implementation of FileWatcher for testing with watching
+// directories.
+type MockDirWatcher struct {
+	data   atomic.Value
+	parser DirParser
+}
+
+// NewMockDirWatcher creates a MockDirWatcher with the initial data and the
+// given DirParser.
+//
+// It provides Update function to update the data after it's been created.
+func NewMockDirWatcher(dir fs.FS, parser DirParser) (*MockDirWatcher, error) {
+	dw := &MockDirWatcher{parser: parser}
+	if err := dw.Update(dir); err != nil {
+		return nil, err
+	}
+	return dw, nil
+}
+
+// Update updates the data stored in this MockDirWatcher.
+func (dw *MockDirWatcher) Update(dir fs.FS) error {
+	data, err := dw.parser(dir)
+	if err != nil {
+		return err
+	}
+	dw.data.Store(data)
+	return nil
+}
+
+// Get implements FileWatcher by returning the last updated data.
+func (dw *MockDirWatcher) Get() any {
+	return dw.data.Load()
+}
+
+// Stop is a no-op.
+func (dw *MockDirWatcher) Stop() {}
+
+var (
+	_ FileWatcher = (*MockFileWatcher)(nil)
+	_ FileWatcher = (*MockDirWatcher)(nil)
+)
