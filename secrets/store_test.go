@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
 )
@@ -256,7 +257,7 @@ func TestSecretFileIsUpdated(t *testing.T) {
 	if err := os.Rename(tmpPath2, tmpPath); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(100*time.Millisecond + filewatcher.DefaultFSEventsDelay)
 
 	secret, err = store.GetSimpleSecret("secret/myservice/some-api-key")
 	if err != nil {

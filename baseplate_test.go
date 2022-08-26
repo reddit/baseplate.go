@@ -193,8 +193,8 @@ func TestServeStopDelay(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p.Signal(os.Interrupt)
 	before := time.Now()
+	p.Signal(os.Interrupt)
 	<-ch
 	duration := time.Since(before)
 

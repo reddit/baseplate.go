@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,9 +14,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
 )
+
+const fsEventsDelayForTests = 10 * time.Millisecond
 
 func parser(f io.Reader) (interface{}, error) {
 	return io.ReadAll(f)
@@ -72,13 +78,18 @@ func TestFileWatcher(t *testing.T) {
 		},
 	} {
 		t.Run(c.label, func(t *testing.T) {
-			interval := time.Millisecond
+			interval := fsEventsDelayForTests
+			backupInitialReadInterval := filewatcher.InitialReadInterval
+			t.Cleanup(func() {
+				filewatcher.InitialReadInterval = backupInitialReadInterval
+			})
 			filewatcher.InitialReadInterval = interval
 			writeDelay := interval * 10
 			timeout := writeDelay * 20
 
 			payload1 := []byte("Hello, world!")
 			payload2 := []byte("Bye, world!")
+			payload3 := []byte("Hello, world, again!")
 
 			dir := t.TempDir()
 			path := filepath.Join(dir, "foo")
@@ -98,6 +109,7 @@ func TestFileWatcher(t *testing.T) {
 					Parser:          parser,
 					Logger:          log.TestWrapper(t),
 					PollingInterval: c.interval,
+					FSEventsDelay:   fsEventsDelayForTests,
 				},
 			)
 			if err != nil {
@@ -110,12 +122,21 @@ func TestFileWatcher(t *testing.T) {
 			// Give it some time to handle the file content change
 			time.Sleep(500 * time.Millisecond)
 			compareBytesData(t, data.Get(), payload2)
+
+			writeFile(t, path, payload3)
+			// Give it some time to handle the file content change
+			time.Sleep(500 * time.Millisecond)
+			compareBytesData(t, data.Get(), payload3)
 		})
 	}
 }
 
 func TestFileWatcherTimeout(t *testing.T) {
-	interval := time.Millisecond
+	interval := fsEventsDelayForTests
+	backupInitialReadInterval := filewatcher.InitialReadInterval
+	t.Cleanup(func() {
+		filewatcher.InitialReadInterval = backupInitialReadInterval
+	})
 	filewatcher.InitialReadInterval = interval
 	round := interval * 20
 	timeout := round * 4
@@ -129,9 +150,10 @@ func TestFileWatcherTimeout(t *testing.T) {
 	_, err := filewatcher.New(
 		ctx,
 		filewatcher.Config{
-			Path:   path,
-			Parser: parser,
-			Logger: log.TestWrapper(t),
+			Path:          path,
+			Parser:        parser,
+			Logger:        log.TestWrapper(t),
+			FSEventsDelay: fsEventsDelayForTests,
 		},
 	)
 	if err == nil {
@@ -146,7 +168,11 @@ func TestFileWatcherTimeout(t *testing.T) {
 }
 
 func TestFileWatcherRename(t *testing.T) {
-	interval := time.Millisecond
+	interval := fsEventsDelayForTests
+	backupInitialReadInterval := filewatcher.InitialReadInterval
+	t.Cleanup(func() {
+		filewatcher.InitialReadInterval = backupInitialReadInterval
+	})
 	filewatcher.InitialReadInterval = interval
 	writeDelay := interval * 10
 	timeout := writeDelay * 20
@@ -172,6 +198,7 @@ func TestFileWatcherRename(t *testing.T) {
 			Parser:          parser,
 			Logger:          log.TestWrapper(t),
 			PollingInterval: writeDelay,
+			FSEventsDelay:   fsEventsDelayForTests,
 		},
 	)
 	if err != nil {
@@ -222,6 +249,7 @@ func TestParserFailure(t *testing.T) {
 			Parser:          parser,
 			Logger:          logger,
 			PollingInterval: -1, // disable polling as we need exact numbers of parser calls in this test
+			FSEventsDelay:   fsEventsDelayForTests,
 		},
 	)
 	if err != nil {
@@ -264,6 +292,124 @@ func TestParserFailure(t *testing.T) {
 	}
 }
 
+func updateDirWithContents(tb testing.TB, dst string, contents map[string]string) {
+	tb.Helper()
+
+	root := tb.TempDir()
+	dir := filepath.Join(root, "dir")
+
+	if err := os.Mkdir(dir, 0777); err != nil {
+		tb.Fatalf("Failed to create directory %q: %v", dir, err)
+	}
+	for p, content := range contents {
+		path := filepath.Join(dir, p)
+		parent := filepath.Dir(path)
+		if err := os.Mkdir(parent, 0777); err != nil && !os.IsExist(err) {
+			tb.Fatalf("Failed to create directory %q for %q: %v", parent, path, err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0666); err != nil {
+			tb.Fatalf("Failed to write file %q: %v", path, err)
+		}
+	}
+	if err := os.RemoveAll(dst); err != nil && !os.IsNotExist(err) {
+		tb.Fatalf("Failed to remove %q: %v", dst, err)
+	}
+	if err := os.Rename(dir, dst); err != nil {
+		tb.Fatalf("Failed to rename from %q to %q: %v", dir, dst, err)
+	}
+}
+
+func TestFileWatcherDir(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "dir")
+	if err := os.Mkdir(dir, 0777); err != nil {
+		t.Fatalf("Failed to create directory %q: %v", dir, err)
+	}
+	var parserCalled int64
+	parser := filewatcher.DirParser(func(dir fs.FS) (any, error) {
+		atomic.AddInt64(&parserCalled, 1)
+		m := make(map[string]string)
+		if err := fs.WalkDir(dir, ".", func(path string, de fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			if de.IsDir() {
+				return nil
+			}
+			f, err := dir.Open(path)
+			if err != nil {
+				return fmt.Errorf("failed to open %q: %w", path, err)
+			}
+			defer f.Close()
+			content, err := io.ReadAll(f)
+			if err != nil {
+				return fmt.Errorf("failed to read %q: %w", path, err)
+			}
+			m[path] = string(content)
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+		return m, nil
+	})
+
+	content1 := map[string]string{
+		"foo":      "hello, world!",
+		"bar/fizz": "bye, world!",
+	}
+	updateDirWithContents(t, dir, content1)
+	data, err := filewatcher.New(
+		context.Background(),
+		filewatcher.Config{
+			Path:            dir,
+			Parser:          filewatcher.WrapDirParser(parser),
+			Logger:          log.TestWrapper(t),
+			PollingInterval: -1, // disable polling
+			FSEventsDelay:   fsEventsDelayForTests,
+		},
+	)
+	if err != nil {
+		t.Fatalf("Failed to create filewatcher: %v", err)
+	}
+	t.Cleanup(data.Stop)
+
+	got := data.Get().(map[string]string)
+	if diff := cmp.Diff(got, content1); diff != "" {
+		t.Errorf("unexpected result (-got, +want):\n%s", diff)
+	}
+	if got, want := atomic.LoadInt64(&parserCalled), int64(1); got != want {
+		t.Errorf("Got %d parser called, want %d", got, want)
+	}
+
+	content2 := map[string]string{
+		"foo/buzz": "hello, world!",
+		"bar":      "bye, world!",
+	}
+	updateDirWithContents(t, dir, content2)
+	time.Sleep(fsEventsDelayForTests * 5)
+	got = data.Get().(map[string]string)
+	if diff := cmp.Diff(got, content2); diff != "" {
+		t.Errorf("unexpected result (-got, +want):\n%s", diff)
+	}
+	if got, want := atomic.LoadInt64(&parserCalled), int64(2); got != want {
+		t.Errorf("Got %d parser called, want %d", got, want)
+	}
+
+	content3 := map[string]string{
+		"foo": "hello, world!",
+		"bar": "bye, world!",
+	}
+	updateDirWithContents(t, dir, content3)
+	time.Sleep(fsEventsDelayForTests * 5)
+	got = data.Get().(map[string]string)
+	if diff := cmp.Diff(got, content3); diff != "" {
+		t.Errorf("unexpected result (-got, +want):\n%s", diff)
+	}
+	if got, want := atomic.LoadInt64(&parserCalled), int64(3); got != want {
+		t.Errorf("Got %d parser called, want %d", got, want)
+	}
+}
+
 func limitedParser(t *testing.T, expectedSize int64) filewatcher.Parser {
 	return func(f io.Reader) (interface{}, error) {
 		var buf bytes.Buffer
@@ -301,7 +447,11 @@ func (w *logWrapper) getCalled() int64 {
 }
 
 func TestParserSizeLimit(t *testing.T) {
-	interval := time.Millisecond
+	interval := fsEventsDelayForTests
+	backupInitialReadInterval := filewatcher.InitialReadInterval
+	t.Cleanup(func() {
+		filewatcher.InitialReadInterval = backupInitialReadInterval
+	})
 	filewatcher.InitialReadInterval = interval
 	writeDelay := interval * 10
 	timeout := writeDelay * 20
@@ -336,6 +486,7 @@ func TestParserSizeLimit(t *testing.T) {
 			Logger:          wrapper.wrapper(t),
 			MaxFileSize:     limit,
 			PollingInterval: writeDelay,
+			FSEventsDelay:   fsEventsDelayForTests,
 		},
 	)
 	if err != nil {
