@@ -85,7 +85,7 @@ func BenchmarkAtomics(b *testing.B) {
 			b.Fatalf("this is just to avoid eliding the call")
 		}
 	})
-	/* If you have a go1.18 compiler, you can throw this one in for fun:
+	/* If you have go1.19 with the new atomic APIs, you can throw this one in for fun:
 	b.Run("atomicPointer", func(b *testing.B) {
 		var global atomic.Pointer[Interface]
 		var impl Interface = nop{}
