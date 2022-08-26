@@ -6,6 +6,10 @@ import (
 	"testing"
 )
 
+func TestGlobal_doesntPanic(t *testing.T) {
+	Get()
+}
+
 func BenchmarkAtomics(b *testing.B) {
 	// Example results:
 	//

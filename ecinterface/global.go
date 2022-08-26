@@ -60,14 +60,13 @@ func Set(impl Interface) {
 //
 // - Its ContextToHeader always return ("", false).
 func Get() Interface {
-	impl := global.Load().(current).Interface
-	if impl == nil {
+	stored := global.Load()
+	if stored == nil {
 		Logger.Log(context.Background(), ErrGetBeforeSet.Error())
 		getBeforeSet.Inc()
 		return nopImpl
 	}
-
-	return impl
+	return stored.(current).Interface
 }
 
 type nop struct{}
