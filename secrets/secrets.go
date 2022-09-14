@@ -1,11 +1,11 @@
 package secrets
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
-	"os"
 
 	"github.com/reddit/baseplate.go/errorsbp"
 )
@@ -338,12 +338,13 @@ func csiPathParser(dir fs.FS) (Document, error) {
 				return nil
 			}
 			// parse file
-			file, err := os.Open(path)
+			file, err := fs.ReadFile(dir, path)
 			if err != nil {
 				return err
 			}
+			reader := bytes.NewReader(file)
 			var secretFile CSIFile
-			err = json.NewDecoder(file).Decode(&secretFile)
+			err = json.NewDecoder(reader).Decode(&secretFile)
 			if err != nil {
 				return err
 			}
