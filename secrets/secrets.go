@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
+	"os"
 
 	"github.com/reddit/baseplate.go/errorsbp"
 )
@@ -26,6 +28,11 @@ type Secret []byte
 // IsEmpty returns true if the secret is empty.
 func (s Secret) IsEmpty() bool {
 	return len(s) == 0
+}
+
+// CSIFile represent the raw parsed object of a file made by the Vault CSI provider
+type CSIFile struct {
+	Secret GenericSecret `json:"data"`
 }
 
 // Secrets allows to access secrets based on their different type.
@@ -258,15 +265,32 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 		return nil, err
 	}
 
-	err = secretsDocument.Validate()
+	return secretsValidate(secretsDocument)
+}
+
+// NewDirSecrets parses a directory and returns its secrets
+func NewDirSecrets(dir fs.FS) (*Secrets, error) {
+	secretsDocument := Document{
+		Secrets: make(map[string]GenericSecret),
+	}
+	secretsDocument, err := csiPathParser(dir)
 	if err != nil {
 		return nil, err
 	}
+	return secretsValidate(secretsDocument)
+
+}
+
+func secretsValidate(secretsDocument Document) (*Secrets, error) {
 	secrets := &Secrets{
 		simpleSecrets:     make(map[string]SimpleSecret),
 		versionedSecrets:  make(map[string]VersionedSecret),
 		credentialSecrets: make(map[string]CredentialSecret),
 		vault:             secretsDocument.Vault,
+	}
+	err := secretsDocument.Validate()
+	if err != nil {
+		return nil, err
 	}
 	for key, secret := range secretsDocument.Secrets {
 		switch secret.Type {
@@ -297,4 +321,35 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 		}
 	}
 	return secrets, nil
+}
+
+func csiPathParser(dir fs.FS) (Document, error) {
+	secretsDocument := Document{
+		Secrets: make(map[string]GenericSecret),
+	}
+	err := fs.WalkDir(
+		dir,
+		".",
+		func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
+			// parse file
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			var secretFile CSIFile
+			err = json.NewDecoder(file).Decode(&secretFile)
+			if err != nil {
+				return err
+			}
+			secretsDocument.Secrets[path] = secretFile.Secret
+			return nil
+		},
+	)
+	return secretsDocument, err
 }
