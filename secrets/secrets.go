@@ -1,7 +1,6 @@
 package secrets
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -337,14 +336,14 @@ func csiPathParser(dir fs.FS) (Document, error) {
 			if d.IsDir() {
 				return nil
 			}
-			// parse file
-			file, err := fs.ReadFile(dir, path)
+			file, err := dir.Open(path)
 			if err != nil {
 				return err
 			}
-			reader := bytes.NewReader(file)
+			defer file.Close()
+
 			var secretFile CSIFile
-			err = json.NewDecoder(reader).Decode(&secretFile)
+			err = json.NewDecoder(file).Decode(&secretFile)
 			if err != nil {
 				return err
 			}
