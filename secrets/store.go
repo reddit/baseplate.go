@@ -43,13 +43,13 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares 
 	store := &Store{
 		secretHandlerFunc: nopSecretHandlerFunc,
 	}
-	parser := store.parser
 	store.secretHandler(middlewares...)
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
 
+	parser := store.parser
 	if fileInfo.IsDir() {
 		parser = filewatcher.WrapDirParser(store.dirParser)
 	}
