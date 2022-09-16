@@ -267,12 +267,12 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 	return secretsValidate(secretsDocument)
 }
 
-// NewDirSecrets parses a directory and returns its secrets
-func NewDirSecrets(dir fs.FS) (*Secrets, error) {
+// FromDir parses a directory and returns its secrets
+func FromDir(dir fs.FS) (*Secrets, error) {
 	secretsDocument := Document{
 		Secrets: make(map[string]GenericSecret),
 	}
-	secretsDocument, err := csiPathParser(dir)
+	secretsDocument, err := walkCSIDirectory(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +321,8 @@ func secretsValidate(secretsDocument Document) (*Secrets, error) {
 	return secrets, nil
 }
 
-func csiPathParser(dir fs.FS) (Document, error) {
+// walkCSIDirectory parses a directory for vault secrets and merges them into one object
+func walkCSIDirectory(dir fs.FS) (Document, error) {
 	secretsDocument := Document{
 		Secrets: make(map[string]GenericSecret),
 	}
@@ -344,11 +345,14 @@ func csiPathParser(dir fs.FS) (Document, error) {
 			var secretFile CSIFile
 			err = json.NewDecoder(file).Decode(&secretFile)
 			if err != nil {
-				return err
+				return fmt.Errorf("decoding %q: %w", path, err)
 			}
 			secretsDocument.Secrets[path] = secretFile.Secret
 			return nil
 		},
 	)
-	return secretsDocument, err
+	if err != nil {
+		return Document{}, fmt.Errorf("Error during walkCSIDirectory: %w", err)
+	}
+	return secretsDocument, nil
 }

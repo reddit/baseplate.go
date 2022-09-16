@@ -82,7 +82,7 @@ func (s *Store) parser(r io.Reader) (any, error) {
 }
 
 func (s *Store) dirParser(dir fs.FS) (any, error) {
-	secrets, err := NewDirSecrets(dir)
+	secrets, err := FromDir(dir)
 	if err != nil {
 		return nil, err
 	}
