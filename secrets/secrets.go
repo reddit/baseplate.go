@@ -29,7 +29,7 @@ func (s Secret) IsEmpty() bool {
 	return len(s) == 0
 }
 
-// CSIFile represent the raw parsed object of a file made by the Vault CSI provider
+// CSIFile represents the raw parsed object of a file made by the Vault CSI provider
 type CSIFile struct {
 	Secret GenericSecret `json:"data"`
 }
@@ -287,8 +287,7 @@ func secretsValidate(secretsDocument Document) (*Secrets, error) {
 		credentialSecrets: make(map[string]CredentialSecret),
 		vault:             secretsDocument.Vault,
 	}
-	err := secretsDocument.Validate()
-	if err != nil {
+	if err := secretsDocument.Validate(); err != nil {
 		return nil, err
 	}
 	for key, secret := range secretsDocument.Secrets {
