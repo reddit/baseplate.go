@@ -91,7 +91,6 @@ func TestGetSimpleSecret(t *testing.T) {
 	if err := os.Mkdir(dirCSI+"/secret", 0777); err != nil {
 		t.Fatal(err)
 	}
-	dirPath := dirCSI + "/secret"
 	if err := os.Mkdir(dirCSI+"/secret/myservice", 0777); err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +154,7 @@ func TestGetSimpleSecret(t *testing.T) {
 		t.Run(
 			tt.name,
 			func(t *testing.T) {
-				store, err := secrets.NewStore(context.Background(), dirPath, log.TestWrapper(t))
+				store, err := secrets.NewStore(context.Background(), dirCSI, log.TestWrapper(t))
 				if err != nil {
 					t.Fatal(err)
 				}
