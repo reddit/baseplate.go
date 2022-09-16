@@ -131,44 +131,28 @@ func TestGetSimpleSecret(t *testing.T) {
 		t.Run(
 			tt.name,
 			func(t *testing.T) {
-				store, err := secrets.NewStore(context.Background(), tmpPath, log.TestWrapper(t))
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer store.Close()
+				for label, path := range map[string]string{
+					"file": tmpPath,
+					"dir":  dirCSI,
+				} {
+					t.Run(label, func(t *testing.T) {
+						store, err := secrets.NewStore(context.Background(), path, log.TestWrapper(t))
+						if err != nil {
+							t.Fatal(err)
+						}
+						t.Cleanup(func() { store.Close() })
 
-				secret, err := store.GetSimpleSecret(tt.key)
-				if tt.expectedError == nil && err != nil {
-					t.Fatal(err)
-				}
-				if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
-					t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
-				}
-				if !reflect.DeepEqual(secret, tt.expected) {
-					t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
-				}
-			},
-		)
-	}
-	for _, tt := range tests {
-		t.Run(
-			tt.name,
-			func(t *testing.T) {
-				store, err := secrets.NewStore(context.Background(), dirCSI, log.TestWrapper(t))
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer store.Close()
-
-				secret, err := store.GetSimpleSecret(tt.key)
-				if tt.expectedError == nil && err != nil {
-					t.Fatal(err)
-				}
-				if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
-					t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
-				}
-				if !reflect.DeepEqual(secret, tt.expected) {
-					t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
+						secret, err := store.GetSimpleSecret(tt.key)
+						if tt.expectedError == nil && err != nil {
+							t.Fatal(err)
+						}
+						if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
+							t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
+						}
+						if !reflect.DeepEqual(secret, tt.expected) {
+							t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
+						}
+					})
 				}
 			},
 		)
