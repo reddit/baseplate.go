@@ -262,7 +262,6 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 				methodLabel:     tt.method,
 				typeLabel:       unary,
 				successLabel:    tt.success,
-				serverSlugLabel: serverSlug,
 				clientNameLabel: serverSlug,
 			}
 
@@ -271,7 +270,6 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 				methodLabel:     tt.method,
 				typeLabel:       unary,
 				successLabel:    tt.success,
-				serverSlugLabel: serverSlug,
 				clientNameLabel: serverSlug,
 				codeLabel:       tt.code,
 			}
@@ -279,7 +277,6 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 			clientActiveRequestLabels := prometheus.Labels{
 				serviceLabel:    serviceName,
 				methodLabel:     tt.method,
-				serverSlugLabel: serverSlug,
 				clientNameLabel: serverSlug,
 			}
 

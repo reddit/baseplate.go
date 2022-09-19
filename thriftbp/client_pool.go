@@ -490,7 +490,6 @@ func newClientPool(
 
 	// Register the error prometheus counters so they can be monitored
 	labels := prometheus.Labels{
-		serverSlugLabel: cfg.ServiceSlug,
 		clientNameLabel: cfg.ServiceSlug,
 	}
 	clientPoolExhaustedCounter.With(labels)
@@ -595,7 +594,6 @@ func (p *clientPool) pooledCall(ctx context.Context, method string, args, result
 		if shouldCloseConnection(err) {
 			p.poolClosedConnectionsCounter.Add(1)
 			clientPoolClosedConnectionsCounter.With(prometheus.Labels{
-				serverSlugLabel: p.slug,
 				clientNameLabel: p.slug,
 			}).Inc()
 			if e := client.Close(); e != nil {
@@ -619,7 +617,6 @@ func (p *clientPool) getClient() (Client, error) {
 		if errors.Is(err, clientpool.ErrExhausted) {
 			p.poolExhaustedCounter.Add(1)
 			clientPoolExhaustedCounter.With(prometheus.Labels{
-				serverSlugLabel: p.slug,
 				clientNameLabel: p.slug,
 			}).Inc()
 		}
@@ -642,7 +639,6 @@ func (p *clientPool) releaseClient(c Client) {
 		)
 		p.releaseErrorCounter.Add(1)
 		clientPoolReleaseErrorCounter.With(prometheus.Labels{
-			serverSlugLabel: p.slug,
 			clientNameLabel: p.slug,
 		}).Inc()
 	}

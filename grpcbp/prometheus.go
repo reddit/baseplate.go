@@ -16,7 +16,6 @@ const (
 	typeLabel       = "grpc_type"
 	successLabel    = "grpc_success"
 	codeLabel       = "grpc_code"
-	serverSlugLabel = "grpc_slug" // Deprecated, will be removed after 2022-09-01
 	clientNameLabel = "grpc_client_name"
 )
 
@@ -70,7 +69,6 @@ var (
 		methodLabel,
 		typeLabel,
 		successLabel,
-		serverSlugLabel,
 		clientNameLabel,
 	}
 
@@ -86,7 +84,6 @@ var (
 		typeLabel,
 		successLabel,
 		codeLabel,
-		serverSlugLabel,
 		clientNameLabel,
 	}
 
@@ -98,7 +95,6 @@ var (
 	clientActiveRequestsLabels = []string{
 		serviceLabel,
 		methodLabel,
-		serverSlugLabel,
 		clientNameLabel,
 	}
 

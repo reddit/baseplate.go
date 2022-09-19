@@ -20,7 +20,6 @@ const (
 	exceptionLabel           = "thrift_exception_type"
 	baseplateStatusLabel     = "thrift_baseplate_status"
 	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
-	serverSlugLabel          = "thrift_slug" // Deprecated, will be removed after 2022-09-01
 	clientNameLabel          = "thrift_client_name"
 )
 
@@ -63,7 +62,6 @@ var (
 	clientLatencyLabels = []string{
 		methodLabel,
 		successLabel,
-		serverSlugLabel,
 		clientNameLabel,
 	}
 
@@ -79,7 +77,6 @@ var (
 		exceptionLabel,
 		baseplateStatusLabel,
 		baseplateStatusCodeLabel,
-		serverSlugLabel,
 		clientNameLabel,
 	}
 
@@ -90,7 +87,6 @@ var (
 
 	clientActiveRequestsLabels = []string{
 		methodLabel,
-		serverSlugLabel,
 		clientNameLabel,
 	}
 
@@ -121,7 +117,6 @@ var (
 
 var (
 	ttlClientReplaceLabels = []string{
-		serverSlugLabel,
 		clientNameLabel,
 		successLabel,
 	}
@@ -182,7 +177,6 @@ var (
 
 var (
 	clientPoolLabels = []string{
-		serverSlugLabel,
 		clientNameLabel,
 	}
 
@@ -258,13 +252,11 @@ func (e clientPoolGaugeExporter) Collect(ch chan<- prometheus.Metric) {
 		prometheus.GaugeValue,
 		float64(e.pool.NumActiveClients()),
 		e.slug,
-		e.slug,
 	)
 	ch <- prometheus.MustNewConstMetric(
 		clientPoolAllocatedClientsDesc,
 		prometheus.GaugeValue,
 		float64(e.pool.NumAllocated()),
-		e.slug,
 		e.slug,
 	)
 }

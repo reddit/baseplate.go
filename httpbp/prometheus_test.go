@@ -142,7 +142,6 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 			clientLatencyLabels := prometheus.Labels{
 				methodLabel:     tt.method,
 				successLabel:    tt.success,
-				serverSlugLabel: serverSlug,
 				clientNameLabel: serverSlug,
 			}
 
@@ -150,13 +149,11 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 				methodLabel:     tt.method,
 				successLabel:    tt.success,
 				codeLabel:       tt.code,
-				serverSlugLabel: serverSlug,
 				clientNameLabel: serverSlug,
 			}
 
 			clientActiveRequestLabels := prometheus.Labels{
 				methodLabel:     tt.method,
-				serverSlugLabel: serverSlug,
 				clientNameLabel: serverSlug,
 			}
 

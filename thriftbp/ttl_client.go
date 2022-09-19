@@ -108,7 +108,6 @@ func (c *ttlClient) refresh() {
 		// this connection will be replaced by the pool upon next use.
 		c.replaceCounter.With("success", metricsbp.BoolString(false)).Add(1)
 		ttlClientReplaceCounter.With(prometheus.Labels{
-			serverSlugLabel: c.slug,
 			clientNameLabel: c.slug,
 			successLabel:    prometheusbp.BoolString(false),
 		}).Inc()
@@ -135,7 +134,6 @@ func (c *ttlClient) refresh() {
 	state.transport = transport
 	c.replaceCounter.With("success", metricsbp.BoolString(true)).Add(1)
 	ttlClientReplaceCounter.With(prometheus.Labels{
-		serverSlugLabel: c.slug,
 		clientNameLabel: c.slug,
 		successLabel:    prometheusbp.BoolString(true),
 	}).Inc()
@@ -170,7 +168,6 @@ func newTTLClient(generator ttlClientGenerator, ttl time.Duration, jitter float6
 
 	// Register the error counter so it can be monitored
 	ttlClientReplaceCounter.With(prometheus.Labels{
-		serverSlugLabel: c.slug,
 		clientNameLabel: c.slug,
 		successLabel:    prometheusbp.BoolString(false),
 	})
