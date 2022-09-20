@@ -12,7 +12,6 @@ const (
 	methodLabel     = "http_method"
 	successLabel    = "http_success"
 	codeLabel       = "http_response_code"
-	serverSlugLabel = "http_slug" // Deprecated, will be removed after 2022-09-01
 	clientNameLabel = "http_client_name"
 	endpointLabel   = "http_endpoint"
 )
@@ -81,7 +80,6 @@ var (
 	clientLatencyLabels = []string{
 		methodLabel,
 		successLabel,
-		serverSlugLabel,
 		clientNameLabel,
 	}
 
@@ -95,7 +93,6 @@ var (
 		methodLabel,
 		successLabel,
 		codeLabel,
-		serverSlugLabel,
 		clientNameLabel,
 	}
 
@@ -106,7 +103,6 @@ var (
 
 	clientActiveRequestsLabels = []string{
 		methodLabel,
-		serverSlugLabel,
 		clientNameLabel,
 	}
 

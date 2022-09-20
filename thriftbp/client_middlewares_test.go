@@ -472,7 +472,6 @@ const (
 	exceptionLabel               = "thrift_exception_type"
 	baseplateStatusLabel         = "thrift_baseplate_status"
 	baseplateStatusCodeLabel     = "thrift_baseplate_status_code"
-	remoteServiceSlugLabel       = "thrift_slug" // Deprecated, will be removed after 2022-09-01
 	remoteServiceClientNameLabel = "thrift_client_name"
 )
 
@@ -503,7 +502,6 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 			latencyLabels := prometheus.Labels{
 				methodLabel:                  methodIsHealthy,
 				successLabel:                 prometheusbp.BoolString(!tt.wantFail),
-				remoteServiceSlugLabel:       thrifttest.DefaultServiceSlug,
 				remoteServiceClientNameLabel: thrifttest.DefaultServiceSlug,
 			}
 
@@ -513,13 +511,11 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 				exceptionLabel:               tt.exceptionType,
 				baseplateStatusCodeLabel:     "",
 				baseplateStatusLabel:         "",
-				remoteServiceSlugLabel:       thrifttest.DefaultServiceSlug,
 				remoteServiceClientNameLabel: thrifttest.DefaultServiceSlug,
 			}
 
 			activeRequestLabels := prometheus.Labels{
 				methodLabel:                  methodIsHealthy,
-				remoteServiceSlugLabel:       thrifttest.DefaultServiceSlug,
 				remoteServiceClientNameLabel: thrifttest.DefaultServiceSlug,
 			}
 
