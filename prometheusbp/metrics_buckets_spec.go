@@ -20,7 +20,7 @@ var (
 		0.500_000,  // 500ms
 		1.000_000,  // 1s
 		5.000_000,  // 5s
-		15.000_000, // 15s (fastly timeout)
+		15.000_000, // 15s
 		30.000_000, // 30s
 	}
 	// KafkaLatencyBuckets is the set of bucket values for Kafka-related prometheus histogram metrics.
