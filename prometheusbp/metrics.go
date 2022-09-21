@@ -22,7 +22,7 @@ var (
 		30.000_000, // 30s
 	}
 
-	// Deprecated: Please use DefaultLatencyBuckets instead for latencies, and define your own buckets for non-latency histograms
+	// Deprecated: Please use DefaultLatencyBuckets instead for latencies if the buckets suit your needs, otherwise define your own buckets.
 	DefaultBuckets = DefaultLatencyBuckets
 )
 
