@@ -38,7 +38,7 @@ var (
 		Namespace: promNamespace,
 		Name:      "latency_seconds",
 		Help:      "Redis latency in seconds",
-		Buckets:   prometheusbp.DefaultBuckets,
+		Buckets:   prometheusbp.DefaultLatencyBuckets,
 	}, labels)
 )
 

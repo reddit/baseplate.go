@@ -32,7 +32,7 @@ var (
 	serverLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "thrift_server_latency_seconds",
 		Help:    "RPC latencies",
-		Buckets: prometheusbp.DefaultBuckets,
+		Buckets: prometheusbp.DefaultLatencyBuckets,
 	}, serverLatencyLabels)
 
 	serverTotalRequestLabels = []string{
@@ -68,7 +68,7 @@ var (
 	clientLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "thrift_client_latency_seconds",
 		Help:    "RPC latencies",
-		Buckets: prometheusbp.DefaultBuckets,
+		Buckets: prometheusbp.DefaultLatencyBuckets,
 	}, clientLatencyLabels)
 
 	clientTotalRequestLabels = []string{
@@ -231,7 +231,7 @@ var (
 		Subsystem: subsystemServer,
 		Name:      "extracted_deadline_budget_seconds",
 		Help:      "Baseplate deadline budget extracted from client set header",
-		Buckets:   prometheusbp.DefaultBuckets,
+		Buckets:   prometheusbp.DefaultLatencyBuckets,
 	}, deadlineBudgetLabels)
 )
 
