@@ -1,7 +1,8 @@
 package prometheusbp
 
 var (
-	// DefaultLatencyBuckets is the default bucket values for a prometheus histogram metric.
+	// DefaultLatencyBuckets is the default bucket values for a prometheus latency histogram metric.
+	//
 	// These match the spec defined at https://github.snooguts.net/reddit/baseplate.spec/blob/master/component-apis/prom-metrics.md#latency-histograms
 	DefaultLatencyBuckets = []float64{
 		0.000_100,  // 100us
@@ -20,9 +21,7 @@ var (
 		15.000_000, // 15s
 		30.000_000, // 30s
 	}
-	// KafkaLatencyBuckets is the set of bucket values for Kafka-related prometheus histogram metrics.
-	// These match the spec defined at https://github.snooguts.net/reddit/baseplate.spec/blob/master/component-apis/prom-metrics.md#latency-histograms
-	KafkaLatencyBuckets = DefaultLatencyBuckets
+
 	// Deprecated: Please use DefaultLatencyBuckets instead for latencies, and define your own buckets for non-latency histograms
 	DefaultBuckets = DefaultLatencyBuckets
 )

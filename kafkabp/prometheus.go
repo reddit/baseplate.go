@@ -41,7 +41,7 @@ var (
 		Subsystem: subsystemConsumer,
 		Name:      "duration_seconds",
 		Help:      "The time took for a non-group consumer to consume a single kafka message",
-		Buckets:   prometheusbp.KafkaLatencyBuckets,
+		Buckets:   prometheusbp.DefaultLatencyBuckets,
 	}, timerLabels)
 
 	groupConsumerTimer = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
@@ -49,7 +49,7 @@ var (
 		Subsystem: subsystemGroupConsumer,
 		Name:      "duration_seconds",
 		Help:      "The time took for a group consumer to consume a single kafka message",
-		Buckets:   prometheusbp.KafkaLatencyBuckets,
+		Buckets:   prometheusbp.DefaultLatencyBuckets,
 	}, timerLabels)
 )
 
