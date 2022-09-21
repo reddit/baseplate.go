@@ -26,31 +26,31 @@ var (
 	serverLatency = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_latency_seconds",
 		Help:    "HTTP server request latencies",
-		Buckets: prometheusbp.DefaultBuckets,
+		Buckets: prometheusbp.DefaultLatencyBuckets,
 	}, serverLabels)
 
 	serverRequestSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_request_size_bytes",
 		Help:    "Request size",
-		Buckets: prometheusbp.DefaultBuckets,
+		Buckets: prometheusbp.DefaultLatencyBuckets,
 	}, serverLabels)
 
 	serverResponseSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_response_size_bytes",
 		Help:    "Response size",
-		Buckets: prometheusbp.DefaultBuckets,
+		Buckets: prometheusbp.DefaultLatencyBuckets,
 	}, serverLabels)
 
 	serverTimeToWriteHeader = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_time_to_write_header_seconds",
 		Help:    "Request size",
-		Buckets: prometheusbp.DefaultBuckets,
+		Buckets: prometheusbp.DefaultLatencyBuckets,
 	}, serverLabels)
 
 	serverTimeToFirstByte = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_time_to_first_byte_seconds",
 		Help:    "Response size",
-		Buckets: prometheusbp.DefaultBuckets,
+		Buckets: prometheusbp.DefaultLatencyBuckets,
 	}, serverLabels)
 
 	serverTotalRequestLabels = []string{
@@ -86,7 +86,7 @@ var (
 	clientLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_client_latency_seconds",
 		Help:    "HTTP client request latencies",
-		Buckets: prometheusbp.DefaultBuckets,
+		Buckets: prometheusbp.DefaultLatencyBuckets,
 	}, clientLatencyLabels)
 
 	clientTotalRequestLabels = []string{

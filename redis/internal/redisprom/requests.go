@@ -22,7 +22,7 @@ var (
 		prometheus.HistogramOpts{
 			Name:    "redis_client_latency_seconds",
 			Help:    "latency histogram",
-			Buckets: prometheusbp.DefaultBuckets,
+			Buckets: prometheusbp.DefaultLatencyBuckets,
 		},
 		[]string{ClientNameLabel, DatabaseLabel, TypeLabel, DeploymentLabel, CommandLabel, SuccessLabel},
 	)
