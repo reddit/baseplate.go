@@ -1,5 +1,5 @@
-//go:build metrics_spec
-// +build metrics_spec
+//go:build newprombuckets
+// +build newprombuckets
 
 package prometheusbp
 
