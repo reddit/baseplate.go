@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/pprof"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/reddit/baseplate.go/log"
@@ -18,6 +20,10 @@ const Addr = ":6060"
 //	profiling     - serve /debug/pprof for profiling, ref: https://pkg.go.dev/net/http/pprof
 var Mux = http.NewServeMux()
 
+var baseplateGoCollectors = collectors.WithGoCollectorRuntimeMetrics(
+	collectors.MetricsScheduler,
+)
+
 func init() {
 	// The debug/pprof endpoints follow the pattern from the init function in net/http/pprof package.
 	// ref: https://cs.opensource.google/go/go/+/refs/tags/go1.17.7:src/net/http/pprof/pprof.go;l=80
@@ -28,6 +34,12 @@ func init() {
 	Mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 	Mux.Handle("/metrics", promhttp.Handler())
+
+	// Unregister the default GoCollector.
+	prometheus.Unregister(collectors.NewGoCollector())
+
+	// Register GoCollector with baseplate defaults.
+	prometheus.MustRegister(collectors.NewGoCollector(baseplateGoCollectors))
 }
 
 func Serve() error {
