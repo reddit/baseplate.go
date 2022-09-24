@@ -189,7 +189,8 @@ func NewEqualNode(inputNodes map[string]interface{}) (Targeting, error) {
 func (n *EqualNode) Evaluate(inputs map[string]interface{}) bool {
 	candidateValue := inputs[n.fieldName]
 	switch n := candidateValue.(type) {
-	case int, float64:
+	case int, float64, int8, int16, int32, int64, uint, uint8, uint16, uint32,
+		uint64, float32:
 		candidateValue = json.Number(fmt.Sprintf("%v", n))
 	}
 	for _, value := range n.acceptedValues {
@@ -291,7 +292,27 @@ func (n *ComparisonNode) Evaluate(inputs map[string]interface{}) bool {
 	case int:
 		return n.comparer(float64(cv), value)
 	case float64:
-		n.comparer(cv, value)
+		return n.comparer(cv, value)
+	case int8:
+		return n.comparer(float64(cv), value)
+	case int16:
+		return n.comparer(float64(cv), value)
+	case int32:
+		return n.comparer(float64(cv), value)
+	case int64:
+		return n.comparer(float64(cv), value)
+	case uint:
+		return n.comparer(float64(cv), value)
+	case uint8:
+		return n.comparer(float64(cv), value)
+	case uint16:
+		return n.comparer(float64(cv), value)
+	case uint32:
+		return n.comparer(float64(cv), value)
+	case uint64:
+		return n.comparer(float64(cv), value)
+	case float32:
+		return n.comparer(float64(cv), value)
 	}
 	return false
 }

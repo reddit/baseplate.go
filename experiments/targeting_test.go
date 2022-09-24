@@ -612,6 +612,156 @@ func TestComparisonNodeBadInput(t *testing.T) {
 	}
 }
 
+func TestNumberTypes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		targeting []byte
+		input     any
+	}{
+		{
+			name:      "gt-node-int",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     int(5),
+		},
+		{
+			name:      "gt-node-float64",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     float64(5),
+		},
+		{
+			name:      "gt-node-float32",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     float32(5),
+		},
+		{
+			name:      "gt-node-int64",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     int64(5),
+		},
+		{
+			name:      "gt-node-int32",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     int32(5),
+		},
+		{
+			name:      "gt-node-int16",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     int16(5),
+		},
+		{
+			name:      "gt-node-int8",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     int8(5),
+		},
+		{
+			name:      "gt-node-uint",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     uint(5),
+		},
+		{
+			name:      "gt-node-uint64",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     uint64(5),
+		},
+		{
+			name:      "gt-node-uint32",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     uint32(5),
+		},
+		{
+			name:      "gt-node-uint16",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     uint16(5),
+		},
+		{
+			name:      "gt-node-uint8",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     uint8(5),
+		},
+		{
+			name:      "eq-node-int",
+			targeting: []byte(`{"EQ": {"field": "num_field", "value": 5}}`),
+			input:     int(5),
+		},
+		{
+			name:      "eq-node-float64",
+			targeting: []byte(`{"EQ": {"field": "num_field", "value": 5}}`),
+			input:     float64(5),
+		},
+		{
+			name:      "eq-node-float32",
+			targeting: []byte(`{"EQ": {"field": "num_field", "value": 5}}`),
+			input:     float32(5),
+		},
+		{
+			name:      "eq-node-int64",
+			targeting: []byte(`{"EQ": {"field": "num_field", "value": 5}}`),
+			input:     int64(5),
+		},
+		{
+			name:      "eq-node-int32",
+			targeting: []byte(`{"EQ": {"field": "num_field", "value": 5}}`),
+			input:     int32(5),
+		},
+		{
+			name:      "eq-node-int16",
+			targeting: []byte(`{"EQ": {"field": "num_field", "value": 5}}`),
+			input:     int16(5),
+		},
+		{
+			name:      "eq-node-int8",
+			targeting: []byte(`{"EQ": {"field": "num_field", "value": 5}}`),
+			input:     int8(5),
+		},
+		{
+			name:      "eq-node-uint",
+			targeting: []byte(`{"EQ": {"field": "num_field", "value": 5}}`),
+			input:     uint(5),
+		},
+		{
+			name:      "eq-node-uint64",
+			targeting: []byte(`{"EQ": {"field": "num_field", "value": 5}}`),
+			input:     uint64(5),
+		},
+		{
+			name:      "eq-node-uint32",
+			targeting: []byte(`{"EQ": {"field": "num_field", "value": 5}}`),
+			input:     uint32(5),
+		},
+		{
+			name:      "eq-node-uint16",
+			targeting: []byte(`{"EQ": {"field": "num_field", "value": 5}}`),
+			input:     uint16(5),
+		},
+		{
+			name:      "gt-node-uint8",
+			targeting: []byte(`{"GE": {"field": "num_field", "value": 5}}`),
+			input:     uint8(5),
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			input := map[string]any{
+				"num_field": tt.input,
+			}
+			targeting, err := NewTargeting(tt.targeting)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := targeting.Evaluate(input)
+			if !got {
+				t.Errorf("got %t, want: %t", got, true)
+			}
+		})
+	}
+}
+
 func inputSet() map[string]interface{} {
 	inputs := make(map[string]interface{})
 	inputs["bool_field"] = true
