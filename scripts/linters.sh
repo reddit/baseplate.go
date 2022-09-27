@@ -16,19 +16,7 @@ for FILE in $FILES; do
   fi
 done
 
-# We run all go vet checks for all packages except thriftbp.
-# For thriftbp we have to disable stdmethods as we have an implementatino of
-# thrift.TProtocol which has different ReadByte and WriteByte signature that
-# go vet with stdmethods will complain.
-#
-# TODO: Once thrift 0.17.0 is released we can remove this implementation and
-# revert back to simply run all go vet checks for all packages with:
-#
-#     VET=$(go vet ./...)
-thriftbp_pattern="thriftbp$"
-packages_sans_thriftbp=$(go list ./... | grep -v "$thriftbp_pattern")
-packages_only_thriftbp=$(go list ./... | grep "$thriftbp_pattern")
-VET=$(go vet $packages_sans_thriftbp; go vet -stdmethods=false $packages_only_thriftbp)
+VET=$(go vet ./...)
 if [ -n "$VET" ]; then
   echo "go vet:"
   echo "$VET"

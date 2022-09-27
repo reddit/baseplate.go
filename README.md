@@ -16,18 +16,16 @@ See [here](Style.md).
 
 ## Thrift generated files
 
-The `internal/gen-go/` directory contains thrift generated files,
-with `*-remote` directories removed.
+The `internal/gen-go/` directory contains thrift generated files.
 They are excluded from the linter.
 DO NOT EDIT.
 
-They were generated with [thrift compiler v0.16.0][thrift-version] against
+They were generated with [thrift compiler v0.17.0][thrift-version] against
 [`baseplate.thrift`][baseplate.thrift]
 using the following commands under `internal/`:
 
 ```
-thrift --gen go:package_prefix=github.com/reddit/baseplate.go/ path/to/baseplate.thrift
-find gen-go -depth -name "*-remote" -type d -exec rm -Rf {} \;
+thrift --gen go:package_prefix=github.com/reddit/baseplate.go/,skip_remote path/to/baseplate.thrift
 ```
 
 They are needed by some of the Baseplate.go packages.
@@ -41,4 +39,4 @@ files changed significantly.
 
 [godev]: https://pkg.go.dev/github.com/reddit/baseplate.go
 
-[thrift-version]: https://github.com/apache/thrift/releases/tag/v0.16.0
+[thrift-version]: https://github.com/apache/thrift/releases/tag/v0.17.0
