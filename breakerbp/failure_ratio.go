@@ -99,6 +99,11 @@ func NewFailureRatioBreaker(config Config) FailureRatioBreaker {
 	if config.EmitStatusMetrics {
 		go failureBreaker.runStatsProducer(config.EmitStatusMetricsInterval)
 	}
+
+	breakerClosed.With(prometheus.Labels{
+		nameLabel: config.Name,
+	}).Set(1)
+
 	return failureBreaker
 }
 
