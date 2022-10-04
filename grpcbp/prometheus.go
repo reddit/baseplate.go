@@ -55,6 +55,7 @@ var (
 	serverActiveRequestsLabels = []string{
 		serviceLabel,
 		methodLabel,
+		typeLabel,
 	}
 
 	serverActiveRequests = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
@@ -95,6 +96,7 @@ var (
 	clientActiveRequestsLabels = []string{
 		serviceLabel,
 		methodLabel,
+		typeLabel,
 		clientNameLabel,
 	}
 
