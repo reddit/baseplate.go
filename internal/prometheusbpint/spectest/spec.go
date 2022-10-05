@@ -216,12 +216,12 @@ func thriftSpecificLabels(name string) []string {
 //   - "service"
 //   - "method"
 func grpcSpecificLabels(name string) []string {
-	labelSuffixes := []string{"service", "method"}
+	labelSuffixes := []string{"service", "method", "type"}
 	switch {
 	case strings.HasSuffix(name, "_latency_seconds"):
-		labelSuffixes = append(labelSuffixes, "type", "success")
+		labelSuffixes = append(labelSuffixes, "success")
 	case strings.HasSuffix(name, "_requests_total"):
-		labelSuffixes = append(labelSuffixes, "type", "success", "code")
+		labelSuffixes = append(labelSuffixes, "success", "code")
 	case strings.HasSuffix(name, "_active_requests"):
 		// no op
 	default:

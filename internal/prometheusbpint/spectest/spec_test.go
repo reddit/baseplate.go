@@ -418,6 +418,7 @@ func TestBuildLabelsGPRC(t *testing.T) {
 			want: map[string]struct{}{
 				"grpc_method":  {},
 				"grpc_service": {},
+				"grpc_type":    {},
 			},
 		},
 		{
