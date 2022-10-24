@@ -394,9 +394,10 @@ func recordStatusCode(counters counterGenerator) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		counter := counters.Counter("baseplate.http." + name + ".response")
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
-			wrapped := &statusCodeRecorder{ResponseWriter: w}
+			rec := &statusCodeRecorder{ResponseWriter: w}
+			wrapped := allowFlushHijack(w, rec)
 			defer func() {
-				code := wrapped.getCode(err)
+				code := rec.getCode(err)
 				counter.With("status", statusCodeFamily(code)).Add(1)
 			}()
 
@@ -453,9 +454,11 @@ func PrometheusServerMetrics(_ string) Middleware {
 			}
 			serverActiveRequests.With(activeRequestLabels).Inc()
 
-			wrapped := &responseRecorder{ResponseWriter: w}
+			rec := &responseRecorder{ResponseWriter: w}
+			wrapped := allowFlushHijack(w, rec)
+
 			defer func() {
-				code := errorCodeForMetrics(wrapped.responseCode, err)
+				code := errorCodeForMetrics(rec.responseCode, err)
 				success := isRequestSuccessful(code, err)
 
 				labels := prometheus.Labels{
@@ -465,7 +468,7 @@ func PrometheusServerMetrics(_ string) Middleware {
 				}
 				serverLatency.With(labels).Observe(time.Since(start).Seconds())
 				serverRequestSize.With(labels).Observe(float64(r.ContentLength))
-				serverResponseSize.With(labels).Observe(float64(wrapped.bytesWritten))
+				serverResponseSize.With(labels).Observe(float64(rec.bytesWritten))
 
 				totalRequestLabels := prometheus.Labels{
 					methodLabel:   method,
@@ -509,4 +512,51 @@ func (rr *responseRecorder) Write(b []byte) (n int, err error) {
 func (rr *responseRecorder) WriteHeader(code int) {
 	rr.ResponseWriter.WriteHeader(code)
 	rr.responseCode = code
+}
+
+// wrappers
+type wrappedHijacker struct {
+	http.ResponseWriter
+	http.Hijacker
+}
+
+type wrappedFlusher struct {
+	http.ResponseWriter
+	http.Flusher
+}
+
+type wrappedFlushHijacker struct {
+	http.ResponseWriter
+	http.Flusher
+	http.Hijacker
+}
+
+func allowFlushHijack(original, rw http.ResponseWriter) http.ResponseWriter {
+	flusher, isFlusher := original.(http.Flusher)
+	hijacker, isHijacker := original.(http.Hijacker)
+	switch {
+	case isFlusher && isHijacker:
+		return &wrappedFlushHijacker{rw, flusher, hijacker}
+	case isFlusher:
+		return &wrappedFlusher{rw, flusher}
+	case isHijacker:
+		return &wrappedHijacker{rw, hijacker}
+	default:
+		return rw
+	}
+
+}
+
+func allowFlush(original, rw http.ResponseWriter) http.ResponseWriter {
+	if flusher, isFlusher := original.(http.Flusher); isFlusher {
+		return &wrappedFlusher{rw, flusher}
+	}
+	return rw
+}
+
+func allowHijack(original, rw http.ResponseWriter) http.ResponseWriter {
+	if hijacker, isHijacker := original.(http.Hijacker); isHijacker {
+		return &wrappedHijacker{rw, hijacker}
+	}
+	return rw
 }
