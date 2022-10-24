@@ -514,7 +514,6 @@ func (rr *responseRecorder) WriteHeader(code int) {
 	rr.responseCode = code
 }
 
-// wrappers
 type wrappedHijacker struct {
 	http.ResponseWriter
 	http.Hijacker
