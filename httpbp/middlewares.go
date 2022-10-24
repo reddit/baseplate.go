@@ -537,9 +537,9 @@ func allowFlushHijack(original, rw http.ResponseWriter) http.ResponseWriter {
 	case isFlusher && isHijacker:
 		return &wrappedFlushHijacker{rw, flusher, hijacker}
 	case isFlusher:
-		return &wrappedFlusher{rw, flusher}
+		return allowFlush(original, rw)
 	case isHijacker:
-		return &wrappedHijacker{rw, hijacker}
+		return allowHijack(original, rw)
 	default:
 		return rw
 	}
