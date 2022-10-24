@@ -327,7 +327,7 @@ func TestSupportedMethods(t *testing.T) {
 	}
 }
 
-func TestMiddlewareWrapping(t *testing.T) {
+func TestMiddlewareResponseWrapping(t *testing.T) {
 	store := newSecretsStore(t)
 	defer store.Close()
 
@@ -381,7 +381,7 @@ func TestMiddlewareWrapping(t *testing.T) {
 	}
 
 	// Test the a flushable response
-	t.Run("flushable response", func(t *testing.T) {
+	t.Run("flushable-response", func(t *testing.T) {
 		r := httptest.NewRequest(http.MethodGet, "/test", nil)
 		w := httptest.NewRecorder()
 		args.EndpointRegistry.ServeHTTP(w, r)
