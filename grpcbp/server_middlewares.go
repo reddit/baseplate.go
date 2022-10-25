@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/prometheusbp"
@@ -198,6 +199,7 @@ func InjectPrometheusUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 
 		activeRequestLabels := prometheus.Labels{
 			serviceLabel: serviceName,
+			typeLabel:    unary,
 			methodLabel:  method,
 		}
 		serverActiveRequests.With(activeRequestLabels).Inc()

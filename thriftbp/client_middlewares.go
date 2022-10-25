@@ -3,7 +3,6 @@ package thriftbp
 import (
 	"context"
 	"errors"
-	"reflect"
 	"strconv"
 	"time"
 
@@ -127,7 +126,9 @@ type DefaultClientMiddlewareArgs struct {
 //
 // 9. BaseplateErrorWrapper
 //
-// 10. SetDeadlineBudget
+// 10. thrift.ExtractIDLExceptionClientMiddleware
+//
+// 11. SetDeadlineBudget
 func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
@@ -156,6 +157,7 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 		}),
 		PrometheusClientMiddleware(args.ServiceSlug),
 		BaseplateErrorWrapper,
+		thrift.ExtractIDLExceptionClientMiddleware,
 		SetDeadlineBudget,
 	)
 	return middlewares
@@ -297,7 +299,7 @@ func BaseplateErrorWrapper(next thrift.TClient) thrift.TClient {
 	return thrift.WrappedTClient{
 		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 			meta, err := next.Call(ctx, method, args, result)
-			return meta, WrapBaseplateError(err)
+			return meta, WrapBaseplateError(getClientError(result, err))
 		},
 	}
 }
@@ -401,43 +403,9 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 	}
 }
 
-// For a endpoint defined in thrift IDL like this:
-//
-//	service MyService {
-//	  FooResponse foo(1: FooRequest request) throws (
-//	    1: Exception1 error1,
-//	    2: Exception2 error2,
-//	  )
-//	}
-//
-// The thrift compiler generated go code for the result TStruct would be like:
-//
-//	type MyServiceFooResult struct {
-//	  Success *FooResponse `thrift:"success,0" db:"success" json:"success,omitempty"`
-//	  Error1 *Exception1 `thrift:"error1,1" db:"error1" json:"error1,omitempty"`
-//	  Error2 *Exception2 `thrift:"error2,2" db:"error2" json:"error2,omitempty"`
-//	}
 func getClientError(result thrift.TStruct, err error) error {
 	if err != nil {
 		return err
 	}
-	v := reflect.Indirect(reflect.ValueOf(result))
-	if v.Kind() != reflect.Struct {
-		return nil
-	}
-	typ := v.Type()
-	for i := 0; i < v.NumField(); i++ {
-		if typ.Field(i).Name == "Success" {
-			continue
-		}
-		field := v.Field(i)
-		if field.IsZero() {
-			continue
-		}
-		tExc, ok := field.Interface().(thrift.TException)
-		if ok && tExc != nil && tExc.TExceptionType() == thrift.TExceptionTypeCompiled {
-			return tExc
-		}
-	}
-	return nil
+	return thrift.ExtractExceptionFromResult(result)
 }

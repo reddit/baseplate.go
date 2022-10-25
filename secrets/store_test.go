@@ -37,10 +37,70 @@ const specificationExample = `
 	}
 }`
 
+var externalAccountKey = `
+{
+  "request_id": "1afc3036-2282-d483-c2d4-6d483efdf16c",
+  "lease_id": "",
+  "lease_duration": 2764800,
+  "renewable": false,
+  "data": {
+    "type": "versioned",
+    "current": "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU=",
+    "previous": "aHVudGVyMg=="
+  },
+  "warnings": null
+}
+`
+
+var someAPIKey = `
+{
+  "request_id": "1afc3036-2282-d483-c2d4-6d483efdf16c",
+  "lease_id": "",
+  "lease_duration": 2764800,
+  "renewable": false,
+  "data": {
+    "type": "simple",
+    "value": "Y2RvVXhNMVdsTXJma3BDaHRGZ0dPYkVGSg==",
+    "encoding": "base64"
+  },
+  "warnings": null
+}
+`
+var someDatabaseCredentials = `
+{
+  "request_id": "1afc3036-2282-d483-c2d4-6d483efdf16c",
+  "lease_id": "",
+  "lease_duration": 2764800,
+  "renewable": false,
+  "data": {
+    "type": "credential",
+    "username": "spez",
+    "password": "hunter2"
+  },
+  "warnings": null
+}
+`
+
 func TestGetSimpleSecret(t *testing.T) {
 	dir := t.TempDir()
+	dirCSI := t.TempDir()
 	tmpFile, err := os.CreateTemp(dir, "secrets.json")
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(dirCSI+"/secret", 0777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(dirCSI+"/secret/myservice", 0777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dirCSI+"/secret/myservice/external-account-key", []byte(externalAccountKey), 0777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dirCSI+"/secret/myservice/some-api-key", []byte(someAPIKey), 0777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dirCSI+"/secret/myservice/some-database-credentials", []byte(someDatabaseCredentials), 0777); err != nil {
 		t.Fatal(err)
 	}
 	tmpPath := tmpFile.Name()
@@ -71,21 +131,28 @@ func TestGetSimpleSecret(t *testing.T) {
 		t.Run(
 			tt.name,
 			func(t *testing.T) {
-				store, err := secrets.NewStore(context.Background(), tmpPath, log.TestWrapper(t))
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer store.Close()
+				for label, path := range map[string]string{
+					"file": tmpPath,
+					"dir":  dirCSI,
+				} {
+					t.Run(label, func(t *testing.T) {
+						store, err := secrets.NewStore(context.Background(), path, log.TestWrapper(t))
+						if err != nil {
+							t.Fatal(err)
+						}
+						t.Cleanup(func() { store.Close() })
 
-				secret, err := store.GetSimpleSecret(tt.key)
-				if tt.expectedError == nil && err != nil {
-					t.Fatal(err)
-				}
-				if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
-					t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
-				}
-				if !reflect.DeepEqual(secret, tt.expected) {
-					t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
+						secret, err := store.GetSimpleSecret(tt.key)
+						if tt.expectedError == nil && err != nil {
+							t.Fatal(err)
+						}
+						if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
+							t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
+						}
+						if !reflect.DeepEqual(secret, tt.expected) {
+							t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
+						}
+					})
 				}
 			},
 		)

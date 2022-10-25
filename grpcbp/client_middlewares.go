@@ -142,6 +142,7 @@ func PrometheusUnaryClientInterceptor(serverSlug string) grpc.UnaryClientInterce
 		activeRequestLabels := prometheus.Labels{
 			serviceLabel:    serviceName,
 			methodLabel:     method,
+			typeLabel:       unary,
 			clientNameLabel: serverSlug,
 		}
 		clientActiveRequests.With(activeRequestLabels).Inc()
