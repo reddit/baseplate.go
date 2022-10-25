@@ -380,30 +380,68 @@ func TestMiddlewareResponseWrapping(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	t.Run("non-flushable-non-hijackable", func(tt *testing.T) {
+		type baseResponseWriter struct {
+			http.ResponseWriter
+		}
+
+		r := httptest.NewRequest(http.MethodGet, "/test", nil)
+		inner := httptest.NewRecorder()
+		w := baseResponseWriter{inner}
+		args.EndpointRegistry.ServeHTTP(w, r)
+
+		if inner.Flushed {
+			tt.Error("expected response to not be flushed")
+		}
+	})
+
 	// Test the a flushable response
-	t.Run("flushable-response", func(t *testing.T) {
+	t.Run("flushable", func(tt *testing.T) {
 		r := httptest.NewRequest(http.MethodGet, "/test", nil)
 		w := httptest.NewRecorder()
 		args.EndpointRegistry.ServeHTTP(w, r)
 
 		if !w.Flushed {
-			t.Error("expected http response to be flushed")
+			tt.Error("expected http response to be flushed")
 		}
 	})
 
-	t.Run("hijackable-response", func(tt *testing.T) {
+	t.Run("hijackable", func(tt *testing.T) {
 		r := httptest.NewRequest(http.MethodGet, "/test", nil)
 		w := &hijackableResponseRecorder{httptest.NewRecorder(), false}
 		args.EndpointRegistry.ServeHTTP(w, r)
 
 		if !w.Hijacked {
-			t.Error("expected http response to be hijacked")
+			tt.Error("expected http response to be hijacked")
+		}
+	})
+
+	t.Run("hijackable-flushable", func(tt *testing.T) {
+		type hijackableFlushableRecorder struct {
+			hijackableResponseRecorder
+			http.Flusher
+		}
+
+		r := httptest.NewRequest(http.MethodGet, "/test", nil)
+		inner := httptest.NewRecorder()
+		w := &hijackableFlushableRecorder{
+			hijackableResponseRecorder{inner, false},
+			inner,
+		}
+		args.EndpointRegistry.ServeHTTP(w, r)
+
+		if !w.Hijacked {
+			tt.Error("expected http response to be hijacked")
+		}
+
+		if !inner.Flushed {
+			tt.Error("expected http response to be flushed")
 		}
 	})
 }
 
 type hijackableResponseRecorder struct {
-	*httptest.ResponseRecorder
+	http.ResponseWriter
 	Hijacked bool
 }
 
