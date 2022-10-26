@@ -395,7 +395,7 @@ func recordStatusCode(counters counterGenerator) Middleware {
 		counter := counters.Counter("baseplate.http." + name + ".response")
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			rec := &statusCodeRecorder{ResponseWriter: w}
-			wrapped := allowFlushHijack(w, rec)
+			wrapped := wrapResponseWriter(w, rec)
 			defer func() {
 				code := rec.getCode(err)
 				counter.With("status", statusCodeFamily(code)).Add(1)
@@ -455,7 +455,7 @@ func PrometheusServerMetrics(_ string) Middleware {
 			serverActiveRequests.With(activeRequestLabels).Inc()
 
 			rec := &responseRecorder{ResponseWriter: w}
-			wrapped := allowFlushHijack(w, rec)
+			wrapped := wrapResponseWriter(w, rec)
 
 			defer func() {
 				code := errorCodeForMetrics(rec.responseCode, err)
@@ -512,50 +512,4 @@ func (rr *responseRecorder) Write(b []byte) (n int, err error) {
 func (rr *responseRecorder) WriteHeader(code int) {
 	rr.ResponseWriter.WriteHeader(code)
 	rr.responseCode = code
-}
-
-type wrappedHijacker struct {
-	http.ResponseWriter
-	http.Hijacker
-}
-
-type wrappedFlusher struct {
-	http.ResponseWriter
-	http.Flusher
-}
-
-type wrappedFlushHijacker struct {
-	http.ResponseWriter
-	http.Flusher
-	http.Hijacker
-}
-
-func allowFlushHijack(original, rw http.ResponseWriter) http.ResponseWriter {
-	flusher, isFlusher := original.(http.Flusher)
-	hijacker, isHijacker := original.(http.Hijacker)
-	switch {
-	case isFlusher && isHijacker:
-		return &wrappedFlushHijacker{rw, flusher, hijacker}
-	case isFlusher:
-		return allowFlush(original, rw)
-	case isHijacker:
-		return allowHijack(original, rw)
-	default:
-		return rw
-	}
-
-}
-
-func allowFlush(original, rw http.ResponseWriter) http.ResponseWriter {
-	if flusher, isFlusher := original.(http.Flusher); isFlusher {
-		return &wrappedFlusher{rw, flusher}
-	}
-	return rw
-}
-
-func allowHijack(original, rw http.ResponseWriter) http.ResponseWriter {
-	if hijacker, isHijacker := original.(http.Hijacker); isHijacker {
-		return &wrappedHijacker{rw, hijacker}
-	}
-	return rw
 }

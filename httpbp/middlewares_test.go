@@ -360,6 +360,16 @@ func TestMiddlewareResponseWrapping(t *testing.T) {
 					return nil
 				}
 			},
+			func(name string, next httpbp.HandlerFunc) httpbp.HandlerFunc {
+				return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+					if pusher, isPusher := w.(http.Pusher); isPusher {
+						pusher.Push("target", &http.PushOptions{})
+					}
+
+					next(ctx, w, r)
+					return nil
+				}
+			},
 		},
 		Endpoints: map[httpbp.Pattern]httpbp.Endpoint{
 			"/test": {
@@ -416,6 +426,16 @@ func TestMiddlewareResponseWrapping(t *testing.T) {
 		}
 	})
 
+	t.Run("pushable", func(tt *testing.T) {
+		r := httptest.NewRequest(http.MethodGet, "/test", nil)
+		w := &pushableResponseRecorder{httptest.NewRecorder(), false}
+		args.EndpointRegistry.ServeHTTP(w, r)
+
+		if !w.Pushed {
+			tt.Error("expected http response to be pushed")
+		}
+	})
+
 	t.Run("hijackable-flushable", func(tt *testing.T) {
 		type hijackableFlushableRecorder struct {
 			hijackableResponseRecorder
@@ -448,4 +468,14 @@ type hijackableResponseRecorder struct {
 func (h *hijackableResponseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	h.Hijacked = true
 	return nil, nil, nil
+}
+
+type pushableResponseRecorder struct {
+	http.ResponseWriter
+	Pushed bool
+}
+
+func (p *pushableResponseRecorder) Push(target string, opts *http.PushOptions) error {
+	p.Pushed = true
+	return nil
 }
