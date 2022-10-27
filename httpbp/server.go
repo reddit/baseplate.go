@@ -157,6 +157,17 @@ type ServerArgs struct {
 	// Logger is an optional arg to be called when the InjectEdgeRequestContext
 	// middleware failed to parse the edge request header for any reason.
 	Logger log.Wrapper
+
+	// The http.Server from stdlib would emit a log regarding [1] whenever it
+	// happens. Set SuppressIssue25192 to true to suppress that log.
+	//
+	// Regardless of the value of SuppressIssue25192,
+	// we always emit a prometheus counter of:
+	//
+	//     httpbp_server_upstream_issue_logs_total{upstream_issue="25192"}
+	//
+	// [1]: https://github.com/golang/go/issues/25192#issuecomment-992276264
+	SuppressIssue25192 bool
 }
 
 // ValidateAndSetDefaults checks the ServerArgs for any errors and sets any
@@ -221,9 +232,21 @@ func NewBaseplateServer(args ServerArgs) (baseplate.Server, error) {
 		return nil, err
 	}
 
+	logger, err := httpServerLogger(log.C(context.Background()).Desugar(), args.SuppressIssue25192)
+	if err != nil {
+		// Should not happen, but if it really happens, we just fallback to stdlib
+		// logger, which is not that big a deal either.
+		log.Errorw(
+			"Failed to create error logger for stdlib http server",
+			"err", err,
+		)
+	}
+
 	srv := &http.Server{
 		Addr:    args.Baseplate.GetConfig().Addr,
 		Handler: args.EndpointRegistry,
+
+		ErrorLog: logger,
 	}
 	for _, f := range args.OnShutdown {
 		srv.RegisterOnShutdown(f)
