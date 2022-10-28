@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
-	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
@@ -392,6 +392,9 @@ func newClientPool(
 	proto thrift.TProtocolFactory,
 	middlewares ...thrift.ClientMiddleware,
 ) (*clientPool, error) {
+	clientPoolMaxSizeGauge.With(prometheus.Labels{
+		"thrift_pool": cfg.ServiceSlug,
+	}).Set(float64(cfg.MaxConnections))
 	tConfig := cfg.ToTConfiguration()
 	tags := cfg.MetricsTags.AsStatsdTags()
 	jitter := DefaultMaxConnectionAgeJitter
@@ -446,7 +449,7 @@ func newClientPool(
 			tags,
 		)
 
-		if err := prometheusbpint.GlobalRegistry.Register(clientPoolGaugeExporter{
+		if err := prometheusbpint.GlobalRegistry.Register(&clientPoolGaugeExporter{
 			slug: cfg.ServiceSlug,
 			pool: pool,
 		}); err != nil {
@@ -471,16 +474,6 @@ func newClientPool(
 		Pool: pool,
 
 		slug: cfg.ServiceSlug,
-
-		poolExhaustedCounter: metricsbp.M.Counter(
-			cfg.ServiceSlug + ".pool-exhausted",
-		).With(tags...),
-		poolClosedConnectionsCounter: metricsbp.M.Counter(
-			cfg.ServiceSlug + ".pool-closed-connections",
-		).With(tags...),
-		releaseErrorCounter: metricsbp.M.Counter(
-			cfg.ServiceSlug + ".pool-release-error",
-		).With(tags...),
 	}
 	// finish setting up the clientPool by wrapping the inner "Call" with the
 	// given middleware.
@@ -491,6 +484,7 @@ func newClientPool(
 	// Register the error prometheus counters so they can be monitored
 	labels := prometheus.Labels{
 		clientNameLabel: cfg.ServiceSlug,
+		"thrift_pool":   cfg.ServiceSlug,
 	}
 	clientPoolExhaustedCounter.With(labels)
 	clientPoolClosedConnectionsCounter.With(labels)
@@ -551,10 +545,6 @@ type clientPool struct {
 
 	slug string
 
-	poolExhaustedCounter         metrics.Counter
-	releaseErrorCounter          metrics.Counter
-	poolClosedConnectionsCounter metrics.Counter
-
 	wrappedClient thrift.TClient
 }
 
@@ -592,9 +582,9 @@ func (p *clientPool) pooledCall(ctx context.Context, method string, args, result
 	}
 	defer func() {
 		if shouldCloseConnection(err) {
-			p.poolClosedConnectionsCounter.Add(1)
 			clientPoolClosedConnectionsCounter.With(prometheus.Labels{
 				clientNameLabel: p.slug,
+				"thrift_pool":   p.slug,
 			}).Inc()
 			if e := client.Close(); e != nil {
 				log.C(ctx).Errorw(
@@ -611,13 +601,19 @@ func (p *clientPool) pooledCall(ctx context.Context, method string, args, result
 	return client.Call(ctx, method, args, result)
 }
 
-func (p *clientPool) getClient() (Client, error) {
+func (p *clientPool) getClient() (_ Client, err error) {
+	defer func() {
+		clientPoolGetsCounter.With(prometheus.Labels{
+			"thrift_pool":    p.slug,
+			"thrift_success": strconv.FormatBool(err == nil),
+		}).Inc()
+	}()
 	c, err := p.Pool.Get()
 	if err != nil {
 		if errors.Is(err, clientpool.ErrExhausted) {
-			p.poolExhaustedCounter.Add(1)
 			clientPoolExhaustedCounter.With(prometheus.Labels{
 				clientNameLabel: p.slug,
+				"thrift_pool":   p.slug,
 			}).Inc()
 		}
 		log.Errorw(
@@ -637,9 +633,9 @@ func (p *clientPool) releaseClient(c Client) {
 			"pool", p.slug,
 			"err", err,
 		)
-		p.releaseErrorCounter.Add(1)
 		clientPoolReleaseErrorCounter.With(prometheus.Labels{
 			clientNameLabel: p.slug,
+			"thrift_pool":   p.slug,
 		}).Inc()
 	}
 }

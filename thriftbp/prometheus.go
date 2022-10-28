@@ -177,7 +177,8 @@ var (
 
 var (
 	clientPoolLabels = []string{
-		clientNameLabel,
+		clientNameLabel, // TODO: Remove after the next release (v0.9.12)
+		"thrift_pool",
 	}
 
 	clientPoolExhaustedCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
@@ -201,17 +202,53 @@ var (
 		Help:      "The number of times we failed to release a client back to the pool",
 	}, clientPoolLabels)
 
-	clientPoolActiveConnectionsDesc = prometheus.NewDesc(
+	clientPoolGetsCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "thrift_client_pool_connection_gets_total",
+		Help: "The number of times we tried to lease(get) from a thrift client pool",
+	}, []string{
+		"thrift_pool",
+		"thrift_success",
+	})
+
+	clientPoolMaxSizeGauge = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
+		Name: "thrift_client_pool_max_size",
+		Help: "The configured max size of a thrift client pool",
+	}, []string{"thrift_pool"})
+
+	// TODO: Remove after the next release (v0.9.12)
+	legacyClientPoolActiveConnectionsDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(promNamespace, subsystemClientPool, "active_connections"),
 		"The number of active (in-use) connections of a thrift client pool",
 		clientPoolLabels,
 		nil, // const labels
 	)
 
-	clientPoolAllocatedClientsDesc = prometheus.NewDesc(
+	// TODO: Remove after the next release (v0.9.12)
+	legacyClientPoolAllocatedClientsDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(promNamespace, subsystemClientPool, "allocated_clients"),
 		"The number of allocated (in-pool) clients of a thrift client pool",
 		clientPoolLabels,
+		nil, // const labels
+	)
+
+	clientPoolPeakActiveConnectionsDesc = prometheus.NewDesc(
+		"thrift_client_pool_peak_active_connections",
+		"The lifetime max number of active (in-use) connections of a thrift client pool",
+		[]string{"thrift_pool"},
+		nil, // const labels
+	)
+
+	clientPoolActiveConnectionsDesc = prometheus.NewDesc(
+		"thrift_client_pool_active_connections",
+		"The number of active (in-use) connections of a thrift client pool",
+		[]string{"thrift_pool"},
+		nil, // const labels
+	)
+
+	clientPoolIdleClientsDesc = prometheus.NewDesc(
+		"thrift_client_pool_idle_connections",
+		"The number of idle (in-pool) clients of a thrift client pool",
+		[]string{"thrift_pool"},
 		nil, // const labels
 	)
 )
@@ -238,25 +275,52 @@ var (
 type clientPoolGaugeExporter struct {
 	slug string
 	pool clientpool.Pool
+
+	activeConnections prometheusbpint.HighWatermarkValue
 }
 
-func (e clientPoolGaugeExporter) Describe(ch chan<- *prometheus.Desc) {
+func (e *clientPoolGaugeExporter) Describe(ch chan<- *prometheus.Desc) {
 	// All metrics are described dynamically.
 }
 
-func (e clientPoolGaugeExporter) Collect(ch chan<- prometheus.Metric) {
+func (e *clientPoolGaugeExporter) Collect(ch chan<- prometheus.Metric) {
+	e.activeConnections.Set(int64(e.pool.NumActiveClients()))
+	active, max := e.activeConnections.GetBoth()
+	idle := float64(e.pool.NumAllocated())
+
 	// MustNewConstMetric would only panic if there's a label mismatch, which we
 	// have a unit test to cover.
 	ch <- prometheus.MustNewConstMetric(
-		clientPoolActiveConnectionsDesc,
+		legacyClientPoolActiveConnectionsDesc,
 		prometheus.GaugeValue,
-		float64(e.pool.NumActiveClients()),
+		float64(active),
+		e.slug,
 		e.slug,
 	)
 	ch <- prometheus.MustNewConstMetric(
-		clientPoolAllocatedClientsDesc,
+		legacyClientPoolAllocatedClientsDesc,
 		prometheus.GaugeValue,
-		float64(e.pool.NumAllocated()),
+		idle,
+		e.slug,
+		e.slug,
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		clientPoolActiveConnectionsDesc,
+		prometheus.GaugeValue,
+		float64(active),
+		e.slug,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		clientPoolPeakActiveConnectionsDesc,
+		prometheus.GaugeValue,
+		float64(max),
+		e.slug,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		clientPoolIdleClientsDesc,
+		prometheus.GaugeValue,
+		idle,
 		e.slug,
 	)
 }

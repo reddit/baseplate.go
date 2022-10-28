@@ -158,7 +158,7 @@ func (fakePool) NumAllocated() int32 {
 func TestClientPoolGaugeExporterRegister(t *testing.T) {
 	// This test is to make sure that a service creating more than one thrift
 	// client pool will not cause issues in prometheus metrics.
-	exporters := []clientPoolGaugeExporter{
+	exporters := []*clientPoolGaugeExporter{
 		{
 			slug: "foo",
 			pool: fakePool{},

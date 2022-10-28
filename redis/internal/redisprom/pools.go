@@ -36,7 +36,7 @@ var (
 		prometheus.Labels{},
 	)
 	TotalConnectionGetsDesc = prometheus.NewDesc(
-		"redis_client_total_connection_gets",
+		"redis_client_connection_gets_total",
 		"incremented each time a connection is 'leased' from the pool",
 		[]string{redisPoolLabel},
 		prometheus.Labels{},
