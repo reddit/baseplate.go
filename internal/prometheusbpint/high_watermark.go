@@ -59,7 +59,8 @@ func (hwv *HighWatermarkValue) Max() int64 {
 	return hwv.max
 }
 
-func (hwv *HighWatermarkValue) getBoth() (curr, max int64) {
+// GetBoth returns current and max values.
+func (hwv *HighWatermarkValue) GetBoth() (curr, max int64) {
 	hwv.lock.RLock()
 	defer hwv.lock.RUnlock()
 
@@ -87,7 +88,7 @@ func (hwg HighWatermarkGauge) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implements prometheus.Collector.
 func (hwg HighWatermarkGauge) Collect(ch chan<- prometheus.Metric) {
-	curr, max := hwg.HighWatermarkValue.getBoth()
+	curr, max := hwg.HighWatermarkValue.GetBoth()
 
 	if hwg.CurrGauge != nil {
 		ch <- prometheus.MustNewConstMetric(
