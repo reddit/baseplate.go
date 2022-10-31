@@ -13,28 +13,28 @@ const (
 )
 
 func wrapResponseWriter(orig, wrapped http.ResponseWriter) http.ResponseWriter {
-	var f optionalResponseWriter
-	fl, isFlusher := orig.(http.Flusher)
+	var w optionalResponseWriter
+	f, isFlusher := orig.(http.Flusher)
 	if isFlusher {
-		f |= flusher
+		w |= flusher
 	}
 	h, isHijacker := orig.(http.Hijacker)
 	if isHijacker {
-		f |= hijacker
+		w |= hijacker
 	}
 	p, isPusher := orig.(http.Pusher)
 	if isPusher {
-		f |= pusher
+		w |= pusher
 	}
 
-	switch f {
+	switch w {
 	case 0:
 		return wrapped
 	case flusher:
 		return struct {
 			http.ResponseWriter
 			http.Flusher
-		}{wrapped, fl}
+		}{wrapped, f}
 	case hijacker:
 		return struct {
 			http.ResponseWriter
@@ -45,7 +45,7 @@ func wrapResponseWriter(orig, wrapped http.ResponseWriter) http.ResponseWriter {
 			http.ResponseWriter
 			http.Flusher
 			http.Hijacker
-		}{wrapped, fl, h}
+		}{wrapped, f, h}
 	case pusher:
 		return struct {
 			http.ResponseWriter
@@ -56,7 +56,7 @@ func wrapResponseWriter(orig, wrapped http.ResponseWriter) http.ResponseWriter {
 			http.ResponseWriter
 			http.Flusher
 			http.Pusher
-		}{wrapped, fl, p}
+		}{wrapped, f, p}
 	case hijacker | pusher:
 		return struct {
 			http.ResponseWriter
@@ -69,7 +69,7 @@ func wrapResponseWriter(orig, wrapped http.ResponseWriter) http.ResponseWriter {
 			http.Flusher
 			http.Hijacker
 			http.Pusher
-		}{wrapped, fl, h, p}
+		}{wrapped, f, h, p}
 	}
 
 	return wrapped
