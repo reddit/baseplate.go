@@ -13,7 +13,6 @@ import (
 
 	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/metricsbp"
 )
 
 const (
@@ -89,9 +88,8 @@ type readCloser struct {
 
 // OpenWithLimit calls Open with limit checks.
 //
-// It always reports the size of the path as a runtime gauge
-// (with "limitopen.size" as the metrics path and path label for statsd,
-// "limitopen_file_size_bytes" for prometheus).
+// It always reports the size of the path as a prometheus gauge of
+// "limitopen_file_size_bytes".
 // When softLimit > 0 and the size of the path as reported by the os is larger,
 // it will also use log.DefaultWrapper to report it and increase prometheus
 // counter of limitopen_softlimit_violation_total.
@@ -104,9 +102,6 @@ func OpenWithLimit(path string, softLimit, hardLimit int64) (io.ReadCloser, erro
 	}
 
 	pathValue := filepath.Base(path)
-	metricsbp.M.RuntimeGauge("limitopen.size").With(
-		"path", pathValue,
-	).Set(float64(size))
 	labels := prometheus.Labels{
 		pathLabel: pathValue,
 	}

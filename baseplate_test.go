@@ -17,7 +17,6 @@ import (
 	"github.com/reddit/baseplate.go/configbp"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/runtimebp"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/tracing"
@@ -285,10 +284,6 @@ func TestServeClosers(t *testing.T) {
 	}
 }
 
-func float64Ptr(v float64) *float64 {
-	return &v
-}
-
 type serviceConfig struct {
 	baseplate.Config `yaml:",inline"`
 
@@ -315,11 +310,6 @@ stopTimeout: 30s
 log:
  level: info
 
-metrics:
- namespace: baseplate-test
- endpoint: metrics:8125
- histogramSampleRate: 0.01
-
 runtime:
  numProcesses:
   max: 100
@@ -345,12 +335,6 @@ redis:
 
 		Log: log.Config{
 			Level: "info",
-		},
-
-		Metrics: metricsbp.Config{
-			Namespace:           "baseplate-test",
-			Endpoint:            "metrics:8125",
-			HistogramSampleRate: float64Ptr(0.01),
 		},
 
 		Runtime: runtimebp.Config{

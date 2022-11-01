@@ -123,11 +123,17 @@ var (
 		methodLabel,
 	}
 
-	panicRecoverCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+	// TODO: Remove after next release (v0.9.12)
+	legacyPanicRecoverCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Namespace: promNamespace,
 		Subsystem: subsystemServer,
 		Name:      "panic_recover_total",
-		Help:      "The number of panics recovered from http server handlers",
+		Help:      "Deprecated: use httpbp_server_recovered_panics_total instead",
+	}, panicRecoverLabels)
+
+	panicRecoverCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "httpbp_server_recovered_panics_total",
+		Help: "The number of panics recovered from http server handlers",
 	}, panicRecoverLabels)
 )
 

@@ -12,7 +12,6 @@ import (
 
 	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/metricsbp"
 )
 
 const (
@@ -58,7 +57,10 @@ type Config struct {
 	// EmitStatusMetrics sets whether the failure breaker will regularly update a gauge on the breakers state (closed or open/halfopen).
 	// When enabled, it emits metrics using the interval of EmitStatusMetricsInterval.
 	// If EmitStatusMetricsInterval <=0, metricsbp.SysStatsTickerInterval will be used as the fallback.
-	EmitStatusMetrics         bool          `yaml:"emitStatusMetrics"`
+	//
+	// Deprecated: Statsd metrics are deprecated.
+	EmitStatusMetrics bool `yaml:"emitStatusMetrics"`
+	// Deprecated: Statsd metrics are deprecated.
 	EmitStatusMetricsInterval time.Duration `yaml:"emitStatusMetricsInterval"`
 
 	// Logger is the logger to be called when the breaker changes states.
@@ -76,8 +78,7 @@ type Config struct {
 	Timeout time.Duration `yaml:"timeout"`
 }
 
-// NewFailureRatioBreaker creates a new FailureRatioBreaker with the provided configuration. Creates a new goroutine to emit
-// breaker state metrics if EmitStatusMetrics is set to true. This goroutine is stopped when metricsbp.M.Ctx() is done().
+// NewFailureRatioBreaker creates a new FailureRatioBreaker with the provided configuration.
 func NewFailureRatioBreaker(config Config) FailureRatioBreaker {
 
 	failureBreaker := FailureRatioBreaker{
@@ -96,37 +97,12 @@ func NewFailureRatioBreaker(config Config) FailureRatioBreaker {
 	}
 
 	failureBreaker.goBreaker = gobreaker.NewCircuitBreaker(settings)
-	if config.EmitStatusMetrics {
-		go failureBreaker.runStatsProducer(config.EmitStatusMetricsInterval)
-	}
 
 	breakerClosed.With(prometheus.Labels{
 		nameLabel: config.Name,
 	}).Set(1)
 
 	return failureBreaker
-}
-
-func (cb FailureRatioBreaker) runStatsProducer(interval time.Duration) {
-	if interval <= 0 {
-		interval = metricsbp.SysStatsTickerInterval
-	}
-	circuitBreakerGauge := metricsbp.M.RuntimeGauge(cb.name + "-circuit-breaker-closed")
-
-	tick := time.NewTicker(interval)
-	defer tick.Stop()
-	for {
-		select {
-		case <-metricsbp.M.Ctx().Done():
-			return
-		case <-tick.C:
-			if cb.State() == gobreaker.StateOpen {
-				circuitBreakerGauge.Set(0)
-			} else {
-				circuitBreakerGauge.Set(1)
-			}
-		}
-	}
 }
 
 // Execute wraps the given function call in circuit breaker logic and returns

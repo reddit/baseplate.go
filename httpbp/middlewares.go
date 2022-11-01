@@ -70,8 +70,7 @@ type DefaultMiddlewareArgs struct {
 //
 //  1. InjectServerSpan
 //  2. InjectEdgeRequestContext
-//  3. RecordStatusCode
-//  4. PrometheusServerMetrics
+//  3. PrometheusServerMetrics
 func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	if args.TrustHandler == nil {
 		args.TrustHandler = NeverTrustHeaders{}
@@ -79,7 +78,6 @@ func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	return []Middleware{
 		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
-		RecordStatusCode(),
 		PrometheusServerMetrics(""),
 	}
 }
@@ -290,6 +288,9 @@ func recoverPanik(name string, next HandlerFunc) HandlerFunc {
 	counter := panicRecoverCounter.With(prometheus.Labels{
 		methodLabel: name,
 	})
+	legacyCounter := legacyPanicRecoverCounter.With(prometheus.Labels{
+		methodLabel: name,
+	})
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -304,10 +305,8 @@ func recoverPanik(name string, next HandlerFunc) HandlerFunc {
 					"err", rErr,
 					"endpoint", name,
 				)
-				metricsbp.M.Counter("panic.recover").With(
-					"name", name,
-				).Add(1)
 				counter.Inc()
+				legacyCounter.Inc()
 
 				// change named return value to a generic 500 error
 				err = RawError(InternalServerError(), rErr, PlainTextContentType)
@@ -422,6 +421,8 @@ func recordStatusCode(counters counterGenerator) Middleware {
 // RecordStatusCode should generally not be used directly, instead use the
 // NewBaseplateServer function which will automatically include RecordStatusCode
 // as one of the Middlewares to wrap your handlers in.
+//
+// Deprecated: This is deprecated with statsd metrics.
 func RecordStatusCode() Middleware {
 	return recordStatusCode(metricsbp.M)
 }

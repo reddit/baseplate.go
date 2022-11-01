@@ -195,6 +195,9 @@ func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *ClusterC
 // Ex:
 //
 //	go factory.MonitorPoolStats(metricsbp.M.Ctx(), tags)
+//
+// Deprecated: Statsd metrics are deprecated. Prometheus pool stats metrics are
+// always reported with a monitored client.
 func MonitorPoolStats(ctx context.Context, client PoolStatser, name string, tags metricsbp.Tags) {
 	t := tags.AsStatsdTags()
 	prefix := name + ".pool"

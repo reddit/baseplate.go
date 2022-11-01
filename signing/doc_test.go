@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/signing"
 )
@@ -14,6 +14,9 @@ func Example() {
 	var (
 		store      *secrets.Store
 		secretPath string
+
+		invalidSignatureCounter prometheus.Counter
+		expiredSignatureCounter prometheus.Counter
 	)
 
 	secret, _ := store.GetVersionedSecret(secretPath)
@@ -30,12 +33,12 @@ func Example() {
 	// Verify
 	err := signing.Verify([]byte(msg), signature, secret)
 	if err != nil {
-		metricsbp.M.Counter("invalid-signature").Add(1)
+		invalidSignatureCounter.Inc()
 		var e signing.VerifyError
 		if errors.As(err, &e) {
 			switch e.Reason {
 			case signing.VerifyErrorReasonExpired:
-				metricsbp.M.Counter("signature-expired").Add(1)
+				expiredSignatureCounter.Inc()
 			}
 		}
 	}
