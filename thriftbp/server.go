@@ -11,11 +11,6 @@ import (
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/metricsbp"
-)
-
-const (
-	meterNameThriftSocketErrorCounter = "thrift.socket.timeout"
 )
 
 // ServerConfig is the arg struct for both NewServer and NewBaseplateServer.
@@ -58,6 +53,8 @@ type ServerConfig struct {
 	//
 	// Report the number of clients connected to the server as a runtime gauge
 	// with metric name of 'thrift.connections'
+	//
+	// Deprecated: This feature is removed.
 	ReportConnectionCount bool
 
 	// Optional, used only by NewServer.
@@ -108,10 +105,6 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 		transport = cfg.Socket
 	}
 
-	if cfg.ReportConnectionCount {
-		transport = &CountedTServerTransport{transport}
-	}
-
 	server := thrift.NewTSimpleServer4(
 		thrift.WrapProcessor(cfg.Processor, cfg.Middlewares...),
 		transport,
@@ -160,10 +153,8 @@ func NewBaseplateServer(
 }
 
 func suppressTimeoutLogger(logger thrift.Logger) thrift.Logger {
-	c := metricsbp.M.Counter(meterNameThriftSocketErrorCounter)
 	return func(msg string) {
 		if strings.Contains(msg, "i/o timeout") {
-			c.Add(1)
 			return
 		}
 

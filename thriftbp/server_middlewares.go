@@ -15,9 +15,7 @@ import (
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/iobp"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/prometheusbp"
-	"github.com/reddit/baseplate.go/randbp"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
 )
@@ -281,59 +279,44 @@ func AbandonCanceledRequests(name string, next thrift.TProcessorFunction) thrift
 // - payload.size.myEndpoint.request
 //
 // - payload.size.myEndpoint.response
-func ReportPayloadSizeMetrics(rate float64) thrift.ProcessorMiddleware {
+func ReportPayloadSizeMetrics(_ float64) thrift.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
 			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
-				if rate > 0 {
-					// Only report for THeader requests
-					if ht, ok := in.Transport().(*thrift.THeaderTransport); ok {
-						protoID := ht.Protocol()
-						cfg := &thrift.TConfiguration{
-							THeaderProtocolID: &protoID,
-						}
-						var itrans, otrans countingTransport
-						transport := thrift.NewTHeaderTransportConf(&itrans, cfg)
-						iproto := thrift.NewTHeaderProtocolConf(transport, cfg)
-						in = &thrift.TDuplicateToProtocol{
-							Delegate:    in,
-							DuplicateTo: iproto,
-						}
-						transport = thrift.NewTHeaderTransportConf(&otrans, cfg)
-						oproto := thrift.NewTHeaderProtocolConf(transport, cfg)
-						out = &thrift.TDuplicateToProtocol{
-							Delegate:    out,
-							DuplicateTo: oproto,
-						}
-
-						defer func() {
-							iproto.Flush(ctx)
-							oproto.Flush(ctx)
-							isize := float64(itrans.Size())
-							osize := float64(otrans.Size())
-
-							proto := "header-" + tHeaderProtocol2String(protoID)
-							labels := prometheus.Labels{
-								methodLabel: name,
-								protoLabel:  proto,
-							}
-							payloadSizeRequestBytes.With(labels).Observe(isize)
-							payloadSizeResponseBytes.With(labels).Observe(osize)
-
-							if randbp.ShouldSampleWithRate(rate) {
-								metricsbp.M.HistogramWithRate(metricsbp.RateArgs{
-									Name:             "payload.size." + name + ".request",
-									Rate:             1,
-									AlreadySampledAt: metricsbp.Float64Ptr(rate),
-								}).With("proto", proto).Observe(isize)
-								metricsbp.M.HistogramWithRate(metricsbp.RateArgs{
-									Name:             "payload.size." + name + ".response",
-									Rate:             1,
-									AlreadySampledAt: metricsbp.Float64Ptr(rate),
-								}).With("proto", proto).Observe(osize)
-							}
-						}()
+				// Only report for THeader requests
+				if ht, ok := in.Transport().(*thrift.THeaderTransport); ok {
+					protoID := ht.Protocol()
+					cfg := &thrift.TConfiguration{
+						THeaderProtocolID: &protoID,
 					}
+					var itrans, otrans countingTransport
+					transport := thrift.NewTHeaderTransportConf(&itrans, cfg)
+					iproto := thrift.NewTHeaderProtocolConf(transport, cfg)
+					in = &thrift.TDuplicateToProtocol{
+						Delegate:    in,
+						DuplicateTo: iproto,
+					}
+					transport = thrift.NewTHeaderTransportConf(&otrans, cfg)
+					oproto := thrift.NewTHeaderProtocolConf(transport, cfg)
+					out = &thrift.TDuplicateToProtocol{
+						Delegate:    out,
+						DuplicateTo: oproto,
+					}
+
+					defer func() {
+						iproto.Flush(ctx)
+						oproto.Flush(ctx)
+						isize := float64(itrans.Size())
+						osize := float64(otrans.Size())
+
+						proto := "header-" + tHeaderProtocol2String(protoID)
+						labels := prometheus.Labels{
+							methodLabel: name,
+							protoLabel:  proto,
+						}
+						payloadSizeRequestBytes.With(labels).Observe(isize)
+						payloadSizeResponseBytes.With(labels).Observe(osize)
+					}()
 				}
 
 				return next.Process(ctx, seqID, in, out)
@@ -387,6 +370,10 @@ func RecoverPanik(name string, next thrift.TProcessorFunction) thrift.TProcessor
 	counter := panicRecoverCounter.With(prometheus.Labels{
 		methodLabel: name,
 	})
+	// TODO: Remove after next release (v0.9.12)
+	legacyCounter := legacyPanicRecoverCounter.With(prometheus.Labels{
+		methodLabel: name,
+	})
 	return thrift.WrappedTProcessorFunction{
 		Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (ok bool, err thrift.TException) {
 			defer func() {
@@ -402,10 +389,8 @@ func RecoverPanik(name string, next thrift.TProcessorFunction) thrift.TProcessor
 						"err", rErr,
 						"endpoint", name,
 					)
-					metricsbp.M.Counter("panic.recover").With(
-						"name", name,
-					).Add(1)
 					counter.Inc()
+					legacyCounter.Inc()
 
 					// changed named return values to show that the request failed and
 					// return the panic value error.

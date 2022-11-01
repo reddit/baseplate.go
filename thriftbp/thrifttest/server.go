@@ -46,6 +46,8 @@ const (
 
 	// ReportClientPoolStats is the value that is always used for
 	// ServerConfig.ClientConfig.ReportPoolStats.
+	//
+	// Deprecated: deprecated with the server config field.
 	ReportClientPoolStats = false
 
 	loopbackAddr = "127.0.0.1:0"
@@ -169,7 +171,6 @@ func NewBaseplateServer(cfg ServerConfig) (*Server, error) {
 	server := &Server{Server: thriftbp.ApplyBaseplate(bp, srv)}
 
 	cfg.ClientConfig.Addr = server.Baseplate().GetConfig().Addr
-	cfg.ClientConfig.ReportPoolStats = ReportClientPoolStats
 	cfg.ClientConfig.InitialConnections = InitialClientConnections
 
 	if cfg.ClientConfig.ConnectTimeout == 0 {

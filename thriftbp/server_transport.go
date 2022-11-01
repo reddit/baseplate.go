@@ -13,6 +13,8 @@ const meterNameTransportConnCounter = "thrift.connections"
 
 // CountedTServerTransport is a wrapper around thrift.TServerTransport that
 // emits a gauge of the number of client connections.
+//
+// Deprecated: This is deprecated with statsd metrics.
 type CountedTServerTransport struct {
 	thrift.TServerTransport
 }

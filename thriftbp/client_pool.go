@@ -24,6 +24,8 @@ import (
 
 // DefaultPoolGaugeInterval is the fallback value to be used when
 // ClientPoolConfig.PoolGaugeInterval <= 0.
+//
+// Deprecated: Prometheus gauges are auto scraped.
 const DefaultPoolGaugeInterval = time.Second * 10
 
 // PoolError is returned by ClientPool.TClient.Call when it fails to get a
@@ -144,6 +146,8 @@ type ClientPoolConfig struct {
 
 	// Any tags that should be applied to metrics logged by the ClientPool.
 	// This includes the optional pool stats.
+	//
+	// Deprecated: We no longer emit any statsd metrics so this has no effect.
 	MetricsTags metricsbp.Tags `yaml:"metricsTags"`
 
 	// DefaultRetryOptions is the list of retry.Options to apply as the defaults
@@ -168,6 +172,9 @@ type ClientPoolConfig struct {
 	//
 	// The reporting goroutine is cancelled when the global metrics client
 	// context is Done.
+	//
+	// Deprecated: The statsd metrics are deprecated and the prometheus metrics
+	// are always reported.
 	ReportPoolStats bool `yaml:"reportPoolStats"`
 
 	// PoolGaugeInterval indicates how often we should update the active
@@ -175,6 +182,8 @@ type ClientPoolConfig struct {
 	//
 	// When PoolGaugeInterval <= 0 and ReportPoolStats is true,
 	// DefaultPoolGaugeInterval will be used instead.
+	//
+	// Deprecated: Not used any more. Prometheus gauges are auto scraped.
 	PoolGaugeInterval time.Duration `yaml:"poolGaugeInterval"`
 
 	// Suppress some of the errors returned by the server before sending them to
@@ -396,7 +405,6 @@ func newClientPool(
 		"thrift_pool": cfg.ServiceSlug,
 	}).Set(float64(cfg.MaxConnections))
 	tConfig := cfg.ToTConfiguration()
-	tags := cfg.MetricsTags.AsStatsdTags()
 	jitter := DefaultMaxConnectionAgeJitter
 	if cfg.MaxConnectionAgeJitter != nil {
 		jitter = *cfg.MaxConnectionAgeJitter
@@ -405,7 +413,6 @@ func newClientPool(
 		return newClient(
 			tConfig,
 			cfg.ServiceSlug,
-			cfg.MetricsTags,
 			cfg.MaxConnectionAge,
 			jitter,
 			genAddr,
@@ -440,33 +447,24 @@ func newClientPool(
 			err,
 		))
 	}
-	if cfg.ReportPoolStats {
-		go reportPoolStats(
-			metricsbp.M.Ctx(),
-			cfg.ServiceSlug,
-			pool,
-			cfg.PoolGaugeInterval,
-			tags,
-		)
 
-		if err := prometheusbpint.GlobalRegistry.Register(&clientPoolGaugeExporter{
-			slug: cfg.ServiceSlug,
-			pool: pool,
-		}); err != nil {
-			// Register should never fail because clientPoolGaugeExporter.Describe is
-			// a no-op, but just in case.
+	if err := prometheusbpint.GlobalRegistry.Register(&clientPoolGaugeExporter{
+		slug: cfg.ServiceSlug,
+		pool: pool,
+	}); err != nil {
+		// Register should never fail because clientPoolGaugeExporter.Describe is
+		// a no-op, but just in case.
 
-			var batch errorsbp.Batch
-			batch.Add(err)
-			if err := pool.Close(); err != nil {
-				batch.AddPrefix("close pool", err)
-			}
-			return nil, fmt.Errorf(
-				"thriftbp: error registering prometheus exporter for client pool %q: %w",
-				cfg.ServiceSlug,
-				batch.Compile(),
-			)
+		var batch errorsbp.Batch
+		batch.Add(err)
+		if err := pool.Close(); err != nil {
+			batch.AddPrefix("close pool", err)
 		}
+		return nil, fmt.Errorf(
+			"thriftbp: error registering prometheus exporter for client pool %q: %w",
+			cfg.ServiceSlug,
+			batch.Compile(),
+		)
 	}
 
 	// create the base clientPool, this is not ready for use.
@@ -489,6 +487,8 @@ func newClientPool(
 	clientPoolExhaustedCounter.With(labels)
 	clientPoolClosedConnectionsCounter.With(labels)
 	clientPoolReleaseErrorCounter.With(labels)
+	legacyClientPoolExhaustedCounter.With(labels)
+	legacyClientPoolReleaseErrorCounter.With(labels)
 
 	return pooledClient, nil
 }
@@ -496,7 +496,6 @@ func newClientPool(
 func newClient(
 	cfg *thrift.TConfiguration,
 	slug string,
-	tags metricsbp.Tags,
 	maxConnectionAge time.Duration,
 	maxConnectionAgeJitter float64,
 	genAddr AddressGenerator,
@@ -517,27 +516,7 @@ func newClient(
 			protoFactory.GetProtocol(transport),
 			protoFactory.GetProtocol(transport),
 		), transport, nil
-	}, maxConnectionAge, maxConnectionAgeJitter, slug, tags)
-}
-
-func reportPoolStats(ctx context.Context, slug string, pool clientpool.Pool, tickerDuration time.Duration, tags []string) {
-	activeGauge := metricsbp.M.RuntimeGauge(slug + ".pool-active-connections").With(tags...)
-	allocatedGauge := metricsbp.M.RuntimeGauge(slug + ".pool-allocated-clients").With(tags...)
-
-	if tickerDuration <= 0 {
-		tickerDuration = DefaultPoolGaugeInterval
-	}
-	ticker := time.NewTicker(tickerDuration)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			activeGauge.Set(float64(pool.NumActiveClients()))
-			allocatedGauge.Set(float64(pool.NumAllocated()))
-		}
-	}
+	}, maxConnectionAge, maxConnectionAgeJitter, slug)
 }
 
 type clientPool struct {
@@ -615,6 +594,10 @@ func (p *clientPool) getClient() (_ Client, err error) {
 				clientNameLabel: p.slug,
 				"thrift_pool":   p.slug,
 			}).Inc()
+			legacyClientPoolExhaustedCounter.With(prometheus.Labels{
+				clientNameLabel: p.slug,
+				"thrift_pool":   p.slug,
+			}).Inc()
 		}
 		log.Errorw(
 			"Failed to get client from pool",
@@ -634,6 +617,10 @@ func (p *clientPool) releaseClient(c Client) {
 			"err", err,
 		)
 		clientPoolReleaseErrorCounter.With(prometheus.Labels{
+			clientNameLabel: p.slug,
+			"thrift_pool":   p.slug,
+		}).Inc()
+		legacyClientPoolReleaseErrorCounter.With(prometheus.Labels{
 			clientNameLabel: p.slug,
 			"thrift_pool":   p.slug,
 		}).Inc()
