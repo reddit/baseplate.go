@@ -167,11 +167,17 @@ var (
 		methodLabel,
 	}
 
-	panicRecoverCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+	// TODO: Remove after the next release (v0.9.12)
+	legacyPanicRecoverCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Namespace: promNamespace,
 		Subsystem: subsystemServer,
 		Name:      "panic_recover_total",
-		Help:      "The number of panics recovered from thrift server handlers",
+		Help:      "Deprecated: Use thriftbp_server_recovered_panics_total instead",
+	}, panicRecoverLabels)
+
+	panicRecoverCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "thriftbp_server_recovered_panics_total",
+		Help: "The number of panics recovered from thrift server handlers",
 	}, panicRecoverLabels)
 )
 
@@ -181,25 +187,35 @@ var (
 		"thrift_pool",
 	}
 
-	clientPoolExhaustedCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+	// TODO: Remove after the next release (v0.9.12)
+	legacyClientPoolExhaustedCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Namespace: promNamespace,
 		Subsystem: subsystemClientPool,
 		Name:      "exhausted_total",
-		Help:      "The number of pool exhaustion for a thrift client pool",
+		Help:      "Deprecated: Use thriftbp_client_pool_exhaustions_total instead",
+	}, clientPoolLabels)
+
+	clientPoolExhaustedCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "thriftbp_client_pool_exhaustions_total",
+		Help: "The number of pool exhaustions for a thrift client pool",
 	}, clientPoolLabels)
 
 	clientPoolClosedConnectionsCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemClientPool,
-		Name:      "closed_connections_total",
-		Help:      "The number of times we closed the client after used it from the pool",
+		Name: "thriftbp_client_pool_closed_connections_total",
+		Help: "The number of times we closed the client after used it from the pool",
 	}, clientPoolLabels)
 
-	clientPoolReleaseErrorCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+	// TODO: Remove after the next release (v0.9.12)
+	legacyClientPoolReleaseErrorCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Namespace: promNamespace,
 		Subsystem: subsystemClientPool,
 		Name:      "release_error_total",
-		Help:      "The number of times we failed to release a client back to the pool",
+		Help:      "Deprecated: Use thriftbp_client_pool_release_errors_total instead",
+	}, clientPoolLabels)
+
+	clientPoolReleaseErrorCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "thriftbp_client_pool_release_errors_total",
+		Help: "The number of times we failed to release a client back to the pool",
 	}, clientPoolLabels)
 
 	clientPoolGetsCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{

@@ -32,7 +32,7 @@ func TestTTLClient(t *testing.T) {
 	ttl := time.Millisecond
 	jitter := 0.1
 
-	client, err := newTTLClient(firstSuccessGenerator(transport), ttl, jitter, "", nil)
+	client, err := newTTLClient(firstSuccessGenerator(transport), ttl, jitter, "")
 	if err != nil {
 		t.Fatalf("newTTLClient returned error: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestTTLClient(t *testing.T) {
 		t.Error("Expected IsOpen call after sleep to return false, got true.")
 	}
 
-	client, err = newTTLClient(firstSuccessGenerator(transport), ttl, -jitter, "", nil)
+	client, err = newTTLClient(firstSuccessGenerator(transport), ttl, -jitter, "")
 	if err != nil {
 		t.Fatalf("newTTLClient returned error: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestTTLClientNegativeTTL(t *testing.T) {
 	transport := thrift.NewTMemoryBuffer()
 	ttl := time.Millisecond
 
-	client, err := newTTLClient(firstSuccessGenerator(transport), -ttl, 0.1, "", nil)
+	client, err := newTTLClient(firstSuccessGenerator(transport), -ttl, 0.1, "")
 	if err != nil {
 		t.Fatalf("newTTLClient returned error: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestTTLClientRefresh(t *testing.T) {
 		)
 
 		g := alwaysSuccessGenerator{transport: &transport}
-		client, err := newTTLClient(g.generator(), ttl, jitter, "", nil)
+		client, err := newTTLClient(g.generator(), ttl, jitter, "")
 		if err != nil {
 			t.Fatalf("newTTLClient returned error: %v", err)
 		}

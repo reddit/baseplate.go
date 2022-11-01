@@ -502,7 +502,7 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 			latencyLabels := prometheus.Labels{
 				methodLabel:                  methodIsHealthy,
 				successLabel:                 prometheusbp.BoolString(!tt.wantFail),
-				remoteServiceClientNameLabel: thrifttest.DefaultServiceSlug,
+				remoteServiceClientNameLabel: tt.name,
 			}
 
 			totalRequestLabels := prometheus.Labels{
@@ -511,12 +511,12 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 				exceptionLabel:               tt.exceptionType,
 				baseplateStatusCodeLabel:     "",
 				baseplateStatusLabel:         "",
-				remoteServiceClientNameLabel: thrifttest.DefaultServiceSlug,
+				remoteServiceClientNameLabel: tt.name,
 			}
 
 			activeRequestLabels := prometheus.Labels{
 				methodLabel:                  methodIsHealthy,
-				remoteServiceClientNameLabel: thrifttest.DefaultServiceSlug,
+				remoteServiceClientNameLabel: tt.name,
 			}
 
 			defer thriftbp.PrometheusClientMetricsTest(t, latencyLabels, totalRequestLabels, activeRequestLabels).CheckMetrics()
@@ -524,7 +524,7 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 
 			ctx := context.Background()
 			handler := mockBaseplateService{fail: tt.wantFail, err: tt.wantErr}
-			client := setupFake(ctx, t, handler)
+			client := setupFake(ctx, t, handler, tt.name)
 			bpClient := baseplatethrift.NewBaseplateServiceV2Client(client.TClient())
 			result, err := bpClient.IsHealthy(
 				ctx,
@@ -554,9 +554,12 @@ func (srv mockBaseplateService) IsHealthy(ctx context.Context, req *baseplatethr
 	return !srv.fail, srv.err
 }
 
-func setupFake(ctx context.Context, t *testing.T, handler baseplatethrift.BaseplateServiceV2) thriftbp.ClientPool {
+func setupFake(ctx context.Context, t *testing.T, handler baseplatethrift.BaseplateServiceV2, slug string) thriftbp.ClientPool {
 	srv, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
 		Processor: baseplatethrift.NewBaseplateServiceV2Processor(handler),
+		ClientConfig: thriftbp.ClientPoolConfig{
+			ServiceSlug: slug,
+		},
 	})
 	if err != nil {
 		t.Fatalf("SETUP: Setting up baseplate server: %s", err)

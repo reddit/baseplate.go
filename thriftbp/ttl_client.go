@@ -5,10 +5,8 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/randbp"
 )
@@ -47,9 +45,7 @@ type ttlClient struct {
 	// configs needed for refresh to work
 	generator ttlClientGenerator
 	ttl       time.Duration
-
-	replaceCounter metrics.Counter
-	slug           string
+	slug      string
 
 	// state guarded by lock (buffer-1 channel)
 	state chan *ttlClientState
@@ -106,7 +102,6 @@ func (c *ttlClient) refresh() {
 		// We cannot replace this connection in the background,
 		// leave client and transport be,
 		// this connection will be replaced by the pool upon next use.
-		c.replaceCounter.With("success", metricsbp.BoolString(false)).Add(1)
 		ttlClientReplaceCounter.With(prometheus.Labels{
 			clientNameLabel: c.slug,
 			successLabel:    prometheusbp.BoolString(false),
@@ -132,7 +127,6 @@ func (c *ttlClient) refresh() {
 		state.transport.Close()
 	}
 	state.transport = transport
-	c.replaceCounter.With("success", metricsbp.BoolString(true)).Add(1)
 	ttlClientReplaceCounter.With(prometheus.Labels{
 		clientNameLabel: c.slug,
 		successLabel:    prometheusbp.BoolString(true),
@@ -140,7 +134,7 @@ func (c *ttlClient) refresh() {
 }
 
 // newTTLClient creates a ttlClient with a thrift TTransport and ttl+jitter.
-func newTTLClient(generator ttlClientGenerator, ttl time.Duration, jitter float64, slug string, tags metricsbp.Tags) (*ttlClient, error) {
+func newTTLClient(generator ttlClientGenerator, ttl time.Duration, jitter float64, slug string) (*ttlClient, error) {
 	client, transport, err := generator()
 	if err != nil {
 		return nil, err
@@ -153,9 +147,7 @@ func newTTLClient(generator ttlClientGenerator, ttl time.Duration, jitter float6
 	c := &ttlClient{
 		generator: generator,
 		ttl:       duration,
-
-		replaceCounter: metricsbp.M.Counter(slug + ".connection-housekeeping").With(tags.AsStatsdTags()...),
-		slug:           slug,
+		slug:      slug,
 
 		state: make(chan *ttlClientState, 1),
 	}
