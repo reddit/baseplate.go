@@ -1,15 +1,18 @@
 package httpbp_test
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"sort"
 	"strings"
 	"testing"
 
+	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
@@ -322,4 +325,157 @@ func TestSupportedMethods(t *testing.T) {
 			},
 		)
 	}
+}
+
+func TestMiddlewareResponseWrapping(t *testing.T) {
+	store := newSecretsStore(t)
+	defer store.Close()
+
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config:          baseplate.Config{Addr: ":8080"},
+		Store:           store,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
+
+	args := httpbp.ServerArgs{
+		Baseplate: bp,
+		Middlewares: []httpbp.Middleware{
+			func(name string, next httpbp.HandlerFunc) httpbp.HandlerFunc {
+				return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+					if flusher, isFlusher := w.(http.Flusher); isFlusher {
+						flusher.Flush()
+					}
+
+					next(ctx, w, r)
+					return nil
+				}
+			},
+			func(name string, next httpbp.HandlerFunc) httpbp.HandlerFunc {
+				return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+					if hijacker, isHijacker := w.(http.Hijacker); isHijacker {
+						hijacker.Hijack()
+					}
+
+					next(ctx, w, r)
+					return nil
+				}
+			},
+			func(name string, next httpbp.HandlerFunc) httpbp.HandlerFunc {
+				return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+					if pusher, isPusher := w.(http.Pusher); isPusher {
+						pusher.Push("target", &http.PushOptions{})
+					}
+
+					next(ctx, w, r)
+					return nil
+				}
+			},
+		},
+		Endpoints: map[httpbp.Pattern]httpbp.Endpoint{
+			"/test": {
+				Name:    "test",
+				Methods: []string{http.MethodGet},
+				Handle: func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+					w.Write([]byte("endpoint"))
+					return nil
+				},
+			},
+		},
+	}
+
+	// register our middleware to the EndpointRegistry
+	args, err := args.SetupEndpoints()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("non-flushable-non-hijackable", func(tt *testing.T) {
+		type baseResponseWriter struct {
+			http.ResponseWriter
+		}
+
+		r := httptest.NewRequest(http.MethodGet, "/test", nil)
+		inner := httptest.NewRecorder()
+		w := baseResponseWriter{inner}
+		args.EndpointRegistry.ServeHTTP(w, r)
+
+		if inner.Flushed {
+			tt.Error("expected response to not be flushed")
+		}
+	})
+
+	// Test the a flushable response
+	t.Run("flushable", func(tt *testing.T) {
+		r := httptest.NewRequest(http.MethodGet, "/test", nil)
+		w := httptest.NewRecorder()
+		args.EndpointRegistry.ServeHTTP(w, r)
+
+		if !w.Flushed {
+			tt.Error("expected http response to be flushed")
+		}
+	})
+
+	t.Run("hijackable", func(tt *testing.T) {
+		r := httptest.NewRequest(http.MethodGet, "/test", nil)
+		w := &hijackableResponseRecorder{httptest.NewRecorder(), false}
+		args.EndpointRegistry.ServeHTTP(w, r)
+
+		if !w.Hijacked {
+			tt.Error("expected http response to be hijacked")
+		}
+	})
+
+	t.Run("pushable", func(tt *testing.T) {
+		r := httptest.NewRequest(http.MethodGet, "/test", nil)
+		w := &pushableResponseRecorder{httptest.NewRecorder(), false}
+		args.EndpointRegistry.ServeHTTP(w, r)
+
+		if !w.Pushed {
+			tt.Error("expected http response to be pushed")
+		}
+	})
+
+	t.Run("hijackable-flushable", func(tt *testing.T) {
+		type hijackableFlushableRecorder struct {
+			hijackableResponseRecorder
+			http.Flusher
+		}
+
+		r := httptest.NewRequest(http.MethodGet, "/test", nil)
+		inner := httptest.NewRecorder()
+		w := &hijackableFlushableRecorder{
+			hijackableResponseRecorder{inner, false},
+			inner,
+		}
+		args.EndpointRegistry.ServeHTTP(w, r)
+
+		if !w.Hijacked {
+			tt.Error("expected http response to be hijacked")
+		}
+
+		if !inner.Flushed {
+			tt.Error("expected http response to be flushed")
+		}
+	})
+}
+
+type hijackableResponseRecorder struct {
+	http.ResponseWriter
+	Hijacked bool
+}
+
+func (h *hijackableResponseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h.Hijacked = true
+	return nil, nil, nil
+}
+
+type pushableResponseRecorder struct {
+	http.ResponseWriter
+	Pushed bool
+}
+
+func (p *pushableResponseRecorder) Push(target string, opts *http.PushOptions) error {
+	p.Pushed = true
+	return nil
 }

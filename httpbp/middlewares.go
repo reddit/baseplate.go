@@ -394,9 +394,10 @@ func recordStatusCode(counters counterGenerator) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		counter := counters.Counter("baseplate.http." + name + ".response")
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
-			wrapped := &statusCodeRecorder{ResponseWriter: w}
+			rec := &statusCodeRecorder{ResponseWriter: w}
+			wrapped := wrapResponseWriter(w, rec)
 			defer func() {
-				code := wrapped.getCode(err)
+				code := rec.getCode(err)
 				counter.With("status", statusCodeFamily(code)).Add(1)
 			}()
 
@@ -453,9 +454,11 @@ func PrometheusServerMetrics(_ string) Middleware {
 			}
 			serverActiveRequests.With(activeRequestLabels).Inc()
 
-			wrapped := &responseRecorder{ResponseWriter: w}
+			rec := &responseRecorder{ResponseWriter: w}
+			wrapped := wrapResponseWriter(w, rec)
+
 			defer func() {
-				code := errorCodeForMetrics(wrapped.responseCode, err)
+				code := errorCodeForMetrics(rec.responseCode, err)
 				success := isRequestSuccessful(code, err)
 
 				labels := prometheus.Labels{
@@ -465,7 +468,7 @@ func PrometheusServerMetrics(_ string) Middleware {
 				}
 				serverLatency.With(labels).Observe(time.Since(start).Seconds())
 				serverRequestSize.With(labels).Observe(float64(r.ContentLength))
-				serverResponseSize.With(labels).Observe(float64(wrapped.bytesWritten))
+				serverResponseSize.With(labels).Observe(float64(rec.bytesWritten))
 
 				totalRequestLabels := prometheus.Labels{
 					methodLabel:   method,
