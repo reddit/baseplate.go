@@ -18,6 +18,7 @@ const (
 	topicLabel   = "kafka_topic"
 )
 
+// TODO: Remove after next release (v0.9.12)
 var (
 	rebalanceLabels = []string{
 		successLabel,
@@ -27,8 +28,23 @@ var (
 		Namespace: promNamespace,
 		Subsystem: subsystemConsumer,
 		Name:      "rebalance_total",
-		Help:      "The number of times consumer rebalance happened",
+		Help:      "Deprecated: use kafkabp_consumer_rebalances_total and kafkabp_consumer_rebalance_failures_total instead",
 	}, rebalanceLabels)
+)
+
+var (
+	rebalanceTotalCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounter(prometheus.CounterOpts{
+		Namespace: promNamespace,
+		Subsystem: subsystemConsumer,
+		Name:      "rebalances_total",
+		Help:      "The number of times consumer rebalance happened",
+	})
+	rebalanceFailureCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounter(prometheus.CounterOpts{
+		Namespace: promNamespace,
+		Subsystem: subsystemConsumer,
+		Name:      "rebalance_failures_total",
+		Help:      "The number of times consumer rebalance failed",
+	})
 )
 
 var (
@@ -56,13 +72,13 @@ var (
 var (
 	awsRackFailure = promauto.With(prometheusbpint.GlobalRegistry).NewCounter(prometheus.CounterOpts{
 		Namespace: promNamespace,
-		Name:      "aws_rack_id_failure_total",
+		Name:      "aws_rack_id_failures_total",
 		Help:      "Total failures of getting rack id from AWS endpoint",
 	})
 
 	httpRackFailure = promauto.With(prometheusbpint.GlobalRegistry).NewCounter(prometheus.CounterOpts{
 		Namespace: promNamespace,
-		Name:      "http_rack_id_failure_total",
+		Name:      "http_rack_id_failures_total",
 		Help:      "Total failures of getting rack id from http endpoint",
 	})
 )

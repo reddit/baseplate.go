@@ -3,6 +3,7 @@ package kafkabp
 import (
 	"context"
 	"io"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,11 +11,11 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
 
+// TODO: Remove after next release (v0.9.12)
 func init() {
 	// Register the error counter so that it can be monitored.
 	rebalanceCounter.With(prometheus.Labels{
@@ -47,8 +48,8 @@ type ConsumeMessageFunc func(ctx context.Context, msg *sarama.ConsumerMessage)
 //	      "err", err,
 //	      // additional key value pairs, for example topic info
 //	    )
-//	    // or a prometheus counter
-//	    metricsbp.M.Counter("kafka.consumer.errors").With(/* key value pairs */).Add(1)
+//	    // a prometheus counter
+//	    consumerErrorCounter.Inc()
 //	  },
 //	)
 type ConsumeErrorFunc func(err error)
@@ -149,7 +150,18 @@ func (kc *consumer) reset() error {
 		}
 	}
 
-	rebalance := func() error {
+	rebalance := func() (err error) {
+		defer func() {
+			rebalanceTotalCounter.Inc()
+			if err != nil {
+				rebalanceFailureCounter.Inc()
+			}
+			// TODO: Remove after next release (v0.9.12)
+			rebalanceCounter.With(prometheus.Labels{
+				successLabel: strconv.FormatBool(err == nil),
+			}).Inc()
+		}()
+
 		c, err := sarama.NewConsumer(kc.cfg.Brokers, kc.sc)
 		if err != nil {
 			return err
@@ -166,19 +178,7 @@ func (kc *consumer) reset() error {
 		return nil
 	}
 
-	if err := rebalance(); err != nil {
-		metricsbp.M.Counter("kafka.consumer.rebalance.failure").Add(1)
-		rebalanceCounter.With(prometheus.Labels{
-			successLabel: prometheusbp.BoolString(false),
-		}).Inc()
-		return err
-	}
-
-	metricsbp.M.Counter("kafka.consumer.rebalance.success").Add(1)
-	rebalanceCounter.With(prometheus.Labels{
-		successLabel: prometheusbp.BoolString(true),
-	}).Inc()
-	return nil
+	return rebalance()
 }
 
 // Close closes all partition consumers first, then the parent consumer.
