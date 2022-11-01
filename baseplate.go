@@ -13,6 +13,7 @@ import (
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/runtimebp"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/tracing"
@@ -309,7 +310,7 @@ func New(ctx context.Context, args NewArgs) (context.Context, Baseplate, error) 
 	bp := impl{cfg: cfg, closers: batchcloser.New()}
 
 	if info, ok := debug.ReadBuildInfo(); ok {
-		metricsbp.RecordModuleVersions(info)
+		prometheusbp.RecordModuleVersions(info)
 	} else {
 		log.C(ctx).Warn("baseplate.New: unable to read build info to export dependency metrics")
 	}
