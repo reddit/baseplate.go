@@ -48,15 +48,15 @@ type httpHandlerFactory struct {
 }
 
 func (f httpHandlerFactory) NewHandler(endpoint Endpoint) http.Handler {
-	// +2 because we always add SupportedMethods and recoverPanic
+	// +2 because we always add SupportedMethods and recoverPanik
 	wrappers := make([]Middleware, 0, len(f.middlewares)+len(endpoint.Middlewares)+2)
 	wrappers = append(wrappers, f.middlewares...)
 	wrappers = append(wrappers, SupportedMethods(endpoint.Methods[0], endpoint.Methods[1:]...))
 	wrappers = append(wrappers, endpoint.Middlewares...)
-	// Always inject recoverPanic as the final middleware in the chain. This
+	// Always inject recoverPanik as the final middleware in the chain. This
 	// allows it to capture any panics before other middlewares return and bubble
 	// up the panic as an error to those middlewares.
-	wrappers = append(wrappers, recoverPanic)
+	wrappers = append(wrappers, recoverPanik)
 	return NewHandler(endpoint.Name, endpoint.Handle, wrappers...)
 }
 
