@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/reddit/baseplate.go/batchcloser"
@@ -12,6 +13,7 @@ import (
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/runtimebp"
 	"github.com/reddit/baseplate.go/secrets"
 	"github.com/reddit/baseplate.go/tracing"
@@ -306,6 +308,12 @@ type NewArgs struct {
 func New(ctx context.Context, args NewArgs) (context.Context, Baseplate, error) {
 	cfg := args.Config.GetConfig()
 	bp := impl{cfg: cfg, closers: batchcloser.New()}
+
+	if info, ok := debug.ReadBuildInfo(); ok {
+		prometheusbp.RecordModuleVersions(info)
+	} else {
+		log.C(ctx).Warn("baseplate.New: unable to read build info to export dependency metrics")
+	}
 
 	runtimebp.InitFromConfig(cfg.Runtime)
 
