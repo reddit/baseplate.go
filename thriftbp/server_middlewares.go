@@ -70,7 +70,7 @@ type DefaultProcessorMiddlewaresArgs struct {
 //
 // 5. PrometheusServerMiddleware
 //
-// 6. RecoverPanic
+// 6. RecoverPanik
 func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) []thrift.ProcessorMiddleware {
 	return []thrift.ProcessorMiddleware{
 		ExtractDeadlineBudget,
@@ -78,7 +78,7 @@ func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) 
 		InjectEdgeContext(args.EdgeContextImpl),
 		ReportPayloadSizeMetrics(args.ReportPayloadSizeMetricsSampleRate),
 		PrometheusServerMiddleware,
-		RecoverPanic,
+		RecoverPanik,
 	}
 }
 
@@ -375,10 +375,15 @@ func tHeaderProtocol2String(proto thrift.THeaderProtocolID) string {
 	}
 }
 
-// RecoverPanic recovers from panics raised in the TProccessorFunction chain,
+// RecoverPanic is an alias of RecoverPanik.
+func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+	return RecoverPanik(name, next)
+}
+
+// RecoverPanik recovers from panics raised in the TProccessorFunction chain,
 // logs them, and records a metric indicating that the endpoint recovered from a
 // panic.
-func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+func RecoverPanik(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 	counter := panicRecoverCounter.With(prometheus.Labels{
 		methodLabel: name,
 	})
