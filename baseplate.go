@@ -61,11 +61,13 @@ type Config struct {
 	StopDelay time.Duration `yaml:"stopDelay"`
 
 	Log     log.Config       `yaml:"log"`
-	Metrics metricsbp.Config `yaml:"metrics"`
 	Runtime runtimebp.Config `yaml:"runtime"`
 	Secrets secrets.Config   `yaml:"secrets"`
 	Sentry  log.SentryConfig `yaml:"sentry"`
 	Tracing tracing.Config   `yaml:"tracing"`
+
+	// Deprecated: statsd metrics are deprecated.
+	Metrics metricsbp.Config `yaml:"metrics"`
 }
 
 // GetConfig implements Configer.
@@ -321,7 +323,6 @@ func New(ctx context.Context, args NewArgs) (context.Context, Baseplate, error) 
 	bp.closers.Add(batchcloser.WrapCancel(cancel))
 
 	log.InitFromConfig(cfg.Log)
-	bp.closers.Add(metricsbp.InitFromConfig(ctx, cfg.Metrics))
 
 	closer, err := log.InitSentry(cfg.Sentry)
 	if err != nil {

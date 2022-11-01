@@ -5,16 +5,22 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/retrybp"
 )
 
 // This example demonstrates how to use retrybp to retry an operation.
 func Example() {
 	const timeout = time.Millisecond * 200
+
+	// prometheus counters
+	var (
+		errorCounter   prometheus.Counter
+		successCounter prometheus.Counter
+	)
 
 	// TODO: use the actual type of your operation.
 	type resultType = int
@@ -69,14 +75,14 @@ func Example() {
 		),
 		retry.OnRetry(func(attempts uint, err error) {
 			if err != nil {
-				metricsbp.M.Counter("operation.failure").Add(1)
+				errorCounter.Inc()
 				log.Errorw(
 					"operation failed",
 					"err", err,
 					"attempt", attempts,
 				)
 			} else {
-				metricsbp.M.Counter("operation.succeed").Add(1)
+				successCounter.Inc()
 			}
 		}),
 	)

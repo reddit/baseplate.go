@@ -6,7 +6,6 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/opentracing/opentracing-go"
 
-	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/redis/db/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
@@ -37,14 +36,6 @@ func ExampleNewMonitoredClient() {
 	client := redisbp.NewMonitoredClient(name, &redis.Options{Addr: ":6379"})
 
 	defer client.Close()
-
-	// Spawn "MonitorPoolStats" in a separate goroutine.
-	go redisbp.MonitorPoolStats(
-		metricsbp.M.Ctx(),
-		client,
-		name,
-		metricsbp.Tags{"env": "test"},
-	)
 
 	// Create a "service" with a monitored client.
 	svc := Service{Redis: client}
