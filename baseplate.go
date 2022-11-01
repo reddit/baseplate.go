@@ -11,7 +11,6 @@ import (
 	"github.com/reddit/baseplate.go/batchcloser"
 	"github.com/reddit/baseplate.go/configbp"
 	"github.com/reddit/baseplate.go/ecinterface"
-	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/runtimebp"
@@ -310,7 +309,7 @@ func New(ctx context.Context, args NewArgs) (context.Context, Baseplate, error) 
 	bp := impl{cfg: cfg, closers: batchcloser.New()}
 
 	if info, ok := debug.ReadBuildInfo(); ok {
-		prometheusbpint.RecordModuleVersions(info)
+		metricsbp.RecordModuleVersions(info)
 	} else {
 		log.C(ctx).Warn("baseplate.New: unable to read build info to export dependency metrics")
 	}

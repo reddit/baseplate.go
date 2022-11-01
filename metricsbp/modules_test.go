@@ -1,4 +1,4 @@
-package prometheusbpint
+package metricsbp
 
 import (
 	"runtime/debug"
