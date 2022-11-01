@@ -11,15 +11,15 @@ import (
 var goModules = promauto.With(GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
 	Name: "baseplate_go_modules",
 	Help: "Export the version information for included Go modules, and whether the module is the 'main' module or a 'dependency'.  Always 1",
-}, []string{"go_module", "module_role", "replaced", "module_version"})
+}, []string{"go_module", "module_role", "module_replaced", "module_version"})
 
 func RecordModuleVersions(info *debug.BuildInfo) {
 	record := func(role string, mod *debug.Module) {
 		goModules.With(prometheus.Labels{
-			"go_module":      mod.Path,
-			"module_role":    role,
-			"replaced":       strconv.FormatBool(mod.Replace != nil),
-			"module_version": mod.Version,
+			"go_module":       mod.Path,
+			"module_role":     role,
+			"module_replaced": strconv.FormatBool(mod.Replace != nil),
+			"module_version":  mod.Version,
 		}).Set(1)
 	}
 

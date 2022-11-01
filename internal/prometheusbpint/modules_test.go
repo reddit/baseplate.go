@@ -20,21 +20,35 @@ func TestBuildInfoMetrics(t *testing.T) {
 		Deps: []*debug.Module{{
 			Path:    "github.com/reddit/baseplate.go",
 			Version: "v1.2.3",
+		}, {
+			Path: "github.com/reddit/oldmodule",
+			Replace: &debug.Module{
+				Path:    "github.com/reddit/newmodule",
+				Version: "v1.42.0",
+			},
+			Version: "v0.1.2",
 		}},
 	}
 
 	defer promtest.NewPrometheusMetricTest(t, "baseplate_go_modules", goModules, prometheus.Labels{
-		"go_module":      "example.com/path/to/main/module",
-		"module_role":    "main",
-		"replaced":       "false",
-		"module_version": "(devel)",
+		"go_module":       "example.com/path/to/main/module",
+		"module_role":     "main",
+		"module_replaced": "false",
+		"module_version":  "(devel)",
 	}).CheckDelta(1)
 
 	defer promtest.NewPrometheusMetricTest(t, "baseplate_go_modules", goModules, prometheus.Labels{
-		"go_module":      "github.com/reddit/baseplate.go",
-		"module_role":    "dependency",
-		"replaced":       "false",
-		"module_version": "v1.2.3",
+		"go_module":       "github.com/reddit/baseplate.go",
+		"module_role":     "dependency",
+		"module_replaced": "false",
+		"module_version":  "v1.2.3",
+	}).CheckDelta(1)
+
+	defer promtest.NewPrometheusMetricTest(t, "baseplate_go_modules", goModules, prometheus.Labels{
+		"go_module":       "github.com/reddit/oldmodule",
+		"module_role":     "dependency",
+		"module_replaced": "true",
+		"module_version":  "v0.1.2",
 	}).CheckDelta(1)
 
 	RecordModuleVersions(info)
