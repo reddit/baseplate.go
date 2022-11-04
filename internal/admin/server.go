@@ -35,11 +35,11 @@ func init() {
 
 	Mux.Handle("/metrics", promhttp.Handler())
 
-	// Unregister the default GoCollector.
-	prometheus.Unregister(collectors.NewGoCollector())
-
-	// Register GoCollector with baseplate defaults.
-	prometheus.MustRegister(collectors.NewGoCollector(baseplateGoCollectors))
+	// Unregister the default GoCollector, and reregister with baseplate defaults
+	if prometheus.Unregister(collectors.NewGoCollector()) {
+		// Only register a new collector if we unregistered one to avoid double-reregistration
+		prometheus.MustRegister(collectors.NewGoCollector(baseplateGoCollectors))
+	}
 }
 
 func Serve() error {
