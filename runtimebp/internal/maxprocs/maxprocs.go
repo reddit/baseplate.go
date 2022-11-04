@@ -74,7 +74,7 @@ var (
 		ubermaxprocs.Set(
 			ubermaxprocs.Min(2),
 			ubermaxprocs.Logger(func(s string, i ...interface{}) {
-				fmt.Fprintf(os.Stderr, s, i...) // contains context
+				fmt.Fprintf(os.Stderr, s+"\n", i...) // contains context
 			}),
 		)
 	}
