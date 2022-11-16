@@ -3,6 +3,7 @@ package secrets_test
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -489,4 +490,28 @@ func TestAddMiddleware(t *testing.T) {
 			additional.calls,
 		)
 	}
+}
+
+func TestNewStoreWaitBeforeAvailable(t *testing.T) {
+	const (
+		writeDelay = 200 * time.Millisecond
+		timeout    = 5 * time.Second
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	t.Cleanup(cancel)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "secrets.json")
+	go func() {
+		// delay create and write secrets.json file
+		// note that we must also delay creating the file here.
+		time.Sleep(writeDelay)
+		if err := os.WriteFile(path, []byte(specificationExample), 0666); err != nil {
+			t.Errorf("Failed to write %q: %v", path, err)
+		}
+	}()
+	store, err := secrets.NewStore(ctx, path, nil)
+	if err != nil {
+		t.Fatalf("NewStore failed with %v", err)
+	}
+	store.Close()
 }

@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"context"
+	"errors"
 	"io"
 	"io/fs"
 	"os"
@@ -45,12 +46,12 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares 
 	}
 	store.secretHandler(middlewares...)
 	fileInfo, err := os.Stat(path)
-	if err != nil {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	}
 
 	parser := store.parser
-	if fileInfo.IsDir() {
+	if fileInfo != nil && fileInfo.IsDir() {
 		parser = filewatcher.WrapDirParser(store.dirParser)
 	}
 
