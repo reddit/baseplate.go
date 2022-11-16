@@ -304,14 +304,14 @@ func updateDirWithContents(tb testing.TB, dst string, contents map[string]string
 	for p, content := range contents {
 		path := filepath.Join(dir, p)
 		parent := filepath.Dir(path)
-		if err := os.Mkdir(parent, 0777); err != nil && !os.IsExist(err) {
+		if err := os.Mkdir(parent, 0777); err != nil && !errors.Is(err, fs.ErrExist) {
 			tb.Fatalf("Failed to create directory %q for %q: %v", parent, path, err)
 		}
 		if err := os.WriteFile(path, []byte(content), 0666); err != nil {
 			tb.Fatalf("Failed to write file %q: %v", path, err)
 		}
 	}
-	if err := os.RemoveAll(dst); err != nil && !os.IsNotExist(err) {
+	if err := os.RemoveAll(dst); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		tb.Fatalf("Failed to remove %q: %v", dst, err)
 	}
 	if err := os.Rename(dir, dst); err != nil {

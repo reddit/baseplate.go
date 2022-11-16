@@ -372,7 +372,7 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 
 		var err error
 		data, mtime, files, err = openAndParse(cfg.Path, cfg.Parser, limit, hardLimit)
-		if errors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, fs.ErrNotExist) {
 			time.Sleep(InitialReadInterval)
 			continue
 		}
