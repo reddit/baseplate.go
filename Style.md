@@ -153,4 +153,5 @@ Some recommended resources are:
 
 - [Effective Go](https://golang.org/doc/effective_go.html)
 - [CodeReviewComments](https://github.com/golang/go/wiki/CodeReviewComments)
+- [Google Go Style Guide](https://google.github.io/styleguide/go/)
 - [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
