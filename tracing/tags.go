@@ -1,8 +1,6 @@
 package tracing
 
 import (
-	"context"
-	"fmt"
 	"sync/atomic"
 )
 
@@ -11,8 +9,19 @@ var alwaysIncludeAllowList = []string{
 	TagKeyEndpoint,
 }
 
-// actual type: []string
-var tagsAllowList atomic.Value
+// NOTE: In general storing a pointer of []string to an atomic value does not
+// really guarantee atomicy because a slice is a container and its content can
+// be modified (e.g. replace individual strings inside). A copy of the slice is
+// required to guarantee atomicy.
+//
+// But here, when storing it we always create a new string (via
+// generateAllowList), and the read function (getAllowList) is unexported and we
+// never mutate the returned result, so skip copying is OK.
+//
+// But if any of those assumptions are broken in the future, we can no longer
+// store the atomic.Pointer[[]string] naively, and would need to either make a
+// copy or add other protections.
+var tagsAllowList atomic.Pointer[[]string]
 
 // SetMetricsTagsAllowList sets the allow-list used to carry tags from spans to
 // metrics.
@@ -23,7 +32,8 @@ var tagsAllowList atomic.Value
 // this allow-list. A big allow-list both makes span operations slower, and
 // increase metrics cardinality.
 func SetMetricsTagsAllowList(list []string) {
-	tagsAllowList.Store(generateAllowList(list))
+	v := generateAllowList(list)
+	tagsAllowList.Store(&v)
 }
 
 func generateAllowList(list []string) []string {
@@ -43,18 +53,8 @@ func generateAllowList(list []string) []string {
 }
 
 func getAllowList() []string {
-	v := tagsAllowList.Load()
-	if v == nil {
-		return alwaysIncludeAllowList
+	if v := tagsAllowList.Load(); v != nil {
+		return *v
 	}
-	if l, ok := v.([]string); ok {
-		return l
-	}
-
-	// Should not happen, but just in case
-	globalTracer.logger.Log(
-		context.Background(),
-		fmt.Sprintf("Unexpected allow-list value: %#v", v),
-	)
 	return alwaysIncludeAllowList
 }

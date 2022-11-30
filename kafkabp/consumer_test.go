@@ -144,14 +144,14 @@ func getTestMockConsumer(t *testing.T) *consumer {
 		offset: sc.Consumer.Offsets.Initial,
 	}
 	consumer, partitions := createMockConsumer(t, cfg.Topic)
-	c.consumer.Store(consumer)
-	c.partitions.Store(partitions)
+	c.consumer.Store(&consumer)
+	c.partitions.Store(&partitions)
 	return c
 }
 
-func createMockConsumer(t *testing.T, topic string) (mc *mocks.Consumer, partitions []int32) {
+func createMockConsumer(t *testing.T, topic string) (_ sarama.Consumer, partitions []int32) {
 	partitions = []int32{1, 2}
-	mc = mocks.NewConsumer(t, nil)
+	mc := mocks.NewConsumer(t, nil)
 	metaData := make(map[string][]int32)
 	metaData[topic] = partitions
 	mc.SetTopicMetadata(metaData)
@@ -161,12 +161,13 @@ func createMockConsumer(t *testing.T, topic string) (mc *mocks.Consumer, partiti
 func setupPartitionConsumers(t *testing.T, kc *consumer) (*mocks.PartitionConsumer, *mocks.PartitionConsumer) {
 	t.Helper()
 
-	mc, ok := kc.getConsumer().(*mocks.Consumer)
+	c := *kc.consumer.Load()
+	mc, ok := c.(*mocks.Consumer)
 	if !ok {
 		t.Fatalf("kc.consumer is not *mocks.Consumer. %#v", kc.consumer)
 	}
-	pc := mc.ExpectConsumePartition(kc.cfg.Topic, kc.getPartitions()[0], kc.offset)
-	pc1 := mc.ExpectConsumePartition(kc.cfg.Topic, kc.getPartitions()[1], kc.offset)
+	pc := mc.ExpectConsumePartition(kc.cfg.Topic, (*kc.partitions.Load())[0], kc.offset)
+	pc1 := mc.ExpectConsumePartition(kc.cfg.Topic, (*kc.partitions.Load())[1], kc.offset)
 	return pc, pc1
 }
 

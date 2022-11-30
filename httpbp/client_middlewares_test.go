@@ -103,10 +103,10 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestNewClientConcurrency(t *testing.T) {
-	var request uint64
+	var request atomic.Uint64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		atomic.AddUint64(&request, 1)
-		if atomic.LoadUint64(&request)%5 == 0 {
+		request.Add(1)
+		if request.Load()%5 == 0 {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
 			io.WriteString(w, "foo")
@@ -362,7 +362,7 @@ func TestMaxConcurrency(t *testing.T) {
 		Transport: MaxConcurrency(int64(maxConcurrency))(http.DefaultTransport),
 	}
 
-	var errors uint64
+	var errors atomic.Uint64
 	var wg sync.WaitGroup
 	for i := 0; i < maxConcurrency*2; i++ {
 		wg.Add(1)
@@ -370,7 +370,7 @@ func TestMaxConcurrency(t *testing.T) {
 			defer wg.Done()
 			resp, err := client.Get(server.URL)
 			if err != nil {
-				atomic.AddUint64(&errors, 1)
+				errors.Add(1)
 				return
 			}
 			err = resp.Body.Close()
@@ -381,9 +381,8 @@ func TestMaxConcurrency(t *testing.T) {
 	}
 	wg.Wait()
 
-	expected := uint64(maxConcurrency)
-	if errors != expected {
-		t.Errorf("expected %d, actual: %d", expected, errors)
+	if got, want := errors.Load(), uint64(maxConcurrency); got != want {
+		t.Errorf("Number of errors got %d want %d", got, want)
 	}
 }
 

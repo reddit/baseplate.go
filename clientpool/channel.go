@@ -8,7 +8,7 @@ import (
 type channelPool struct {
 	pool           chan Client
 	opener         ClientOpener
-	numActive      int32
+	numActive      atomic.Int32
 	initialClients int
 	maxClients     int
 }
@@ -57,7 +57,7 @@ func NewChannelPool(initialClients, maxClients int, opener ClientOpener) (Pool, 
 func (cp *channelPool) Get() (client Client, err error) {
 	defer func() {
 		if err == nil {
-			atomic.AddInt32(&cp.numActive, 1)
+			cp.numActive.Add(1)
 		}
 	}()
 
@@ -96,7 +96,7 @@ func (cp *channelPool) Release(c Client) error {
 
 	// As long as c is not nil, we always need to decrease numActive by 1,
 	// even if we encounter errors here, either due to close or opener.
-	defer atomic.AddInt32(&cp.numActive, -1)
+	defer cp.numActive.Add(-1)
 
 	if !c.IsOpen() {
 		// Even when c.IsOpen reported false, still call Close explicitly to avoid
@@ -134,7 +134,7 @@ func (cp *channelPool) Close() error {
 
 // NumActiveClients returns the number of clients curently given out for use.
 func (cp *channelPool) NumActiveClients() int32 {
-	return atomic.LoadInt32(&cp.numActive)
+	return cp.numActive.Load()
 }
 
 // NumAllocated returns the number of allocated clients in internal pool.

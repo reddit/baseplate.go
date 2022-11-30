@@ -63,7 +63,7 @@ type Statsd struct {
 	writer              *bufferedWriter
 	wg                  sync.WaitGroup
 
-	activeRequests int64
+	activeRequests atomic.Int64
 }
 
 func convertSampleRate(rate *float64) float64 {
@@ -340,15 +340,15 @@ func (st *Statsd) WriteTo(w io.Writer) (n int64, err error) {
 
 func (st *Statsd) incActiveRequests() {
 	st = st.fallback()
-	atomic.AddInt64(&st.activeRequests, 1)
+	st.activeRequests.Add(1)
 }
 
 func (st *Statsd) decActiveRequests() {
 	st = st.fallback()
-	atomic.AddInt64(&st.activeRequests, -1)
+	st.activeRequests.Add(-1)
 }
 
 func (st *Statsd) getActiveRequests() int64 {
 	st = st.fallback()
-	return atomic.LoadInt64(&st.activeRequests)
+	return st.activeRequests.Load()
 }

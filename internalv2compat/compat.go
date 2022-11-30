@@ -36,11 +36,11 @@ func GlobalLogger() *zap.SugaredLogger {
 	return globalLogger
 }
 
-var v0logDisabled uint64
+var v0logDisabled atomic.Uint64
 
 // SetGlobalLogger allows baseplate v0 to set the global logger.
 func SetGlobalLogger(logger *zap.SugaredLogger) {
-	if atomic.LoadUint64(&v0logDisabled) > 0 {
+	if v0logDisabled.Load() > 0 {
 		globalLogger.Warn("ineffectual call to SetGlobalLogger; baseplate.go v2 compatibility mode is active")
 		return
 	}
@@ -50,7 +50,7 @@ func SetGlobalLogger(logger *zap.SugaredLogger) {
 
 // OverrideLogger allows baseplate v2 to override the global logger irrevocably.
 func OverrideLogger(logger *zap.SugaredLogger) {
-	atomic.StoreUint64(&v0logDisabled, 1)
+	v0logDisabled.Store(1)
 	globalLogger = logger
 }
 

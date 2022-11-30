@@ -30,23 +30,11 @@ var Logger log.Wrapper
 // ErrGetBeforeSet is the error returned when Get is called before Set.
 var ErrGetBeforeSet = errors.New("ecinterface: Get called before Set is called")
 
-// current is the storage type of global.
-//
-// atomic.Value requires that the underlying concrete type remain constant.
-// If we try to store two different implementations of Interface, we will get a panic,
-// because Interface is promoted to any when you call Store.
-//
-// Thus, we use a `current{}` so that the concrete type is always the same.
-type current struct {
-	Interface
-}
-
-// actual type: current
-var global atomic.Value
+var global atomic.Pointer[Interface]
 
 // Set sets the global edge context implementation.
 func Set(impl Interface) {
-	global.Store(current{impl})
+	global.Store(&impl)
 }
 
 // Get returns the previously Set global edge context implementation.
@@ -60,13 +48,12 @@ func Set(impl Interface) {
 //
 // - Its ContextToHeader always return ("", false).
 func Get() Interface {
-	stored := global.Load()
-	if stored == nil {
-		Logger.Log(context.Background(), ErrGetBeforeSet.Error())
-		getBeforeSet.Inc()
-		return nopImpl
+	if stored := global.Load(); stored != nil {
+		return *stored
 	}
-	return stored.(current).Interface
+	Logger.Log(context.Background(), ErrGetBeforeSet.Error())
+	getBeforeSet.Inc()
+	return nopImpl
 }
 
 type nop struct{}

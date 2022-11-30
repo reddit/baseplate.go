@@ -18,15 +18,15 @@ type HealthCheckCloser interface {
 }
 
 type drainer struct {
-	closed int64
+	closed atomic.Int64
 }
 
 func (d *drainer) IsHealthy(_ context.Context) bool {
-	return atomic.LoadInt64(&d.closed) == 0
+	return d.closed.Load() == 0
 }
 
 func (d *drainer) Close() error {
-	atomic.StoreInt64(&d.closed, 1)
+	d.closed.Store(1)
 	return nil
 }
 

@@ -1,7 +1,9 @@
 package tracing
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -65,4 +67,34 @@ func TestGenerateAllowList(t *testing.T) {
 			compareStringListsIgnoreOrder(t, c.output, actual)
 		})
 	}
+}
+
+func TestSetMetricsTagsAllowList(t *testing.T) {
+	t.Run("mutate-element", func(t *testing.T) {
+		const (
+			before = "before"
+			after  = "after"
+		)
+		orig := []string{before, TagKeyClient, TagKeyEndpoint}
+		SetMetricsTagsAllowList(orig)
+		loaded := *tagsAllowList.Load()
+		orig[0] = after
+
+		compareStringListsIgnoreOrder(t, loaded, []string{before, TagKeyClient, TagKeyEndpoint})
+	})
+
+	t.Run("compare-pointer", func(t *testing.T) {
+		// Make sure that SetMetricsTagsAllowList always stores a copy of the original
+		// slice passed in.
+		for _, c := range [][]string{} {
+			orig := c
+			t.Run(strings.Join(orig, ":"), func(t *testing.T) {
+				SetMetricsTagsAllowList(orig)
+				loaded := *tagsAllowList.Load()
+				if fmt.Sprintf("%p", orig) == fmt.Sprintf("%p", loaded) {
+					t.Errorf("Loaded the same slice: %p %+v == %p %+v", orig, orig, loaded, loaded)
+				}
+			})
+		}
+	})
 }

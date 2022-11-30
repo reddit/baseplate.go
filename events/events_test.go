@@ -45,7 +45,7 @@ func TestV2(t *testing.T) {
 
 	// put
 	var wg sync.WaitGroup
-	var failed int64
+	var failed atomic.Int64
 	const expectedFailures = 1
 	const n = queueSize + expectedFailures
 
@@ -58,7 +58,7 @@ func TestV2(t *testing.T) {
 			before := time.Now()
 			if err := v2.Put(ctx, mockTStruct{}); err != nil {
 				t.Log("Put failed with:", err)
-				atomic.AddInt64(&failed, 1)
+				failed.Add(1)
 			}
 			elapsed := time.Since(before)
 			if elapsed > tripleTime {
@@ -72,7 +72,7 @@ func TestV2(t *testing.T) {
 	}
 	wg.Wait()
 
-	actualFailures := atomic.LoadInt64(&failed)
+	actualFailures := failed.Load()
 	if actualFailures != expectedFailures {
 		t.Errorf(
 			"Expected %d failed Put call, actual %d",
@@ -99,7 +99,7 @@ func TestV2(t *testing.T) {
 	}
 
 	// PutRaw
-	atomic.StoreInt64(&failed, 0)
+	failed.Store(0)
 	const rawData = "hello, world"
 	wg.Add(n)
 	for i := 0; i < n; i++ {
@@ -110,7 +110,7 @@ func TestV2(t *testing.T) {
 			before := time.Now()
 			if err := v2.PutRaw(ctx, []byte(rawData)); err != nil {
 				t.Log("PutRaw failed with:", err)
-				atomic.AddInt64(&failed, 1)
+				failed.Add(1)
 			}
 			elapsed := time.Since(before)
 			if elapsed > tripleTime {
@@ -124,7 +124,7 @@ func TestV2(t *testing.T) {
 	}
 	wg.Wait()
 
-	actualFailures = atomic.LoadInt64(&failed)
+	actualFailures = failed.Load()
 	if actualFailures != expectedFailures {
 		t.Errorf(
 			"Expected %d failed Put call, actual %d",

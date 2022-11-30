@@ -21,17 +21,17 @@ func TestChannelPoolInvalidConfig(t *testing.T) {
 }
 
 func TestChannelPool(t *testing.T) {
-	opener := func(called *int32) clientpool.ClientOpener {
+	opener := func(called *atomic.Int32) clientpool.ClientOpener {
 		return func() (clientpool.Client, error) {
 			if called != nil {
-				atomic.AddInt32(called, 1)
+				called.Add(1)
 			}
 			return &testClient{}, nil
 		}
 	}
 
 	const min, max = 2, 5
-	var openerCalled int32
+	var openerCalled atomic.Int32
 	pool, err := clientpool.NewChannelPool(min, max, opener(&openerCalled))
 	if err != nil {
 		t.Fatal(err)
@@ -44,10 +44,10 @@ func TestChannelPool(t *testing.T) {
 func TestChannelPoolWithOpenerFailure(t *testing.T) {
 	// In this opener, every other call will fail
 	opener := func() clientpool.ClientOpener {
-		var called int32
+		var called atomic.Int32
 		failure := errors.New("failed")
 		return func() (clientpool.Client, error) {
-			if atomic.AddInt32(&called, 1)%2 == 0 {
+			if called.Add(1)%2 == 0 {
 				return nil, failure
 			}
 			return &testClient{}, nil

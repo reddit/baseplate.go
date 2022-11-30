@@ -86,9 +86,9 @@ func TestInitialConnectionsFallback(t *testing.T) {
 	}
 	defer ln.Close()
 
-	var counter uint64
+	var counter atomic.Uint64
 	addrGen := func() (string, error) {
-		if atomic.AddUint64(&counter, 1)%2 == 0 {
+		if counter.Add(1)%2 == 0 {
 			// on even attempts, return the valid address
 			return ln.Addr().String(), nil
 		}
@@ -144,10 +144,10 @@ func TestInitialConnectionsFallback(t *testing.T) {
 		},
 	} {
 		t.Run(c.label, func(t *testing.T) {
-			var loggerCalled int64
+			var loggerCalled atomic.Int64
 			logger := func(_ context.Context, msg string) {
 				t.Logf("InitialConnectionsFallbackLogger called with %q", msg)
-				atomic.StoreInt64(&loggerCalled, 1)
+				loggerCalled.Store(1)
 			}
 
 			c.cfg.InitialConnectionsFallbackLogger = logger
@@ -163,7 +163,7 @@ func TestInitialConnectionsFallback(t *testing.T) {
 				if err != nil {
 					t.Errorf("Expected no error, got: %v", err)
 				}
-				if atomic.LoadInt64(&loggerCalled) != 1 {
+				if loggerCalled.Load() != 1 {
 					t.Error("InitialConnectionsFallbackLogger not called")
 				}
 			}

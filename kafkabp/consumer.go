@@ -71,13 +71,14 @@ type consumer struct {
 	cfg ConsumerConfig
 	sc  *sarama.Config
 
-	consumer           atomic.Value // sarama.Consumer
-	partitions         atomic.Value // []int32
-	partitionConsumers atomic.Value // []sarama.PartitionConsumer
+	consumer           atomic.Pointer[sarama.Consumer]
+	partitions         atomic.Pointer[[]int32]
+	partitionConsumers atomic.Pointer[[]sarama.PartitionConsumer]
 
-	closed          int64
-	consumeReturned int64
-	offset          int64
+	closed          atomic.Int64
+	consumeReturned atomic.Int64
+
+	offset int64
 
 	wg sync.WaitGroup
 }
@@ -125,18 +126,10 @@ func newTopicConsumer(cfg ConsumerConfig, sc *sarama.Config) (Consumer, error) {
 }
 
 func (kc *consumer) getConsumer() sarama.Consumer {
-	c, _ := kc.consumer.Load().(sarama.Consumer)
-	return c
-}
-
-func (kc *consumer) getPartitions() []int32 {
-	p, _ := kc.partitions.Load().([]int32)
-	return p
-}
-
-func (kc *consumer) getPartitionConsumers() []sarama.PartitionConsumer {
-	pc, _ := kc.partitionConsumers.Load().([]sarama.PartitionConsumer)
-	return pc
+	if loaded := kc.consumer.Load(); loaded != nil {
+		return *loaded
+	}
+	return nil
 }
 
 // reset recreates the consumer and assigns partitions.
@@ -173,8 +166,8 @@ func (kc *consumer) reset() error {
 			return err
 		}
 
-		kc.consumer.Store(c)
-		kc.partitions.Store(partitions)
+		kc.consumer.Store(&c)
+		kc.partitions.Store(&partitions)
 		return nil
 	}
 
@@ -184,18 +177,22 @@ func (kc *consumer) reset() error {
 // Close closes all partition consumers first, then the parent consumer.
 func (kc *consumer) Close() error {
 	// Return early if closing is already in progress
-	if !atomic.CompareAndSwapInt64(&kc.closed, 0, 1) {
+	if !kc.closed.CompareAndSwap(0, 1) {
 		return nil
 	}
 
-	partitionConsumers := kc.getPartitionConsumers()
-	for _, pc := range partitionConsumers {
-		// leaves room to drain pc's message and error channels
-		pc.AsyncClose()
+	if partitionConsumers := kc.partitionConsumers.Load(); partitionConsumers != nil {
+		for _, pc := range *partitionConsumers {
+			// leaves room to drain pc's message and error channels
+			pc.AsyncClose()
+		}
 	}
 	// wait for the Consume function to return
 	kc.wg.Wait()
-	return kc.getConsumer().Close()
+	if c := kc.getConsumer(); c != nil {
+		return c.Close()
+	}
+	return nil
 }
 
 // Consume consumes Kafka messages and errors from each partition's consumer.
@@ -205,7 +202,7 @@ func (kc *consumer) Consume(
 	messagesFunc ConsumeMessageFunc,
 	errorsFunc ConsumeErrorFunc,
 ) error {
-	defer atomic.StoreInt64(&kc.consumeReturned, 1)
+	defer kc.consumeReturned.Store(1)
 	kc.wg.Add(1)
 	defer kc.wg.Done()
 
@@ -217,7 +214,7 @@ func (kc *consumer) Consume(
 	for {
 		// create a partition consumer for each partition
 		consumer := kc.getConsumer()
-		partitions := kc.getPartitions()
+		partitions := *kc.partitions.Load()
 		partitionConsumers := make([]sarama.PartitionConsumer, 0, len(partitions))
 
 		for _, p := range partitions {
@@ -261,13 +258,13 @@ func (kc *consumer) Consume(
 				}
 			}(partitionConsumer)
 		}
-		kc.partitionConsumers.Store(partitionConsumers)
+		kc.partitionConsumers.Store(&partitionConsumers)
 
 		wg.Wait()
 
 		// Close or AsyncClose was called, so exit. The call to Close handles
 		// cleaning up the consumer.
-		if atomic.LoadInt64(&kc.closed) != 0 {
+		if kc.closed.Load() != 0 {
 			return nil
 		}
 
@@ -282,5 +279,5 @@ func (kc *consumer) Consume(
 
 // IsHealthy returns true until Consume returns, then false thereafter.
 func (kc *consumer) IsHealthy(_ context.Context) bool {
-	return atomic.LoadInt64(&kc.consumeReturned) == 0
+	return kc.consumeReturned.Load() == 0
 }

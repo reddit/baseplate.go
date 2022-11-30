@@ -44,7 +44,7 @@ func checkActiveAndAllocated(t *testing.T, pool clientpool.Pool, expectedActive,
 	}
 }
 
-func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max int) {
+func testPool(t *testing.T, pool clientpool.Pool, openerCalled *atomic.Int32, min, max int) {
 	t.Run(
 		"drain-the-pool",
 		func(t *testing.T) {
@@ -57,7 +57,7 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 
 			checkActiveAndAllocated(t, pool, min, 0)
 
-			t.Logf("opener called %d times", atomic.LoadInt32(openerCalled))
+			t.Logf("opener called %d times", openerCalled.Load())
 		},
 	)
 
@@ -71,7 +71,7 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 
 			checkActiveAndAllocated(t, pool, min+1, 0)
 
-			t.Logf("opener called %d times", atomic.LoadInt32(openerCalled))
+			t.Logf("opener called %d times", openerCalled.Load())
 		},
 	)
 
@@ -87,7 +87,7 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 
 			checkActiveAndAllocated(t, pool, max, 0)
 
-			t.Logf("opener called %d times", atomic.LoadInt32(openerCalled))
+			t.Logf("opener called %d times", openerCalled.Load())
 		},
 	)
 
@@ -103,20 +103,20 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 				)
 			}
 
-			beforeOpenerCalled := atomic.LoadInt32(openerCalled)
+			beforeOpenerCalled := openerCalled.Load()
 			_, err := pool.Get()
 			if err == nil {
 				t.Error("pool.Get expected error, got nil")
 			}
 
-			diff := atomic.LoadInt32(openerCalled) - beforeOpenerCalled
+			diff := openerCalled.Load() - beforeOpenerCalled
 			if diff != 0 {
 				t.Errorf("pool.Get should not call opener, called %d times", diff)
 			}
 
 			checkActiveAndAllocated(t, pool, max, 0)
 
-			t.Logf("opener called %d times", atomic.LoadInt32(openerCalled))
+			t.Logf("opener called %d times", openerCalled.Load())
 		},
 	)
 
@@ -135,7 +135,7 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 			// Close the client in the pool
 			c.closed = true
 
-			beforeOpenerCalled := atomic.LoadInt32(openerCalled)
+			beforeOpenerCalled := openerCalled.Load()
 			newc, err := pool.Get()
 			if err != nil {
 				t.Fatalf("pool.Get returned error: %v", err)
@@ -143,19 +143,19 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 			if !newc.IsOpen() {
 				t.Error("pool.Get returned closed client")
 			}
-			diff := atomic.LoadInt32(openerCalled) - beforeOpenerCalled
+			diff := openerCalled.Load() - beforeOpenerCalled
 			if diff != 1 {
 				t.Error("opener not called with closed client")
 			}
 
-			t.Logf("opener called %d times", atomic.LoadInt32(openerCalled))
+			t.Logf("opener called %d times", openerCalled.Load())
 		},
 	)
 
 	t.Run(
 		"release-min-closed-clients",
 		func(t *testing.T) {
-			beforeOpenerCalled := atomic.LoadInt32(openerCalled)
+			beforeOpenerCalled := openerCalled.Load()
 
 			for i := 0; i < min; i++ {
 				c := &testClient{
@@ -166,7 +166,7 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 				}
 			}
 
-			diff := atomic.LoadInt32(openerCalled) - beforeOpenerCalled
+			diff := openerCalled.Load() - beforeOpenerCalled
 			if int(diff) != min {
 				t.Errorf(
 					"Expected opener to be called %d times, called %d times instead",
@@ -177,14 +177,14 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 
 			checkActiveAndAllocated(t, pool, max-min, min)
 
-			t.Logf("opener called %d times", atomic.LoadInt32(openerCalled))
+			t.Logf("opener called %d times", openerCalled.Load())
 		},
 	)
 
 	t.Run(
 		"release-to-max-minus-1",
 		func(t *testing.T) {
-			beforeOpenerCalled := atomic.LoadInt32(openerCalled)
+			beforeOpenerCalled := openerCalled.Load()
 
 			for i := 0; i < max-min-1; i++ {
 				c := &testClient{}
@@ -193,7 +193,7 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 				}
 			}
 
-			diff := atomic.LoadInt32(openerCalled) - beforeOpenerCalled
+			diff := openerCalled.Load() - beforeOpenerCalled
 			if diff != 0 {
 				t.Errorf(
 					"Didn't expect opener to be called, called %d times instead",
@@ -203,7 +203,7 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 
 			checkActiveAndAllocated(t, pool, 1, max-1)
 
-			t.Logf("opener called %d times", atomic.LoadInt32(openerCalled))
+			t.Logf("opener called %d times", openerCalled.Load())
 		},
 	)
 
@@ -222,7 +222,7 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 
 			checkActiveAndAllocated(t, pool, 0, max)
 
-			t.Logf("opener called %d times", atomic.LoadInt32(openerCalled))
+			t.Logf("opener called %d times", openerCalled.Load())
 		},
 	)
 
@@ -240,7 +240,7 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 				t.Error("pool.Release did not close extra released client")
 			}
 
-			t.Logf("opener called %d times", atomic.LoadInt32(openerCalled))
+			t.Logf("opener called %d times", openerCalled.Load())
 		},
 	)
 
@@ -280,7 +280,7 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *int32, min, max 
 				t.Error("pool.Close did not close client")
 			}
 
-			t.Logf("opener called %d times", atomic.LoadInt32(openerCalled))
+			t.Logf("opener called %d times", openerCalled.Load())
 		},
 	)
 }
