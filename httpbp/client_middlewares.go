@@ -225,12 +225,12 @@ func Retries(limit int, retryOptions ...retry.Option) ClientMiddleware {
 // requests at any given time by returning an error if the maximum is reached.
 func MaxConcurrency(maxConcurrency int64) ClientMiddleware {
 	var (
-		activeRequests int64
+		activeRequests atomic.Int64
 	)
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
-			attemptedRequests := atomic.AddInt64(&activeRequests, 1)
-			defer atomic.AddInt64(&activeRequests, -1)
+			attemptedRequests := activeRequests.Add(1)
+			defer activeRequests.Add(-1)
 
 			if maxConcurrency > 0 && attemptedRequests > maxConcurrency {
 				return nil, ErrConcurrencyLimit

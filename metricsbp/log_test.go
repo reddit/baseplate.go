@@ -14,11 +14,11 @@ import (
 
 type wrapper struct {
 	tb     testing.TB
-	called int64
+	called atomic.Int64
 }
 
 func (w *wrapper) log(_ context.Context, msg string) {
-	atomic.AddInt64(&w.called, 1)
+	w.called.Add(1)
 	if w.tb != nil {
 		w.tb.Logf("log called with %q", msg)
 	}
@@ -44,7 +44,7 @@ func TestLogWrapper(t *testing.T) {
 	wrapped.Log(ctx, "called 1")
 	wrapped.Log(ctx, "called 2")
 
-	if called := atomic.LoadInt64(&origin.called); called != expected {
+	if called := origin.called.Load(); called != expected {
 		t.Errorf(
 			"Expect origin log.Wrapper to be called %d times, actual %d",
 			expected,

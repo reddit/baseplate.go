@@ -116,7 +116,7 @@ func TestTTLClientRenew(t *testing.T) {
 type alwaysSuccessGenerator struct {
 	transport thrift.TTransport
 
-	called int64
+	called atomic.Int64
 }
 
 func (g *alwaysSuccessGenerator) generator() ttlClientGenerator {
@@ -126,28 +126,28 @@ func (g *alwaysSuccessGenerator) generator() ttlClientGenerator {
 		factory.GetProtocol(g.transport),
 	)
 	return func() (thrift.TClient, thrift.TTransport, error) {
-		atomic.AddInt64(&g.called, 1)
+		g.called.Add(1)
 		return client, g.transport, nil
 	}
 }
 
 func (g *alwaysSuccessGenerator) numCalls() int64 {
-	return atomic.LoadInt64(&g.called)
+	return g.called.Load()
 }
 
 type mockTTransport struct {
 	thrift.TTransport
 
-	closeCalled int64
+	closeCalled atomic.Int64
 }
 
 func (m *mockTTransport) Close() error {
-	atomic.AddInt64(&m.closeCalled, 1)
+	m.closeCalled.Add(1)
 	return nil
 }
 
 func (m *mockTTransport) numCloses() int64 {
-	return atomic.LoadInt64(&m.closeCalled)
+	return m.closeCalled.Load()
 }
 
 func TestTTLClientRefresh(t *testing.T) {

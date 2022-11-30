@@ -221,18 +221,18 @@ func TestFileWatcherRename(t *testing.T) {
 
 func TestParserFailure(t *testing.T) {
 	errParser := errors.New("parser failed")
-	var n int64
+	var n atomic.Int64
 	parser := func(_ io.Reader) (interface{}, error) {
 		// This parser implementation fails every other call
-		value := atomic.AddInt64(&n, 1)
+		value := n.Add(1)
 		if value%2 == 0 {
 			return nil, errParser
 		}
 		return value, nil
 	}
-	var loggerCalled int64
+	var loggerCalled atomic.Int64
 	logger := func(_ context.Context, msg string) {
-		atomic.StoreInt64(&loggerCalled, 1)
+		loggerCalled.Store(1)
 		t.Log(msg)
 	}
 
@@ -270,7 +270,7 @@ func TestParserFailure(t *testing.T) {
 	}
 	// Give it some time to handle the file content change
 	time.Sleep(500 * time.Millisecond)
-	if atomic.LoadInt64(&loggerCalled) == 0 {
+	if loggerCalled.Load() == 0 {
 		t.Error("Expected logger being called")
 	}
 	value = data.Get().(int64)
@@ -325,9 +325,9 @@ func TestFileWatcherDir(t *testing.T) {
 	if err := os.Mkdir(dir, 0777); err != nil {
 		t.Fatalf("Failed to create directory %q: %v", dir, err)
 	}
-	var parserCalled int64
+	var parserCalled atomic.Int64
 	parser := filewatcher.DirParser(func(dir fs.FS) (any, error) {
-		atomic.AddInt64(&parserCalled, 1)
+		parserCalled.Add(1)
 		m := make(map[string]string)
 		if err := fs.WalkDir(dir, ".", func(path string, de fs.DirEntry, err error) error {
 			if err != nil {
@@ -377,7 +377,7 @@ func TestFileWatcherDir(t *testing.T) {
 	if diff := cmp.Diff(got, content1); diff != "" {
 		t.Errorf("unexpected result (-got, +want):\n%s", diff)
 	}
-	if got, want := atomic.LoadInt64(&parserCalled), int64(1); got != want {
+	if got, want := parserCalled.Load(), int64(1); got != want {
 		t.Errorf("Got %d parser called, want %d", got, want)
 	}
 
@@ -391,7 +391,7 @@ func TestFileWatcherDir(t *testing.T) {
 	if diff := cmp.Diff(got, content2); diff != "" {
 		t.Errorf("unexpected result (-got, +want):\n%s", diff)
 	}
-	if got, want := atomic.LoadInt64(&parserCalled), int64(2); got != want {
+	if got, want := parserCalled.Load(), int64(2); got != want {
 		t.Errorf("Got %d parser called, want %d", got, want)
 	}
 
@@ -405,7 +405,7 @@ func TestFileWatcherDir(t *testing.T) {
 	if diff := cmp.Diff(got, content3); diff != "" {
 		t.Errorf("unexpected result (-got, +want):\n%s", diff)
 	}
-	if got, want := atomic.LoadInt64(&parserCalled), int64(3); got != want {
+	if got, want := parserCalled.Load(), int64(3); got != want {
 		t.Errorf("Got %d parser called, want %d", got, want)
 	}
 }
@@ -431,19 +431,19 @@ func limitedParser(t *testing.T, expectedSize int64) filewatcher.Parser {
 }
 
 type logWrapper struct {
-	called int64
+	called atomic.Int64
 }
 
 func (w *logWrapper) wrapper(tb testing.TB) log.Wrapper {
 	return func(_ context.Context, msg string) {
 		tb.Helper()
 		tb.Logf("logger called with msg: %q", msg)
-		atomic.AddInt64(&w.called, 1)
+		w.called.Add(1)
 	}
 }
 
 func (w *logWrapper) getCalled() int64 {
-	return atomic.LoadInt64(&w.called)
+	return w.called.Load()
 }
 
 func TestParserSizeLimit(t *testing.T) {
