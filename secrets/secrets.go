@@ -2,9 +2,11 @@ package secrets
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"path/filepath"
 
 	"github.com/reddit/baseplate.go/errorsbp"
 )
@@ -321,19 +323,45 @@ func secretsValidate(secretsDocument Document) (*Secrets, error) {
 	return secrets, nil
 }
 
+type notCSIError struct {
+	err error
+}
+
+func (e notCSIError) Error() string {
+	return fmt.Sprintf("configured directory does not appear to be the root of a Vault CSI mount point: %v", e.err)
+}
+
+func (e notCSIError) Unwrap() error {
+	return e.err
+}
+
 // walkCSIDirectory parses a directory for vault secrets and merges them into one object
 func walkCSIDirectory(dir fs.FS) (Document, error) {
+	const (
+		// This is where k8s actually writes the content,
+		// ref: https://pkg.go.dev/sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil#AtomicWriter.Write
+		k8sSubdirectory = "..data"
+	)
 	secretsDocument := Document{
 		Secrets: make(map[string]GenericSecret),
 	}
 	err := fs.WalkDir(
 		dir,
-		".",
+		k8sSubdirectory,
 		func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
+				if path == k8sSubdirectory && errors.Is(err, fs.ErrNotExist) {
+					return notCSIError{err: err}
+				}
 				return err
 			}
 			if d.IsDir() {
+				return nil
+			}
+			relPath, err := filepath.Rel(k8sSubdirectory, path)
+			if err != nil {
+				// Should not happen as this means path is not under k8sSubdirectory,
+				// but just in case
 				return nil
 			}
 			file, err := dir.Open(path)
@@ -347,12 +375,12 @@ func walkCSIDirectory(dir fs.FS) (Document, error) {
 			if err != nil {
 				return fmt.Errorf("decoding %q: %w", path, err)
 			}
-			secretsDocument.Secrets[path] = secretFile.Secret
+			secretsDocument.Secrets[relPath] = secretFile.Secret
 			return nil
 		},
 	)
 	if err != nil {
-		return Document{}, fmt.Errorf("Error during walkCSIDirectory: %w", err)
+		return Document{}, fmt.Errorf("secrets.walkCSIDirectory: %w", err)
 	}
 	return secretsDocument, nil
 }

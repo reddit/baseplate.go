@@ -8,12 +8,15 @@ import (
 	"testing"
 	"time"
 
+	"sigs.k8s.io/secrets-store-csi-driver/pkg/util/fileutil"
+
 	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
 )
 
-const specificationExample = `
+const (
+	specificationExample = `
 {
 	"secrets": {
 		"secret/myservice/external-account-key": {
@@ -38,7 +41,7 @@ const specificationExample = `
 	}
 }`
 
-var externalAccountKey = `
+	externalAccountKey = `
 {
   "request_id": "1afc3036-2282-d483-c2d4-6d483efdf16c",
   "lease_id": "",
@@ -53,7 +56,7 @@ var externalAccountKey = `
 }
 `
 
-var someAPIKey = `
+	someAPIKey = `
 {
   "request_id": "1afc3036-2282-d483-c2d4-6d483efdf16c",
   "lease_id": "",
@@ -67,7 +70,7 @@ var someAPIKey = `
   "warnings": null
 }
 `
-var someDatabaseCredentials = `
+	someDatabaseCredentials = `
 {
   "request_id": "1afc3036-2282-d483-c2d4-6d483efdf16c",
   "lease_id": "",
@@ -81,81 +84,95 @@ var someDatabaseCredentials = `
   "warnings": null
 }
 `
+)
 
 func TestGetSimpleSecret(t *testing.T) {
-	dir := t.TempDir()
-	dirCSI := t.TempDir()
-	tmpFile, err := os.CreateTemp(dir, "secrets.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(dirCSI+"/secret", 0777); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(dirCSI+"/secret/myservice", 0777); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(dirCSI+"/secret/myservice/external-account-key", []byte(externalAccountKey), 0777); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(dirCSI+"/secret/myservice/some-api-key", []byte(someAPIKey), 0777); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(dirCSI+"/secret/myservice/some-database-credentials", []byte(someDatabaseCredentials), 0777); err != nil {
-		t.Fatal(err)
-	}
-	tmpPath := tmpFile.Name()
-	tmpFile.Write([]byte(specificationExample))
-	if err := tmpFile.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	tests := []struct {
-		name          string
-		key           string
-		expectedError error
-		expected      secrets.SimpleSecret
+	for _, tt := range []struct {
+		label string
+		setup func(t *testing.T) string
 	}{
 		{
-			name:     "specification example",
-			key:      "secret/myservice/some-api-key",
-			expected: secrets.SimpleSecret{Value: secrets.Secret("cdoUxM1WlMrfkpChtFgGObEFJ")},
+			label: "file",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				tmpFile, err := os.CreateTemp(dir, "secrets.json")
+				if err != nil {
+					t.Fatal(err)
+				}
+				tmpFile.Write([]byte(specificationExample))
+				if err := tmpFile.Close(); err != nil {
+					t.Fatal(err)
+				}
+				return tmpFile.Name()
+			},
 		},
 		{
-			name:          "missing key",
-			key:           "spez",
-			expectedError: secrets.SecretNotFoundError("spez"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(
-			tt.name,
-			func(t *testing.T) {
-				for label, path := range map[string]string{
-					"file": tmpPath,
-					"dir":  dirCSI,
-				} {
-					t.Run(label, func(t *testing.T) {
-						store, err := secrets.NewStore(context.Background(), path, log.TestWrapper(t))
-						if err != nil {
-							t.Fatal(err)
-						}
-						t.Cleanup(func() { store.Close() })
-
-						secret, err := store.GetSimpleSecret(tt.key)
-						if tt.expectedError == nil && err != nil {
-							t.Fatal(err)
-						}
-						if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
-							t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
-						}
-						if !reflect.DeepEqual(secret, tt.expected) {
-							t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
-						}
-					})
+			label: "dir",
+			setup: func(t *testing.T) string {
+				dirCSI := t.TempDir()
+				writer, err := fileutil.NewAtomicWriter(dirCSI, "")
+				if err != nil {
+					t.Fatalf("Failed to create k8s atomic writer: %v", err)
 				}
+				if err := writer.Write(map[string]fileutil.FileProjection{
+					"secret/myservice/external-account-key": {
+						Data: []byte(externalAccountKey),
+						Mode: 0777,
+					},
+					"secret/myservice/some-api-key": {
+						Data: []byte(someAPIKey),
+						Mode: 0777,
+					},
+					"secret/myservice/some-database-credentials": {
+						Data: []byte(someDatabaseCredentials),
+						Mode: 0777,
+					},
+				}); err != nil {
+					t.Fatalf("Failed to write csi directory: %v", err)
+				}
+				return dirCSI
 			},
+		},
+	} {
+		t.Run(tt.label, func(t *testing.T) {
+			path := tt.setup(t)
+			for _, tt := range []struct {
+				name          string
+				key           string
+				expectedError error
+				expected      secrets.SimpleSecret
+			}{
+				{
+					name:     "specification example",
+					key:      "secret/myservice/some-api-key",
+					expected: secrets.SimpleSecret{Value: secrets.Secret("cdoUxM1WlMrfkpChtFgGObEFJ")},
+				},
+				{
+					name:          "missing key",
+					key:           "spez",
+					expectedError: secrets.SecretNotFoundError("spez"),
+				},
+			} {
+				t.Run(tt.name, func(t *testing.T) {
+					store, err := secrets.NewStore(context.Background(), path, log.TestWrapper(t))
+					if err != nil {
+						t.Fatal(err)
+					}
+					t.Cleanup(func() { store.Close() })
+
+					secret, err := store.GetSimpleSecret(tt.key)
+					if tt.expectedError == nil && err != nil {
+						t.Fatal(err)
+					}
+					if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
+						t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
+					}
+					if !reflect.DeepEqual(secret, tt.expected) {
+						t.Fatalf("expected %+v, actual: %+v", tt.expected, secret)
+					}
+				})
+			}
+		},
 		)
 	}
 }

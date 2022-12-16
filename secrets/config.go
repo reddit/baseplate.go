@@ -27,8 +27,12 @@ var (
 //
 // Can be deserialized from YAML.
 type Config struct {
-	// Path is the path to the secrets.json file file to load your service's
-	// secrets from.
+	// Path is the path to the secrets.json file or Vault CSI directory to load
+	// your service's secrets from.
+	//
+	// Examples:
+	// - /var/local/secrets/secrets.json
+	// - /mnt/secrets
 	Path string `yaml:"path"`
 }
 

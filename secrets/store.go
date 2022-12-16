@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"time"
 
 	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
@@ -41,6 +42,11 @@ type Store struct {
 // Context should come with a timeout otherwise this might block forever, i.e.
 // if the path never becomes available.
 func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
+	return newStore(ctx, 0 /* use default fsEventsDelay */, path, logger, middlewares...)
+}
+
+// Used in tests to override FSEventsDelay
+func newStore(ctx context.Context, fsEventsDelay time.Duration, path string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
 	store := &Store{
 		secretHandlerFunc: nopSecretHandlerFunc,
 	}
@@ -61,6 +67,8 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares 
 			Path:   path,
 			Parser: parser,
 			Logger: logger,
+
+			FSEventsDelay: fsEventsDelay,
 		},
 	)
 	if err != nil {
