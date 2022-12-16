@@ -10,6 +10,7 @@ import (
 	pb "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
 	"github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/reddit/baseplate.go/mqsend"
@@ -116,7 +117,7 @@ func setupClient(t *testing.T, l *bufconn.Listener, opts ...grpc.DialOption) *gr
 	}
 	opts = append([]grpc.DialOption{
 		grpc.WithContextDialer(bufDialer),
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}, opts...)
 
 	// create connection to be used by gRPC client

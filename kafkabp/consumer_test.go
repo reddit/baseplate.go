@@ -164,7 +164,7 @@ func setupPartitionConsumers(t *testing.T, kc *consumer) (*mocks.PartitionConsum
 	c := *kc.consumer.Load()
 	mc, ok := c.(*mocks.Consumer)
 	if !ok {
-		t.Fatalf("kc.consumer is not *mocks.Consumer. %#v", kc.consumer)
+		t.Fatalf("kc.consumer is not *mocks.Consumer. %#v", kc.consumer.Load())
 	}
 	pc := mc.ExpectConsumePartition(kc.cfg.Topic, (*kc.partitions.Load())[0], kc.offset)
 	pc1 := mc.ExpectConsumePartition(kc.cfg.Topic, (*kc.partitions.Load())[1], kc.offset)
