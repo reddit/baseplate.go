@@ -2,11 +2,14 @@ package secrets_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/reddit/baseplate.go/filewatcher"
 	"github.com/reddit/baseplate.go/log"
@@ -514,4 +517,69 @@ func TestNewStoreWaitBeforeAvailable(t *testing.T) {
 		t.Fatalf("NewStore failed with %v", err)
 	}
 	store.Close()
+}
+
+type fakeStore struct {
+	calls []string
+}
+
+func (f *fakeStore) call(format string, args ...interface{}) {
+	f.calls = append(f.calls, fmt.Sprintf(format, args...))
+}
+
+func (f *fakeStore) GetSimpleSecret(path string) (secrets.SimpleSecret, error) {
+	f.call("GetSimpleSecret(%q)", path)
+	return secrets.SimpleSecret{}, nil
+}
+
+func (f *fakeStore) GetVersionedSecret(path string) (secrets.VersionedSecret, error) {
+	f.call("GetVersionedSecret(%q)", path)
+	return secrets.VersionedSecret{}, nil
+}
+
+func (f *fakeStore) GetCredentialSecret(path string) (secrets.CredentialSecret, error) {
+	f.call("GetCredentialSecret(%q)", path)
+	return secrets.CredentialSecret{}, nil
+}
+
+func TestWrap(t *testing.T) {
+	wrapped := &fakeStore{}
+	store := secrets.Wrap(wrapped)
+
+	// All of these should succeed
+	if _, err := store.GetSimpleSecret("simple"); err != nil {
+		t.Errorf("Close: %s", err)
+	}
+	if _, err := store.GetVersionedSecret("versioned"); err != nil {
+		t.Errorf("GetVersionedSecret: %s", err)
+	}
+	if _, err := store.GetCredentialSecret("credential"); err != nil {
+		t.Errorf("GetCredentialSecret: %s", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Errorf("Close: %s", err)
+	}
+
+	// This should NOT succeed
+	if _, err := store.GetVault(); err == nil { // if NO error
+		t.Errorf("GetVault succeeded, but it should fail for a Wrap'd Store")
+	}
+
+	t.Run("AddMiddlewares_panics", func(t *testing.T) {
+		defer func() {
+			if got, want := recover() != nil, true; got != want {
+				t.Errorf("AddMiddlewares panic'd = %v, want %v", got, want)
+			}
+		}()
+		store.AddMiddlewares()
+	})
+
+	wantCalls := []string{
+		`GetSimpleSecret("simple")`,
+		`GetVersionedSecret("versioned")`,
+		`GetCredentialSecret("credential")`,
+	}
+	if diff := cmp.Diff(wrapped.calls, wantCalls); diff != "" {
+		t.Errorf("Calls to wrapped store differ: (-got +want)\n%s", diff)
+	}
 }

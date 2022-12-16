@@ -3,6 +3,7 @@ package secrets
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -29,6 +30,8 @@ func nopSecretHandlerFunc(sec *Secrets) {}
 // memory so there's little performance impact to doing so and you will be sure
 // to always have the current version in the face of key rotation etc.
 type Store struct {
+	actual secretStore // if present, all methods are delegated to this interface
+
 	watcher filewatcher.FileWatcher
 
 	secretHandlerFunc SecretHandlerFunc
@@ -113,6 +116,9 @@ func (s *Store) getSecrets() *Secrets {
 //
 // Close doesn't return non-nil errors, but implements io.Closer.
 func (s *Store) Close() error {
+	if s.actual != nil {
+		return nil
+	}
 	s.watcher.Stop()
 	return nil
 }
@@ -124,22 +130,34 @@ func (s *Store) Close() error {
 //
 // AddMiddlewares call is not thread-safe, it should not be called concurrently.
 func (s *Store) AddMiddlewares(middlewares ...SecretMiddleware) {
+	if s.actual != nil {
+		panic("AddMiddleware cannot be used on a Wrap'd Store")
+	}
 	s.secretHandler(middlewares...)
 	s.secretHandlerFunc(s.getSecrets())
 }
 
 // GetSimpleSecret loads secrets from watcher, and fetches a simple secret from secrets
 func (s Store) GetSimpleSecret(path string) (SimpleSecret, error) {
+	if s.actual != nil {
+		return s.actual.GetSimpleSecret(path)
+	}
 	return s.getSecrets().GetSimpleSecret(path)
 }
 
 // GetVersionedSecret loads secrets from watcher, and fetches a versioned secret from secrets
 func (s Store) GetVersionedSecret(path string) (VersionedSecret, error) {
+	if s.actual != nil {
+		return s.actual.GetVersionedSecret(path)
+	}
 	return s.getSecrets().GetVersionedSecret(path)
 }
 
 // GetCredentialSecret loads secrets from watcher, and fetches a credential secret from secrets
 func (s Store) GetCredentialSecret(path string) (CredentialSecret, error) {
+	if s.actual != nil {
+		return s.actual.GetCredentialSecret(path)
+	}
 	return s.getSecrets().GetCredentialSecret(path)
 }
 
@@ -149,5 +167,21 @@ func (s Store) GetCredentialSecret(path string) (CredentialSecret, error) {
 //
 // This function always returns nil error.
 func (s Store) GetVault() (Vault, error) {
+	if s.actual != nil {
+		return Vault{}, fmt.Errorf("GetVault cannot be used with Wrap'd Store")
+	}
 	return s.getSecrets().vault, nil
+}
+
+// A secretStore is an interface that is satisfied by both v0 and v2 secrets.
+type secretStore interface {
+	GetSimpleSecret(path string) (SimpleSecret, error)
+	GetVersionedSecret(path string) (VersionedSecret, error)
+	GetCredentialSecret(path string) (CredentialSecret, error)
+}
+
+// Wrap returns a Store that forwards all secret retrieval operations to the given store.
+// The returned Store cannot use middleware or provide its Vault information.
+func Wrap(store secretStore) *Store {
+	return &Store{actual: store}
 }
