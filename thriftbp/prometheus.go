@@ -1,6 +1,7 @@
 package thriftbp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -352,6 +353,15 @@ func stringifyErrorType(err error) string {
 		if unwrapped := errors.Unwrap(te); unwrapped != nil {
 			err = unwrapped
 		}
+	}
+	if err == context.Canceled {
+		// Special handling of context.Canceled.
+		// As of Go 1.19, context.Canceled is generated from errors.New,
+		// so the type would be indistinguishable from other errors from errors.New.
+		// Note that we intentionally used == instead of errors.Is here,
+		// so that if it's wrapped context.Canceled we would still return the
+		// wrapping type instead, which is usually more important info.
+		return "context.Canceled"
 	}
 	return strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
 }
