@@ -10,7 +10,14 @@ import (
 var (
 	_ error = Batch{}
 	_ error = (*Batch)(nil)
+
+	_ batchUnwrapper = Batch{}
+	_ batchUnwrapper = (*Batch)(nil)
 )
+
+type batchUnwrapper interface {
+	Unwrap() []error
+}
 
 // Batch is an error that can contain multiple errors.
 //
@@ -18,6 +25,8 @@ var (
 //
 // This type is not thread-safe.
 // The same batch should not be operated on different goroutines concurrently.
+//
+// To be deprecated when we drop support for go 1.19.
 type Batch struct {
 	errors []error
 }
@@ -185,10 +194,18 @@ func (be Batch) GetErrors() []error {
 	return errors
 }
 
+// Unwrap implements the optional interface defined in go 1.20.
+//
+// It's an alias to GetErrors.
+func (be Batch) Unwrap() []error {
+	return be.GetErrors()
+}
+
 // BatchSize returns the size of the batch for error err.
 //
-// If err is either errorsbp.Batch or *errorsbp.Batch,
-// this function returns its Len().
+// If err implements `Unwrap() []error` (optional interface defined in go 1.20),
+// which includes errorsbp.Batch and *errorsbp.Batch,
+// it returns the total size of Unwrap'd errors recursively.
 // Otherwise, it returns 1 if err is non-nil, and 0 if err is nil.
 //
 // It's useful in tests,
@@ -198,9 +215,15 @@ func BatchSize(err error) int {
 	if err == nil {
 		return 0
 	}
-	var be Batch
-	if errors.As(err, &be) {
-		return be.Len()
+	if unwrapper, ok := err.(batchUnwrapper); ok {
+		// Since neither errors.Join nor fmt.Errorf tries to flatten the errors when
+		// combining them, do this recursively instead of simply return
+		// len(unwrapper.Unwrap()).
+		var total int
+		for _, e := range unwrapper.Unwrap() {
+			total += BatchSize(e)
+		}
+		return total
 	}
 	// single, non-batch error.
 	return 1

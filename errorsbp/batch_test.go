@@ -2,6 +2,7 @@ package errorsbp_test
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -263,5 +264,86 @@ func TestAddPrefix(t *testing.T) {
 		if err.Error() != expectedMsgs[i] {
 			t.Errorf("Expected %dth error to be %q, got %v", i, expectedMsgs[i], err)
 		}
+	}
+}
+
+type simpleBatch []error
+
+func (sb simpleBatch) Unwrap() []error {
+	return []error(sb)
+}
+
+func (sb simpleBatch) Error() string {
+	return fmt.Sprintf("simpleBatch-%d", len(sb))
+}
+
+func TestBatchSize(t *testing.T) {
+	for _, c := range []struct {
+		label string
+		err   error
+		want  int
+	}{
+		{
+			label: "nil",
+			err:   nil,
+			want:  0,
+		},
+		{
+			label: "errors.New",
+			err:   errors.New("foo"),
+			want:  1,
+		},
+		{
+			label: "fmt.Errorf-wrap-single",
+			err:   fmt.Errorf("bar: %w", errors.New("foo")),
+			want:  1,
+		},
+		{
+			label: "batch-0",
+			err:   new(errorsbp.Batch),
+			want:  0,
+		},
+		{
+			label: "batch-1",
+			want:  1,
+			err: func() error {
+				var batch errorsbp.Batch
+				batch.Add(errors.New("foo"))
+				return batch
+			}(),
+		},
+		{
+			label: "batch-2",
+			want:  2,
+			err: func() error {
+				var batch errorsbp.Batch
+				batch.Add(errors.New("foo"))
+				batch.Add(errors.New("bar"))
+				return batch
+			}(),
+		},
+		{
+			label: "recursion",
+			want:  4,
+			err: simpleBatch{
+				nil,                            // 0
+				errors.New("foo"),              // 1
+				simpleBatch{errors.New("foo")}, // 1
+				simpleBatch{
+					nil,               // 0
+					errors.New("foo"), // 1
+					errors.New("bar"), // 1
+				},
+				nil, // 0
+			},
+		},
+		// TODO: Add cases from errors.Join and fmt.Errorf once we drop support for
+		// go 1.19.
+	} {
+		t.Run(c.label, func(t *testing.T) {
+			if got := errorsbp.BatchSize(c.err); got != c.want {
+				t.Errorf("errorsbp.BatchSize(%#v) got %v want %v", c.err, got, c.want)
+			}
+		})
 	}
 }
