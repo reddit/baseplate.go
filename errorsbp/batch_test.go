@@ -313,6 +313,15 @@ func TestBatchSize(t *testing.T) {
 			}(),
 		},
 		{
+			label: "batch-1-wrapped",
+			want:  1,
+			err: func() error {
+				var batch errorsbp.Batch
+				batch.Add(errors.New("foo"))
+				return fmt.Errorf("%w", batch)
+			}(),
+		},
+		{
 			label: "batch-2",
 			want:  2,
 			err: func() error {
@@ -323,19 +332,30 @@ func TestBatchSize(t *testing.T) {
 			}(),
 		},
 		{
+			label: "batch-2-wrapped",
+			want:  2,
+			err: func() error {
+				var batch errorsbp.Batch
+				batch.Add(errors.New("foo"))
+				batch.Add(errors.New("bar"))
+				return fmt.Errorf("%w", batch)
+			}(),
+		},
+		{
 			label: "recursion",
-			want:  4,
-			err: simpleBatch{
+			want:  5,
+			err: fmt.Errorf("%w", simpleBatch{
 				nil,                            // 0
+				fmt.Errorf("%w", nil),          // 1
 				errors.New("foo"),              // 1
 				simpleBatch{errors.New("foo")}, // 1
-				simpleBatch{
+				fmt.Errorf("%w", simpleBatch{
 					nil,               // 0
 					errors.New("foo"), // 1
 					errors.New("bar"), // 1
-				},
+				}),
 				nil, // 0
-			},
+			}),
 		},
 		// TODO: Add cases from errors.Join and fmt.Errorf once we drop support for
 		// go 1.19.
