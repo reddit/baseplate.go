@@ -67,8 +67,6 @@ type DefaultProcessorMiddlewaresArgs struct {
 // 4. ReportPayloadSizeMetrics
 //
 // 5. PrometheusServerMiddleware
-//
-// 6. RecoverPanik
 func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) []thrift.ProcessorMiddleware {
 	return []thrift.ProcessorMiddleware{
 		ExtractDeadlineBudget,
@@ -76,7 +74,6 @@ func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) 
 		InjectEdgeContext(args.EdgeContextImpl),
 		ReportPayloadSizeMetrics(args.ReportPayloadSizeMetricsSampleRate),
 		PrometheusServerMiddleware,
-		RecoverPanik,
 	}
 }
 
@@ -358,15 +355,21 @@ func tHeaderProtocol2String(proto thrift.THeaderProtocolID) string {
 	}
 }
 
-// RecoverPanic is an alias of RecoverPanik.
-func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
-	return RecoverPanik(name, next)
-}
-
-// RecoverPanik recovers from panics raised in the TProccessorFunction chain,
+// RecoverPanic recovers from panics raised in the TProccessorFunction chain,
 // logs them, and records a metric indicating that the endpoint recovered from a
 // panic.
-func RecoverPanik(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+//
+// Deprecated: This is always added as the last server middleware (with a
+// different name) to ensure that other server middlewares get the correct error
+// if panic happened.
+func RecoverPanic(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+	return recoverPanik(name, next)
+}
+
+// recoverPanik recovers from panics raised in the TProccessorFunction chain,
+// logs them, and records a metric indicating that the endpoint recovered from a
+// panic.
+func recoverPanik(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 	counter := panicRecoverCounter.With(prometheus.Labels{
 		methodLabel: name,
 	})

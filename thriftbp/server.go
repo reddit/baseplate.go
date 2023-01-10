@@ -105,8 +105,12 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 		transport = cfg.Socket
 	}
 
+	middlewares := make([]thrift.ProcessorMiddleware, 0, len(cfg.Middlewares)+1)
+	middlewares = append(middlewares, cfg.Middlewares...)
+	middlewares = append(middlewares, recoverPanik)
+
 	server := thrift.NewTSimpleServer4(
-		thrift.WrapProcessor(cfg.Processor, cfg.Middlewares...),
+		thrift.WrapProcessor(cfg.Processor, middlewares...),
 		transport,
 		thrift.NewTHeaderTransportFactoryConf(nil, nil),
 		thrift.NewTHeaderProtocolFactoryConf(nil),
