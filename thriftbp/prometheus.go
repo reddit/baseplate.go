@@ -219,6 +219,13 @@ var (
 		Help: "The number of times we failed to release a client back to the pool",
 	}, clientPoolLabels)
 
+	clientPoolOpenerCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "thriftbp_client_pool_opener_calls_total",
+		Help: "The number of calls to open a new connection for a thriftbp client pool",
+	}, []string{
+		"thrift_pool",
+	})
+
 	clientPoolGetsCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Name: "thrift_client_pool_connection_gets_total",
 		Help: "The number of times we tried to lease(get) from a thrift client pool",

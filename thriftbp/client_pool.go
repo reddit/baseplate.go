@@ -410,6 +410,19 @@ func newClientPool(
 		jitter = *cfg.MaxConnectionAgeJitter
 	}
 	opener := func() (clientpool.Client, error) {
+		// opener is only called in 2 scenarios:
+		//
+		// 1. fill in the initial clients when initialize a client pool
+		// 2. we failed to get a open client from the pool when trying to use it,
+		//    so we have to fallback to call opener to open a new one
+		//
+		// so this counter gives us _good enough_ data (when igoring scenario 1),
+		// in combination with clientPoolGetsCounter, to understand how many client
+		// calls had to do dns on hot path.
+		clientPoolOpenerCounter.With(prometheus.Labels{
+			"thrift_pool": cfg.ServiceSlug,
+		}).Inc()
+
 		return newClient(
 			tConfig,
 			cfg.ServiceSlug,
