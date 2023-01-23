@@ -16,7 +16,7 @@ const (
 	endpointLabel   = "http_endpoint"
 )
 
-var ResponseSizeBuckets = []float64{
+var payloadSizeBuckets = []float64{
 	100,       // 100 B
 	500,       // 500 B
 	1 << 10,   // 1 KiB
@@ -48,13 +48,13 @@ var (
 	serverRequestSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_request_size_bytes",
 		Help:    "Request size",
-		Buckets: ResponseSizeBuckets,
+		Buckets: payloadSizeBuckets,
 	}, serverLabels)
 
 	serverResponseSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_response_size_bytes",
 		Help:    "Response size",
-		Buckets: ResponseSizeBuckets,
+		Buckets: payloadSizeBuckets,
 	}, serverLabels)
 
 	serverTimeToWriteHeader = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
