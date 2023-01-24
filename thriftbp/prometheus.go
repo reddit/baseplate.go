@@ -103,7 +103,6 @@ const (
 	promNamespace = "thriftbp"
 
 	subsystemServer     = "server"
-	subsystemTTLClient  = "ttl_client"
 	subsystemClientPool = "client_pool"
 )
 
@@ -123,11 +122,17 @@ var (
 	}
 
 	ttlClientReplaceCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemTTLClient,
-		Name:      "connection_housekeeping_total",
-		Help:      "Total connection housekeeping (replacing the connection in the background) done in thrift ttlClient",
+		Name: "thriftbp_ttl_client_connection_housekeeping_total",
+		Help: "Total connection housekeeping (replacing the connection in the background) done in thrift ttlClient",
 	}, ttlClientReplaceLabels)
+
+	ttlClientRefreshAttemptsHisto = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "thriftbp_ttl_client_refresh_attempts",
+		Help:    "Number of attempts to refresh a ttl client in the background",
+		Buckets: prometheus.LinearBuckets(1, 1, ttlClientRefreshAttempts),
+	}, []string{
+		clientNameLabel,
+	})
 )
 
 const (

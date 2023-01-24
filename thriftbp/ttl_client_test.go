@@ -2,11 +2,15 @@ package thriftbp
 
 import (
 	"errors"
+	"net"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 )
 
 // firstSuccessGenerator is a ttlClientGenerator implementation that would
@@ -160,7 +164,7 @@ func TestTTLClientRefresh(t *testing.T) {
 		)
 
 		g := alwaysSuccessGenerator{transport: &transport}
-		client, err := newTTLClient(g.generator(), ttl, jitter, "")
+		client, err := newTTLClient(g.generator(), ttl, jitter, "" /* slug */)
 		if err != nil {
 			t.Fatalf("newTTLClient returned error: %v", err)
 		}
@@ -188,6 +192,50 @@ func TestTTLClientRefresh(t *testing.T) {
 		want++
 		if got := g.numCalls(); got < want {
 			t.Errorf("Expected generator to be called at least %d time after second sleep, got %d", want, got)
+		}
+	})
+
+	t.Run("retry", func(t *testing.T) {
+		// This test is to make sure that closing the ttlClient will also stop its
+		// retry attempts.
+		const slug = "slug"
+		g := alwaysSuccessGenerator{transport: &mockTTransport{}}
+		client, err := newTTLClient(g.generator(), 0 /* ttl */, 0 /* jitter */, slug)
+		if err != nil {
+			t.Fatalf("newTTLClient returned error: %v", err)
+		}
+		// Replace generator to something that would always fail to test retries
+		client.generator = func() (thrift.TClient, thrift.TTransport, error) {
+			// The error must be of type net.Error to trigger retry
+			return nil, nil, &net.OpError{
+				Err: errors.New("failed"),
+			}
+		}
+
+		const (
+			buffer = 50 * time.Millisecond
+			// It should have made 2 attempts after this sleep (initial + first retry)
+			sleep = ttlClientRefreshInitialDelay + ttlClientRefreshMaxJitter + buffer
+		)
+
+		defer promtest.NewPrometheusMetricTest(t, "failed refreshes", ttlClientReplaceCounter, prometheus.Labels{
+			clientNameLabel: slug,
+			successLabel:    "false",
+		}).CheckDelta(2)
+
+		defer promtest.NewPrometheusMetricTest(t, "refresh attempts histogram", ttlClientRefreshAttemptsHisto, prometheus.Labels{
+			clientNameLabel: slug,
+		}).CheckSampleCountDelta(1)
+
+		go func() {
+			time.Sleep(sleep)
+			client.Close()
+		}()
+		before := time.Now()
+		client.refresh()
+		elapsed := time.Since(before)
+		if elapsed < sleep || elapsed > sleep+buffer {
+			t.Errorf("client.refresh() took %v, want %v", elapsed, sleep)
 		}
 	})
 }

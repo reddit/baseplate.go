@@ -5,10 +5,12 @@ import (
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/avast/retry-go"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/randbp"
+	"github.com/reddit/baseplate.go/retrybp"
 )
 
 type ttlClientGenerator func() (thrift.TClient, thrift.TTransport, error)
@@ -20,14 +22,26 @@ const DefaultMaxConnectionAge = time.Minute * 5
 // Thrift client connection.
 const DefaultMaxConnectionAgeJitter = 0.1
 
+// refresh related constants
+const (
+	ttlClientRefreshInitialDelay = 100 * time.Millisecond
+	ttlClientRefreshMaxJitter    = 100 * time.Millisecond
+	ttlClientRefreshMaxDelay     = 30 * time.Second
+
+	// NOTE: This const is also used to define the buckets used by
+	// ttlClientRefreshAttemptsHisto, so take care when changing it.
+	ttlClientRefreshAttempts = 10
+)
+
 var _ Client = (*ttlClient)(nil)
 
 type ttlClientState struct {
-	client     thrift.TClient
-	transport  thrift.TTransport
-	expiration time.Time // if expiration is zero, then the client will be kept open indefinetly.
-	timer      *time.Timer
-	closed     bool
+	client        thrift.TClient
+	transport     thrift.TTransport
+	expiration    time.Time // if expiration is zero, then the client will be kept open indefinetly.
+	timer         *time.Timer
+	closed        bool
+	cancelRefresh context.CancelFunc // non-nil means a refresh is in progress and can be canceled by this
 }
 
 // renew updates expiration and timer in s base on the given timestamp and
@@ -60,6 +74,9 @@ func (c *ttlClient) Close() error {
 		c.state <- state
 	}()
 	state.closed = true
+	if state.cancelRefresh != nil {
+		state.cancelRefresh()
+	}
 	if state.timer != nil {
 		state.timer.Stop()
 	}
@@ -97,15 +114,60 @@ func (c *ttlClient) IsOpen() bool {
 
 // refresh is called when the ttl hits to try to refresh the connection.
 func (c *ttlClient) refresh() {
-	client, transport, err := c.generator()
-	if err != nil {
+	// set up ctx for retry cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if closed := func(cancel context.CancelFunc) bool {
+		// Use a lambda to guard access to state to set cancelRefresh and return closed
+		state := <-c.state
+		defer func() {
+			c.state <- state
+		}()
+		state.cancelRefresh = cancel
+		return state.closed
+	}(cancel); closed {
+		// In a rare race condition, it's possible that the timer for refresh fired
+		// at the time Close is called. In such case, return early here to avoid
+		// getting into a very long retry loop later with no way to cancel.
+		return
+	}
+
+	var client thrift.TClient
+	var transport thrift.TTransport
+	var attempts int
+	defer func() {
+		ttlClientRefreshAttemptsHisto.With(prometheus.Labels{
+			clientNameLabel: c.slug,
+		}).Observe(float64(attempts))
+	}()
+	if retrybp.Do(
+		ctx,
+		func() error {
+			attempts++
+			var err error
+			client, transport, err = c.generator()
+			if err != nil {
+				ttlClientReplaceCounter.With(prometheus.Labels{
+					clientNameLabel: c.slug,
+					successLabel:    prometheusbp.BoolString(false),
+				}).Inc()
+			}
+			return err
+		},
+		retry.Attempts(ttlClientRefreshAttempts),
+		retrybp.CappedExponentialBackoff(retrybp.CappedExponentialBackoffArgs{
+			InitialDelay: ttlClientRefreshInitialDelay,
+			MaxJitter:    ttlClientRefreshMaxJitter,
+			MaxDelay:     ttlClientRefreshMaxDelay,
+		}),
+		retrybp.Filters(
+			retrybp.RetryableErrorFilter,
+			retrybp.NetworkErrorFilter,
+		),
+	) != nil {
 		// We cannot replace this connection in the background,
 		// leave client and transport be,
 		// this connection will be replaced by the pool upon next use.
-		ttlClientReplaceCounter.With(prometheus.Labels{
-			clientNameLabel: c.slug,
-			successLabel:    prometheusbp.BoolString(false),
-		}).Inc()
 		return
 	}
 
@@ -114,6 +176,7 @@ func (c *ttlClient) refresh() {
 	defer func() {
 		c.state <- state
 	}()
+	state.cancelRefresh = nil
 	if state.closed {
 		// If Close was called after we entered this function,
 		// close the newly created connection and return early.
