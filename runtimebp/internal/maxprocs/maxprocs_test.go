@@ -33,14 +33,6 @@ func TestSet(t *testing.T) {
 			wantGOMAXPROCS: 63, // 42 * 1.5 scale default multiplier
 		},
 		{
-			name: "request_with_scale",
-			env: map[string]string{
-				"BASEPLATE_CPU_REQUEST":       "42",
-				"BASEPLATE_CPU_REQUEST_SCALE": "0.9",
-			},
-			wantGOMAXPROCS: 38, // ceil(42 * 0.9)
-		},
-		{
 			name: "invalid_request",
 			env: map[string]string{
 				"BASEPLATE_CPU_REQUEST": "not a number",
@@ -48,35 +40,11 @@ func TestSet(t *testing.T) {
 			wantGOMAXPROCS: automaxprocsSentinel,
 		},
 		{
-			name: "invalid_scale",
-			env: map[string]string{
-				"BASEPLATE_CPU_REQUEST":       "42",
-				"BASEPLATE_CPU_REQUEST_SCALE": "not a number",
-			},
-			wantGOMAXPROCS: 63, // 42 * 1.5 scale default multiplier
-		},
-		{
 			name: "zero_request",
 			env: map[string]string{
 				"BASEPLATE_CPU_REQUEST": "0",
 			},
 			wantGOMAXPROCS: automaxprocsSentinel,
-		},
-		{
-			name: "zero_scale",
-			env: map[string]string{
-				"BASEPLATE_CPU_REQUEST":       "42",
-				"BASEPLATE_CPU_REQUEST_SCALE": "0",
-			},
-			wantGOMAXPROCS: 63, // 42 * 1.5 scale default multiplier
-		},
-		{
-			name: "min_2",
-			env: map[string]string{
-				"BASEPLATE_CPU_REQUEST":       "1",
-				"BASEPLATE_CPU_REQUEST_SCALE": "1",
-			},
-			wantGOMAXPROCS: 2,
 		},
 		{
 			name: "gomaxprocs_and_request",

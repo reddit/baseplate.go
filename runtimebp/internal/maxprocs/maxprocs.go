@@ -54,10 +54,6 @@ var (
 		Name: "baseplate_go_env_baseplate_cpu_request",
 		Help: "Value of the BASEPLATE_CPU_REQUEST environment variable at startup. 0 if not a number",
 	}, []string{"status"})
-	mEnvCPURequestScale = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
-		Name: "baseplate_go_env_baseplate_cpu_request_scale",
-		Help: "Value of the BASEPLATE_CPU_REQUEST_SCALE environment variable at startup. 0 if not a number",
-	}, []string{"status"})
 
 	initialGOMAXPROCS = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
 		Name: "baseplate_go_initial_gomaxprocs",
@@ -87,16 +83,14 @@ var (
 //     This should cause the runtime to respect this value directly.
 //  2. If $BASEPLATE_CPU_REQUEST is unset/invalid, Set relinquishes control to automaxprocs, minimum 2.
 //     See https://pkg.go.dev/go.uber.org/automaxprocs for specific behavior.
-//  3. Otherwise, $BASEPLATE_CPU_REQUEST is multiplied by $BASEPLATE_CPU_REQUEST_SCALE
-//     (or defaultCPURequestScale) to compute the new GOMAXPROCS, minimum 2.
+//  3. Otherwise, $BASEPLATE_CPU_REQUEST is multiplied by 1.5, minimum 2.
 //
 // Set also exports several metrics to facilitate further tuning/analysis.
 func Set() {
 	envGOMAXPROCS := &floatEnv{key: "GOMAXPROCS", gauge: mEnvGOMAXPROCS}
 	envCPURequest := &floatEnv{key: "BASEPLATE_CPU_REQUEST", gauge: mEnvCPURequest}
-	envCPURequestScale := &floatEnv{key: "BASEPLATE_CPU_REQUEST_SCALE", gauge: mEnvCPURequestScale}
 
-	for _, env := range []*floatEnv{envGOMAXPROCS, envCPURequest, envCPURequestScale} {
+	for _, env := range []*floatEnv{envGOMAXPROCS, envCPURequest} {
 		env.raw, env.present = os.LookupEnv(env.key)
 
 		var err error
@@ -138,18 +132,11 @@ func Set() {
 		return
 	}
 
-	scale := defaultCPURequestScale
-	if envCPURequestScale.val > 0 {
-		scale = envCPURequestScale.val
-	} else if envCPURequestScale.present {
-		fmt.Fprintf(os.Stderr, "maxprocs: $BASEPLATE_CPU_REQUEST_SCALE=%q, want positive float. Falling back to default of %g", envCPURequestScale.raw, scale)
-	}
-
 	setBy = setByRequest
 	runtime.GOMAXPROCS(int(
 		math.Max(
 			2, // to ensure some minimal parallelism
-			math.Ceil(envCPURequest.val*scale),
+			math.Ceil(envCPURequest.val*defaultCPURequestScale),
 		),
 	))
 }
