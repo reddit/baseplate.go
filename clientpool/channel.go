@@ -62,7 +62,14 @@ func (cp *channelPool) Get() (client Client, err error) {
 	}()
 
 	select {
-	case c := <-cp.pool:
+	case c, ok := <-cp.pool:
+		if !ok {
+			// This is a race condition usually only happens during graceful shutdown,
+			// that the client pool is still used after it's closed.
+			// In such case, just return ErrExhausted,
+			// which is still kinda appropriate and avoids a panic.
+			return nil, ErrExhausted
+		}
 		if c.IsOpen() {
 			return c, nil
 		}
@@ -78,8 +85,7 @@ func (cp *channelPool) Get() (client Client, err error) {
 	}
 
 	if cp.IsExhausted() {
-		err = ErrExhausted
-		return
+		return nil, ErrExhausted
 	}
 	return cp.opener()
 }
