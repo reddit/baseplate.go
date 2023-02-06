@@ -271,9 +271,6 @@ func NewSecrets(r io.Reader) (*Secrets, error) {
 
 // FromDir parses a directory and returns its secrets
 func FromDir(dir fs.FS) (*Secrets, error) {
-	secretsDocument := Document{
-		Secrets: make(map[string]GenericSecret),
-	}
 	secretsDocument, err := walkCSIDirectory(dir)
 	if err != nil {
 		return nil, err
