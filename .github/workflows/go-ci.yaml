@@ -19,7 +19,13 @@ jobs:
       image: golang:${{ matrix.go-version }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+
+      - name: Workaround Git Security Warning
+        run: |
+          # Workaround a bug in github actions:
+          # https://github.com/actions/runner-images/issues/6775.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Install dependencies
         run: |
