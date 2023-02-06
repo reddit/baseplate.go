@@ -76,18 +76,10 @@ type Config struct {
 	TestOnlyMockMessageQueue mqsend.MessageQueue `yaml:"-"`
 }
 
-// InitFromConfig initializes the global tracer using the given Config and
-// also registers the ErrorReporterCreateServerSpanHook with the global span
-// hook registry.
+// InitFromConfig is an alias to InitGlobalTracerWithCloser.
 //
 // It returns an io.Closer that can be used to close out the tracer when the
 // server is done executing.
 func InitFromConfig(cfg Config) (io.Closer, error) {
-	closer, err := InitGlobalTracerWithCloser(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	RegisterCreateServerSpanHooks(ErrorReporterCreateServerSpanHook{})
-	return closer, nil
+	return InitGlobalTracerWithCloser(cfg)
 }
