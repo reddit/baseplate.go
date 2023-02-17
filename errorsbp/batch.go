@@ -146,7 +146,7 @@ func (be *Batch) AddPrefix(prefix string, errs ...error) {
 	}
 
 	appendSingle := func(err error) {
-		be.errors = append(be.errors, fmt.Errorf("%s: %w", prefix, err))
+		be.errors = append(be.errors, Prefix(prefix, err))
 	}
 
 	for _, err := range errs {
@@ -240,4 +240,22 @@ func BatchSize(err error) int {
 	}
 	// single, non-batch error.
 	return 1
+}
+
+// Prefix is a helper function to add prefix to a potential error.
+//
+// If err is nil, it returns nil.
+// If prefix is empty string, it returns err as-is.
+// Otherwise it returns an error that can unwrap to err with message of
+// "prefix: err.Error()".
+//
+// It's useful to be used with errors.Join.
+func Prefix(prefix string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if prefix == "" {
+		return err
+	}
+	return fmt.Errorf("%s: %w", prefix, err)
 }
