@@ -367,3 +367,49 @@ func TestBatchSize(t *testing.T) {
 		})
 	}
 }
+
+func TestPrefix(t *testing.T) {
+	for _, c := range []struct {
+		label   string
+		orig    error
+		prefix  string
+		wantMsg string
+	}{
+		{
+			label: "nil",
+		},
+		{
+			label:   "empty-prefix",
+			orig:    errors.New("foo"),
+			wantMsg: "foo",
+		},
+		{
+			label:   "normal",
+			orig:    errors.New("foo"),
+			prefix:  "bar",
+			wantMsg: "bar: foo",
+		},
+	} {
+		t.Run(c.label, func(t *testing.T) {
+			err := errorsbp.Prefix(c.prefix, c.orig)
+			if c.orig == nil {
+				if err != nil {
+					t.Errorf("Want nil error when orig is nil, got %v", err)
+				}
+				return
+			}
+			if got, want := err.Error(), c.wantMsg; got != want {
+				t.Errorf("Got error message %q, want %q", got, want)
+			}
+			if c.prefix == "" {
+				if err != c.orig {
+					t.Errorf("Got %v (%p), want %v (%p)", err, err, c.orig, c.orig)
+				}
+			} else {
+				if !errors.Is(err, c.orig) {
+					t.Errorf("errors.Is(%v, %v) is false", err, c.orig)
+				}
+			}
+		})
+	}
+}
