@@ -355,6 +355,9 @@ func SingleAddressGenerator(addr string) AddressGenerator {
 // It always uses SingleAddressGenerator with the server address configured in
 // cfg, and THeader+TCompact as the protocol factory.
 func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
+	return NewBaseplateClientPoolWithContext(context.Background(), cfg, middlewares...)
+}
+func NewBaseplateClientPoolWithContext(ctx context.Context, cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
 	err := BaseplateClientPoolConfig(cfg).Validate()
 	if err != nil {
 		return nil, fmt.Errorf("thriftbp.NewBaseplateClientPool: %w", err)
@@ -370,7 +373,11 @@ func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMi
 		},
 	)
 	middlewares = append(middlewares, defaults...)
-	return NewCustomClientPool(
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("thriftbp.NewCustomClientPool: %w", err)
+	}
+	return newClientPool(
+		ctx,
 		cfg,
 		SingleAddressGenerator(cfg.Addr),
 		thrift.NewTHeaderProtocolFactoryConf(cfg.ToTConfiguration()),
@@ -392,10 +399,11 @@ func NewCustomClientPool(
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("thriftbp.NewCustomClientPool: %w", err)
 	}
-	return newClientPool(cfg, genAddr, protoFactory, middlewares...)
+	return newClientPool(context.Background(), cfg, genAddr, protoFactory, middlewares...)
 }
 
 func newClientPool(
+	ctx context.Context,
 	cfg ClientPoolConfig,
 	genAddr AddressGenerator,
 	proto thrift.TProtocolFactory,
@@ -433,6 +441,8 @@ func newClientPool(
 		)
 	}
 	pool, err := clientpool.NewChannelPool(
+		ctx,
+		cfg.RequiredInitialConnections,
 		cfg.InitialConnections,
 		cfg.MaxConnections,
 		opener,
@@ -446,13 +456,13 @@ func newClientPool(
 				err = batch.Compile()
 			}
 			return nil, fmt.Errorf(
-				"thriftbp: error initializing thrift clientpool for %q: %w",
+				"thriftbp: error initializing the required number of connections in the thrift clientpool for %q: %w",
 				cfg.ServiceSlug,
 				err,
 			)
 		}
 
-		cfg.InitialConnectionsFallbackLogger.Log(context.Background(), fmt.Sprintf(
+		cfg.InitialConnectionsFallbackLogger.Log(ctx, fmt.Sprintf(
 			"thriftbp: Established %d of %d InitialConnections asked for thrift clientpool for %q: %v",
 			pool.NumAllocated(),
 			cfg.InitialConnections,

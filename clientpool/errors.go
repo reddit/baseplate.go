@@ -23,16 +23,18 @@ func (exhaustedError) Retryable() int {
 // ConfigError is the error type returned when trying to open a new
 // client pool, but the configuration values passed in won't work.
 type ConfigError struct {
-	InitialClients int
-	MaxClients     int
+	BestEffortInitialClients int
+	RequiredInitialClients   int
+	MaxClients               int
 }
 
 var _ error = (*ConfigError)(nil)
 
 func (e *ConfigError) Error() string {
 	return fmt.Sprintf(
-		"clientpool: initialClients (%d) > maxClients (%d)",
-		e.InitialClients,
+		"clientpool: need requiredClients (%d) <= initialClients (%d) <= maxClients (%d)",
+		e.RequiredInitialClients,
+		e.BestEffortInitialClients,
 		e.MaxClients,
 	)
 }

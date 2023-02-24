@@ -115,20 +115,6 @@ func TestInitialConnectionsFallback(t *testing.T) {
 			},
 		},
 		{
-			label:       "required-1",
-			expectError: true,
-			cfg: thriftbp.ClientPoolConfig{
-				ServiceSlug:     "test",
-				EdgeContextImpl: ecinterface.Mock(),
-				ConnectTimeout:  time.Millisecond * 5,
-				SocketTimeout:   time.Millisecond * 15,
-
-				InitialConnections:         2,
-				MaxConnections:             5,
-				RequiredInitialConnections: 1,
-			},
-		},
-		{
 			label:       "required-0",
 			expectError: false,
 			cfg: thriftbp.ClientPoolConfig{

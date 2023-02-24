@@ -1,8 +1,11 @@
 package clientpool
 
 import (
+	"context"
 	"fmt"
 	"sync/atomic"
+
+	"github.com/reddit/baseplate.go/log"
 )
 
 type channelPool struct {
@@ -19,25 +22,48 @@ var _ Pool = (*channelPool)(nil)
 // NewChannelPool creates a new client pool implemented via channel.
 //
 // Note that this function could return both non-nil Pool and error,
-// when we failed to create all asked initialClients.
-// In such case the returned Pool would have the clients we already established.
-func NewChannelPool(initialClients, maxClients int, opener ClientOpener) (Pool, error) {
-	if initialClients > maxClients {
+// when we failed to create all asked bestEffortInitialClients.
+// In such case the returned Pool would have at least requiredInitialClients
+// clients we already established.
+func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortInitialClients, maxClients int, opener ClientOpener) (Pool, error) {
+	if !(requiredInitialClients <= bestEffortInitialClients && bestEffortInitialClients <= maxClients) {
 		return nil, &ConfigError{
-			InitialClients: initialClients,
-			MaxClients:     maxClients,
+			BestEffortInitialClients: bestEffortInitialClients,
+			RequiredInitialClients:   requiredInitialClients,
+			MaxClients:               maxClients,
 		}
 	}
 
-	var finalErr error
+	var lastAttemptErr error
 	pool := make(chan Client, maxClients)
-	for i := 0; i < initialClients; i++ {
+
+	for i := 0; i < requiredInitialClients; {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return &channelPool{
+				pool:           pool,
+				opener:         opener,
+				initialClients: len(pool),
+				maxClients:     maxClients,
+			}, lastAttemptErr
+		}
+		c, err := opener()
+		if err == nil {
+			pool <- c
+			i++
+		} else {
+			lastAttemptErr = err
+			log.Warnf("clientpool: error creating required client (will retry): %w", err)
+		}
+	}
+	lastAttemptErr = nil
+
+	for i := requiredInitialClients; i < bestEffortInitialClients; i++ {
 		c, err := opener()
 		if err != nil {
-			finalErr = fmt.Errorf(
+			lastAttemptErr = fmt.Errorf(
 				"clientpool: error creating client #%d/%d: %w",
 				i,
-				initialClients,
+				bestEffortInitialClients,
 				err,
 			)
 			break
@@ -48,9 +74,9 @@ func NewChannelPool(initialClients, maxClients int, opener ClientOpener) (Pool, 
 	return &channelPool{
 		pool:           pool,
 		opener:         opener,
-		initialClients: initialClients,
+		initialClients: bestEffortInitialClients,
 		maxClients:     maxClients,
-	}, finalErr
+	}, lastAttemptErr
 }
 
 // Get returns a client from the pool.

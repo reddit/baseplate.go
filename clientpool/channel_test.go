@@ -1,6 +1,7 @@
 package clientpool_test
 
 import (
+	"context"
 	"errors"
 	"sync/atomic"
 	"testing"
@@ -9,8 +10,8 @@ import (
 )
 
 func TestChannelPoolInvalidConfig(t *testing.T) {
-	const min, max = 5, 1
-	_, err := clientpool.NewChannelPool(min, max, nil)
+	const min, init, max = 5, 1, 1
+	_, err := clientpool.NewChannelPool(context.Background(), min, init, max, nil)
 	if err == nil {
 		t.Errorf(
 			"NewChannelPool with min %d and max %d expected an error, got nil.",
@@ -30,15 +31,15 @@ func TestChannelPool(t *testing.T) {
 		}
 	}
 
-	const min, max = 2, 5
+	const min, init, max = 1, 2, 5
 	var openerCalled atomic.Int32
-	pool, err := clientpool.NewChannelPool(min, max, opener(&openerCalled))
+	pool, err := clientpool.NewChannelPool(context.Background(), min, init, max, opener(&openerCalled))
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("min: %d, max: %d", min, max)
+	t.Logf("min: %d, init: %d, max: %d", min, init, max)
 
-	testPool(t, pool, &openerCalled, min, max)
+	testPool(t, pool, &openerCalled, init, max)
 }
 
 func TestChannelPoolWithOpenerFailure(t *testing.T) {
@@ -54,11 +55,11 @@ func TestChannelPoolWithOpenerFailure(t *testing.T) {
 		}
 	}
 
-	const min, max = 1, 5
+	const min, init, max = 0, 1, 5
 	t.Run(
 		"new-with-min-2-should-fail-initialization",
 		func(t *testing.T) {
-			pool, err := clientpool.NewChannelPool(2, max, opener())
+			pool, err := clientpool.NewChannelPool(context.Background(), min, 2, max, opener())
 			if err == nil {
 				t.Error("NewChannelPool with min = 2 should fail but did not.")
 			}
@@ -68,7 +69,7 @@ func TestChannelPoolWithOpenerFailure(t *testing.T) {
 		},
 	)
 
-	pool, err := clientpool.NewChannelPool(min, max, opener())
+	pool, err := clientpool.NewChannelPool(context.Background(), min, init, max, opener())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,14 +78,14 @@ func TestChannelPoolWithOpenerFailure(t *testing.T) {
 	t.Run(
 		"drain-the-pool",
 		func(t *testing.T) {
-			for i := 0; i < min; i++ {
+			for i := 0; i < init; i++ {
 				_, err := pool.Get()
 				if err != nil {
 					t.Errorf("pool.Get returned error: %v", err)
 				}
 			}
 
-			checkActiveAndAllocated(t, pool, min, 0)
+			checkActiveAndAllocated(t, pool, init, 0)
 		},
 	)
 
@@ -97,7 +98,7 @@ func TestChannelPoolWithOpenerFailure(t *testing.T) {
 				t.Error("pool.Get should return error, got nil")
 			}
 
-			checkActiveAndAllocated(t, pool, min, 0)
+			checkActiveAndAllocated(t, pool, init, 0)
 		},
 	)
 }
