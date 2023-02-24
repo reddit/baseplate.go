@@ -68,7 +68,7 @@ func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortIniti
 		c, err := opener()
 		if err != nil {
 			lastAttemptErr = fmt.Errorf(
-				"clientpool: error creating client #%d/%d: %w",
+				"clientpool: error creating best-effort client #%d/%d: %w",
 				i,
 				bestEffortInitialClients,
 				err,
