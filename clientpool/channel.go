@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/reddit/baseplate.go/log"
+	"golang.org/x/time/rate"
 )
 
 type channelPool struct {
@@ -36,6 +38,7 @@ func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortIniti
 
 	var lastAttemptErr error
 	pool := make(chan Client, maxClients)
+	chatty := rate.NewLimiter(rate.Every(2*time.Second), 1)
 
 	for i := 0; i < requiredInitialClients; {
 		if ctxErr := ctx.Err(); ctxErr != nil {
@@ -59,7 +62,9 @@ func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortIniti
 			i++
 		} else {
 			lastAttemptErr = err
-			log.Warnf("clientpool: error creating required client (will retry): %w", err)
+			if chatty.Allow() {
+				log.Warnf("clientpool: error creating required client (will retry): %w", err)
+			}
 		}
 	}
 	lastAttemptErr = nil
