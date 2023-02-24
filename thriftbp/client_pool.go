@@ -396,10 +396,19 @@ func NewCustomClientPool(
 	protoFactory thrift.TProtocolFactory,
 	middlewares ...thrift.ClientMiddleware,
 ) (ClientPool, error) {
+	return NewCustomClientPoolWithContext(context.Background(), cfg, genAddr, protoFactory, middlewares...)
+}
+func NewCustomClientPoolWithContext(
+	ctx context.Context,
+	cfg ClientPoolConfig,
+	genAddr AddressGenerator,
+	protoFactory thrift.TProtocolFactory,
+	middlewares ...thrift.ClientMiddleware,
+) (ClientPool, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("thriftbp.NewCustomClientPool: %w", err)
 	}
-	return newClientPool(context.Background(), cfg, genAddr, protoFactory, middlewares...)
+	return newClientPool(ctx, cfg, genAddr, protoFactory, middlewares...)
 }
 
 func newClientPool(

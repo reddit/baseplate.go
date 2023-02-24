@@ -39,6 +39,13 @@ func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortIniti
 
 	for i := 0; i < requiredInitialClients; {
 		if ctxErr := ctx.Err(); ctxErr != nil {
+			if lastAttemptErr == nil {
+				// In case the user sets a deadline so short that we don't have
+				// time to open all the client serially despite all of them working.
+				// In that case lastAttempErr would be nil so we need to indicate to
+				// the user that their timeout being too short is the issue.
+				lastAttemptErr = ctxErr
+			}
 			return &channelPool{
 				pool:           pool,
 				opener:         opener,
