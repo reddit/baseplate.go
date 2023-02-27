@@ -3,6 +3,7 @@ package thriftbp_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"sync/atomic"
 	"testing"
@@ -79,6 +80,116 @@ func TestCustomClientPool(t *testing.T) {
 	}
 }
 
+func TestBehaviorWithNetworkIssues(t *testing.T) {
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	cfg := thriftbp.ClientPoolConfig{
+		ServiceSlug:     "test",
+		EdgeContextImpl: ecinterface.Mock(),
+		ConnectTimeout:  time.Millisecond * 5,
+		SocketTimeout:   time.Millisecond * 15,
+
+		RequiredInitialConnections: 2,
+		InitialConnections:         5,
+		MaxConnections:             10,
+	}
+
+	for _, c := range []struct {
+		label    string
+		addrGen  thriftbp.AddressGenerator
+		validate func(thriftbp.ClientPool, error)
+	}{
+		{
+			label: "network-fails-once-before-required",
+			addrGen: func() thriftbp.AddressGenerator {
+				i := 0
+				return func() (string, error) {
+					i += 1
+					var err error
+					if i == 1 {
+						err = fmt.Errorf("something broke")
+					}
+					return ln.Addr().String(), err
+				}
+			}(),
+			validate: func(p thriftbp.ClientPool, err error) {
+				if err != nil {
+					t.Errorf("Didn't expect an error but got %v", err)
+				}
+			},
+		},
+		{
+			label: "network-fails-once-after-required",
+			addrGen: func() thriftbp.AddressGenerator {
+				i := 0
+				return func() (string, error) {
+					i += 1
+					var err error
+					if i == 4 {
+						err = fmt.Errorf("something broke")
+					}
+					return ln.Addr().String(), err
+				}
+			}(),
+			validate: func(p thriftbp.ClientPool, err error) {
+				if err != nil {
+					t.Errorf("Didn't expect an error but got %v", err)
+				}
+			},
+		},
+		{
+			label: "network-fails-consistently-before-required",
+			addrGen: func() thriftbp.AddressGenerator {
+				i := 0
+				return func() (string, error) {
+					i += 1
+					var err error
+					if i >= 2 {
+						err = fmt.Errorf("something broke")
+					}
+					return ln.Addr().String(), err
+				}
+			}(),
+			validate: func(p thriftbp.ClientPool, err error) {
+				if err == nil {
+					t.Errorf("Expected an error.")
+				}
+			},
+		},
+		{
+			label: "network-fails-consistently-after-required",
+			addrGen: func() thriftbp.AddressGenerator {
+				i := 0
+				return func() (string, error) {
+					i += 1
+					var err error
+					if i >= 4 {
+						err = fmt.Errorf("something broke")
+					}
+					return ln.Addr().String(), err
+				}
+			}(),
+			validate: func(p thriftbp.ClientPool, err error) {
+				if err != nil {
+					t.Errorf("Didn't expect an error but got %v", err)
+				}
+			},
+		},
+	} {
+		t.Run(c.label, func(t *testing.T) {
+			factory := thrift.NewTBinaryProtocolFactoryConf(cfg.ToTConfiguration())
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+			defer cancel()
+			pool, err := thriftbp.NewCustomClientPoolWithContext(ctx, cfg, c.addrGen, factory)
+			c.validate(pool, err)
+		})
+	}
+}
+
 func TestInitialConnectionsFallback(t *testing.T) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -112,20 +223,6 @@ func TestInitialConnectionsFallback(t *testing.T) {
 
 				InitialConnections: 5,
 				MaxConnections:     2,
-			},
-		},
-		{
-			label:       "required-1",
-			expectError: true,
-			cfg: thriftbp.ClientPoolConfig{
-				ServiceSlug:     "test",
-				EdgeContextImpl: ecinterface.Mock(),
-				ConnectTimeout:  time.Millisecond * 5,
-				SocketTimeout:   time.Millisecond * 15,
-
-				InitialConnections:         2,
-				MaxConnections:             5,
-				RequiredInitialConnections: 1,
 			},
 		},
 		{

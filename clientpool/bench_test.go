@@ -1,6 +1,7 @@
 package clientpool_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/reddit/baseplate.go/clientpool"
@@ -11,8 +12,8 @@ func BenchmarkPoolGetRelease(b *testing.B) {
 		return &testClient{}, nil
 	}
 
-	const min, max = 0, 100
-	channelPool, _ := clientpool.NewChannelPool(min, max, opener)
+	const min, init, max = 0, 0, 100
+	channelPool, _ := clientpool.NewChannelPool(context.Background(), min, init, max, opener)
 
 	for label, pool := range map[string]clientpool.Pool{
 		"channel": channelPool,
