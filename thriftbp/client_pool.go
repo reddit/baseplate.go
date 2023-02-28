@@ -69,19 +69,21 @@ type ClientPoolConfig struct {
 	// created by the client pool.
 	//
 	// If an error occurred when we try to establish the initial N connections for
-	// the pool, we log the error with InitialConnectionsFallbackLogger,
+	// the pool, we log the errors on warning level,
 	// then return the pool with the <N connections we already established.
 	//
 	// If that's unacceptable, then RequiredInitialConnections can be used to set
 	// the hard requirement of minimal initial connections to be established.
 	// Note that enabling this can cause cascading failures during an outage,
 	// so it shall only be used for extreme circumstances.
-	InitialConnections               int         `yaml:"initialConnections"`
-	InitialConnectionsFallbackLogger log.Wrapper `yaml:"initialConnectionsFallbackLogger"`
-	RequiredInitialConnections       int         `yaml:"requiredInitialConnections"`
+	InitialConnections         int `yaml:"initialConnections"`
+	RequiredInitialConnections int `yaml:"requiredInitialConnections"`
 	// Deprecated: InitialConnectionsFallback is always true and setting it to
 	// false won't do anything.
 	InitialConnectionsFallback bool `yaml:"initialConnectionsFallback"`
+	// Deprecated: Individual connection errors during initialization is always
+	// logged via zap logger on warning level.
+	InitialConnectionsFallbackLogger log.Wrapper `yaml:"initialConnectionsFallbackLogger"`
 
 	// MaxConnections is the maximum number of thrift connections the client
 	// pool can maintain.
@@ -348,15 +350,23 @@ func SingleAddressGenerator(addr string) AddressGenerator {
 	}
 }
 
-// NewBaseplateClientPool returns a standard ClientPool wrapped with the
-// BaseplateDefaultClientMiddlewares plus any additional client middlewares
+// NewBaseplateClientPool calls NewBaseplateClientPoolWithContext with
+// background context. It should not be used with RequiredInitialConnections > 0.
+func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
+	return NewBaseplateClientPoolWithContext(context.Background(), cfg, middlewares...)
+}
+
+// NewBaseplateClientPoolWithContext returns a standard ClientPool wrapped with
+// the BaseplateDefaultClientMiddlewares plus any additional client middlewares
 // passed into this function.
 //
 // It always uses SingleAddressGenerator with the server address configured in
 // cfg, and THeader+TCompact as the protocol factory.
-func NewBaseplateClientPool(cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
-	return NewBaseplateClientPoolWithContext(context.Background(), cfg, middlewares...)
-}
+//
+// If you have RequiredInitialConnections > 0, ctx passed in controls the
+// timeout of retries to hit required initial connections. Having a ctx without
+// timeout with a downed upstream could cause this function to be blocked
+// forever.
 func NewBaseplateClientPoolWithContext(ctx context.Context, cfg ClientPoolConfig, middlewares ...thrift.ClientMiddleware) (ClientPool, error) {
 	err := BaseplateClientPoolConfig(cfg).Validate()
 	if err != nil {
@@ -385,11 +395,8 @@ func NewBaseplateClientPoolWithContext(ctx context.Context, cfg ClientPoolConfig
 	)
 }
 
-// NewCustomClientPool creates a ClientPool that uses a custom AddressGenerator
-// and TProtocolFactory wrapped with the given middleware.
-//
-// Most services will want to just use NewBaseplateClientPool, this has been
-// provided to support services that have non-standard and/or legacy needs.
+// NewCustomClientPool calls NewCustomClientPoolWithContext with background
+// context. It should not be used with RequiredInitialConnections > 0.
 func NewCustomClientPool(
 	cfg ClientPoolConfig,
 	genAddr AddressGenerator,
@@ -398,6 +405,18 @@ func NewCustomClientPool(
 ) (ClientPool, error) {
 	return NewCustomClientPoolWithContext(context.Background(), cfg, genAddr, protoFactory, middlewares...)
 }
+
+// NewCustomClientPoolWithContext creates a ClientPool that uses a custom
+// AddressGenerator and TProtocolFactory wrapped with the given middleware.
+//
+// Most services will want to just use NewBaseplateClientPoolWithContext, this
+// has been provided to support services that have non-standard and/or legacy
+// needs.
+//
+// If you have RequiredInitialConnections > 0, ctx passed in controls the
+// timeout of retries to hit required initial connections. Having a ctx without
+// timeout with a downed upstream could cause this function to be blocked
+// forever.
 func NewCustomClientPoolWithContext(
 	ctx context.Context,
 	cfg ClientPoolConfig,
@@ -457,27 +476,11 @@ func newClientPool(
 		opener,
 	)
 	if err != nil {
-		if pool == nil || int(pool.NumAllocated()) < cfg.RequiredInitialConnections {
-			if pool != nil {
-				var batch errorsbp.Batch
-				batch.Add(err)
-				batch.AddPrefix("close", pool.Close())
-				err = batch.Compile()
-			}
-			return nil, fmt.Errorf(
-				"thriftbp: error initializing the required number of connections in the thrift clientpool for %q: %w",
-				cfg.ServiceSlug,
-				err,
-			)
-		}
-
-		cfg.InitialConnectionsFallbackLogger.Log(ctx, fmt.Sprintf(
-			"thriftbp: Established %d of %d InitialConnections asked for thrift clientpool for %q: %v",
-			pool.NumAllocated(),
-			cfg.InitialConnections,
+		return nil, fmt.Errorf(
+			"thriftbp: error initializing the required number of connections in the thrift clientpool for %q: %w",
 			cfg.ServiceSlug,
 			err,
-		))
+		)
 	}
 
 	if err := prometheusbpint.GlobalRegistry.Register(&clientPoolGaugeExporter{
