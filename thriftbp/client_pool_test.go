@@ -241,13 +241,6 @@ func TestInitialConnectionsFallback(t *testing.T) {
 		},
 	} {
 		t.Run(c.label, func(t *testing.T) {
-			var loggerCalled atomic.Int64
-			logger := func(_ context.Context, msg string) {
-				t.Logf("InitialConnectionsFallbackLogger called with %q", msg)
-				loggerCalled.Store(1)
-			}
-
-			c.cfg.InitialConnectionsFallbackLogger = logger
 			factory := thrift.NewTBinaryProtocolFactoryConf(c.cfg.ToTConfiguration())
 
 			_, err := thriftbp.NewCustomClientPool(c.cfg, addrGen, factory)
@@ -259,9 +252,6 @@ func TestInitialConnectionsFallback(t *testing.T) {
 			} else {
 				if err != nil {
 					t.Errorf("Expected no error, got: %v", err)
-				}
-				if loggerCalled.Load() != 1 {
-					t.Error("InitialConnectionsFallbackLogger not called")
 				}
 			}
 		})

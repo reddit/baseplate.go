@@ -2,7 +2,6 @@ package clientpool
 
 import (
 	"context"
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -11,23 +10,17 @@ import (
 )
 
 type channelPool struct {
-	pool           chan Client
-	opener         ClientOpener
-	numActive      atomic.Int32
-	initialClients int
-	maxClients     int
+	pool       chan Client
+	opener     ClientOpener
+	numActive  atomic.Int32
+	maxClients int
 }
 
 // Make sure channelPool implements Pool interface.
 var _ Pool = (*channelPool)(nil)
 
 // NewChannelPool creates a new client pool implemented via channel.
-//
-// Note that this function could return both non-nil Pool and error,
-// when we failed to create all asked bestEffortInitialClients.
-// In such case the returned Pool would have at least requiredInitialClients
-// clients we already established.
-func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortInitialClients, maxClients int, opener ClientOpener) (Pool, error) {
+func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortInitialClients, maxClients int, opener ClientOpener) (_ Pool, err error) {
 	if !(requiredInitialClients <= bestEffortInitialClients && bestEffortInitialClients <= maxClients) {
 		return nil, &ConfigError{
 			BestEffortInitialClients: bestEffortInitialClients,
@@ -40,6 +33,17 @@ func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortIniti
 	pool := make(chan Client, maxClients)
 	chatty := rate.NewLimiter(rate.Every(2*time.Second), 1)
 
+	defer func() {
+		if err != nil {
+			// If we are returning an error, we need to make sure that we close all
+			// already created connections
+			close(pool)
+			for c := range pool {
+				c.Close()
+			}
+		}
+	}()
+
 	for i := 0; i < requiredInitialClients; {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			if lastAttemptErr == nil {
@@ -49,12 +53,7 @@ func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortIniti
 				// the user that their timeout being too short is the issue.
 				lastAttemptErr = ctxErr
 			}
-			return &channelPool{
-				pool:           pool,
-				opener:         opener,
-				initialClients: len(pool),
-				maxClients:     maxClients,
-			}, lastAttemptErr
+			return nil, lastAttemptErr
 		}
 		c, err := opener()
 		if err == nil {
@@ -63,17 +62,16 @@ func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortIniti
 		} else {
 			lastAttemptErr = err
 			if chatty.Allow() {
-				log.Warnf("clientpool: error creating required client (will retry): %w", err)
+				log.Warnf("clientpool: error creating required client (will retry): %v", err)
 			}
 		}
 	}
-	lastAttemptErr = nil
 
 	for i := requiredInitialClients; i < bestEffortInitialClients; i++ {
 		c, err := opener()
 		if err != nil {
-			lastAttemptErr = fmt.Errorf(
-				"clientpool: error creating best-effort client #%d/%d: %w",
+			log.Warnf(
+				"clientpool: error creating best-effort client #%d/%d: %v",
 				i,
 				bestEffortInitialClients,
 				err,
@@ -84,11 +82,10 @@ func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortIniti
 	}
 
 	return &channelPool{
-		pool:           pool,
-		opener:         opener,
-		initialClients: bestEffortInitialClients,
-		maxClients:     maxClients,
-	}, lastAttemptErr
+		pool:       pool,
+		opener:     opener,
+		maxClients: maxClients,
+	}, nil
 }
 
 // Get returns a client from the pool.
