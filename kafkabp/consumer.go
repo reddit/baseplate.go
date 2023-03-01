@@ -54,6 +54,32 @@ type ConsumeMessageFunc func(ctx context.Context, msg *sarama.ConsumerMessage)
 //	)
 type ConsumeErrorFunc func(err error)
 
+// ConsumePartitionFunc is a function type for application to specify which
+// partitions of the topic to consume data from.
+type ConsumePartitionFunc func(partitionID int32) bool
+
+// ConsumePartitionFuncProvider is a function type for application to
+// provide a lambda function of ConsumePartitionFunc pinned for specific
+// number of partitions. This allows creation of ConsumePartitionFunc once per
+// reset. All PartitionConsumers when created decide if a partition is to be
+// skipped or selected for consumption based on decision handed out by same
+// instance implementation of ConsumePartitionFunc.
+type ConsumePartitionFuncProvider func(numPartitions int) ConsumePartitionFunc
+
+// ConsumeAllPartitionsFunc is a ConsumePartitionFunc that is to be used to
+// specify all partitions to be consumed by the topic consumer.
+//
+// This function always returns true, causing all partitions to be consumed.
+func ConsumeAllPartitionsFunc(partitionID int32) bool {
+	return true
+}
+
+// ConsumeAllPartitionsFuncProvider is a ConsumePartitionFuncProvider that
+// always selects all partitions.
+func ConsumeAllPartitionsFuncProvider(numPartitions int) ConsumePartitionFunc {
+	return ConsumeAllPartitionsFunc
+}
+
 // Consumer defines the interface of a consumer struct.
 //
 // It's also a superset of (implements) baseplate.HealthChecker.
@@ -71,9 +97,10 @@ type consumer struct {
 	cfg ConsumerConfig
 	sc  *sarama.Config
 
-	consumer           atomic.Pointer[sarama.Consumer]
-	partitions         atomic.Pointer[[]int32]
-	partitionConsumers atomic.Pointer[[]sarama.PartitionConsumer]
+	consumer                  atomic.Pointer[sarama.Consumer]
+	partitions                atomic.Pointer[[]int32]
+	partitionConsumers        atomic.Pointer[[]sarama.PartitionConsumer]
+	partitionSelectorProvider ConsumePartitionFuncProvider
 
 	closed          atomic.Int64
 	consumeReturned atomic.Int64
@@ -111,10 +138,15 @@ func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
 }
 
 func newTopicConsumer(cfg ConsumerConfig, sc *sarama.Config) (Consumer, error) {
+	if cfg.ConsumePartitionFuncProvider == nil {
+		cfg.ConsumePartitionFuncProvider = ConsumeAllPartitionsFuncProvider
+	}
+
 	kc := &consumer{
-		cfg:    cfg,
-		sc:     sc,
-		offset: sc.Consumer.Offsets.Initial,
+		cfg:                       cfg,
+		sc:                        sc,
+		offset:                    sc.Consumer.Offsets.Initial,
+		partitionSelectorProvider: cfg.ConsumePartitionFuncProvider,
 	}
 
 	// Initialize Sarama consumer and set atomic values.
@@ -127,6 +159,20 @@ func newTopicConsumer(cfg ConsumerConfig, sc *sarama.Config) (Consumer, error) {
 
 func (kc *consumer) getConsumer() sarama.Consumer {
 	if loaded := kc.consumer.Load(); loaded != nil {
+		return *loaded
+	}
+	return nil
+}
+
+func (kc *consumer) getPartitions() []int32 {
+	if loaded := kc.partitions.Load(); loaded != nil {
+		return *loaded
+	}
+	return nil
+}
+
+func (kc *consumer) getPartitionConsumers() []sarama.PartitionConsumer {
+	if loaded := kc.partitionConsumers.Load(); loaded != nil {
 		return *loaded
 	}
 	return nil
@@ -181,8 +227,8 @@ func (kc *consumer) Close() error {
 		return nil
 	}
 
-	if partitionConsumers := kc.partitionConsumers.Load(); partitionConsumers != nil {
-		for _, pc := range *partitionConsumers {
+	if partitionConsumers := kc.getPartitionConsumers(); partitionConsumers != nil {
+		for _, pc := range partitionConsumers {
 			// leaves room to drain pc's message and error channels
 			pc.AsyncClose()
 		}
@@ -214,10 +260,23 @@ func (kc *consumer) Consume(
 	for {
 		// create a partition consumer for each partition
 		consumer := kc.getConsumer()
-		partitions := *kc.partitions.Load()
-		partitionConsumers := make([]sarama.PartitionConsumer, 0, len(partitions))
+		partitions := kc.getPartitions()
+		numPartitions := len(partitions)
+		partitionsSelector := kc.partitionSelectorProvider(numPartitions)
+		if partitionsSelector == nil {
+			return ErrNilConsumePartitionFunc
+		}
+		partitionConsumers := make([]sarama.PartitionConsumer, 0, numPartitions)
+		partitionsToConsume := make([]bool, numPartitions)
+		for _, partition := range partitions {
+			partitionsToConsume[partition] = partitionsSelector(partition)
+		}
 
 		for _, p := range partitions {
+			if !partitionsToConsume[p] {
+				// partition p is to be skipped.
+				continue
+			}
 			partitionConsumer, err := consumer.ConsumePartition(kc.cfg.Topic, p, kc.offset)
 			if err != nil {
 				return err
