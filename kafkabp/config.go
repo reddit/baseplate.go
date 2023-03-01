@@ -27,6 +27,10 @@ var (
 
 	// ErrOffsetInvalid is thrown when an invalid offset is specified.
 	ErrOffsetInvalid = errors.New("kafkabp: Offset is invalid")
+
+	// ErrNilConsumePartitionFunc is thrown when ConsumePartitionFuncProvider
+	// returns a nil ConsumePartitionFunc.
+	ErrNilConsumePartitionFunc = errors.New("kafkabp: ConsumePartitionFunc is nil")
 )
 
 // ConsumerConfig can be used to configure a kafkabp Consumer.
@@ -68,6 +72,23 @@ type ConsumerConfig struct {
 	//
 	// When GroupID is non-empty, Version must be at least "0.10.2.0".
 	GroupID string `yaml:"groupID"`
+
+	// Optional. This is only applicable when GroupID is empty string.
+	// When GroupID is empty, the configuration enables a TopicConsumer to read
+	// from all partitions of the given kafka stream.
+	// When ConsumePartitionFuncProvider is also specified, the TopicConsumer will
+	// only consume partitions that evaluates to true with the given
+	// predicate returned from ConsumePartitionFuncProvider.
+	// If ConsumePartitionFuncProvider is specified,
+	// it must return a non-nil predicate of type ConsumePartitionFunc,
+	// else the topic consumer will return error ErrNilConsumePartitionFunc.
+	//
+	// This function is called once per reset. The returned ConsumePartitionFunc
+	// is also called once per reset per partition.
+	// The API is designed to be two-layer so that it's possible to shift all
+	// heavylifting to ConsumePartitionFuncProvider to generate a []bool or set of
+	// ints, and make the returned ConsumePartitionFunc just do a simple lookup.
+	ConsumePartitionFuncProvider ConsumePartitionFuncProvider `yaml:"-"`
 
 	// Optional. The version of the kafka broker this consumer is connected to.
 	// In format of "0.10.2.0" or "2.4.0".

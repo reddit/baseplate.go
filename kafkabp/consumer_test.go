@@ -132,16 +132,18 @@ func TestKafkaConsumer_Close(t *testing.T) {
 
 func getTestMockConsumer(t *testing.T) *consumer {
 	cfg := ConsumerConfig{
-		Brokers:  []string{"127.0.0.1:9090", "127.0.0.2:9090"},
-		Topic:    "kafkabp-test",
-		ClientID: "test-mock-consumer",
+		Brokers:                      []string{"127.0.0.1:9090", "127.0.0.2:9090"},
+		Topic:                        "kafkabp-test",
+		ClientID:                     "test-mock-consumer",
+		ConsumePartitionFuncProvider: ConsumeAllPartitionsFuncProvider,
 	}
 
 	sc, _ := cfg.NewSaramaConfig()
 	c := &consumer{
-		cfg:    cfg,
-		sc:     sc,
-		offset: sc.Consumer.Offsets.Initial,
+		cfg:                       cfg,
+		sc:                        sc,
+		offset:                    sc.Consumer.Offsets.Initial,
+		partitionSelectorProvider: ConsumeAllPartitionsFuncProvider,
 	}
 	consumer, partitions := createMockConsumer(t, cfg.Topic)
 	c.consumer.Store(&consumer)
@@ -150,7 +152,7 @@ func getTestMockConsumer(t *testing.T) *consumer {
 }
 
 func createMockConsumer(t *testing.T, topic string) (_ sarama.Consumer, partitions []int32) {
-	partitions = []int32{1, 2}
+	partitions = []int32{0, 1}
 	mc := mocks.NewConsumer(t, nil)
 	metaData := make(map[string][]int32)
 	metaData[topic] = partitions
@@ -164,7 +166,7 @@ func setupPartitionConsumers(t *testing.T, kc *consumer) (*mocks.PartitionConsum
 	c := *kc.consumer.Load()
 	mc, ok := c.(*mocks.Consumer)
 	if !ok {
-		t.Fatalf("kc.consumer is not *mocks.Consumer. %#v", kc.consumer.Load())
+		t.Fatalf("kc.consumer is not *mocks.Consumer. %#v", c)
 	}
 	pc := mc.ExpectConsumePartition(kc.cfg.Topic, (*kc.partitions.Load())[0], kc.offset)
 	pc1 := mc.ExpectConsumePartition(kc.cfg.Topic, (*kc.partitions.Load())[1], kc.offset)
