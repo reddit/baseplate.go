@@ -5,9 +5,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/apache/thrift/lib/go/thrift"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 )
+
+var bpErr = &baseplate.Error{
+	Message: thrift.StringPtr("foo"),
+	Code:    thrift.Int32Ptr(1),
+}
 
 func log(l *zap.SugaredLogger) {
 	l.Debugw(
@@ -15,6 +23,7 @@ func log(l *zap.SugaredLogger) {
 		"int", int(123),
 		"int64", int64(1234),
 		"uint64", uint64(1234),
+		"bpErr", bpErr,
 	)
 }
 
@@ -33,8 +42,11 @@ func initCore(buf *bytes.Buffer) zapcore.Core {
 
 func TestWrappedCore(t *testing.T) {
 	const (
-		expectedOrigin  = `{"level":"debug","msg":"This is a log","int":123,"int64":1234,"uint64":1234}`
-		expectedWrapped = `{"level":"debug","msg":"This is a log","int":"123","int64":"1234","uint64":"1234"}`
+		// Example:
+		// {"level":"debug","msg":"This is a log","int":123,"int64":1234,"uint64":1234,"bpErr":"Error({Code:0xc0000268bc Message:0xc000072390 Details:map[] Retryable:<nil>})"}
+		expectedOriginPrefix = `{"level":"debug","msg":"This is a log","int":123,"int64":1234,"uint64":1234,"bpErr":"Error({Code:0x`
+
+		expectedWrapped = `{"level":"debug","msg":"This is a log","int":"123","int64":"1234","uint64":"1234","bpErr":"baseplate.Error: \"foo\" (code=1)"}`
 	)
 	t.Run("origin", func(t *testing.T) {
 		buf := new(bytes.Buffer)
@@ -42,8 +54,8 @@ func TestWrappedCore(t *testing.T) {
 		logger := zap.New(core).Sugar()
 		log(logger)
 		actual := strings.TrimSpace(buf.String())
-		if actual != expectedOrigin {
-			t.Errorf("Expected log line %s, got %s", expectedOrigin, actual)
+		if !strings.HasPrefix(actual, expectedOriginPrefix) {
+			t.Errorf("Expected log line to start with %#q, got %#q", expectedOriginPrefix, actual)
 		}
 	})
 	t.Run("wrapped", func(t *testing.T) {
@@ -53,7 +65,7 @@ func TestWrappedCore(t *testing.T) {
 		log(logger)
 		actual := strings.TrimSpace(buf.String())
 		if actual != expectedWrapped {
-			t.Errorf("Expected log line %s, got %s", expectedWrapped, actual)
+			t.Errorf("Expected log line %#q, got %#q", expectedWrapped, actual)
 		}
 	})
 	t.Run("wrapped-with", func(t *testing.T) {
@@ -65,10 +77,11 @@ func TestWrappedCore(t *testing.T) {
 			"This is a log",
 			"int64", int64(1234),
 			"uint64", uint64(1234),
+			"bpErr", bpErr,
 		)
 		actual := strings.TrimSpace(buf.String())
 		if actual != expectedWrapped {
-			t.Errorf("Expected log line %s, got %s", expectedWrapped, actual)
+			t.Errorf("Expected log line %#q, got %#q", expectedWrapped, actual)
 		}
 	})
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+	"github.com/reddit/baseplate.go/internal/thriftint"
 	"github.com/reddit/baseplate.go/iobp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/prometheusbp"
@@ -120,7 +121,7 @@ func wrapErrorForServerSpan(err error, suppressor errorsbp.Suppressor) error {
 	if suppressor == nil {
 		suppressor = IDLExceptionSuppressor
 	}
-	return WrapBaseplateError(suppressor.Wrap(err))
+	return thriftint.WrapBaseplateError(suppressor.Wrap(err))
 }
 
 // InjectServerSpan implements thrift.ProcessorMiddleware and injects a server

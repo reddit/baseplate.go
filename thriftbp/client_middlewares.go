@@ -15,6 +15,7 @@ import (
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+	"github.com/reddit/baseplate.go/internal/thriftint"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
@@ -299,7 +300,7 @@ func BaseplateErrorWrapper(next thrift.TClient) thrift.TClient {
 	return thrift.WrappedTClient{
 		Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 			meta, err := next.Call(ctx, method, args, result)
-			return meta, WrapBaseplateError(getClientError(result, err))
+			return meta, thriftint.WrapBaseplateError(getClientError(result, err))
 		},
 	}
 }
