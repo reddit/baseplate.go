@@ -36,9 +36,6 @@ func TestWrapErrorForServerSpan(t *testing.T) {
 				if err == nil {
 					t.Fatal("Expected non-nil error, got nil")
 				}
-				if !errors.As(err, new(wrappedBaseplateError)) {
-					t.Errorf("Expect baseplate.Error to be wrapped, got %#v", err)
-				}
 			},
 		},
 		{

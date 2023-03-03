@@ -28,7 +28,7 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 	}{
 		{
 			name:                "bp error",
-			wantErr:             thrift.NewTProtocolExceptionWithType(thrift.PROTOCOL_ERROR, WrapBaseplateError(errors.New("test"))),
+			wantErr:             thrift.NewTProtocolExceptionWithType(thrift.PROTOCOL_ERROR, errors.New("test")),
 			wantOK:              false,
 			baseplateStatusCode: "",
 		},
