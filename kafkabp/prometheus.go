@@ -82,3 +82,10 @@ var (
 		Help:      "Total failures of getting rack id from http endpoint",
 	})
 )
+
+var (
+	kafkaVersionGauge = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
+		Name: "kafkabp_consumer_configured_version",
+		Help: "The kafka version in kafkabp consumer config",
+	}, []string{"kafka_version"})
+)
