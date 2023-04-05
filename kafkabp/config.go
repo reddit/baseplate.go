@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Shopify/sarama"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/log"
 )
@@ -153,6 +154,9 @@ func (cfg *ConsumerConfig) NewSaramaConfig() (*sarama.Config, error) {
 			)
 		}
 	}
+	kafkaVersionGauge.With(prometheus.Labels{
+		"kafka_version": version.String(),
+	}).Set(1)
 
 	c := sarama.NewConfig()
 
