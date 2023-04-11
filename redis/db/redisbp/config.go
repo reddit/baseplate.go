@@ -116,7 +116,7 @@ type ClusterConfig struct {
 	// This option is useful in scenarios where you are testing usage of redis in your
 	// application and need to intercept the connection made by the client. This config
 	// is most often used in chaos tests to inject client failures.
-	Dialer func(ctx context.Context, network, addr string) (net.Conn, error) `yaml:"-"`
+	Dialer func(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
 // Options returns a redis.ClusterOptions populated using the values from cfg.
