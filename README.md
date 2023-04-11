@@ -1,6 +1,6 @@
 # baseplate.go
 
-This go project is an adoption from its' Python counterpart called [baseplate.py][baseplate.py]. An introduction, how to test and how to contribute can be found there.
+This go project is an adaptation from its Python counterpart called [baseplate.py][baseplate.py]. An introduction, how to test and how to contribute can be found there.
 
 ## Documentation
 
