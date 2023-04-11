@@ -1,7 +1,9 @@
 package redisbp
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -108,6 +110,13 @@ type ClusterConfig struct {
 	Pool     PoolOptions    `yaml:"pool"`
 	Retries  RetryOptions   `yaml:"retries"`
 	Timeouts TimeoutOptions `yaml:"timeouts"`
+
+	// Dialer is a net.Conn provider for the redis client
+	//
+	// This option is useful in scenarios where you are testing usage of redis in your
+	// application and need to intercept the connection made by the client. This config
+	// is most often used in chaos tests to inject client failures.
+	Dialer func(ctx context.Context, network, addr string) (net.Conn, error) `yaml:"-"`
 }
 
 // Options returns a redis.ClusterOptions populated using the values from cfg.
@@ -119,6 +128,7 @@ func (cfg ClusterConfig) Options() *redis.ClusterOptions {
 	cfg.Pool.ApplyClusterOptions(options)
 	cfg.Retries.ApplyClusterOptions(options)
 	cfg.Timeouts.ApplyClusterOptions(options)
+	options.Dialer = cfg.Dialer
 	return options
 }
 
