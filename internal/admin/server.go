@@ -3,6 +3,7 @@ package admin
 import (
 	"net/http"
 	"net/http/pprof"
+	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -11,7 +12,11 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
-const Addr = ":6060"
+// Constants regarding the admin port
+const (
+	DefaultPort = "6060"
+	EnvVarPort  = "BASEPLATE_SIDECAR_ADMIN_PORT"
+)
 
 // Mux is the default ServeMux to be used for admin servers in packages like httpbp, thriftbp, etc.
 // Mux configures the following routes:
@@ -42,7 +47,13 @@ func init() {
 	}
 }
 
+// Serve the admin http server.
 func Serve() error {
-	log.Infof("Serving admin on %s", Addr)
-	return http.ListenAndServe(Addr, Mux)
+	addr := DefaultPort
+	if port, ok := os.LookupEnv(EnvVarPort); ok {
+		addr = port
+	}
+	addr = ":" + addr
+	log.Infof("Serving admin on %s", addr)
+	return http.ListenAndServe(addr, Mux)
 }
