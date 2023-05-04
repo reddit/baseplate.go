@@ -21,7 +21,7 @@ import (
 
 const (
 	// DefaultStopDelay is the default StopDelay to be used in Serve.
-	DefaultStopDelay = 1 * time.Second
+	DefaultStopDelay = 5 * time.Second
 )
 
 // Configer defines the interface that allows you to extend Config with your own
