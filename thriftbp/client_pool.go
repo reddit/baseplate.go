@@ -105,9 +105,9 @@ type ClientPoolConfig struct {
 	//
 	// When this is enabled, there will be one additional goroutine per connection
 	// in the pool to do background housekeeping (to replace the expired
-	// connections). We emit <ServiceSlug>.connection-housekeeping counter with
-	// success=True/False tag to provide observalibility into the background
-	// housekeeping.
+	// connections). We emit thriftbp_ttlclient_connection_housekeeping_total
+	// counter with thrift_success tag to provide observalibility into the
+	// background housekeeping.
 	//
 	// Due to a Go runtime bug [1], if you use a very small MaxConnectionAge or a
 	// jitter very close to 1, the background housekeeping could cause excessive
@@ -323,7 +323,7 @@ type ClientPool interface {
 	//
 	// If the call fails to release the client back to the pool,
 	// it will log the error on error level but not return it to the caller.
-	// It also increases ServiceSlug+".pool-release-error" counter.
+	// It also increases thriftbp_client_pool_release_errors_total counter.
 	TClient() thrift.TClient
 
 	// Passthrough APIs from clientpool.Pool:
@@ -516,14 +516,11 @@ func newClientPool(
 
 	// Register the error prometheus counters so they can be monitored
 	labels := prometheus.Labels{
-		clientNameLabel: cfg.ServiceSlug,
-		"thrift_pool":   cfg.ServiceSlug,
+		"thrift_pool": cfg.ServiceSlug,
 	}
 	clientPoolExhaustedCounter.With(labels)
 	clientPoolClosedConnectionsCounter.With(labels)
 	clientPoolReleaseErrorCounter.With(labels)
-	legacyClientPoolExhaustedCounter.With(labels)
-	legacyClientPoolReleaseErrorCounter.With(labels)
 
 	return pooledClient, nil
 }
@@ -597,8 +594,7 @@ func (p *clientPool) pooledCall(ctx context.Context, method string, args, result
 	defer func() {
 		if shouldCloseConnection(err) {
 			clientPoolClosedConnectionsCounter.With(prometheus.Labels{
-				clientNameLabel: p.slug,
-				"thrift_pool":   p.slug,
+				"thrift_pool": p.slug,
 			}).Inc()
 			if e := client.Close(); e != nil {
 				log.C(ctx).Errorw(
@@ -626,12 +622,7 @@ func (p *clientPool) getClient() (_ Client, err error) {
 	if err != nil {
 		if errors.Is(err, clientpool.ErrExhausted) {
 			clientPoolExhaustedCounter.With(prometheus.Labels{
-				clientNameLabel: p.slug,
-				"thrift_pool":   p.slug,
-			}).Inc()
-			legacyClientPoolExhaustedCounter.With(prometheus.Labels{
-				clientNameLabel: p.slug,
-				"thrift_pool":   p.slug,
+				"thrift_pool": p.slug,
 			}).Inc()
 		}
 		log.Errorw(
@@ -652,12 +643,7 @@ func (p *clientPool) releaseClient(c Client) {
 			"err", err,
 		)
 		clientPoolReleaseErrorCounter.With(prometheus.Labels{
-			clientNameLabel: p.slug,
-			"thrift_pool":   p.slug,
-		}).Inc()
-		legacyClientPoolReleaseErrorCounter.With(prometheus.Labels{
-			clientNameLabel: p.slug,
-			"thrift_pool":   p.slug,
+			"thrift_pool": p.slug,
 		}).Inc()
 	}
 }

@@ -168,14 +168,6 @@ var (
 		methodLabel,
 	}
 
-	// TODO: Remove after the next release (v0.9.12)
-	legacyPanicRecoverCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemServer,
-		Name:      "panic_recover_total",
-		Help:      "Deprecated: Use thriftbp_server_recovered_panics_total instead",
-	}, panicRecoverLabels)
-
 	panicRecoverCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Name: "thriftbp_server_recovered_panics_total",
 		Help: "The number of panics recovered from thrift server handlers",
@@ -184,17 +176,8 @@ var (
 
 var (
 	clientPoolLabels = []string{
-		clientNameLabel, // TODO: Remove after the next release (v0.9.12)
 		"thrift_pool",
 	}
-
-	// TODO: Remove after the next release (v0.9.12)
-	legacyClientPoolExhaustedCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemClientPool,
-		Name:      "exhausted_total",
-		Help:      "Deprecated: Use thriftbp_client_pool_exhaustions_total instead",
-	}, clientPoolLabels)
 
 	clientPoolExhaustedCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Name: "thriftbp_client_pool_exhaustions_total",
@@ -204,14 +187,6 @@ var (
 	clientPoolClosedConnectionsCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Name: "thriftbp_client_pool_closed_connections_total",
 		Help: "The number of times we closed the client after used it from the pool",
-	}, clientPoolLabels)
-
-	// TODO: Remove after the next release (v0.9.12)
-	legacyClientPoolReleaseErrorCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemClientPool,
-		Name:      "release_error_total",
-		Help:      "Deprecated: Use thriftbp_client_pool_release_errors_total instead",
 	}, clientPoolLabels)
 
 	clientPoolReleaseErrorCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
@@ -238,22 +213,6 @@ var (
 		Name: "thrift_client_pool_max_size",
 		Help: "The configured max size of a thrift client pool",
 	}, []string{"thrift_pool"})
-
-	// TODO: Remove after the next release (v0.9.12)
-	legacyClientPoolActiveConnectionsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(promNamespace, subsystemClientPool, "active_connections"),
-		"The number of active (in-use) connections of a thrift client pool",
-		clientPoolLabels,
-		nil, // const labels
-	)
-
-	// TODO: Remove after the next release (v0.9.12)
-	legacyClientPoolAllocatedClientsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(promNamespace, subsystemClientPool, "allocated_clients"),
-		"The number of allocated (in-pool) clients of a thrift client pool",
-		clientPoolLabels,
-		nil, // const labels
-	)
 
 	clientPoolPeakActiveConnectionsDesc = prometheus.NewDesc(
 		"thrift_client_pool_peak_active_connections",
@@ -314,21 +273,6 @@ func (e *clientPoolGaugeExporter) Collect(ch chan<- prometheus.Metric) {
 
 	// MustNewConstMetric would only panic if there's a label mismatch, which we
 	// have a unit test to cover.
-	ch <- prometheus.MustNewConstMetric(
-		legacyClientPoolActiveConnectionsDesc,
-		prometheus.GaugeValue,
-		float64(active),
-		e.slug,
-		e.slug,
-	)
-	ch <- prometheus.MustNewConstMetric(
-		legacyClientPoolAllocatedClientsDesc,
-		prometheus.GaugeValue,
-		idle,
-		e.slug,
-		e.slug,
-	)
-
 	ch <- prometheus.MustNewConstMetric(
 		clientPoolActiveConnectionsDesc,
 		prometheus.GaugeValue,

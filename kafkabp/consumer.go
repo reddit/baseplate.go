@@ -3,7 +3,6 @@ package kafkabp
 import (
 	"context"
 	"io"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,17 +10,8 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/tracing"
 )
-
-// TODO: Remove after next release (v0.9.12)
-func init() {
-	// Register the error counter so that it can be monitored.
-	rebalanceCounter.With(prometheus.Labels{
-		successLabel: prometheusbp.BoolString(false),
-	})
-}
 
 // ConsumeMessageFunc is a function type for consuming consumer messages.
 //
@@ -195,10 +185,6 @@ func (kc *consumer) reset() error {
 			if err != nil {
 				rebalanceFailureCounter.Inc()
 			}
-			// TODO: Remove after next release (v0.9.12)
-			rebalanceCounter.With(prometheus.Labels{
-				successLabel: strconv.FormatBool(err == nil),
-			}).Inc()
 		}()
 
 		c, err := sarama.NewConsumer(kc.cfg.Brokers, kc.sc)
