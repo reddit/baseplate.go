@@ -374,10 +374,6 @@ func recoverPanik(name string, next thrift.TProcessorFunction) thrift.TProcessor
 	counter := panicRecoverCounter.With(prometheus.Labels{
 		methodLabel: name,
 	})
-	// TODO: Remove after next release (v0.9.12)
-	legacyCounter := legacyPanicRecoverCounter.With(prometheus.Labels{
-		methodLabel: name,
-	})
 	return thrift.WrappedTProcessorFunction{
 		Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (ok bool, err thrift.TException) {
 			defer func() {
@@ -394,7 +390,6 @@ func recoverPanik(name string, next thrift.TProcessorFunction) thrift.TProcessor
 						"endpoint", name,
 					)
 					counter.Inc()
-					legacyCounter.Inc()
 
 					// changed named return values to show that the request failed and
 					// return the panic value error.

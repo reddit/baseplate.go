@@ -288,9 +288,6 @@ func recoverPanik(name string, next HandlerFunc) HandlerFunc {
 	counter := panicRecoverCounter.With(prometheus.Labels{
 		methodLabel: name,
 	})
-	legacyCounter := legacyPanicRecoverCounter.With(prometheus.Labels{
-		methodLabel: name,
-	})
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -306,7 +303,6 @@ func recoverPanik(name string, next HandlerFunc) HandlerFunc {
 					"endpoint", name,
 				)
 				counter.Inc()
-				legacyCounter.Inc()
 
 				// change named return value to a generic 500 error
 				err = RawError(InternalServerError(), rErr, PlainTextContentType)

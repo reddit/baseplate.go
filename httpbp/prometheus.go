@@ -128,24 +128,10 @@ var (
 	}, clientActiveRequestsLabels)
 )
 
-const (
-	// Note that this is not used by prometheus metrics defined in Baseplate spec.
-	promNamespace   = "httpbp"
-	subsystemServer = "server"
-)
-
 var (
 	panicRecoverLabels = []string{
 		methodLabel,
 	}
-
-	// TODO: Remove after next release (v0.9.12)
-	legacyPanicRecoverCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemServer,
-		Name:      "panic_recover_total",
-		Help:      "Deprecated: use httpbp_server_recovered_panics_total instead",
-	}, panicRecoverLabels)
 
 	panicRecoverCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Name: "httpbp_server_recovered_panics_total",

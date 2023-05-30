@@ -18,20 +18,6 @@ const (
 	topicLabel   = "kafka_topic"
 )
 
-// TODO: Remove after next release (v0.9.12)
-var (
-	rebalanceLabels = []string{
-		successLabel,
-	}
-
-	rebalanceCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemConsumer,
-		Name:      "rebalance_total",
-		Help:      "Deprecated: use kafkabp_consumer_rebalances_total and kafkabp_consumer_rebalance_failures_total instead",
-	}, rebalanceLabels)
-)
-
 var (
 	rebalanceTotalCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounter(prometheus.CounterOpts{
 		Namespace: promNamespace,
