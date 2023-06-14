@@ -57,6 +57,8 @@ type Experiments struct {
 //
 // Context should come with a timeout otherwise this might block forever, i.e.
 // if the path never becomes available.
+//
+// Deprecated: baseplate.go/experiments is deprecated. Instead, use Decider API (github.snooguts.net/reddit-go/decider).
 func NewExperiments(ctx context.Context, path string, eventLogger EventLogger, logger log.Wrapper) (*Experiments, error) {
 	parser := func(r io.Reader) (interface{}, error) {
 		var doc document
@@ -95,6 +97,9 @@ func NewExperiments(ctx context.Context, path string, eventLogger EventLogger, l
 // This function might return MissingBucketKeyError as the error.
 // Caller usually want to check for that and handle it differently from other
 // errors. See its documentation for more details.
+//
+// Deprecated: Variant() of baseplate.go/experiments is deprecated.
+// Instead, use Choose() of Decider API (github.snooguts.net/reddit-go/decider).
 func (e *Experiments) Variant(name string, args map[string]interface{}, bucketingEventOverride bool) (string, error) {
 	experiment, err := e.experiment(name)
 	if err != nil {
@@ -105,6 +110,10 @@ func (e *Experiments) Variant(name string, args map[string]interface{}, bucketin
 
 // Expose logs an event to indicate that a user has been exposed to an
 // experimental treatment.
+//
+// Deprecated: Expose() of baseplate.go/experiments is deprecated.
+// Instead, Choose() of Decider API (github.snooguts.net/reddit-go/decider) does auto-exposure.
+// If manual exposure is necessary, keep track of exposure events in exposer function and PutRaw() onto event queue later.
 func (e *Experiments) Expose(ctx context.Context, experimentName string, event ExperimentEvent) error {
 	doc := e.watcher.Get().(document)
 	experiment, ok := doc[experimentName]
