@@ -288,6 +288,7 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 			activeRequestLabels := prometheus.Labels{
 				methodLabel:     method,
 				clientNameLabel: serverSlug,
+				endpointLabel:   "",
 			}
 			clientActiveRequests.With(activeRequestLabels).Inc()
 
@@ -309,6 +310,7 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 					methodLabel:     method,
 					successLabel:    success,
 					clientNameLabel: serverSlug,
+					endpointLabel:   "",
 				}
 
 				clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
@@ -318,6 +320,7 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 					successLabel:    success,
 					codeLabel:       strconv.Itoa(code),
 					clientNameLabel: serverSlug,
+					endpointLabel:   "",
 				}
 
 				clientTotalRequests.With(totalRequestLabels).Inc()

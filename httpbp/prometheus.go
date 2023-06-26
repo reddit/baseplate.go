@@ -65,7 +65,7 @@ var (
 
 	serverTimeToFirstByte = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "http_server_time_to_first_byte_seconds",
-		Help:    "Response size",
+		Help:    "Time elapsed before first byte was sent",
 		Buckets: prometheusbp.DefaultLatencyBuckets,
 	}, serverLabels)
 
@@ -95,6 +95,7 @@ var (
 var (
 	clientLatencyLabels = []string{
 		methodLabel,
+		endpointLabel,
 		successLabel,
 		clientNameLabel,
 	}
@@ -107,6 +108,7 @@ var (
 
 	clientTotalRequestLabels = []string{
 		methodLabel,
+		endpointLabel,
 		successLabel,
 		codeLabel,
 		clientNameLabel,
@@ -119,6 +121,7 @@ var (
 
 	clientActiveRequestsLabels = []string{
 		methodLabel,
+		endpointLabel,
 		clientNameLabel,
 	}
 
