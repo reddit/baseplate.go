@@ -143,6 +143,7 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 				methodLabel:     tt.method,
 				successLabel:    tt.success,
 				clientNameLabel: serverSlug,
+				endpointLabel:   "",
 			}
 
 			clientTotalRequestLabels := prometheus.Labels{
@@ -150,11 +151,13 @@ func TestPrometheusClientServerMetrics(t *testing.T) {
 				successLabel:    tt.success,
 				codeLabel:       tt.code,
 				clientNameLabel: serverSlug,
+				endpointLabel:   "",
 			}
 
 			clientActiveRequestLabels := prometheus.Labels{
 				methodLabel:     tt.method,
 				clientNameLabel: serverSlug,
+				endpointLabel:   "",
 			}
 
 			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatency, serverSizeLabels).CheckSampleCountDelta(1)

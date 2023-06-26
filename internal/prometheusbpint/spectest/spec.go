@@ -244,10 +244,10 @@ func grpcSpecificLabels(name string) []string {
 //   - "service"
 //   - "method"
 func httpSpecificLabels(name, clientOrServer string) []string {
-	labelSuffixes := []string{"method"}
-	if clientOrServer == server {
-		labelSuffixes = append(labelSuffixes, "endpoint")
-	}
+	labelSuffixes := []string{"method", "endpoint"}
+	// if clientOrServer == server {
+	// 	labelSuffixes = append(labelSuffixes, "endpoint")
+	// }
 
 	switch {
 	case strings.HasSuffix(name, "_latency_seconds"):

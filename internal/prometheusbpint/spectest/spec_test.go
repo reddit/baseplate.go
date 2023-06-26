@@ -344,6 +344,7 @@ func TestBuildLabelsHTTP(t *testing.T) {
 			clientOrServer: client,
 			want: map[string]struct{}{
 				"http_method":        {},
+				"http_endpoint":      {},
 				"http_success":       {},
 				"http_response_code": {},
 				"http_client_name":   {},
