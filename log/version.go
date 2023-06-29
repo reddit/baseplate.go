@@ -1,6 +1,7 @@
 package log
 
 import (
+	"os"
 	"runtime/debug"
 )
 
@@ -48,6 +49,11 @@ func init() {
 			Version = getVersionFromBuildInfo(info)
 		}
 	}
+	// Try to read version from environment variable if it's not stamped at
+	// compile time nor from go toolchain
+	if Version == "" {
+		Version = getVersionFromEnvVar()
+	}
 }
 
 func getVersionFromBuildInfo(info *debug.BuildInfo) string {
@@ -80,4 +86,10 @@ func getVersionFromBuildInfo(info *debug.BuildInfo) string {
 		return info.Main.Version
 	}
 	return ""
+}
+
+const versionEnvVar = "VERSION"
+
+func getVersionFromEnvVar() string {
+	return os.Getenv(versionEnvVar)
 }
