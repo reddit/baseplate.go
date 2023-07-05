@@ -1,5 +1,5 @@
 // Package experiments has been deprecated in favor of reddit-go/decider internal package.
-// Use Choose() in lieu of Varinat(), which also enables optional auto-exposure.
+// Use Choose() in lieu of Variant(), which also enables optional auto-exposure.
 //
 // Deprecated: baseplate.go/experiments is deprecated. Instead, use reddit-go/decider (internal).
 package experiments
