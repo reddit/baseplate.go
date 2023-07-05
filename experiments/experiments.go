@@ -1,3 +1,7 @@
+// Package experiments has been deprecated in favor of reddit-go/decider internal package.
+// Use Choose() in lieu of Variant(), which also enables optional auto-exposure.
+//
+// Deprecated: baseplate.go/experiments is deprecated. Instead, use reddit-go/decider (internal).
 package experiments
 
 import (
@@ -12,7 +16,11 @@ import (
 
 	"github.com/gofrs/uuid"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/reddit/baseplate.go/filewatcher"
+	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/timebp"
 )
@@ -21,6 +29,16 @@ const (
 	numBuckets        = 1000
 	targetAllOverride = `{"OVERRIDE": true}`
 )
+
+var variantTotalRequests = promauto.With(prometheusbpint.GlobalRegistry).NewCounter(prometheus.CounterOpts{
+	Name: "experiments_go_variant_requests_total",
+	Help: "Total experiments.go Variant() request count",
+})
+
+var exposeTotalRequests = promauto.With(prometheusbpint.GlobalRegistry).NewCounter(prometheus.CounterOpts{
+	Name: "experiments_go_expose_requests_total",
+	Help: "Total experiments.go Expose() request count",
+})
 
 // MissingBucketKeyError is a special error returned by Variant functions,
 // to indicate that the bucket key from the args map is missing.
@@ -96,6 +114,8 @@ func NewExperiments(ctx context.Context, path string, eventLogger EventLogger, l
 // Caller usually want to check for that and handle it differently from other
 // errors. See its documentation for more details.
 func (e *Experiments) Variant(name string, args map[string]interface{}, bucketingEventOverride bool) (string, error) {
+	variantTotalRequests.Inc()
+
 	experiment, err := e.experiment(name)
 	if err != nil {
 		return "", err
@@ -106,6 +126,8 @@ func (e *Experiments) Variant(name string, args map[string]interface{}, bucketin
 // Expose logs an event to indicate that a user has been exposed to an
 // experimental treatment.
 func (e *Experiments) Expose(ctx context.Context, experimentName string, event ExperimentEvent) error {
+	exposeTotalRequests.Inc()
+
 	doc := e.watcher.Get().(document)
 	experiment, ok := doc[experimentName]
 	if !ok {
