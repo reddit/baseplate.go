@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"sync"
-
 	"github.com/reddit/baseplate.go/filewatcher"
 )
 
@@ -78,7 +76,6 @@ func NewTestSecrets(ctx context.Context, raw map[string]GenericSecret, middlewar
 	}
 
 	store := &Store{
-		mu:                      &sync.Mutex{},
 		unsafeSecretHandlerFunc: nopSecretHandlerFunc,
 	}
 	store.secretHandler(middlewares...)
