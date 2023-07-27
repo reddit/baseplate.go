@@ -116,7 +116,7 @@ func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
 	}
 }
 
-// secretHandlerFunc guards s.unsafeSecretHandlerFunc with a mutex.
+// secretHandlerFunc guards calling s.unsafeSecretHandlerFunc with a mutex.
 func (s *Store) secretHandlerFunc(sec *Secrets) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
