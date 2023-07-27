@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+
 	"github.com/reddit/baseplate.go/filewatcher"
 )
 
