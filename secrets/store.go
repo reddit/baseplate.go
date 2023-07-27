@@ -36,7 +36,7 @@ type Store struct {
 	// mutex to guard unsafeSecretHandlerFunc
 	// call handler function using the secretHandlerFunc function rather than
 	// calling unsafeSecretHandlerFunc directly
-	mu                      sync.Mutex
+	mu                      *sync.Mutex
 	unsafeSecretHandlerFunc SecretHandlerFunc
 }
 
@@ -53,6 +53,7 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares 
 // Used in tests to override FSEventsDelay
 func newStore(ctx context.Context, fsEventsDelay time.Duration, path string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
 	store := &Store{
+		mu:                      &sync.Mutex{},
 		unsafeSecretHandlerFunc: nopSecretHandlerFunc,
 	}
 	store.secretHandler(middlewares...)
