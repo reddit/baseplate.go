@@ -77,7 +77,7 @@ func NewTestSecrets(ctx context.Context, raw map[string]GenericSecret, middlewar
 	}
 
 	store := &Store{
-		secretHandlerFunc: nopSecretHandlerFunc,
+		unsafeSecretHandlerFunc: nopSecretHandlerFunc,
 	}
 	store.secretHandler(middlewares...)
 

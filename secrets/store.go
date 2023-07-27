@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/reddit/baseplate.go/filewatcher"
@@ -32,7 +33,11 @@ func nopSecretHandlerFunc(sec *Secrets) {}
 type Store struct {
 	watcher filewatcher.FileWatcher
 
-	secretHandlerFunc SecretHandlerFunc
+	// mutex to guard unsafeSecretHandlerFunc
+	// call handler function using the secretHandlerFunc function rather than
+	// calling unsafeSecretHandlerFunc directly
+	mu                      sync.Mutex
+	unsafeSecretHandlerFunc SecretHandlerFunc
 }
 
 // NewStore returns a new instance of Store by configuring it
@@ -48,7 +53,7 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares 
 // Used in tests to override FSEventsDelay
 func newStore(ctx context.Context, fsEventsDelay time.Duration, path string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
 	store := &Store{
-		secretHandlerFunc: nopSecretHandlerFunc,
+		unsafeSecretHandlerFunc: nopSecretHandlerFunc,
 	}
 	store.secretHandler(middlewares...)
 	fileInfo, err := os.Stat(path)
@@ -103,9 +108,28 @@ func (s *Store) dirParser(dir fs.FS) (any, error) {
 
 // secretHandler creates the middleware chain.
 func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	for _, m := range middlewares {
-		s.secretHandlerFunc = m(s.secretHandlerFunc)
+		s.unsafeSecretHandlerFunc = m(s.unsafeSecretHandlerFunc)
 	}
+}
+
+// secretHandlerFunc guards calling s.unsafeSecretHandlerFunc with a mutex.
+func (s *Store) secretHandlerFunc(sec *Secrets) {
+	// grab current secret handler func while holding the lock to guard against
+	// updates to the handler func.
+	currentSecretHandlerFunc := func() SecretHandlerFunc {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		return s.unsafeSecretHandlerFunc
+	}()
+
+	// execute the secret handler func outside the lock to not tie it up once
+	// we safely have a handler func.
+	currentSecretHandlerFunc(sec)
 }
 
 func (s *Store) getSecrets() *Secrets {
@@ -137,17 +161,17 @@ func (s *Store) AddMiddlewares(middlewares ...SecretMiddleware) {
 }
 
 // GetSimpleSecret loads secrets from watcher, and fetches a simple secret from secrets
-func (s Store) GetSimpleSecret(path string) (SimpleSecret, error) {
+func (s *Store) GetSimpleSecret(path string) (SimpleSecret, error) {
 	return s.getSecrets().GetSimpleSecret(path)
 }
 
 // GetVersionedSecret loads secrets from watcher, and fetches a versioned secret from secrets
-func (s Store) GetVersionedSecret(path string) (VersionedSecret, error) {
+func (s *Store) GetVersionedSecret(path string) (VersionedSecret, error) {
 	return s.getSecrets().GetVersionedSecret(path)
 }
 
 // GetCredentialSecret loads secrets from watcher, and fetches a credential secret from secrets
-func (s Store) GetCredentialSecret(path string) (CredentialSecret, error) {
+func (s *Store) GetCredentialSecret(path string) (CredentialSecret, error) {
 	return s.getSecrets().GetCredentialSecret(path)
 }
 
@@ -156,6 +180,6 @@ func (s Store) GetCredentialSecret(path string) (CredentialSecret, error) {
 // role. This is only necessary if talking directly to Vault.
 //
 // This function always returns nil error.
-func (s Store) GetVault() (Vault, error) {
+func (s *Store) GetVault() (Vault, error) {
 	return s.getSecrets().vault, nil
 }
