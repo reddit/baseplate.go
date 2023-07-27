@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/reddit/baseplate.go/filewatcher"
@@ -32,7 +33,11 @@ func nopSecretHandlerFunc(sec *Secrets) {}
 type Store struct {
 	watcher filewatcher.FileWatcher
 
-	secretHandlerFunc SecretHandlerFunc
+	// mutex to guard unsafeSecretHandlerFunc
+	// call handler function using the secretHandlerFunc function rather than
+	// calling unsafeSecretHandlerFunc directly
+	mu                      sync.Mutex
+	unsafeSecretHandlerFunc SecretHandlerFunc
 }
 
 // NewStore returns a new instance of Store by configuring it
@@ -48,7 +53,7 @@ func NewStore(ctx context.Context, path string, logger log.Wrapper, middlewares 
 // Used in tests to override FSEventsDelay
 func newStore(ctx context.Context, fsEventsDelay time.Duration, path string, logger log.Wrapper, middlewares ...SecretMiddleware) (*Store, error) {
 	store := &Store{
-		secretHandlerFunc: nopSecretHandlerFunc,
+		unsafeSecretHandlerFunc: nopSecretHandlerFunc,
 	}
 	store.secretHandler(middlewares...)
 	fileInfo, err := os.Stat(path)
@@ -103,9 +108,20 @@ func (s *Store) dirParser(dir fs.FS) (any, error) {
 
 // secretHandler creates the middleware chain.
 func (s *Store) secretHandler(middlewares ...SecretMiddleware) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	for _, m := range middlewares {
-		s.secretHandlerFunc = m(s.secretHandlerFunc)
+		s.unsafeSecretHandlerFunc = m(s.unsafeSecretHandlerFunc)
 	}
+}
+
+// secretHandlerFunc guards s.unsafeSecretHandlerFunc with a mutex.
+func (s *Store) secretHandlerFunc(sec *Secrets) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.unsafeSecretHandlerFunc(sec)
 }
 
 func (s *Store) getSecrets() *Secrets {
