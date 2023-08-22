@@ -44,6 +44,8 @@ const (
 	// TraceIDHeader is the key use to get the trace ID from the HTTP
 	// request headers.
 	TraceIDHeader = "X-Trace"
+
+	DTabsHeader = "X-DTabs-Add"
 )
 
 // Headers is an interface to collect all of the HTTP headers for a particular

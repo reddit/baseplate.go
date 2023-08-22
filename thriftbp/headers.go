@@ -13,6 +13,7 @@ import (
 // HeadersToForward are the headers that should always be forwarded to upstream
 // thrift servers, to be used in thrift.TSimpleServer.SetForwardHeaders.
 var HeadersToForward = []string{
+	transport.HeaderDTabs,
 	transport.HeaderEdgeRequest,
 	transport.HeaderTracingTrace,
 	transport.HeaderTracingSpan,

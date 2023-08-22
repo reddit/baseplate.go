@@ -20,6 +20,7 @@ import (
 	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
+	"github.com/reddit/baseplate.go/transport"
 )
 
 // DefaultPoolGaugeInterval is the fallback value to be used when
@@ -506,7 +507,8 @@ func newClientPool(
 	pooledClient := &clientPool{
 		Pool: pool,
 
-		slug: cfg.ServiceSlug,
+		cfg:         cfg,
+		middlewares: middlewares,
 	}
 	// finish setting up the clientPool by wrapping the inner "Call" with the
 	// given middleware.
@@ -554,7 +556,8 @@ func newClient(
 type clientPool struct {
 	clientpool.Pool
 
-	slug string
+	cfg         ClientPoolConfig
+	middlewares []thrift.ClientMiddleware
 
 	wrappedClient thrift.TClient
 }
@@ -583,23 +586,31 @@ func (p *clientPool) wrapCalls(middlewares ...thrift.ClientMiddleware) {
 // pooledCall gets a Client from the inner clientpool.Pool and "Calls" it,
 // returning the result and releasing the client back to the pool afterwards.
 //
+// If we have DTabs set in the context that match the client's address,
+// we create a new client with the override address on the fly, and call that.
+//
 // This is not called directly, but is rather the inner "Call" wrapped by
 // wrapCalls, so it runs after all of the middleware.
 func (p *clientPool) pooledCall(ctx context.Context, method string, args, result thrift.TStruct) (_ thrift.ResponseMeta, err error) {
 	var client Client
-	client, err = p.getClient()
+	defaultClientGetFn := p.Pool.Get
+	if unparsedDTab, ok := thrift.GetHeader(ctx, transport.HeaderDTabs); ok {
+		client, err = p.getClient(p.fromDTabs(ctx, unparsedDTab, defaultClientGetFn))
+	} else {
+		client, err = p.getClient(defaultClientGetFn)
+	}
 	if err != nil {
 		return thrift.ResponseMeta{}, PoolError{Cause: err}
 	}
 	defer func() {
 		if shouldCloseConnection(err) {
 			clientPoolClosedConnectionsCounter.With(prometheus.Labels{
-				"thrift_pool": p.slug,
+				"thrift_pool": p.cfg.ServiceSlug,
 			}).Inc()
 			if e := client.Close(); e != nil {
 				log.C(ctx).Errorw(
 					"Failed to close client",
-					"pool", p.slug,
+					"pool", p.cfg.ServiceSlug,
 					"origErr", err,
 					"closeErr", e,
 				)
@@ -611,23 +622,23 @@ func (p *clientPool) pooledCall(ctx context.Context, method string, args, result
 	return client.Call(ctx, method, args, result)
 }
 
-func (p *clientPool) getClient() (_ Client, err error) {
+func (p *clientPool) getClient(fn func() (clientpool.Client, error)) (_ Client, err error) {
 	defer func() {
 		clientPoolGetsCounter.With(prometheus.Labels{
-			"thrift_pool":    p.slug,
+			"thrift_pool":    p.cfg.ServiceSlug,
 			"thrift_success": strconv.FormatBool(err == nil),
 		}).Inc()
 	}()
-	c, err := p.Pool.Get()
+	c, err := fn()
 	if err != nil {
 		if errors.Is(err, clientpool.ErrExhausted) {
 			clientPoolExhaustedCounter.With(prometheus.Labels{
-				"thrift_pool": p.slug,
+				"thrift_pool": p.cfg.ServiceSlug,
 			}).Inc()
 		}
 		log.Errorw(
 			"Failed to get client from pool",
-			"pool", p.slug,
+			"pool", p.cfg.ServiceSlug,
 			"err", err,
 		)
 		return nil, err
@@ -635,15 +646,47 @@ func (p *clientPool) getClient() (_ Client, err error) {
 	return c.(Client), nil
 }
 
+func (p *clientPool) fromDTabs(ctx context.Context, unparsed string, orElse func() (clientpool.Client, error)) func() (clientpool.Client, error) {
+	return func() (clientpool.Client, error) {
+		dtab, err := transport.ParseDTabs(unparsed)
+		if err != nil {
+			// Let's fail requests with unparseable DTabs for now
+			return nil, PoolError{Cause: err}
+		}
+		// Only construct a new client with a new address if the current address is one of the provided overrides
+		if value, exists := dtab[p.cfg.Addr]; exists {
+			cfg := p.cfg
+			cfg.Addr = value
+			pool, err := newClientPool(
+				ctx,
+				cfg,
+				SingleAddressGenerator(cfg.Addr),
+				thrift.NewTHeaderProtocolFactoryConf(cfg.ToTConfiguration()),
+				p.middlewares...,
+			)
+			if err != nil {
+				return nil, PoolError{Cause: err}
+			}
+			res, err := pool.Pool.Get()
+			if err != nil {
+				return nil, PoolError{Cause: err}
+			}
+			return res.(Client), nil
+		}
+		// Otherwise just return the default client
+		return orElse()
+	}
+}
+
 func (p *clientPool) releaseClient(c Client) {
 	if err := p.Pool.Release(c); err != nil {
 		log.Errorw(
 			"Failed to release client back to pool",
-			"pool", p.slug,
+			"pool", p.cfg.ServiceSlug,
 			"err", err,
 		)
 		clientPoolReleaseErrorCounter.With(prometheus.Labels{
-			"thrift_pool": p.slug,
+			"thrift_pool": p.cfg.ServiceSlug,
 		}).Inc()
 	}
 }

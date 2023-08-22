@@ -25,4 +25,9 @@ const (
 	HeaderTracingSampledTrue = "1"
 	// Number of milliseconds, 64-bit integer encoded in decimal.
 	HeaderDeadlineBudget = "Deadline-Budget"
+	// Delegation tables (dtabs for short).
+	// DTabs influence address resolution at request level, and are passed along
+	// in the headers throughout the system. This allows us to do re-routing during
+	// an in-flight request, at arbitrary depth of RPC call graph.
+	HeaderDTabs = "DTabs"
 )
