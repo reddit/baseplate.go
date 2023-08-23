@@ -14,6 +14,7 @@ require (
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/google/go-cmp v0.5.9
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
+	github.com/hashicorp/golang-lru/v2 v2.0.5
 	github.com/joomcode/errorx v1.0.3
 	github.com/joomcode/redispipe v0.9.4
 	github.com/opentracing/opentracing-go v1.2.0

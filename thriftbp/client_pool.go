@@ -11,6 +11,7 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
@@ -503,12 +504,16 @@ func newClientPool(
 		)
 	}
 
+	cache, err := lru.New[string, *clientPool](20)
+
 	// create the base clientPool, this is not ready for use.
 	pooledClient := &clientPool{
 		Pool: pool,
 
 		cfg:         cfg,
 		middlewares: middlewares,
+
+		cache: cache,
 	}
 	// finish setting up the clientPool by wrapping the inner "Call" with the
 	// given middleware.
@@ -558,6 +563,8 @@ type clientPool struct {
 
 	cfg         ClientPoolConfig
 	middlewares []thrift.ClientMiddleware
+
+	cache *lru.Cache[string, *clientPool]
 
 	wrappedClient thrift.TClient
 }
@@ -646,6 +653,13 @@ func (p *clientPool) getClient(fn func() (clientpool.Client, error)) (_ Client, 
 	return c.(Client), nil
 }
 
+/**
+ * Try to get a new client from DTabs.
+ * This method caches previously created clients in an LRU cache.
+ * If there is an override with the current address in the context,
+ * we try to get the client that has already been created from the cache.
+ * If none found, we create a new one.
+ */
 func (p *clientPool) fromDTabs(ctx context.Context, unparsed string, orElse func() (clientpool.Client, error)) func() (clientpool.Client, error) {
 	return func() (clientpool.Client, error) {
 		dtab, err := transport.ParseDTabs(unparsed)
@@ -654,28 +668,52 @@ func (p *clientPool) fromDTabs(ctx context.Context, unparsed string, orElse func
 			return nil, PoolError{Cause: err}
 		}
 		// Only construct a new client with a new address if the current address is one of the provided overrides
-		if value, exists := dtab[p.cfg.Addr]; exists {
-			cfg := p.cfg
-			cfg.Addr = value
-			pool, err := newClientPool(
-				ctx,
-				cfg,
-				SingleAddressGenerator(cfg.Addr),
-				thrift.NewTHeaderProtocolFactoryConf(cfg.ToTConfiguration()),
-				p.middlewares...,
-			)
-			if err != nil {
-				return nil, PoolError{Cause: err}
+		if target, exists := dtab[p.cfg.Addr]; exists {
+			// Try to get from cache
+			if cached, ok := p.cache.Get(target); ok {
+				return p.getFromCache(cached, target)
 			}
-			res, err := pool.Pool.Get()
-			if err != nil {
-				return nil, PoolError{Cause: err}
-			}
-			return res.(Client), nil
+			return p.createNewAndCache(ctx, target)
 		}
 		// Otherwise just return the default client
 		return orElse()
 	}
+}
+
+func (p *clientPool) getFromCache(cached *clientPool, target string) (clientpool.Client, error) {
+	res, err := cached.Pool.Get()
+	if err != nil {
+		// Remove from cache – client seems broken. This will force re-creating the client on the next request.
+		p.cache.Remove(target)
+		// Let's fail requests with correctly targeted DTabs that fail to create a client
+		return nil, PoolError{Cause: err}
+	}
+	return res.(Client), nil
+}
+
+func (p *clientPool) createNewAndCache(ctx context.Context, target string) (clientpool.Client, error) {
+	cfg := p.cfg
+	cfg.Addr = target
+
+	pool, err := newClientPool(
+		ctx,
+		cfg,
+		SingleAddressGenerator(cfg.Addr),
+		thrift.NewTHeaderProtocolFactoryConf(cfg.ToTConfiguration()),
+		p.middlewares...,
+	)
+	if err != nil {
+		// Let's fail requests with correctly targeted DTabs that fail to create a client pool
+		return nil, PoolError{Cause: err}
+	}
+	res, err := pool.Pool.Get()
+	if err != nil {
+		// Let's fail requests with correctly targeted DTabs that fail to create a client
+		return nil, PoolError{Cause: err}
+	}
+	// Add to the cache
+	p.cache.Add(target, pool)
+	return res.(Client), nil
 }
 
 func (p *clientPool) releaseClient(c Client) {
