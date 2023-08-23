@@ -45,7 +45,7 @@ const (
 	// request headers.
 	TraceIDHeader = "X-Trace"
 
-	DTabsHeader = "X-DTabs-Add"
+	DTabsHeader = "X-DTabs"
 )
 
 // Headers is an interface to collect all of the HTTP headers for a particular
