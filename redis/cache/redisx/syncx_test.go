@@ -10,7 +10,6 @@ import (
 	"github.com/joomcode/errorx"
 	"github.com/joomcode/redispipe/redis"
 
-	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/redis/cache/redisx"
 )
 
@@ -107,10 +106,8 @@ func TestSyncx_SendMany(t *testing.T) {
 			redisx.Req(&v1, "PING"),
 			redisx.Req(&v2, "SET", "k", "v"),
 		)
-		batch := errorsbp.Batch{}
-		batch.Add(errs...)
-		if batch.Compile() != nil {
-			t.Fatalf("expected no errors, got %+v", errs)
+		if err := errors.Join(errs...); err != nil {
+			t.Fatalf("expected no errors, got %v", err)
 		}
 		if v1 != pong {
 			t.Errorf("v1 did not match, expected %q, got %q", pong, v1)

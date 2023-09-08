@@ -94,23 +94,18 @@ func TestDoBatchError(t *testing.T) {
 		retry.Attempts(uint(len(errList))),
 	)
 
-	var batchErr errorsbp.Batch
-	if errors.As(err, &batchErr) {
-		if len(batchErr.GetErrors()) != len(errList) {
-			t.Errorf(
-				"wrong number of errors in %v, expected %v",
-				batchErr.GetErrors(),
-				errList,
-			)
+	if got, want := errorsbp.BatchSize(err), len(errList); got != want {
+		t.Errorf(
+			"wrong number of errors in %v, expected %v",
+			err,
+			errList,
+		)
 
-			for _, err := range errList {
-				if !errors.Is(batchErr, err) {
-					t.Errorf("%v is not wrapped by %v", err, batchErr)
-				}
+		for _, e := range errList {
+			if !errors.Is(err, e) {
+				t.Errorf("%v is not wrapped by %v", e, err)
 			}
 		}
-	} else {
-		t.Fatalf("unexpected error type %v", err)
 	}
 }
 

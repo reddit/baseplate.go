@@ -7,8 +7,6 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
-
-	"github.com/reddit/baseplate.go/errorsbp"
 )
 
 const (
@@ -200,28 +198,28 @@ type Document struct {
 // When this function returns a non-nil error, the error is either a
 // TooManyFieldsError, or a BatchError containing multiple TooManyFieldsError.
 func (s *Document) Validate() error {
-	var batch errorsbp.Batch
+	errs := make([]error, 0, len(s.Secrets))
 	for key, value := range s.Secrets {
 		if value.Type == SimpleType && notOnlySimpleSecret(value) {
-			batch.Add(TooManyFieldsError{
+			errs = append(errs, TooManyFieldsError{
 				SecretType: SimpleType,
 				Key:        key,
 			})
 		}
 		if value.Type == VersionedType && notOnlyVersionedSecret(value) {
-			batch.Add(TooManyFieldsError{
+			errs = append(errs, TooManyFieldsError{
 				SecretType: VersionedType,
 				Key:        key,
 			})
 		}
 		if value.Type == CredentialType && notOnlyCredentialSecret(value) {
-			batch.Add(TooManyFieldsError{
+			errs = append(errs, TooManyFieldsError{
 				SecretType: CredentialType,
 				Key:        key,
 			})
 		}
 	}
-	return batch.Compile()
+	return errors.Join(errs...)
 }
 
 func notOnlySimpleSecret(secret GenericSecret) bool {

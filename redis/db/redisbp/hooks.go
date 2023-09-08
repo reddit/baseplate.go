@@ -10,7 +10,6 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/redis/internal/redisprom"
@@ -67,13 +66,13 @@ func (h SpanHook) BeforeProcessPipeline(ctx context.Context, cmds []redis.Cmder)
 // publishes the time the Redis pipeline took to complete, and a metric
 // indicating whether the pipeline was a "success" or "fail"
 func (h SpanHook) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmder) error {
-	var errs errorsbp.Batch
+	errs := make([]error, 0, len(cmds))
 	for _, cmd := range cmds {
-		if !errors.Is(cmd.Err(), redis.Nil) {
-			errs.Add(cmd.Err())
+		if err := cmd.Err(); !errors.Is(err, redis.Nil) {
+			errs = append(errs, err)
 		}
 	}
-	h.endChildSpan(ctx, errs.Compile())
+	h.endChildSpan(ctx, errors.Join(errs...))
 	// NOTE: returning non-nil error from the hook changes the error the caller gets, and that's something we want to avoid.
 	// see: https://github.com/go-redis/redis/blob/v8.10.0/redis.go#L101
 	return nil

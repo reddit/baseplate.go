@@ -771,9 +771,9 @@ func ClientErrorFromResponse(resp *http.Response) error {
 // It's required for http response bodies by stdlib http clients to reuse
 // keep-alive connections, so you should always defer it after checking error.
 func DrainAndClose(r io.ReadCloser) error {
-	var batch errorsbp.Batch
 	_, err := io.Copy(io.Discard, r)
-	batch.Add(err)
-	batch.Add(r.Close())
-	return batch.Compile()
+	return errors.Join(
+		errorsbp.Prefix("read fully", err),
+		errorsbp.Prefix("close", r.Close()),
+	)
 }

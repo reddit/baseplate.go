@@ -218,11 +218,10 @@ type ClientPoolConfig struct {
 // If this is the configuration for a baseplate service
 // BaseplateClientPoolConfig(c).Validate should be used instead.
 func (c ClientPoolConfig) Validate() error {
-	var batch errorsbp.Batch
 	if c.InitialConnections > c.MaxConnections {
-		batch.Add(ErrConfigInvalidConnections)
+		return ErrConfigInvalidConnections
 	}
-	return batch.Compile()
+	return nil
 }
 
 var tHeaderProtocolCompact = thrift.THeaderProtocolIDPtrMust(thrift.THeaderProtocolCompact)
@@ -249,17 +248,17 @@ type BaseplateClientPoolConfig ClientPoolConfig
 // This method is designated to be used when passing a configuration to
 // NewBaseplateClientPool, for NewCustomClientPool other constraints apply.
 func (c BaseplateClientPoolConfig) Validate() error {
-	var batch errorsbp.Batch
+	var errs []error
 	if c.ServiceSlug == "" {
-		batch.Add(ErrConfigMissingServiceSlug)
+		errs = append(errs, ErrConfigMissingServiceSlug)
 	}
 	if c.Addr == "" {
-		batch.Add(ErrConfigMissingAddr)
+		errs = append(errs, ErrConfigMissingAddr)
 	}
 	if c.InitialConnections > c.MaxConnections {
-		batch.Add(ErrConfigInvalidConnections)
+		errs = append(errs, ErrConfigInvalidConnections)
 	}
-	return batch.Compile()
+	return errors.Join(errs...)
 }
 
 // Client is a client object that implements both the clientpool.Client and
@@ -490,15 +489,13 @@ func newClientPool(
 		// Register should never fail because clientPoolGaugeExporter.Describe is
 		// a no-op, but just in case.
 
-		var batch errorsbp.Batch
-		batch.Add(err)
-		if err := pool.Close(); err != nil {
-			batch.AddPrefix("close pool", err)
-		}
 		return nil, fmt.Errorf(
 			"thriftbp: error registering prometheus exporter for client pool %q: %w",
 			cfg.ServiceSlug,
-			batch.Compile(),
+			errors.Join(
+				err,
+				errorsbp.Prefix("close pool", pool.Close()),
+			),
 		)
 	}
 

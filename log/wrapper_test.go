@@ -38,25 +38,25 @@ func TestLogWrapperUnmarshalText(t *testing.T) {
 		},
 		{
 			text:     "",
-			expected: "log.ErrorWithSentryWrapper",
+			expected: "ErrorWithSentryWrapper",
 		},
 		{
 			text:     "nop",
-			expected: "log.NopWrapper",
+			expected: "NopWrapper",
 		},
 		{
 			text:     "std",
-			expected: "log.StdWrapper",
+			expected: "StdWrapper",
 		},
 		{
 			text:     "zap",
-			expected: "log.ZapWrapper",
+			expected: "ZapWrapper",
 		},
 		{
 			// Unfortunately there's no way to check that the arg passed into
 			// ZapWrapper is correct.
 			text:     "zap:error",
-			expected: "log.ZapWrapper",
+			expected: "ZapWrapper",
 		},
 		{
 			text: "zap:error:key",
@@ -68,7 +68,7 @@ func TestLogWrapperUnmarshalText(t *testing.T) {
 		},
 		{
 			text:     "zap:info:key1=value1,key2=value2 with space",
-			expected: "log.ZapWrapper",
+			expected: "ZapWrapper",
 		},
 		{
 			text: "zaperror",
@@ -76,7 +76,7 @@ func TestLogWrapperUnmarshalText(t *testing.T) {
 		},
 		{
 			text:     "sentry",
-			expected: "log.ErrorWithSentryWrapper",
+			expected: "ErrorWithSentryWrapper",
 		},
 	} {
 		t.Run(c.text, func(t *testing.T) {

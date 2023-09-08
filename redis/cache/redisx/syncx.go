@@ -2,10 +2,9 @@ package redisx
 
 import (
 	"context"
+	"errors"
 
 	"github.com/joomcode/redispipe/redis"
-
-	"github.com/reddit/baseplate.go/errorsbp"
 )
 
 // Syncx is a wrapper around a Sync that provides an API that uses reflection to
@@ -127,11 +126,11 @@ func (s Syncx) SendTransaction(ctx context.Context, reqs ...Request) error {
 	if err != nil {
 		return err
 	}
-	var errs errorsbp.Batch
+	errs := make([]error, 0, len(results))
 	for i, res := range results {
-		errs.Add(reqs[i].setValue(res))
+		errs = append(errs, reqs[i].setValue(res))
 	}
-	return errs.Compile()
+	return errors.Join(errs...)
 }
 
 // Scanner returns a ScanIterator from the underlying Sync.

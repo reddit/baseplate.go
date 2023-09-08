@@ -25,7 +25,7 @@ var (
 // This type is not thread-safe.
 // The same batch should not be operated on different goroutines concurrently.
 //
-// To be deprecated when we drop support for go 1.19.
+// Deprecated: Please use errors.Join or fmt.Errorf with multiple %w instead.
 type Batch struct {
 	errors []error
 }
