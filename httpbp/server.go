@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/reddit/baseplate.go"
-	"github.com/reddit/baseplate.go/errorsbp"
 
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
@@ -92,23 +91,23 @@ type Endpoint struct {
 // Validate checks for input errors on the Endpoint and returns an error
 // if any exist.
 func (e Endpoint) Validate() error {
-	var err errorsbp.Batch
+	var errs []error
 	if e.Name == "" {
-		err.Add(errors.New("httpbp: Endpoint.Name must be non-empty"))
+		errs = append(errs, errors.New("httpbp: Endpoint.Name must be non-empty"))
 	}
 	if e.Handle == nil {
-		err.Add(errors.New("httpbp: Endpoint.Handle must be non-nil"))
+		errs = append(errs, errors.New("httpbp: Endpoint.Handle must be non-nil"))
 	}
 	if len(e.Methods) == 0 {
-		err.Add(errors.New("httpbp: Endpoint.Methods must be non-empty"))
+		errs = append(errs, errors.New("httpbp: Endpoint.Methods must be non-empty"))
 	} else {
 		for _, method := range e.Methods {
 			if !allHTTPMethods[method] {
-				err.Add(fmt.Errorf("httpbp: Endpoint.Methods contains an invalid value: %q", method))
+				errs = append(errs, fmt.Errorf("httpbp: Endpoint.Methods contains an invalid value: %q", method))
 			}
 		}
 	}
-	return err.Compile()
+	return errors.Join(errs...)
 }
 
 // ServerArgs defines all of the arguments used to create a new HTTP
@@ -177,12 +176,12 @@ type ServerArgs struct {
 // be used for testing purposes.  It is called as a part of setting up a new
 // Baseplate server.
 func (args ServerArgs) ValidateAndSetDefaults() (ServerArgs, error) {
-	var inputErrors errorsbp.Batch
+	var errs []error
 	if args.Baseplate == nil {
-		inputErrors.Add(errors.New("argument Baseplate must be non-nil"))
+		errs = append(errs, errors.New("argument Baseplate must be non-nil"))
 	}
 	for _, endpoint := range args.Endpoints {
-		inputErrors.Add(endpoint.Validate())
+		errs = append(errs, endpoint.Validate())
 	}
 	if args.EndpointRegistry == nil {
 		args.EndpointRegistry = http.NewServeMux()
@@ -190,7 +189,7 @@ func (args ServerArgs) ValidateAndSetDefaults() (ServerArgs, error) {
 	if args.TrustHandler == nil {
 		args.TrustHandler = NeverTrustHeaders{}
 	}
-	return args, inputErrors.Compile()
+	return args, errors.Join(errs...)
 }
 
 // SetupEndpoints calls ValidateAndSetDefaults and registeres the Endpoints

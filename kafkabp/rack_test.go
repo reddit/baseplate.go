@@ -22,15 +22,15 @@ func TestRackIDFuncUnmarshalText(t *testing.T) {
 	}{
 		{
 			text:     "aws",
-			expected: "kafkabp.AWSAvailabilityZoneRackID",
+			expected: "AWSAvailabilityZoneRackID",
 		},
 		{
 			text:     "http://www.google.com",
-			expected: "kafkabp.SimpleHTTPRackID",
+			expected: "SimpleHTTPRackID",
 		},
 		{
 			text:     "https://www.google.com",
-			expected: "kafkabp.SimpleHTTPRackID",
+			expected: "SimpleHTTPRackID",
 		},
 		/*
 			Starting from go 1.17, the FixedRackID function starts to be inlined

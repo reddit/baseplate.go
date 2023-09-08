@@ -1,10 +1,11 @@
 package httpbp
 
 import (
+	"errors"
+
 	"github.com/avast/retry-go"
 
 	"github.com/reddit/baseplate.go/breakerbp"
-	"github.com/reddit/baseplate.go/errorsbp"
 )
 
 // ClientConfig provides the configuration for a HTTP client including its
@@ -19,15 +20,15 @@ type ClientConfig struct {
 
 // Validate checks ClientConfig for any missing or erroneous values.
 func (c ClientConfig) Validate() error {
-	var batch errorsbp.Batch
+	var errs []error
 	if c.Slug == "" {
-		batch.Add(ErrConfigMissingSlug)
+		errs = append(errs, ErrConfigMissingSlug)
 	}
 	if c.MaxErrorReadAhead < 0 {
-		batch.Add(ErrConfigInvalidMaxErrorReadAhead)
+		errs = append(errs, ErrConfigInvalidMaxErrorReadAhead)
 	}
 	if c.MaxConnections < 0 {
-		batch.Add(ErrConfigInvalidMaxConnections)
+		errs = append(errs, ErrConfigInvalidMaxConnections)
 	}
-	return batch.Compile()
+	return errors.Join(errs...)
 }

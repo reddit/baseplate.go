@@ -7,8 +7,8 @@ FILES=$(find . -name "*.go" | grep -v -e "\/gen-go\/")
 FAILED=0
 
 for FILE in $FILES; do
-  FMT=$(gofmt -s -d "$FILE")
-  if [ -n "$FMT" ]; then
+  FMT=$(gofmt -s -d "$FILE" 2>&1)
+  if [ $? -ne 0 ]; then
     echo "gofmt:"
     echo "$FILE:"
     echo "$FMT"
@@ -16,15 +16,15 @@ for FILE in $FILES; do
   fi
 done
 
-VET=$(go vet ./...)
-if [ -n "$VET" ]; then
+VET=$(go vet ./... 2>&1)
+if [ $? -ne 0 ]; then
   echo "go vet:"
   echo "$VET"
   FAILED=1
 fi
 
-STATICCHECK=$(staticcheck ./...)
-if [ -n "$STATICCHECK" ]; then
+STATICCHECK=$(staticcheck ./... 2>&1)
+if [ $? -ne 0 ]; then
   echo "$(staticcheck --version):"
   echo "$STATICCHECK"
   FAILED=1

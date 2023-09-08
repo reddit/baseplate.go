@@ -14,7 +14,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/internal/limitopen"
 	"github.com/reddit/baseplate.go/log"
 )
@@ -369,10 +368,12 @@ func New(ctx context.Context, cfg Config) (*Result, error) {
 		select {
 		default:
 		case <-ctx.Done():
-			var batch errorsbp.Batch
-			batch.Add(ctx.Err())
-			batch.AddPrefix("last error", lastErr)
-			return nil, fmt.Errorf("filewatcher: context canceled while waiting for file(s) under %q to load: %w", cfg.Path, batch.Compile())
+			return nil, fmt.Errorf(
+				"filewatcher: context canceled while waiting for file(s) under %q to load: %w, last err: %w",
+				cfg.Path,
+				ctx.Err(),
+				lastErr,
+			)
 		}
 
 		var err error

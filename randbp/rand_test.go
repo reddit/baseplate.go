@@ -18,14 +18,14 @@ func swap(slice []byte) func(i, j int) {
 	}
 }
 
-func seedBoth() {
+func seedBoth() *rand.Rand {
 	seed := randbp.GetSeed()
-	rand.Seed(seed)
 	randbp.R.Seed(seed)
+	return rand.New(rand.NewSource(seed))
 }
 
 func TestSameResult(t *testing.T) {
-	seedBoth()
+	r := seedBoth()
 
 	const epsilon = 1e-9
 	equalFloat64 := func(a, b float64) bool {
@@ -36,7 +36,7 @@ func TestSameResult(t *testing.T) {
 		"Uint64",
 		func(t *testing.T) {
 			f := func() bool {
-				u64math := rand.Uint64()
+				u64math := r.Uint64()
 				u64bp := randbp.R.Uint64()
 				if u64math != u64bp {
 					t.Errorf(
@@ -57,7 +57,7 @@ func TestSameResult(t *testing.T) {
 		"Float64",
 		func(t *testing.T) {
 			f := func() bool {
-				f64math := rand.Float64()
+				f64math := r.Float64()
 				f64bp := randbp.R.Float64()
 				if !equalFloat64(f64math, f64bp) {
 					t.Errorf(
@@ -78,7 +78,7 @@ func TestSameResult(t *testing.T) {
 		"NormFloat64",
 		func(t *testing.T) {
 			f := func() bool {
-				f64math := rand.NormFloat64()
+				f64math := r.NormFloat64()
 				f64bp := randbp.R.NormFloat64()
 				if !equalFloat64(f64math, f64bp) {
 					t.Errorf(
@@ -99,7 +99,7 @@ func TestSameResult(t *testing.T) {
 		"ExpFloat64",
 		func(t *testing.T) {
 			f := func() bool {
-				f64math := rand.ExpFloat64()
+				f64math := r.ExpFloat64()
 				f64bp := randbp.R.ExpFloat64()
 				if !equalFloat64(f64math, f64bp) {
 					t.Errorf(
@@ -124,7 +124,7 @@ func TestSameResult(t *testing.T) {
 				bpSlice := make([]byte, len(s))
 				copy(mathSlice, []byte(s))
 				copy(bpSlice, []byte(s))
-				rand.Shuffle(len(s), swap(mathSlice))
+				r.Shuffle(len(s), swap(mathSlice))
 				randbp.R.Shuffle(len(s), swap(bpSlice))
 				if !reflect.DeepEqual(mathSlice, bpSlice) {
 					t.Errorf(
@@ -146,7 +146,7 @@ func TestSameResult(t *testing.T) {
 		func(t *testing.T) {
 			f := func(smalln uint8) bool {
 				n := int(smalln)
-				mathSlice := rand.Perm(n)
+				mathSlice := r.Perm(n)
 				bpSlice := randbp.R.Perm(n)
 				if !reflect.DeepEqual(mathSlice, bpSlice) {
 					t.Errorf(
@@ -181,6 +181,7 @@ func BenchmarkRand(b *testing.B) {
 								b.RunParallel(func(pb *testing.PB) {
 									buf := make([]byte, size)
 									for pb.Next() {
+										//lint:ignore SA1019 We intentionally want to compare the performce against rand.Read here
 										rand.Read(buf)
 									}
 								})

@@ -357,8 +357,40 @@ func TestBatchSize(t *testing.T) {
 				nil, // 0
 			}),
 		},
-		// TODO: Add cases from errors.Join and fmt.Errorf once we drop support for
-		// go 1.19.
+		{
+			label: "errors-join",
+			want:  3,
+			err: errors.Join(
+				errors.New("foo"),
+				errors.New("bar"),
+				errors.New("fizz"),
+			),
+		},
+		{
+			label: "recursion-errors-join",
+			want:  5,
+			err: errors.Join(
+				nil,                            // 0
+				fmt.Errorf("%w", nil),          // 1
+				errors.New("foo"),              // 1
+				simpleBatch{errors.New("foo")}, // 1
+				errors.Join(
+					nil,               // 0
+					errors.New("foo"), // 1
+					errors.New("bar"), // 1
+				),
+				nil, // 0
+			),
+		},
+		{
+			label: "fmt.Errorf",
+			want:  2,
+			err: fmt.Errorf(
+				"1: %w, 2: %w",
+				errors.New("foo"),
+				errors.New("bar"),
+			),
+		},
 	} {
 		t.Run(c.label, func(t *testing.T) {
 			if got := errorsbp.BatchSize(c.err); got != c.want {

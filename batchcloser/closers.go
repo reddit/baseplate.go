@@ -2,6 +2,7 @@ package batchcloser
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -47,11 +48,11 @@ type BatchCloser struct {
 // Close implements io.Closer and closes all of it's internal io.Closer objects,
 // batching any errors into an errorsbp.Batch.
 func (bc *BatchCloser) Close() error {
-	var errs errorsbp.Batch
+	errs := make([]error, 0, len(bc.closers))
 	for _, closer := range bc.closers {
-		errs.AddPrefix(fmt.Sprintf("%#v", closer), closer.Close())
+		errs = append(errs, errorsbp.Prefix(fmt.Sprintf("%#v", closer), closer.Close()))
 	}
-	return errs.Compile()
+	return errors.Join(errs...)
 }
 
 // Add adds the given io.Closer objects to the BatchCloser.
