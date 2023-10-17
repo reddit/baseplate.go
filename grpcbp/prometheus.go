@@ -21,6 +21,7 @@ const (
 
 const (
 	unary        = "unary"
+	bidiStream   = "bidi_stream"
 	clientStream = "client_stream"
 	serverStream = "server_stream"
 )

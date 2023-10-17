@@ -185,10 +185,54 @@ func PrometheusStreamClientInterceptor(serverSlug string) grpc.StreamClientInter
 		ctx context.Context,
 		desc *grpc.StreamDesc,
 		conn *grpc.ClientConn,
-		method string,
+		fullMethod string,
 		streamer grpc.Streamer,
 		opts ...grpc.CallOption,
 	) (_ grpc.ClientStream, err error) {
-		return nil, errors.New("PrometheusStreamClientInterceptor: not implemented")
+		start := time.Now()
+		serviceName, method := serviceAndMethodSlug(fullMethod)
+		var label string
+		if desc.ServerStreams && desc.ClientStreams {
+			label = bidiStream
+		} else if desc.ServerStreams {
+			label = serverStream
+		} else {
+			label = clientStream
+		}
+
+		activeRequestLabels := prometheus.Labels{
+			serviceLabel:    serviceName,
+			methodLabel:     method,
+			typeLabel:       label,
+			clientNameLabel: serverSlug,
+		}
+		clientActiveRequests.With(activeRequestLabels).Inc()
+
+		defer func() {
+			success := prometheusbp.BoolString(err == nil)
+			status, _ := status.FromError(err)
+
+			latencyLabels := prometheus.Labels{
+				serviceLabel:    serviceName,
+				methodLabel:     method,
+				typeLabel:       label,
+				successLabel:    success,
+				clientNameLabel: serverSlug,
+			}
+
+			clientLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+			totalRequestLabels := prometheus.Labels{
+				serviceLabel:    serviceName,
+				methodLabel:     method,
+				typeLabel:       label,
+				successLabel:    success,
+				clientNameLabel: serverSlug,
+				codeLabel:       status.Code().String(),
+			}
+			clientTotalRequests.With(totalRequestLabels).Inc()
+			clientActiveRequests.With(activeRequestLabels).Dec()
+		}()
+		return streamer(ctx, desc, conn, fullMethod, opts...)
 	}
 }

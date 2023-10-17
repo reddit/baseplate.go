@@ -95,6 +95,58 @@ func TestInjectServerSpanInterceptorUnary(t *testing.T) {
 	})
 }
 
+func TestInjectServerSpanInterceptorStream(t *testing.T) {
+	// create test server with InjectServerSpanInterceptor
+	l, _ := setupServer(t, grpc.StreamInterceptor(InjectServerSpanInterceptorStreaming()))
+
+	// create test client
+	conn := setupClient(t, l)
+
+	// instantiate gRPC client
+	client := pb.NewTestServiceClient(conn)
+
+	// set up recorder to validate span recording
+	mmq := initTracing(t)
+
+	t.Run("span-success", func(t *testing.T) {
+		// send request to server
+		if pingStream, err := client.PingStream(context.Background()); err != nil {
+			t.Fatalf("PingStream: %v", err)
+		} else {
+			for i := 0; i < 5; i++ {
+				if err = pingStream.Send(&pb.PingRequest{}); err != nil {
+					t.Fatalf("PingStream.Send(%d): %v", i, err)
+				}
+				if _, err := pingStream.Recv(); err != nil {
+					t.Fatalf("PingStream.Recv(%d): %v", i, err)
+				}
+			}
+			pingStream.CloseSend()
+		}
+
+		// drain recorder to validate spans
+		msg := drainRecorder(t, mmq)
+
+		var trace tracing.ZipkinSpan
+		if err := json.Unmarshal(msg, &trace); err != nil {
+			t.Fatalf("recorded invalid JSON: %v", err)
+		}
+
+		got := trace.Name
+		want := "PingStream"
+		if got != want {
+			t.Errorf("got %s, want: %s", got, want)
+		}
+
+		for _, annotation := range trace.BinaryAnnotations {
+			if annotation.Key == "error" {
+				t.Error("got error span, want: success span")
+				break
+			}
+		}
+	})
+}
+
 func TestInjectEdgeContextInterceptorUnary(t *testing.T) {
 	impl := ecinterface.Mock()
 
@@ -183,7 +235,12 @@ func (t *mockService) PingList(req *pb.PingRequest, c pb.TestService_PingListSer
 	panic("not implemented")
 }
 func (t *mockService) PingStream(c pb.TestService_PingStreamServer) error {
-	panic("not implemented")
+	t.ctx = c.Context()
+	for _, err := c.Recv(); err == nil; _, err = c.Recv() {
+		c.Send(&pb.PingResponse{})
+	}
+
+	return nil
 }
 
 func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
@@ -300,6 +357,127 @@ func TestInjectPrometheusUnaryServerClientInterceptor(t *testing.T) {
 				if _, err := client.PingError(ctx, &pb.PingRequest{}); err == nil {
 					t.Fatalf("PingError: expected err got nil")
 				}
+			}
+
+			ctx = service.ctx
+			if ctx == nil {
+				t.Error("got nil context")
+			}
+		})
+	}
+}
+
+func TestInjectPrometheusStreamServerClientInterceptor(t *testing.T) {
+	const (
+		serviceName = "mwitkow.testproto.TestService"
+		serverSlug  = "example-preference-server"
+		method      = "Ping"
+	)
+	// create test server with InjectPrometheusUnaryServerInterceptor
+	l, service := setupServer(t, grpc.StreamInterceptor(
+		InjectPrometheusStreamServerInterceptor(),
+	))
+
+	// create test client
+	conn := setupClient(t, l, grpc.WithStreamInterceptor(
+		PrometheusStreamClientInterceptor(serverSlug),
+	))
+
+	// instantiate gRPC client
+	client := pb.NewTestServiceClient(conn)
+
+	testCases := []struct {
+		name    string
+		wantErr codes.Code
+		code    string
+		success string
+		method  string
+	}{
+		{
+			name:    "success",
+			wantErr: codes.OK,
+			code:    "OK",
+			success: "true",
+			method:  "PingStream",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			serverLatencyDistribution.Reset()
+			serverTotalRequests.Reset()
+			serverActiveRequests.Reset()
+			clientLatencyDistribution.Reset()
+			clientTotalRequests.Reset()
+			clientActiveRequests.Reset()
+
+			serverLatencyLabels := prometheus.Labels{
+				serviceLabel: serviceName,
+				methodLabel:  tt.method,
+				typeLabel:    bidiStream,
+				successLabel: tt.success,
+			}
+
+			serverTotalRequestLabels := prometheus.Labels{
+				serviceLabel: serviceName,
+				methodLabel:  tt.method,
+				typeLabel:    bidiStream,
+				successLabel: tt.success,
+				codeLabel:    tt.code,
+			}
+
+			serverActiveRequestLabels := prometheus.Labels{
+				serviceLabel: serviceName,
+				typeLabel:    bidiStream,
+				methodLabel:  tt.method,
+			}
+
+			clientLatencyLabels := prometheus.Labels{
+				serviceLabel:    serviceName,
+				methodLabel:     tt.method,
+				typeLabel:       bidiStream,
+				successLabel:    tt.success,
+				clientNameLabel: serverSlug,
+			}
+
+			clientTotalRequestLabels := prometheus.Labels{
+				serviceLabel:    serviceName,
+				methodLabel:     tt.method,
+				typeLabel:       bidiStream,
+				successLabel:    tt.success,
+				clientNameLabel: serverSlug,
+				codeLabel:       tt.code,
+			}
+
+			clientActiveRequestLabels := prometheus.Labels{
+				serviceLabel:    serviceName,
+				methodLabel:     tt.method,
+				typeLabel:       bidiStream,
+				clientNameLabel: serverSlug,
+			}
+
+			defer promtest.NewPrometheusMetricTest(t, "server latency", serverLatencyDistribution, serverLatencyLabels).CheckSampleCountDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "server rpc count", serverTotalRequests, serverTotalRequestLabels).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "server active requests", serverActiveRequests, serverActiveRequestLabels).CheckDelta(0)
+			defer promtest.NewPrometheusMetricTest(t, "client latency", clientLatencyDistribution, clientLatencyLabels).CheckSampleCountDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "client rpc count", clientTotalRequests, clientTotalRequestLabels).CheckDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "client active requests", clientActiveRequests, clientActiveRequestLabels).CheckDelta(0)
+			defer spectest.ValidateSpec(t, "grpc", "server")
+			defer spectest.ValidateSpec(t, "grpc", "client")
+
+			ctx := context.Background()
+			if pingStream, err := client.PingStream(ctx); err != nil {
+				t.Fatalf("PingStream: %v", err)
+			} else {
+				for i := 0; i < 5; i++ {
+					if err = pingStream.Send(&pb.PingRequest{}); err != nil {
+						t.Fatalf("PingStream.Send(%d): %v", i, err)
+					}
+					if _, err = pingStream.Recv(); err != nil {
+						t.Fatalf("PingStream.Recv(%d): %v", i, err)
+					}
+				}
+				pingStream.CloseSend()
 			}
 
 			ctx = service.ctx

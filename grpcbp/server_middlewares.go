@@ -54,8 +54,23 @@ func InjectServerSpanInterceptorUnary() grpc.UnaryServerInterceptor {
 //
 // This is not implemented yet.
 func InjectServerSpanInterceptorStreaming() grpc.StreamServerInterceptor {
-	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		return errors.New("InjectServerSpanInterceptorStreaming: not implemented")
+	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+		m := methodSlug(info.FullMethod)
+		ctx, span := StartSpanFromGRPCContext(stream.Context(), m)
+
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			if value, ok := GetHeader(md, transport.HeaderTracingTrace); ok {
+				span.SetTag(tracing.TagKeyPeerService, value)
+			}
+		}
+
+		defer func() {
+			span.FinishWithOptions(tracing.FinishOptions{
+				Ctx: ctx,
+				Err: err,
+			}.Convert())
+		}()
+		return handler(srv, stream)
 	}
 }
 
@@ -211,8 +226,51 @@ func InjectPrometheusUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 // Prometheus metrics.
 //
 // This is not implemented yet.
-func InjectPrometheusStreamServerInterceptor(serverSlug string) grpc.StreamServerInterceptor {
+func InjectPrometheusStreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
-		return errors.New("InjectPrometheusStreamServerInterceptor: not implemented")
+		start := time.Now()
+
+		serviceName, method := serviceAndMethodSlug(info.FullMethod)
+		var label string
+		if info.IsServerStream && info.IsClientStream {
+			label = bidiStream
+		} else if info.IsServerStream {
+			label = serverStream
+		} else {
+			label = clientStream
+		}
+
+		activeRequestLabels := prometheus.Labels{
+			serviceLabel: serviceName,
+			typeLabel:    label,
+			methodLabel:  method,
+		}
+		serverActiveRequests.With(activeRequestLabels).Inc()
+
+		defer func() {
+			success := prometheusbp.BoolString(err == nil)
+			status, _ := status.FromError(err)
+
+			latencyLabels := prometheus.Labels{
+				serviceLabel: serviceName,
+				methodLabel:  method,
+				typeLabel:    label,
+				successLabel: success,
+			}
+			serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+			totalRequestLabels := prometheus.Labels{
+				serviceLabel: serviceName,
+				methodLabel:  method,
+				typeLabel:    label,
+				successLabel: success,
+				codeLabel:    status.Code().String(),
+			}
+
+			serverTotalRequests.With(totalRequestLabels).Inc()
+			serverActiveRequests.With(activeRequestLabels).Dec()
+		}()
+
+		return handler(srv, stream)
 	}
 }
