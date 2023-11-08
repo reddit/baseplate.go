@@ -12,6 +12,8 @@ import (
 	"github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/detach"
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/randbp"
@@ -82,6 +84,10 @@ type Tracer struct {
 // If it fails to do so, UndefinedIP will be used instead,
 // and the error will be logged if logger is non-nil.
 func InitGlobalTracer(cfg Config) error {
+	if internalv2compat.V2TracingEnabled() {
+		cfg.Logger.Log(context.Background(), `v2 tracing is enabled; skipping v0 tracer configuration`)
+		return nil
+	}
 	var tracer Tracer
 	if cfg.QueueName != "" {
 		if cfg.MaxQueueSize <= 0 || cfg.MaxQueueSize > MaxQueueSize {
