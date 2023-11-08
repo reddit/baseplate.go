@@ -12,6 +12,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/detach"
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/randbp"
@@ -82,6 +83,14 @@ type Tracer struct {
 // If it fails to do so, UndefinedIP will be used instead,
 // and the error will be logged if logger is non-nil.
 func InitGlobalTracer(cfg Config) error {
+	logger := cfg.Logger
+	if logger == nil {
+		logger = log.NopWrapper
+	}
+	if internalv2compat.V2TracingEnabled() {
+		logger(context.Background(), `v2 tracing is enabled; skipping v0 tracer configuration`)
+		return nil
+	}
 	var tracer Tracer
 	if cfg.QueueName != "" {
 		if cfg.MaxQueueSize <= 0 || cfg.MaxQueueSize > MaxQueueSize {
@@ -102,13 +111,7 @@ func InitGlobalTracer(cfg Config) error {
 
 	tracer.sampleRate = cfg.SampleRate
 	tracer.useHex = cfg.UseHex
-
-	logger := cfg.Logger
-	if logger == nil {
-		logger = log.NopWrapper
-	}
 	tracer.logger = logger
-
 	tracer.maxRecordTimeout = cfg.MaxRecordTimeout
 
 	ip, err := runtimebp.GetFirstIPv4()

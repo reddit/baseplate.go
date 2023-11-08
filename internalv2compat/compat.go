@@ -8,6 +8,7 @@ package internalv2compat
 
 import (
 	"os"
+	"sync"
 	"sync/atomic"
 
 	"go.uber.org/zap"
@@ -62,4 +63,20 @@ type IsHTTP interface {
 // IsThrift allows detecting the unexported thriftbp.server without resorting to reflection.
 type IsThrift interface {
 	isThrift()
+}
+
+var (
+	v2TracingEnabledMutex sync.RWMutex
+	v2TracingEnabled      bool
+)
+
+func SetV2TracingEnabled(enabled bool) {
+	v2TracingEnabledMutex.Lock()
+	defer v2TracingEnabledMutex.Unlock()
+	v2TracingEnabled = enabled
+}
+func V2TracingEnabled() bool {
+	v2TracingEnabledMutex.RLock()
+	defer v2TracingEnabledMutex.RUnlock()
+	return v2TracingEnabled
 }
