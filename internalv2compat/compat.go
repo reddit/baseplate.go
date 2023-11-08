@@ -65,18 +65,18 @@ type IsThrift interface {
 	isThrift()
 }
 
-var (
-	v2TracingEnabledMutex sync.RWMutex
-	v2TracingEnabled      bool
-)
+var v2Tracing struct {
+	sync.Mutex
+	enabled bool
+}
 
 func SetV2TracingEnabled(enabled bool) {
-	v2TracingEnabledMutex.Lock()
-	defer v2TracingEnabledMutex.Unlock()
-	v2TracingEnabled = enabled
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	v2Tracing.enabled = enabled
 }
 func V2TracingEnabled() bool {
-	v2TracingEnabledMutex.RLock()
-	defer v2TracingEnabledMutex.RUnlock()
-	return v2TracingEnabled
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	return v2Tracing.enabled
 }
