@@ -12,6 +12,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 
 	"github.com/reddit/baseplate.go/detach"
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/mqsend"
