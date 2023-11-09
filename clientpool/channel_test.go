@@ -5,19 +5,32 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/reddit/baseplate.go/clientpool"
 )
 
 func TestChannelPoolInvalidConfig(t *testing.T) {
-	const min, init, max = 5, 1, 1
-	_, err := clientpool.NewChannelPool(context.Background(), min, init, max, nil)
-	if err == nil {
-		t.Errorf(
-			"NewChannelPool with min %d and max %d expected an error, got nil.",
-			min,
-			max,
-		)
+	testCases := []struct {
+		Name                string
+		Req, Init, Min, Max int
+	}{
+		{"badReq", 5, 1, 1, 1},
+		{"badInit", 1, 5, 1, 1},
+		{"badMin", 1, 1, 5, 1},
+	}
+
+	nilOpener := func() (clientpool.Client, error) {
+		return &testClient{}, nil
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			_, err := clientpool.NewChannelPoolWithMinClients(context.Background(), tc.Req, tc.Init, tc.Min, tc.Max, nilOpener, clientpool.DefaultBackgroundTaskInterval)
+			if err == nil {
+				t.Errorf("NewChannelPoolWithMinClients(req=%d, init=%d, min=%d, max=%d) expected an error, got nil", tc.Req, tc.Init, tc.Min, tc.Max)
+			}
+		})
 	}
 }
 
@@ -112,4 +125,35 @@ func TestChannelPoolWithOpenerFailure(t *testing.T) {
 			checkActiveAndAllocated(t, pool, init, 0)
 		},
 	)
+}
+
+func TestChannelPoolMinClients(t *testing.T) {
+	opener := func(called *atomic.Int32) clientpool.ClientOpener {
+		return func() (clientpool.Client, error) {
+			if called != nil {
+				called.Add(1)
+			}
+			return &testClient{}, nil
+		}
+	}
+
+	const req, init, min, max = 1, 2, 5, 10
+	const backgroundTaskInterval = 10 * time.Millisecond
+	var openerCalled atomic.Int32
+	pool, err := clientpool.NewChannelPoolWithMinClients(context.Background(), req, init, min, max, opener(&openerCalled), backgroundTaskInterval)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("req: %d, init: %d, min: %d, max: %d", req, init, min, max)
+
+	time.Sleep(2 * backgroundTaskInterval)
+
+	t.Run("background-min-enforced", func(t *testing.T) {
+		got := pool.NumAllocated()
+		if got != min {
+			t.Errorf("pool should have created clients in the background, expected %d, got %d", min, got)
+		}
+	})
+
+	testPool(t, pool, &openerCalled, min, max)
 }

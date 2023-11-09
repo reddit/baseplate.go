@@ -25,6 +25,7 @@ func (exhaustedError) Retryable() int {
 type ConfigError struct {
 	BestEffortInitialClients int
 	RequiredInitialClients   int
+	MinClients               int
 	MaxClients               int
 }
 
@@ -32,9 +33,11 @@ var _ error = (*ConfigError)(nil)
 
 func (e *ConfigError) Error() string {
 	return fmt.Sprintf(
-		"clientpool: need requiredClients (%d) <= initialClients (%d) <= maxClients (%d)",
+		"clientpool: need requiredClients (%d) <= initialClients (%d) <= maxClients (%d), and minClients (%d) <= maxClients (%d)",
 		e.RequiredInitialClients,
 		e.BestEffortInitialClients,
+		e.MaxClients,
+		e.MinClients,
 		e.MaxClients,
 	)
 }
