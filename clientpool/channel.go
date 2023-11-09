@@ -176,7 +176,6 @@ func (cp *channelPool) Release(c Client) error {
 
 		newC, err := cp.opener()
 		if err != nil {
-			cp.numActive.Add(-1)
 			cp.numTotal.Add(-1)
 			return err
 		}
