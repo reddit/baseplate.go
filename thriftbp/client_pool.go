@@ -89,6 +89,18 @@ type ClientPoolConfig struct {
 	// pool can maintain.
 	MaxConnections int `yaml:"maxConnections"`
 
+	// MinConnections is the minimum number of thrift connections (idle+active)
+	// that the client pool will try to maintain via a background worker.
+	//
+	// If this value is 0 or negative, the background worker will not be started.
+	MinConnections int `yaml:"MinConnections"`
+
+	// BackgroundTaskInterval is the interval that the connection pool will check
+	// and try to ensure that there are MinConnections in the pool.
+	//
+	// If this is not set, the default duration is 5 seconds.
+	BackgroundTaskInterval time.Duration `yaml:"BackgroundTaskInterval"`
+
 	// MaxConnectionAge is the maximum duration that a pooled connection will be
 	// kept before closing in favor of a new one.
 	//
@@ -221,6 +233,9 @@ func (c ClientPoolConfig) Validate() error {
 	if c.InitialConnections > c.MaxConnections {
 		return ErrConfigInvalidConnections
 	}
+	if c.MinConnections > c.MaxConnections {
+		return ErrConfigInvalidMinConnections
+	}
 	return nil
 }
 
@@ -257,6 +272,9 @@ func (c BaseplateClientPoolConfig) Validate() error {
 	}
 	if c.InitialConnections > c.MaxConnections {
 		errs = append(errs, ErrConfigInvalidConnections)
+	}
+	if c.MinConnections > c.MaxConnections {
+		errs = append(errs, ErrConfigInvalidMinConnections)
 	}
 	return errors.Join(errs...)
 }
@@ -467,12 +485,15 @@ func newClientPool(
 			proto,
 		)
 	}
-	pool, err := clientpool.NewChannelPool(
+
+	pool, err := clientpool.NewChannelPoolWithMinClients(
 		ctx,
 		cfg.RequiredInitialConnections,
 		cfg.InitialConnections,
+		cfg.MinConnections,
 		cfg.MaxConnections,
 		opener,
+		cfg.BackgroundTaskInterval,
 	)
 	if err != nil {
 		return nil, fmt.Errorf(

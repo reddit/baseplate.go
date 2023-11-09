@@ -27,9 +27,10 @@ var (
 
 // ClientPoolConfig errors are returned if the configuration validation fails.
 var (
-	ErrConfigMissingServiceSlug = errors.New("`ServiceSlug` cannot be empty")
-	ErrConfigMissingAddr        = errors.New("`Addr` cannot be empty")
-	ErrConfigInvalidConnections = errors.New("`InitialConnections` cannot be bigger than `MaxConnections`")
+	ErrConfigMissingServiceSlug    = errors.New("`ServiceSlug` cannot be empty")
+	ErrConfigMissingAddr           = errors.New("`Addr` cannot be empty")
+	ErrConfigInvalidConnections    = errors.New("`InitialConnections` cannot be bigger than `MaxConnections`")
+	ErrConfigInvalidMinConnections = errors.New("`MinConnections` cannot be bigger than `MaxConnections`")
 )
 
 // WithDefaultRetryableCodes returns a list including the given error codes and
