@@ -15,6 +15,7 @@ import (
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/prometheusbp"
@@ -146,6 +147,15 @@ func httpErrorSuppressor(err error) bool {
 // NewBaseplateServer function which will automatically include InjectServerSpan
 // as one of the Middlewares to wrap your handlers in.
 func InjectServerSpan(truster HeaderTrustHandler) Middleware {
+	if mw := internalv2compat.V2TracingHTTPServerMiddleware(); mw != nil {
+		return func(name string, next HandlerFunc) HandlerFunc {
+			wrapped := mw(NewHandler(name, next))
+			return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+				wrapped.ServeHTTP(w, r.WithContext(ctx))
+				return nil
+			}
+		}
+	}
 	// TODO: make a breaking change to allow us to pass in a Suppressor
 	var suppressor errorsbp.Suppressor = httpErrorSuppressor
 	return func(name string, next HandlerFunc) HandlerFunc {

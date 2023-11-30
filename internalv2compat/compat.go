@@ -7,10 +7,12 @@
 package internalv2compat
 
 import (
+	"net/http"
 	"os"
 	"sync"
 	"sync/atomic"
 
+	"github.com/apache/thrift/lib/go/thrift"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -68,6 +70,12 @@ type IsThrift interface {
 var v2Tracing struct {
 	sync.Mutex
 	enabled bool
+
+	thriftClientMiddleware thrift.ClientMiddleware
+	thriftServerMiddleware thrift.ProcessorMiddleware
+
+	httpClientMiddleware func(base http.RoundTripper) http.RoundTripper
+	httpServerMiddleware func(http.Handler) http.Handler
 }
 
 func SetV2TracingEnabled(enabled bool) {
@@ -79,4 +87,45 @@ func V2TracingEnabled() bool {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
 	return v2Tracing.enabled
+}
+func SetV2TracingThriftClientMiddleware(middleware thrift.ClientMiddleware) {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	v2Tracing.thriftClientMiddleware = middleware
+}
+func V2TracingThriftClientMiddleware() thrift.ClientMiddleware {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	return v2Tracing.thriftClientMiddleware
+}
+func SetV2TracingThriftServerMiddleware(middleware thrift.ProcessorMiddleware) {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	v2Tracing.thriftServerMiddleware = middleware
+}
+func V2TracingThriftServerMiddleware() thrift.ProcessorMiddleware {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	return v2Tracing.thriftServerMiddleware
+}
+
+func SetV2TracingHTTPClientMiddleware(middleware func(base http.RoundTripper) http.RoundTripper) {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	v2Tracing.httpClientMiddleware = middleware
+}
+func V2TracingHTTPClientMiddleware() func(base http.RoundTripper) http.RoundTripper {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	return v2Tracing.httpClientMiddleware
+}
+func SetV2TracingHTTPServerMiddleware(middleware func(handler http.Handler) http.Handler) {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	v2Tracing.httpServerMiddleware = middleware
+}
+func V2TracingHTTPServerMiddleware() func(handler http.Handler) http.Handler {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	return v2Tracing.httpServerMiddleware
 }
