@@ -75,7 +75,7 @@ var v2Tracing struct {
 	thriftServerMiddleware thrift.ProcessorMiddleware
 
 	httpClientMiddleware func(base http.RoundTripper) http.RoundTripper
-	httpServerMiddleware func(http.Handler) http.Handler
+	httpServerMiddleware func(name string, next http.Handler) http.Handler
 }
 
 func SetV2TracingEnabled(enabled bool) {
@@ -119,12 +119,12 @@ func V2TracingHTTPClientMiddleware() func(base http.RoundTripper) http.RoundTrip
 	defer v2Tracing.Unlock()
 	return v2Tracing.httpClientMiddleware
 }
-func SetV2TracingHTTPServerMiddleware(middleware func(handler http.Handler) http.Handler) {
+func SetV2TracingHTTPServerMiddleware(middleware func(name string, next http.Handler) http.Handler) {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
 	v2Tracing.httpServerMiddleware = middleware
 }
-func V2TracingHTTPServerMiddleware() func(handler http.Handler) http.Handler {
+func V2TracingHTTPServerMiddleware() func(name string, next http.Handler) http.Handler {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
 	return v2Tracing.httpServerMiddleware

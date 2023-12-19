@@ -149,13 +149,10 @@ func httpErrorSuppressor(err error) bool {
 func InjectServerSpan(truster HeaderTrustHandler) Middleware {
 	if mw := internalv2compat.V2TracingHTTPServerMiddleware(); mw != nil {
 		return func(name string, next HandlerFunc) HandlerFunc {
-			wrapped := mw(NewHandler(name, next))
-			return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-				wrapped.ServeHTTP(w, r.WithContext(ctx))
-				return nil
-			}
+			return next
 		}
 	}
+
 	// TODO: make a breaking change to allow us to pass in a Suppressor
 	var suppressor errorsbp.Suppressor = httpErrorSuppressor
 	return func(name string, next HandlerFunc) HandlerFunc {
