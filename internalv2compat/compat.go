@@ -83,26 +83,31 @@ func SetV2TracingEnabled(enabled bool) {
 	defer v2Tracing.Unlock()
 	v2Tracing.enabled = enabled
 }
+
 func V2TracingEnabled() bool {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
 	return v2Tracing.enabled
 }
+
 func SetV2TracingThriftClientMiddleware(middleware thrift.ClientMiddleware) {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
 	v2Tracing.thriftClientMiddleware = middleware
 }
+
 func V2TracingThriftClientMiddleware() thrift.ClientMiddleware {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
 	return v2Tracing.thriftClientMiddleware
 }
+
 func SetV2TracingThriftServerMiddleware(middleware thrift.ProcessorMiddleware) {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
 	v2Tracing.thriftServerMiddleware = middleware
 }
+
 func V2TracingThriftServerMiddleware() thrift.ProcessorMiddleware {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
@@ -114,16 +119,19 @@ func SetV2TracingHTTPClientMiddleware(middleware func(base http.RoundTripper) ht
 	defer v2Tracing.Unlock()
 	v2Tracing.httpClientMiddleware = middleware
 }
+
 func V2TracingHTTPClientMiddleware() func(base http.RoundTripper) http.RoundTripper {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
 	return v2Tracing.httpClientMiddleware
 }
+
 func SetV2TracingHTTPServerMiddleware(middleware func(name string, next http.Handler) http.Handler) {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
 	v2Tracing.httpServerMiddleware = middleware
 }
+
 func V2TracingHTTPServerMiddleware() func(name string, next http.Handler) http.Handler {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
