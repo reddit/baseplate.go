@@ -147,7 +147,8 @@ func httpErrorSuppressor(err error) bool {
 // NewBaseplateServer function which will automatically include InjectServerSpan
 // as one of the Middlewares to wrap your handlers in.
 func InjectServerSpan(truster HeaderTrustHandler) Middleware {
-	if mw := internalv2compat.V2TracingHTTPServerMiddleware(); mw != nil {
+	if internalv2compat.V2TracingHTTPServerMiddleware() != nil {
+		// Skip span middleware, because v2 needs the endpoint.  The v2 middleware is injected at the endpoint level.
 		return func(name string, next HandlerFunc) HandlerFunc {
 			return next
 		}
