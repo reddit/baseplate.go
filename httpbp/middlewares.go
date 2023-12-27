@@ -15,6 +15,8 @@ import (
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/metricsbp"
 	"github.com/reddit/baseplate.go/prometheusbp"
@@ -146,6 +148,13 @@ func httpErrorSuppressor(err error) bool {
 // NewBaseplateServer function which will automatically include InjectServerSpan
 // as one of the Middlewares to wrap your handlers in.
 func InjectServerSpan(truster HeaderTrustHandler) Middleware {
+	if internalv2compat.V2TracingHTTPServerMiddleware() != nil {
+		// Skip span middleware, because v2 needs the endpoint.  The v2 middleware is injected at the endpoint level.
+		return func(name string, next HandlerFunc) HandlerFunc {
+			return next
+		}
+	}
+
 	// TODO: make a breaking change to allow us to pass in a Suppressor
 	var suppressor errorsbp.Suppressor = httpErrorSuppressor
 	return func(name string, next HandlerFunc) HandlerFunc {

@@ -14,6 +14,8 @@ import (
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/thriftint"
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/iobp"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/prometheusbp"
@@ -144,6 +146,9 @@ func wrapErrorForServerSpan(err error, suppressor errorsbp.Suppressor) error {
 // being set on the context object.
 // These should be automatically injected by your thrift.TSimpleServer.
 func InjectServerSpan(suppressor errorsbp.Suppressor) thrift.ProcessorMiddleware {
+	if mw := internalv2compat.V2TracingThriftServerMiddleware(); mw != nil {
+		return mw
+	}
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
 			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {

@@ -213,7 +213,11 @@ func (args ServerArgs) SetupEndpoints() (ServerArgs, error) {
 
 	factory := httpHandlerFactory{middlewares: wrappers}
 	for pattern, endpoint := range args.Endpoints {
-		args.EndpointRegistry.Handle(string(pattern), factory.NewHandler(endpoint))
+		handler := factory.NewHandler(endpoint)
+		if mw := internalv2compat.V2TracingHTTPServerMiddleware(); mw != nil {
+			handler = mw(string(pattern), handler)
+		}
+		args.EndpointRegistry.Handle(string(pattern), handler)
 	}
 	return args, nil
 }

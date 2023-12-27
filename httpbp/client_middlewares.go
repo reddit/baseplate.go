@@ -14,6 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
@@ -243,6 +245,9 @@ func MaxConcurrency(maxConcurrency int64) ClientMiddleware {
 // MonitorClient is an HTTP client middleware that wraps HTTP requests in a
 // client span.
 func MonitorClient(slug string) ClientMiddleware {
+	if mw := internalv2compat.V2TracingHTTPClientMiddleware(); mw != nil {
+		return mw
+	}
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
 			span, ctx := opentracing.StartSpanFromContext(
