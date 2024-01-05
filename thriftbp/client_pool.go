@@ -434,7 +434,7 @@ func NewCustomClientPoolWithContext(
 	return newClientPool(ctx, cfg, genAddr, protoFactory, middlewares...)
 }
 
-const ThriftHostnameHeader = "Thrift-Hostname"
+const ThriftHostnameHeader = "thrift-hostname"
 
 func ThriftHostnameHeaderMiddleware(hostname string) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
