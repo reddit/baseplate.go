@@ -440,7 +440,9 @@ func ThriftHostnameHeaderMiddleware(hostname string) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-				ctx = AddClientHeader(ctx, ThriftHostnameHeader, hostname)
+				if hostname != "" {
+					ctx = AddClientHeader(ctx, ThriftHostnameHeader, hostname)
+				}
 				return next.Call(ctx, method, args, result)
 			},
 		}
@@ -523,10 +525,7 @@ func newClientPool(
 
 		slug: cfg.ServiceSlug,
 	}
-
-	if cfg.ThriftHostnameHeader != "" {
-		middlewares = append(middlewares, ThriftHostnameHeaderMiddleware(cfg.ThriftHostnameHeader))
-	}
+	middlewares = append(middlewares, ThriftHostnameHeaderMiddleware(cfg.ThriftHostnameHeader))
 
 	// finish setting up the clientPool by wrapping the inner "Call" with the
 	// given middleware.
