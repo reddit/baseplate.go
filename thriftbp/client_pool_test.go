@@ -11,8 +11,11 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 
+	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
+	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/thriftbp"
+	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
 )
 
 const (
@@ -187,6 +190,49 @@ func TestBehaviorWithNetworkIssues(t *testing.T) {
 			pool, err := thriftbp.NewCustomClientPoolWithContext(ctx, cfg, c.addrGen, factory)
 			c.validate(pool, err)
 		})
+	}
+}
+
+type thriftHostnameHandler struct {
+	server baseplate.Server
+}
+
+func (thriftHostnameHandler) IsHealthy(ctx context.Context, _ *baseplatethrift.IsHealthyRequest) (r bool, err error) {
+	value, ok := thrift.GetHeader(ctx, thriftbp.ThriftHostnameHeader)
+	if !ok {
+		return false, errors.New("did not find the thrift header")
+	}
+	if value != "my-thrift-header" {
+		return false, errors.New("unexpected value for the thrift header")
+	}
+	return true, nil
+}
+
+func TestThriftHostnameHeader(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store := newSecretsStore(t)
+	defer store.Close()
+
+	handler := thriftHostnameHandler{}
+	server, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
+		Processor:   baseplatethrift.NewBaseplateServiceV2Processor(&handler),
+		SecretStore: store,
+		ClientConfig: thriftbp.ClientPoolConfig{
+			ThriftHostnameHeader: "my-thrift-header",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler.server = server
+	server.Start(ctx)
+
+	client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool.TClient())
+	_, err = client.IsHealthy(ctx, &baseplatethrift.IsHealthyRequest{})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
