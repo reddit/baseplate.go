@@ -114,9 +114,23 @@ type consumer struct {
 // topic. This implementation of Kafka consumer is suitable for use cases like
 // deliver config/data through Kafka to services.
 func NewConsumer(cfg ConsumerConfig) (Consumer, error) {
+	return NewConsumerWithConfigOverriders(cfg)
+}
+
+// SaramaConfigOverrider provides a way for users to override certain fields in
+// *sarama.Config generated from ConsumerConfig.
+type SaramaConfigOverrider func(*sarama.Config)
+
+// NewConsumerWithConfigOverriders is provided as an escape hatch for use cases
+// requiring specific sarama config not supported by ConsumerConfig.
+func NewConsumerWithConfigOverriders(cfg ConsumerConfig, overriders ...SaramaConfigOverrider) (Consumer, error) {
 	sc, err := cfg.NewSaramaConfig()
 	if err != nil {
 		return nil, err
+	}
+
+	for _, override := range overriders {
+		override(sc)
 	}
 
 	switch {
