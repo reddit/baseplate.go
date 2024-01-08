@@ -190,6 +190,39 @@ func TestBehaviorWithNetworkIssues(t *testing.T) {
 	}
 }
 
+func TestThriftHostnameHeader(t *testing.T) {
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	cfg := thriftbp.ClientPoolConfig{
+		Addr:               ":9090",
+		EdgeContextImpl:    ecinterface.Mock(),
+		ServiceSlug:        "test",
+		InitialConnections: 1,
+		MaxConnections:     5,
+		ConnectTimeout:     time.Millisecond * 5,
+		SocketTimeout:      time.Millisecond * 15,
+	}
+	pool, err := thriftbp.NewCustomClientPool(
+		cfg,
+		thriftbp.SingleAddressGenerator(ln.Addr().String()),
+		thrift.NewTBinaryProtocolFactoryConf(cfg.ToTConfiguration()),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go func() { ln.Accept() }()
+	pool.TClient().Call(context.Background(), "test", nil, nil)
+	// conn, _ := ln.Accept()
+	// buff := make([]byte, 1024)
+	// conn.Read(buff)
+	fmt.Println("string(buff)")
+}
+
 func TestInitialConnectionsFallback(t *testing.T) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {

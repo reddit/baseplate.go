@@ -214,7 +214,7 @@ type ClientPoolConfig struct {
 
 	// The hostname to add as a "thrift-hostname" header.
 	//
-	// Optional. If empty, not "thrift-hostname" header will be sent.
+	// Optional. If empty, no "thrift-hostname" header will be sent.
 	ThriftHostnameHeader string `yaml:"thriftHostnameHeader"`
 }
 
@@ -436,7 +436,10 @@ func NewCustomClientPoolWithContext(
 
 const ThriftHostnameHeader = "thrift-hostname"
 
-func ThriftHostnameHeaderMiddleware(hostname string) thrift.ClientMiddleware {
+// thriftHostnameHeaderMiddleware adds a `thrift-hostname` header if one was
+// specified in the configuration.
+// This middleware is always added but will only add the header is necessary.
+func thriftHostnameHeaderMiddleware(hostname string) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
@@ -525,7 +528,7 @@ func newClientPool(
 
 		slug: cfg.ServiceSlug,
 	}
-	middlewares = append(middlewares, ThriftHostnameHeaderMiddleware(cfg.ThriftHostnameHeader))
+	middlewares = append(middlewares, thriftHostnameHeaderMiddleware(cfg.ThriftHostnameHeader))
 
 	// finish setting up the clientPool by wrapping the inner "Call" with the
 	// given middleware.
