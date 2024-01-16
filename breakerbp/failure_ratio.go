@@ -76,6 +76,12 @@ type Config struct {
 
 	// Timeout is the duration of the 'Open' state. After an 'Open' timeout duration has passed, the breaker enters 'half-open' state.
 	Timeout time.Duration `yaml:"timeout"`
+
+	// IsSuccessful is called with the error returned from a request.
+	// If IsSuccessful returns true, the error is counted as a success.
+	// Otherwise the error is counted as a failure.
+	// If IsSuccessful is nil, default IsSuccessful is used, which returns false for all non-nil errors.
+	IsSuccessful func(err error) bool
 }
 
 // NewFailureRatioBreaker creates a new FailureRatioBreaker with the provided configuration.
@@ -92,6 +98,7 @@ func NewFailureRatioBreaker(config Config) FailureRatioBreaker {
 		Interval:      config.Interval,
 		Timeout:       config.Timeout,
 		MaxRequests:   config.MaxRequestsHalfOpen,
+		IsSuccessful:  config.IsSuccessful,
 		ReadyToTrip:   failureBreaker.shouldTrip,
 		OnStateChange: failureBreaker.stateChanged,
 	}
