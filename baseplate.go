@@ -291,7 +291,7 @@ func ParseConfigYAML(cfgPointer Configer) error {
 	return configbp.ParseStrictFile(configbp.BaseplateConfigPath, cfgPointer)
 }
 
-// NewArgs defines the args used in New functino.
+// NewArgs defines the args used in New function.
 type NewArgs struct {
 	// Required. New will panic if this is nil.
 	Config Configer
