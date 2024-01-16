@@ -81,7 +81,7 @@ type Config struct {
 	// If IsSuccessful returns true, the error is counted as a success.
 	// Otherwise the error is counted as a failure.
 	// If IsSuccessful is nil, default IsSuccessful is used, which returns false for all non-nil errors.
-	IsSuccessful func(err error) bool
+	IsSuccessful func(err error) bool `yaml:"-"`
 }
 
 // NewFailureRatioBreaker creates a new FailureRatioBreaker with the provided configuration.
