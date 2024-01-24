@@ -5,6 +5,7 @@ package thriftint
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -36,9 +37,14 @@ var (
 )
 
 type wrappedBaseplateError struct {
-	cause error
-	bpErr baseplateError
+	cause    error
+	bpErr    baseplateError
+	logValue slog.Value
 }
+
+var (
+	_ slog.LogValuer = wrappedBaseplateError{}
+)
 
 func (e wrappedBaseplateError) Error() string {
 	var sb strings.Builder
@@ -59,6 +65,10 @@ func (e wrappedBaseplateError) Error() string {
 		sb.WriteString(")")
 	}
 	return sb.String()
+}
+
+func (e wrappedBaseplateError) LogValue() slog.Value {
+	return e.logValue
 }
 
 func (e wrappedBaseplateError) Unwrap() error {
@@ -83,11 +93,17 @@ func WrapBaseplateError(e error) error {
 	}
 
 	var bpErr baseplateError
-	if errors.As(e, &bpErr) {
-		return wrappedBaseplateError{
-			cause: e,
-			bpErr: bpErr,
-		}
+	if !errors.As(e, &bpErr) {
+		return e
 	}
-	return e
+	wrapped := wrappedBaseplateError{
+		cause: e,
+		bpErr: bpErr,
+	}
+	if v, ok := e.(slog.LogValuer); ok {
+		wrapped.logValue = v.LogValue()
+	} else {
+		wrapped.logValue = slog.StringValue(wrapped.Error())
+	}
+	return wrapped
 }
