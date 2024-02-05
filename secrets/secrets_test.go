@@ -118,3 +118,65 @@ func TestNewSecrets(t *testing.T) {
 		})
 	}
 }
+
+func TestSecretsWrongType(t *testing.T) {
+	rawSecrets := `
+		{
+			"secrets": {
+				"secret/myservice/external-account-key": {
+					"type": "versioned",
+					"current": "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU=",
+					"previous": "aHVudGVyMg=="
+				},
+				"secret/myservice/some-api-key": {
+					"type": "simple",
+					"value": "Y2RvVXhNMVdsTXJma3BDaHRGZ0dPYkVGSg==",
+					"encoding": "base64"
+				},
+				"secret/myservice/some-database-credentials": {
+					"type": "credential",
+					"username": "spez",
+					"password": "hunter2"
+				}
+			},
+			"vault": {
+				"url": "vault.reddit.ue1.snooguts.net",
+				"token": "17213328-36d4-11e7-8459-525400f56d04"
+			}
+		}
+	`
+	buf := bytes.NewBuffer([]byte(rawSecrets))
+	secrets, err := NewSecrets(buf)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = secrets.GetSimpleSecret("secret/myservice/external-account-key")
+
+	if err == nil && err.Error() != "secrets: requested secret at path 'secret/myservice/external-account-key' of type 'simple' does not exist, but a secret of type 'versioned' does. Consider using the correct API to retrieve the secret" {
+		t.Fatalf("expected error %v, actual: %v", SecretWrongTypeError{
+			Path:         "secret/myservice/external-account-key",
+			DeclaredType: "simple",
+			CorrectType:  "versioned",
+		}, err)
+	}
+
+	_, err = secrets.GetVersionedSecret("secret/myservice/some-api-key")
+	if err == nil && err.Error() != "secrets: requested secret at path 'secret/myservice/some-api-key' of type 'versioned' does not exist, but a secret of type 'simple' does. Consider using the correct API to retrieve the secret" {
+		t.Fatalf("expected error %v, actual: %v", SecretWrongTypeError{
+			Path:         "secret/myservice/some-api-key",
+			DeclaredType: "versioned",
+			CorrectType:  "simple",
+		}, err)
+	}
+
+	_, err = secrets.GetCredentialSecret("secret/myservice/some-api-key")
+	if err == nil && err.Error() != "secrets: requested secret at path 'secret/myservice/some-api-key' of type 'credential' does not exist, but a secret of type 'simple' does. Consider using the correct API to retrieve the secret" {
+		t.Fatalf("expected error %v, actual: %v", SecretWrongTypeError{
+			Path:         "secret/myservice/some-api-key",
+			DeclaredType: "credential",
+			CorrectType:  "simple",
+		}, err)
+	}
+}
