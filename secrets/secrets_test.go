@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"bytes"
+	"errors"
 	"reflect"
 	"testing"
 )
@@ -234,8 +235,7 @@ func TestSecretsWrongType(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = tt.function(secrets)
-			if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
+			if _, err := tt.function(secrets); !errors.Is(err, tt.expectedError) {
 				t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
 			}
 		})
