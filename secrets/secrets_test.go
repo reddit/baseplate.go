@@ -231,7 +231,7 @@ func TestSecretsWrongType(t *testing.T) {
 			t.Parallel()
 			buf := bytes.NewBuffer([]byte(tt.input))
 			secrets, err := NewSecrets(buf)
-			if tt.expectedError == nil && err != nil {
+			if err != nil {
 				t.Fatal(err)
 			}
 			_, err = tt.function(secrets)
