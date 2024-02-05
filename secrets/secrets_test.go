@@ -145,38 +145,99 @@ func TestSecretsWrongType(t *testing.T) {
 			}
 		}
 	`
-	buf := bytes.NewBuffer([]byte(rawSecrets))
-	secrets, err := NewSecrets(buf)
 
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name          string
+		input         string
+		function      func(*Secrets) (interface{}, error)
+		expectedError error
+	}{
+		{
+			name:  "Simple vs Versioned",
+			input: rawSecrets,
+			function: func(s *Secrets) (interface{}, error) {
+				return s.GetSimpleSecret("secret/myservice/external-account-key")
+			},
+			expectedError: SecretWrongTypeError{
+				Path:         "secret/myservice/external-account-key",
+				DeclaredType: "simple",
+				CorrectType:  "versioned",
+			},
+		},
+		{
+			name:  "Versioned vs Simple",
+			input: rawSecrets,
+			function: func(s *Secrets) (interface{}, error) {
+				return s.GetVersionedSecret("secret/myservice/some-api-key")
+			},
+			expectedError: SecretWrongTypeError{
+				Path:         "secret/myservice/some-api-key",
+				DeclaredType: "versioned",
+				CorrectType:  "simple",
+			},
+		},
+		{
+			name:  "Credential vs Simple",
+			input: rawSecrets,
+			function: func(s *Secrets) (interface{}, error) {
+				return s.GetCredentialSecret("secret/myservice/some-api-key")
+			},
+			expectedError: SecretWrongTypeError{
+				Path:         "secret/myservice/some-api-key",
+				DeclaredType: "credential",
+				CorrectType:  "simple",
+			},
+		},
+		{
+			name:  "Simple vs Credential",
+			input: rawSecrets,
+			function: func(s *Secrets) (interface{}, error) {
+				return s.GetSimpleSecret("secret/myservice/some-database-credentials")
+			},
+			expectedError: SecretWrongTypeError{
+				Path:         "secret/myservice/some-database-credentials",
+				DeclaredType: "simple",
+				CorrectType:  "credential",
+			},
+		},
+		{
+			name:  "Versioned vs Credential",
+			input: rawSecrets,
+			function: func(s *Secrets) (interface{}, error) {
+				return s.GetVersionedSecret("secret/myservice/some-database-credentials")
+			},
+			expectedError: SecretWrongTypeError{
+				Path:         "secret/myservice/some-database-credentials",
+				DeclaredType: "versioned",
+				CorrectType:  "credential",
+			},
+		},
+		{
+			name:  "Credential vs Versioned",
+			input: rawSecrets,
+			function: func(s *Secrets) (interface{}, error) {
+				return s.GetCredentialSecret("secret/myservice/external-account-key")
+			},
+			expectedError: SecretWrongTypeError{
+				Path:         "secret/myservice/external-account-key",
+				DeclaredType: "credential",
+				CorrectType:  "versioned",
+			},
+		},
 	}
-
-	_, err = secrets.GetSimpleSecret("secret/myservice/external-account-key")
-
-	if err == nil || err.Error() != "secrets: requested secret at path 'secret/myservice/external-account-key' of type 'simple' does not exist, but a secret of type 'versioned' does. Consider using the correct API to retrieve the secret" {
-		t.Fatalf("expected error %v, actual: %v", SecretWrongTypeError{
-			Path:         "secret/myservice/external-account-key",
-			DeclaredType: "simple",
-			CorrectType:  "versioned",
-		}, err)
-	}
-
-	_, err = secrets.GetVersionedSecret("secret/myservice/some-api-key")
-	if err == nil || err.Error() != "secrets: requested secret at path 'secret/myservice/some-api-key' of type 'versioned' does not exist, but a secret of type 'simple' does. Consider using the correct API to retrieve the secret" {
-		t.Fatalf("expected error %v, actual: %v", SecretWrongTypeError{
-			Path:         "secret/myservice/some-api-key",
-			DeclaredType: "versioned",
-			CorrectType:  "simple",
-		}, err)
-	}
-
-	_, err = secrets.GetCredentialSecret("secret/myservice/some-api-key")
-	if err == nil || err.Error() != "secrets: requested secret at path 'secret/myservice/some-api-key' of type 'credential' does not exist, but a secret of type 'simple' does. Consider using the correct API to retrieve the secret" {
-		t.Fatalf("expected error %v, actual: %v", SecretWrongTypeError{
-			Path:         "secret/myservice/some-api-key",
-			DeclaredType: "credential",
-			CorrectType:  "simple",
-		}, err)
+	for _, tt := range tests {
+		tt := tt // capture range variable for parallel testing
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			buf := bytes.NewBuffer([]byte(tt.input))
+			secrets, err := NewSecrets(buf)
+			if tt.expectedError == nil && err != nil {
+				t.Fatal(err)
+			}
+			_, err = tt.function(secrets)
+			if tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
+				t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
+			}
+		})
 	}
 }

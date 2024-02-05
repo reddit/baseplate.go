@@ -46,7 +46,7 @@ type SecretWrongTypeError struct {
 
 func (e SecretWrongTypeError) Error() string {
 	return fmt.Sprintf(
-		"secrets: requested secret at path '%s' of type '%s' does not exist, but a secret of type '%s' does. Consider using the correct API to retrieve the secret",
+		"secrets: requested secret at path %q of type '%s' does not exist, but a secret of type '%s' does, consider using the correct API to retrieve the secret",
 		e.Path,
 		e.DeclaredType,
 		e.CorrectType,
