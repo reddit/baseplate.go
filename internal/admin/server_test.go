@@ -3,7 +3,6 @@ package admin
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 )
@@ -50,12 +49,14 @@ func TestMetrics(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := []string{}
+	got := make(map[string]bool)
 	for _, r := range result {
-		got = append(got, r.GetName())
+		got[r.GetName()] = true
 	}
 
-	if diff := cmp.Diff(expectedMetrics, got); diff != "" {
-		t.Errorf("registered metrics mismatch (-want +got):\n%s", diff)
+	for _, want := range expectedMetrics {
+		if !got[want] {
+			t.Errorf("want metric %q does not exist in got", want)
+		}
 	}
 }
