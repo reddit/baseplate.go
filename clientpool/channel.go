@@ -10,21 +10,33 @@ import (
 )
 
 type channelPool struct {
-	pool       chan Client
-	opener     ClientOpener
-	numActive  atomic.Int32
-	maxClients int
+	pool                   chan Client
+	opener                 ClientOpener
+	numActive              atomic.Int32
+	numTotal               atomic.Int32
+	backgroundTaskInterval time.Duration
+	minClients             int
+	maxClients             int
+	isClosed               atomic.Bool
 }
+
+const DefaultBackgroundTaskInterval = 5 * time.Second
 
 // Make sure channelPool implements Pool interface.
 var _ Pool = (*channelPool)(nil)
 
 // NewChannelPool creates a new client pool implemented via channel.
 func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortInitialClients, maxClients int, opener ClientOpener) (_ Pool, err error) {
-	if !(requiredInitialClients <= bestEffortInitialClients && bestEffortInitialClients <= maxClients) {
+	return NewChannelPoolWithMinClients(ctx, requiredInitialClients, bestEffortInitialClients, -1, maxClients, opener, DefaultBackgroundTaskInterval)
+}
+
+// NewChannelPoolWithMinClients creates a new client pool implemented via channel.
+func NewChannelPoolWithMinClients(ctx context.Context, requiredInitialClients, bestEffortInitialClients, minClients, maxClients int, opener ClientOpener, backgroundTaskInterval time.Duration) (_ Pool, err error) {
+	if !(requiredInitialClients <= bestEffortInitialClients && bestEffortInitialClients <= maxClients && minClients <= maxClients) {
 		return nil, &ConfigError{
 			BestEffortInitialClients: bestEffortInitialClients,
 			RequiredInitialClients:   requiredInitialClients,
+			MinClients:               minClients,
 			MaxClients:               maxClients,
 		}
 	}
@@ -44,6 +56,8 @@ func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortIniti
 		}
 	}()
 
+	var numTotal int32
+
 	for i := 0; i < requiredInitialClients; {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			if lastAttemptErr == nil {
@@ -59,6 +73,7 @@ func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortIniti
 		if err == nil {
 			pool <- c
 			i++
+			numTotal++
 		} else {
 			lastAttemptErr = err
 			if chatty.Allow() {
@@ -79,13 +94,25 @@ func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortIniti
 			break
 		}
 		pool <- c
+		numTotal++
 	}
 
-	return &channelPool{
-		pool:       pool,
-		opener:     opener,
-		maxClients: maxClients,
-	}, nil
+	if backgroundTaskInterval == 0 {
+		backgroundTaskInterval = DefaultBackgroundTaskInterval
+	}
+	cp := &channelPool{
+		pool:                   pool,
+		opener:                 opener,
+		maxClients:             maxClients,
+		minClients:             minClients,
+		backgroundTaskInterval: backgroundTaskInterval,
+	}
+	cp.numTotal.Store(numTotal)
+
+	if cp.minClients > 0 {
+		go cp.ensureMinClients()
+	}
+	return cp, nil
 }
 
 // Get returns a client from the pool.
@@ -111,6 +138,14 @@ func (cp *channelPool) Get() (client Client, err error) {
 		c.Close()
 	default:
 	}
+
+	// Instead of decrementing and re-incrementing numTotal, just decrement if we
+	// failed to open a new connection to replace the closed one.
+	defer func() {
+		if err != nil {
+			cp.numTotal.Add(-1)
+		}
+	}()
 
 	if cp.IsExhausted() {
 		err = ErrExhausted
@@ -141,6 +176,7 @@ func (cp *channelPool) Release(c Client) error {
 
 		newC, err := cp.opener()
 		if err != nil {
+			cp.numTotal.Add(-1)
 			return err
 		}
 		c = newC
@@ -151,6 +187,7 @@ func (cp *channelPool) Release(c Client) error {
 		return nil
 	default:
 		// Pool is full, just close it instead.
+		cp.numTotal.Add(-1)
 		return c.Close()
 	}
 }
@@ -163,7 +200,9 @@ func (cp *channelPool) Close() error {
 		if err := c.Close(); err != nil {
 			lastErr = err
 		}
+		cp.numTotal.Add(-1)
 	}
+	cp.isClosed.Store(true)
 	return lastErr
 }
 
@@ -180,4 +219,25 @@ func (cp *channelPool) NumAllocated() int32 {
 // IsExhausted returns true when NumActiveClients >= max capacity.
 func (cp *channelPool) IsExhausted() bool {
 	return cp.NumActiveClients() >= int32(cp.maxClients)
+}
+
+func (cp *channelPool) ensureMinClients() {
+	for !cp.isClosed.Load() {
+		time.Sleep(cp.backgroundTaskInterval)
+
+		for cp.numTotal.Load() < int32(cp.minClients) && !cp.isClosed.Load() {
+			c, err := cp.opener()
+			if err != nil {
+				log.Warnf("clientpool: error creating background client (will retry): %v", err)
+				break
+			}
+			select {
+			case cp.pool <- c:
+				cp.numTotal.Add(1)
+			default:
+				// Pool is full
+				c.Close()
+			}
+		}
+	}
 }
