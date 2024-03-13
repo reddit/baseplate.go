@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
+
 	"github.com/reddit/baseplate.go/randbp"
 	"github.com/reddit/baseplate.go/timebp"
 )
@@ -31,7 +33,7 @@ const (
 )
 
 type trace struct {
-	tracer *Tracer
+	tracer opentracing.Tracer
 
 	name     string
 	traceID  string
@@ -49,16 +51,36 @@ type trace struct {
 	tags     map[string]string
 }
 
+func (t *trace) getTracer() *Tracer {
+	if t == nil {
+		return nil
+	}
+	if tracer, ok := t.tracer.(*Tracer); ok && tracer != nil {
+		return tracer
+	}
+	return nil
+}
+
 func newTrace(tracer *Tracer, name string) *trace {
+	var (
+		otTracer        opentracing.Tracer
+		traceID, spanID string
+	)
 	if tracer == nil {
-		tracer = &globalTracer
+		otTracer = opentracing.GlobalTracer()
+		traceID = globalTracer.newTraceID()
+		spanID = globalTracer.newSpanID()
+	} else {
+		otTracer = tracer
+		traceID = tracer.newTraceID()
+		spanID = tracer.newSpanID()
 	}
 	return &trace{
-		tracer: tracer,
+		tracer: otTracer,
 
 		name:    name,
-		traceID: tracer.newTraceID(),
-		spanID:  tracer.newSpanID(),
+		traceID: traceID,
+		spanID:  spanID,
 		start:   time.Now(),
 
 		counters: make(map[string]float64),
@@ -91,8 +113,8 @@ func (t *trace) toZipkinSpan() ZipkinSpan {
 	zs.Duration = timebp.DurationMicrosecond(end.Sub(t.start))
 
 	var endpoint ZipkinEndpointInfo
-	if t.tracer != nil {
-		endpoint = t.tracer.endpoint
+	if tracer := t.getTracer(); tracer != nil {
+		endpoint = tracer.endpoint
 	}
 
 	if t.timeAnnotationReceiveKey != "" {
@@ -159,7 +181,10 @@ func (t *trace) publish(ctx context.Context) error {
 	if !t.shouldSample() || t.tracer == nil {
 		return nil
 	}
-	return t.tracer.Record(ctx, t.toZipkinSpan())
+	if tracer := t.getTracer(); tracer != nil {
+		return tracer.Record(ctx, t.toZipkinSpan())
+	}
+	return nil
 }
 
 // In opentracing spec, zero trace/span/parent ids have special meanings.

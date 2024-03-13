@@ -161,7 +161,9 @@ func (s Span) StopTime() time.Time {
 // This uses the the logger provided by the underlying tracing.Tracer used to
 // publish the Span.
 func (s Span) logError(ctx context.Context, msg string, err error) {
-	s.trace.tracer.logger.Log(ctx, msg+err.Error())
+	if tracer := s.trace.getTracer(); tracer != nil {
+		tracer.logger.Log(ctx, msg+err.Error())
+	}
 }
 
 // AddHooks adds hooks into the Span.
