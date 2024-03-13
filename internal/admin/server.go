@@ -26,7 +26,7 @@ const (
 var Mux = http.NewServeMux()
 
 var baseplateGoCollectors = collectors.WithGoCollectorRuntimeMetrics(
-	collectors.MetricsScheduler,
+	collectors.MetricsAll,
 )
 
 func init() {
