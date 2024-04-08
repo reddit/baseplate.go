@@ -1,7 +1,7 @@
 package thriftbp
 
 import (
-	"strings"
+	"context"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -10,7 +10,6 @@ import (
 	"github.com/reddit/baseplate.go/errorsbp"
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
-	"github.com/reddit/baseplate.go/log"
 )
 
 // ServerConfig is the arg struct for both NewServer and NewBaseplateServer.
@@ -34,7 +33,17 @@ type ServerConfig struct {
 	// Optional, used only by NewServer.
 	//
 	// A log wrapper that is used by the TSimpleServer.
+	//
+	// Deprecated: Use LogContext instead.
+	//
+	//lint:ignore SA1019 We need to keep this field available despite that its
+	//type is deprecated.
 	Logger thrift.Logger
+
+	// Optional, used only by NewServer.
+	//
+	// The context used for slog logging for processor errors for TSimpleServer.
+	LogContext context.Context
 
 	// Optional, used only by NewBaseplateServer.
 	//
@@ -116,7 +125,9 @@ func NewServer(cfg ServerConfig) (*thrift.TSimpleServer, error) {
 		thrift.NewTHeaderProtocolFactoryConf(nil),
 	)
 	server.SetForwardHeaders(HeadersToForward)
-	server.SetLogger(cfg.Logger)
+	if cfg.LogContext != nil {
+		server.SetLogContext(cfg.LogContext)
+	}
 	return server, nil
 }
 
@@ -136,17 +147,6 @@ func NewBaseplateServer(
 	middlewares = append(middlewares, cfg.Middlewares...)
 	cfg.Middlewares = middlewares
 
-	cfg.Logger = log.ZapWrapper(log.ZapWrapperArgs{
-		Level: bp.GetConfig().Log.Level,
-		KVPairs: map[string]interface{}{
-			"from": "thrift",
-		},
-	}).ToThriftLogger()
-
-	if cfg.SocketTimeout > 0 {
-		cfg.Logger = suppressTimeoutLogger(cfg.Logger)
-	}
-
 	cfg.Addr = bp.GetConfig().Addr
 	cfg.Socket = nil
 	srv, err := NewServer(cfg)
@@ -154,16 +154,6 @@ func NewBaseplateServer(
 		return nil, err
 	}
 	return ApplyBaseplate(bp, srv), nil
-}
-
-func suppressTimeoutLogger(logger thrift.Logger) thrift.Logger {
-	return func(msg string) {
-		if strings.Contains(msg, "i/o timeout") {
-			return
-		}
-
-		logger(msg)
-	}
 }
 
 // ApplyBaseplate returns the given TSimpleServer as a baseplate Server with the

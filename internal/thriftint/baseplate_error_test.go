@@ -3,6 +3,9 @@ package thriftint_test
 import (
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -137,4 +140,45 @@ func TestWrapBaseplateError(t *testing.T) {
 			t.Errorf("%v cannot be casted into thriftRetryableError", err)
 		}
 	})
+}
+
+func TestSlogErrorValue(t *testing.T) {
+	err := &baseplatethrift.Error{
+		Message:   thrift.StringPtr("message"),
+		Code:      thrift.Int32Ptr(1),
+		Retryable: thrift.BoolPtr(true),
+		Details: map[string]string{
+			"foo": "bar",
+		},
+	}
+	opts := &slog.HandlerOptions{
+		AddSource: false,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			// drop time
+			if len(groups) == 0 && a.Key == slog.TimeKey {
+				return slog.Attr{}
+			}
+			return a
+		},
+	}
+
+	for label, base := range map[string]func(w io.Writer) slog.Handler{
+		"json": func(w io.Writer) slog.Handler {
+			return slog.NewJSONHandler(w, opts)
+		},
+		"text": func(w io.Writer) slog.Handler {
+			return slog.NewTextHandler(w, opts)
+		},
+	} {
+		t.Run(label, func(t *testing.T) {
+			// When using thrift 0.20.0+, make sure that slog logs the same before and
+			// after thriftint.WrapBaseplateError.
+			var gotWriter, wantWriter strings.Builder
+			slog.New(base(&gotWriter)).Info("foo", "err", thriftint.WrapBaseplateError(err))
+			slog.New(base(&wantWriter)).Info("foo", "err", err)
+			if got, want := gotWriter.String(), wantWriter.String(); got != want {
+				t.Errorf("got %q want %q", got, want)
+			}
+		})
+	}
 }
