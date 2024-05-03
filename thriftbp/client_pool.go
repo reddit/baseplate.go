@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -61,8 +62,19 @@ type ClientPoolConfig struct {
 	//     ImageUploadService -> image-upload
 	ServiceSlug string `yaml:"serviceSlug"`
 
-	// Addr is the address of a thrift service.  Addr must be in the format
-	// "${host}:${port}"
+	// Addr is the address of a thrift service.
+	//
+	// Addr must be in one of the following formats:
+	//
+	//  - "${host}:${port}" for TCP
+	//  - "unix://${path}" for Unix Domain Socket
+	//
+	// NOTE: When using unix domain socket with an absolute path, there must be 3
+	// slashes after "unix:", with the third slash being the root. For example,
+	// "unix:///var/run/thrift.socket" means Unix Domain Socket to
+	// "/var/run/thrift.socket" (an absolute path), while
+	// "unix://var/run/thrift.socket" means Unix Domain Socket to
+	// "var/run/thrift.socket" (a relative path).
 	Addr string `yaml:"addr"`
 
 	// InitialConnections is the desired inital number of thrift connections
@@ -561,17 +573,26 @@ func newClient(
 			return nil, nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client: %w", err)
 		}
 
-		transport := &countingDelegateTransport{
-			TTransport: thrift.NewTSocketConf(addr, cfg),
+		var transport thrift.TTransport
+		if path, ok := strings.CutPrefix(addr, "unix://"); ok {
+			transport = thrift.NewTSocketFromAddrConf(&net.UnixAddr{
+				Net:  "unix",
+				Name: path,
+			}, cfg)
+		} else {
+			transport = thrift.NewTSocketConf(addr, cfg)
 		}
-		if err := transport.Open(); err != nil {
+		cdt := &countingDelegateTransport{
+			TTransport: transport,
+		}
+		if err := cdt.Open(); err != nil {
 			return nil, nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client: %w", err)
 		}
 
 		return thrift.NewTStandardClient(
 			protoFactory.GetProtocol(transport),
 			protoFactory.GetProtocol(transport),
-		), transport, nil
+		), cdt, nil
 	}, maxConnectionAge, maxConnectionAgeJitter, slug)
 }
 
