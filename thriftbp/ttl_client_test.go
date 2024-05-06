@@ -11,14 +11,14 @@ import (
 
 // firstSuccessGenerator is a ttlClientGenerator implementation that would
 // return client and transport on the first call, and errors afterwards.
-func firstSuccessGenerator(transport thrift.TTransport) ttlClientGenerator {
+func firstSuccessGenerator(transport *countingDelegateTransport) ttlClientGenerator {
 	factory := thrift.NewTBinaryProtocolFactoryConf(nil)
 	client := thrift.NewTStandardClient(
 		factory.GetProtocol(transport),
 		factory.GetProtocol(transport),
 	)
 	first := true
-	return func() (thrift.TClient, thrift.TTransport, error) {
+	return func() (thrift.TClient, *countingDelegateTransport, error) {
 		if first {
 			first = false
 			return client, transport, nil
@@ -28,7 +28,9 @@ func firstSuccessGenerator(transport thrift.TTransport) ttlClientGenerator {
 }
 
 func TestTTLClient(t *testing.T) {
-	transport := thrift.NewTMemoryBuffer()
+	transport := &countingDelegateTransport{
+		TTransport: thrift.NewTMemoryBuffer(),
+	}
 	ttl := time.Millisecond
 	jitter := 0.1
 
@@ -60,7 +62,9 @@ func TestTTLClient(t *testing.T) {
 }
 
 func TestTTLClientNegativeTTL(t *testing.T) {
-	transport := thrift.NewTMemoryBuffer()
+	transport := &countingDelegateTransport{
+		TTransport: thrift.NewTMemoryBuffer(),
+	}
 	ttl := time.Millisecond
 
 	client, err := newTTLClient(firstSuccessGenerator(transport), -ttl, 0.1, "")
@@ -114,7 +118,7 @@ func TestTTLClientRenew(t *testing.T) {
 // alwaysSuccessGenerator is a ttlClientGenerator implementation that would
 // always return client, transport, and no error.
 type alwaysSuccessGenerator struct {
-	transport thrift.TTransport
+	transport *countingDelegateTransport
 
 	called atomic.Int64
 }
@@ -125,7 +129,7 @@ func (g *alwaysSuccessGenerator) generator() ttlClientGenerator {
 		factory.GetProtocol(g.transport),
 		factory.GetProtocol(g.transport),
 	)
-	return func() (thrift.TClient, thrift.TTransport, error) {
+	return func() (thrift.TClient, *countingDelegateTransport, error) {
 		g.called.Add(1)
 		return client, g.transport, nil
 	}
@@ -159,7 +163,9 @@ func TestTTLClientRefresh(t *testing.T) {
 			jitter = 0
 		)
 
-		g := alwaysSuccessGenerator{transport: &transport}
+		g := alwaysSuccessGenerator{transport: &countingDelegateTransport{
+			TTransport: &transport,
+		}}
 		client, err := newTTLClient(g.generator(), ttl, jitter, "")
 		if err != nil {
 			t.Fatalf("newTTLClient returned error: %v", err)
@@ -190,4 +196,44 @@ func TestTTLClientRefresh(t *testing.T) {
 			t.Errorf("Expected generator to be called at least %d time after second sleep, got %d", want, got)
 		}
 	})
+}
+
+func TestCountingDelegateTransport(t *testing.T) {
+	const payload = "payload"
+
+	membuf := thrift.NewTMemoryBuffer()
+	transport := countingDelegateTransport{
+		TTransport: membuf,
+	}
+
+	if _, err := transport.Write([]byte(payload)); err != nil {
+		t.Fatalf("Failed to write: %v", err)
+	}
+
+	var buf [1024]byte
+	n, err := transport.Read(buf[:])
+	if err != nil {
+		t.Fatalf("Failed to read: %v", err)
+	}
+	if got := string(buf[:n]); got != payload {
+		t.Errorf("Read %q want %q", got, payload)
+	}
+
+	read, written := transport.getBytesAndReset()
+	want := uint64(len(payload))
+	if read != want {
+		t.Errorf("Read %d bytes want %d", read, want)
+	}
+	if written != want {
+		t.Errorf("Written %d bytes want %d", written, want)
+	}
+
+	read, written = transport.getBytesAndReset()
+	want = 0
+	if read != want {
+		t.Errorf("After reset: Read %d bytes want %d", read, want)
+	}
+	if written != want {
+		t.Errorf("After reset: Written %d bytes want %d", written, want)
+	}
 }
