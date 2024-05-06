@@ -555,13 +555,15 @@ func newClient(
 	genAddr AddressGenerator,
 	protoFactory thrift.TProtocolFactory,
 ) (*ttlClient, error) {
-	return newTTLClient(func() (thrift.TClient, thrift.TTransport, error) {
+	return newTTLClient(func() (thrift.TClient, *countingDelegateTransport, error) {
 		addr, err := genAddr()
 		if err != nil {
 			return nil, nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client: %w", err)
 		}
 
-		transport := thrift.NewTSocketConf(addr, cfg)
+		transport := &countingDelegateTransport{
+			TTransport: thrift.NewTSocketConf(addr, cfg),
+		}
 		if err := transport.Open(); err != nil {
 			return nil, nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client: %w", err)
 		}

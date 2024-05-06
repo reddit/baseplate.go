@@ -2,6 +2,7 @@ package thriftbp
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -11,7 +12,7 @@ import (
 	"github.com/reddit/baseplate.go/randbp"
 )
 
-type ttlClientGenerator func() (thrift.TClient, thrift.TTransport, error)
+type ttlClientGenerator func() (thrift.TClient, *countingDelegateTransport, error)
 
 // DefaultMaxConnectionAge is the default max age for a Thrift client connection.
 const DefaultMaxConnectionAge = time.Minute * 5
@@ -24,7 +25,7 @@ var _ Client = (*ttlClient)(nil)
 
 type ttlClientState struct {
 	client     thrift.TClient
-	transport  thrift.TTransport
+	transport  *countingDelegateTransport
 	expiration time.Time // if expiration is zero, then the client will be kept open indefinetly.
 	timer      *time.Timer
 	closed     bool
@@ -66,10 +67,21 @@ func (c *ttlClient) Close() error {
 	return state.transport.Close()
 }
 
-func (c *ttlClient) Call(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+func (c *ttlClient) Call(ctx context.Context, method string, args, result thrift.TStruct) (_ thrift.ResponseMeta, err error) {
 	state := <-c.state
 	defer func() {
 		c.state <- state
+	}()
+
+	defer func() {
+		read, written := state.transport.getBytesAndReset()
+		labels := prometheus.Labels{
+			methodLabel:     method,
+			clientNameLabel: c.slug,
+			successLabel:    prometheusbp.BoolString(err == nil),
+		}
+		clientPayloadSizeRequestBytes.With(labels).Observe(float64(written))
+		clientPayloadSizeResponseBytes.With(labels).Observe(float64(read))
 	}()
 	return state.client.Call(ctx, method, args, result)
 }
@@ -165,4 +177,29 @@ func newTTLClient(generator ttlClientGenerator, ttl time.Duration, jitter float6
 	})
 
 	return c, nil
+}
+
+type countingDelegateTransport struct {
+	thrift.TTransport
+
+	bytesRead    atomic.Uint64
+	bytesWritten atomic.Uint64
+}
+
+func (cdt *countingDelegateTransport) Read(p []byte) (n int, err error) {
+	defer func() {
+		cdt.bytesRead.Add(uint64(n))
+	}()
+	return cdt.TTransport.Read(p)
+}
+
+func (cdt *countingDelegateTransport) Write(p []byte) (n int, err error) {
+	defer func() {
+		cdt.bytesWritten.Add(uint64(n))
+	}()
+	return cdt.TTransport.Write(p)
+}
+
+func (cdt *countingDelegateTransport) getBytesAndReset() (read, written uint64) {
+	return cdt.bytesRead.Swap(0), cdt.bytesWritten.Swap(0)
 }

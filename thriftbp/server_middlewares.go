@@ -47,7 +47,7 @@ type DefaultProcessorMiddlewaresArgs struct {
 
 	// Report the payload size metrics with this sample rate.
 	//
-	// This is optional. If it's not set none of the requests will be sampled.
+	// Deprecated: Prometheus payload size metrics are always 100% reported.
 	ReportPayloadSizeMetricsSampleRate float64
 
 	// The edge context implementation. Optional.
@@ -75,7 +75,7 @@ func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) 
 		ExtractDeadlineBudget,
 		InjectServerSpan(args.ErrorSpanSuppressor),
 		InjectEdgeContext(args.EdgeContextImpl),
-		ReportPayloadSizeMetrics(args.ReportPayloadSizeMetricsSampleRate),
+		ReportPayloadSizeMetrics(0),
 		PrometheusServerMiddleware,
 	}
 }
@@ -277,11 +277,9 @@ func AbandonCanceledRequests(name string, next thrift.TProcessorFunction) thrift
 // If the request is not in THeaderProtocol it does nothing no matter what the
 // sample rate is.
 //
-// For endpoint named "myEndpoint", it reports histograms at:
-//
-// - payload.size.myEndpoint.request
-//
-// - payload.size.myEndpoint.response
+// The prometheus histograms are:
+//   - thriftbp_server_request_payload_size_bytes
+//   - thriftbp_server_response_payload_size_bytes
 func ReportPayloadSizeMetrics(_ float64) thrift.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
@@ -317,8 +315,8 @@ func ReportPayloadSizeMetrics(_ float64) thrift.ProcessorMiddleware {
 							methodLabel: name,
 							protoLabel:  proto,
 						}
-						payloadSizeRequestBytes.With(labels).Observe(isize)
-						payloadSizeResponseBytes.With(labels).Observe(osize)
+						serverPayloadSizeRequestBytes.With(labels).Observe(isize)
+						serverPayloadSizeResponseBytes.With(labels).Observe(osize)
 					}()
 				}
 
