@@ -145,6 +145,53 @@ if condition1 && condition2 &&
 }
 ```
 
+## Don't abuse multiple return values
+
+Go allows multiple return values from a function and we should in general take
+advantage that, but the number of return values should be limited to a
+reasonable number. A rule of thumb is that if you ever have the need to split
+the return values into one-per-line on the callsite like this:
+
+```go
+retval1,
+  retval2,
+  ...
+  retvalN := package.FuncWithNReturnValues(a, lot, of, args, ...)
+```
+
+Then define a struct to return will be much better:
+
+```go
+type FuncWithNReturnValuesResult struct {
+  Retval1 Retval1Type
+  Retval2 Retval2Type
+  ...
+  RetvalN RetvalNType
+}
+
+func FuncWithNReturnValues(...) FuncWithNReturnValuesResult {
+  ...
+}
+```
+
+### Exceptions
+
+In general the `error` return should not be part of the struct and still
+returned as a separate and the last value. For example:
+
+```go
+type FuncWithNReturnValuesResult struct {
+  Retval1 Retval1Type
+  Retval2 Retval2Type
+  ...
+  RetvalN RetvalNType
+}
+
+func FuncWithNReturnValuesAndError(...) (FuncWithNReturnValuesResult, error) {
+  ...
+}
+```
+
 ## Other resources
 
 For things not covered above,
