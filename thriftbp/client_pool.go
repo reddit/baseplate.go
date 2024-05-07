@@ -573,26 +573,26 @@ func newClient(
 			return nil, nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client: %w", err)
 		}
 
-		var transport thrift.TTransport
+		var raw thrift.TTransport
 		if path, ok := strings.CutPrefix(addr, "unix://"); ok {
-			transport = thrift.NewTSocketFromAddrConf(&net.UnixAddr{
+			raw = thrift.NewTSocketFromAddrConf(&net.UnixAddr{
 				Net:  "unix",
 				Name: path,
 			}, cfg)
 		} else {
-			transport = thrift.NewTSocketConf(addr, cfg)
+			raw = thrift.NewTSocketConf(addr, cfg)
 		}
-		cdt := &countingDelegateTransport{
-			TTransport: transport,
+		transport := &countingDelegateTransport{
+			TTransport: raw,
 		}
-		if err := cdt.Open(); err != nil {
+		if err := transport.Open(); err != nil {
 			return nil, nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client: %w", err)
 		}
 
 		return thrift.NewTStandardClient(
 			protoFactory.GetProtocol(transport),
 			protoFactory.GetProtocol(transport),
-		), cdt, nil
+		), transport, nil
 	}, maxConnectionAge, maxConnectionAgeJitter, slug)
 }
 
