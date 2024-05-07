@@ -1,10 +1,15 @@
 package experiments
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"math/rand"
+	"os"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -595,6 +600,58 @@ func TestRegression250(t *testing.T) {
 			t.Errorf("expected %d, actual: %d", 68, buckets[""])
 		}
 	})
+}
+
+// goos: darwin
+// goarch: arm64
+// pkg: github.snooguts.net/reddit-go/baseplate
+// BenchmarkNativeGoClient_Choose-12    	   199076             5803 ns/op            5756 B/op         75 allocs/op
+func BenchmarkNativeGoClient_Choose(b *testing.B) {
+	manifestPath := "testdata/experiments.json"
+	ctx := context.Background()
+	experiments, err := NewExperiments(ctx, manifestPath, nil, nil)
+	if err != nil {
+		b.Errorf("failed to create experiments client: %s", err)
+	}
+
+	bytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		b.Fatalf("faield to read file at %s: %s", manifestPath, err)
+		return
+	}
+
+	var manifest map[string]interface{}
+	err = json.Unmarshal(bytes, &manifest)
+	if err != nil {
+		b.Fatalf("failed to parse JSON at %s: %s", manifestPath, err)
+		return
+	}
+
+	keys := make([]string, 0)
+	for _, k := range reflect.ValueOf(manifest).MapKeys() {
+		key := k.String()
+		// ignore system entries, e.g. $override_groups
+		if !strings.HasPrefix(key, "$") && manifest[key].(map[string]interface{})["type"] != "dynamic_config" {
+			keys = append(keys, key)
+		}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		name := keys[rand.Intn(len(keys))]
+		_, _ = experiments.Variant(
+			name,
+			map[string]interface{}{
+				"user_id":       "user_id",
+				"ad_account_id": "ad_account_id",
+				"device_id":     "device_id",
+				"subreddit_id":  "subreddit_id",
+				"canonical_url": "canonical_url",
+				"business_id":   "business_id",
+			},
+			false,
+		)
+	}
 }
 
 func makeTestConfig(experimentType string, variants ...Variant) *ExperimentConfig {
