@@ -80,7 +80,7 @@ func TestCalculateBucketValue(t *testing.T) {
 			t.Fatal(err)
 		}
 		experiment.numBuckets = 1000
-		bucket := experiment.calculateBucket("t2_1")
+		bucket := experiment.calculateBucket("t2_1", new(bucketScratch))
 		if bucket != tt.expectedBucket {
 			t.Errorf("expected %d, actual: %d", tt.expectedBucket, bucket)
 		}
@@ -126,10 +126,10 @@ func TestCalculateBucket(t *testing.T) {
 
 	counter := make(map[int]int, experiment.numBuckets)
 	for _, name := range names {
-		bucket := experiment.calculateBucket(name)
+		bucket := experiment.calculateBucket(name, new(bucketScratch))
 		counter[bucket]++
 		// ensure bucketing is deterministic
-		bucketCheck := experiment.calculateBucket(name)
+		bucketCheck := experiment.calculateBucket(name, new(bucketScratch))
 		if bucket != bucketCheck {
 			t.Errorf("expected %d, actual: %d", bucket, bucketCheck)
 		}
@@ -189,17 +189,17 @@ func TestCalculateBucketWithSeed(t *testing.T) {
 		if experiment.bucketSeed != "some new seed" {
 			t.Fatalf("expected seed %s, actual: %s", "some new seed", experiment.bucketSeed)
 		}
-		bucket1 := experiment.calculateBucket(name)
+		bucket1 := experiment.calculateBucket(name, new(bucketScratch))
 		counter[bucket1]++
 		// ensure bucketing is deterministic
-		bucketCheck := experiment.calculateBucket(name)
+		bucketCheck := experiment.calculateBucket(name, new(bucketScratch))
 		if bucket1 != bucketCheck {
 			t.Errorf("expected %d, actual: %d", bucket1, bucketCheck)
 		}
 
 		currentSeed := experiment.bucketSeed
 		experiment.bucketSeed = "newstring"
-		bucket2 := experiment.calculateBucket(name)
+		bucket2 := experiment.calculateBucket(name, new(bucketScratch))
 		experiment.bucketSeed = currentSeed
 
 		// Check that the bucketing changed at some point. Can't compare
@@ -241,14 +241,14 @@ func TestVariantReturnsNilIfOutOfTimeWindow(t *testing.T) {
 	}
 	unstartedExperiment.startTime = time.Now().Add(5 * 24 * time.Hour)
 
-	validVariant, err := validExperiment.Variant(map[string]interface{}{"user_id": "t2_1"})
+	validVariant, err := validExperiment.Variant(map[string]interface{}{"user_id": "t2_1"}, new(bucketScratch))
 	if err != nil {
 		t.Error(err)
 	}
 	if validVariant == "" {
 		t.Fatal("expected variant to be not nil")
 	}
-	expiredVariant, err := expiredExperiment.Variant(map[string]interface{}{"user_id": "t2_1"})
+	expiredVariant, err := expiredExperiment.Variant(map[string]interface{}{"user_id": "t2_1"}, new(bucketScratch))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestVariantReturnsNilIfOutOfTimeWindow(t *testing.T) {
 		t.Fatal("expected variant to be nil")
 	}
 
-	unstartedVariant, err := unstartedExperiment.Variant(map[string]interface{}{"user_id": "t2_1"})
+	unstartedVariant, err := unstartedExperiment.Variant(map[string]interface{}{"user_id": "t2_1"}, new(bucketScratch))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +273,7 @@ func TestVariantExplicitNil(t *testing.T) {
 
 	// Explicit nil user_id is caused by empty loid.
 	// We just treat them the same as empty string.
-	_, err = validExperiment.Variant(map[string]interface{}{"user_id": nil})
+	_, err = validExperiment.Variant(map[string]interface{}{"user_id": nil}, new(bucketScratch))
 	if err == nil {
 		t.Error("Expected error for explicit nil user_id, got nil error.")
 	}
@@ -287,7 +287,7 @@ func TestNoBucketVal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := experiment.Variant(map[string]interface{}{"not_user_id": "t2_1"})
+	result, err := experiment.Variant(map[string]interface{}{"not_user_id": "t2_1"}, new(bucketScratch))
 	if err == nil {
 		t.Error("Expected error for missing user_id, got nil error.")
 	}
@@ -302,7 +302,7 @@ func TestNoBucketVal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err = experiment.Variant(map[string]interface{}{"not_user_id": ""})
+	result, err = experiment.Variant(map[string]interface{}{"not_user_id": ""}, new(bucketScratch))
 	if err == nil {
 		t.Error("Expected error for missing user_id, got nil error.")
 	}
@@ -322,7 +322,7 @@ func TestExperimentDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	variant, err := experiment.Variant(map[string]interface{}{"user_id": "t2_2"})
+	variant, err := experiment.Variant(map[string]interface{}{"user_id": "t2_2"}, new(bucketScratch))
 	if err != nil {
 		t.Error(err)
 	}
@@ -353,8 +353,8 @@ func TestChangeShuffleVersionChangesBucketing(t *testing.T) {
 
 	bucketingChanged := false
 	for _, name := range names {
-		bucket1 := experiment1.calculateBucket(name)
-		bucket2 := experiment2.calculateBucket(name)
+		bucket1 := experiment1.calculateBucket(name, new(bucketScratch))
+		bucket2 := experiment2.calculateBucket(name, new(bucketScratch))
 		if bucket1 != bucket2 {
 			bucketingChanged = true
 			break
@@ -415,7 +415,7 @@ func TestOverride(t *testing.T) {
 	}
 
 	for _, userID := range userIDs[:50] {
-		variant, err := experiment.Variant(map[string]interface{}{"user_id": userID})
+		variant, err := experiment.Variant(map[string]interface{}{"user_id": userID}, new(bucketScratch))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -430,7 +430,7 @@ func TestOverride(t *testing.T) {
 		"":          0,
 	}
 	for _, userID := range userIDs {
-		variant, err := experiment.Variant(map[string]interface{}{"user_id": userID})
+		variant, err := experiment.Variant(map[string]interface{}{"user_id": userID}, new(bucketScratch))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -475,7 +475,7 @@ func TestRegression250(t *testing.T) {
 			"":          0,
 		}
 		for _, userID := range userIDs {
-			variant, err := experiment.Variant(map[string]interface{}{"user_id": userID})
+			variant, err := experiment.Variant(map[string]interface{}{"user_id": userID}, new(bucketScratch))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -513,7 +513,7 @@ func TestRegression250(t *testing.T) {
 			"":          0,
 		}
 		for _, userID := range userIDs {
-			variant, err := experiment.Variant(map[string]interface{}{"user_id": userID})
+			variant, err := experiment.Variant(map[string]interface{}{"user_id": userID}, new(bucketScratch))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -550,7 +550,7 @@ func TestRegression250(t *testing.T) {
 			"":          0,
 		}
 		for _, userID := range userIDs {
-			variant, err := experiment.Variant(map[string]interface{}{"user_id": userID})
+			variant, err := experiment.Variant(map[string]interface{}{"user_id": userID}, new(bucketScratch))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -583,7 +583,7 @@ func TestRegression250(t *testing.T) {
 			"":          0,
 		}
 		for _, userID := range userIDs {
-			variant, err := experiment.Variant(map[string]interface{}{"user_id": userID})
+			variant, err := experiment.Variant(map[string]interface{}{"user_id": userID}, new(bucketScratch))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -636,20 +636,32 @@ func BenchmarkNativeGoClient_Choose(b *testing.B) {
 		}
 	}
 
+	userIDs := make([]string, 100)
+	for i := 0; i < len(userIDs); i++ {
+		userIDs[i] = fmt.Sprintf("t2_%02d", i)
+	}
+
+	scratch := make(map[string]any)
+	bigints := new(bucketScratch)
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		userID := userIDs[rand.Intn(len(userIDs))]
 		name := keys[rand.Intn(len(keys))]
+
+		clear(scratch)
+		scratch["user_id"] = userID
+		scratch["ad_account_id"] = userID
+		scratch["device_id"] = userID
+		scratch["subreddit_id"] = userID
+		scratch["canonical_url"] = userID
+		scratch["business_id"] = userID
+
 		_, _ = experiments.Variant(
 			name,
-			map[string]interface{}{
-				"user_id":       "user_id",
-				"ad_account_id": "ad_account_id",
-				"device_id":     "device_id",
-				"subreddit_id":  "subreddit_id",
-				"canonical_url": "canonical_url",
-				"business_id":   "business_id",
-			},
+			scratch,
 			false,
+			bigints,
 		)
 	}
 }

@@ -9,10 +9,12 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"io"
 	"math/big"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gofrs/uuid"
 
@@ -113,14 +115,14 @@ func NewExperiments(ctx context.Context, path string, eventLogger EventLogger, l
 // This function might return MissingBucketKeyError as the error.
 // Caller usually want to check for that and handle it differently from other
 // errors. See its documentation for more details.
-func (e *Experiments) Variant(name string, args map[string]interface{}, bucketingEventOverride bool) (string, error) {
+func (e *Experiments) Variant(name string, args map[string]interface{}, bucketingEventOverride bool, tls *bucketScratch) (string, error) {
 	variantTotalRequests.Inc()
 
 	experiment, err := e.experiment(name)
 	if err != nil {
 		return "", err
 	}
-	return experiment.Variant(args)
+	return experiment.Variant(args, tls)
 }
 
 // Expose logs an event to indicate that a user has been exposed to an
@@ -300,7 +302,7 @@ func NewSimpleExperiment(experiment *ExperimentConfig) (*SimpleExperiment, error
 // This function might return MissingBucketKeyError as the error.
 // Caller usually want to check for that and handle it differently from other
 // errors. See its documentation for more details.
-func (e *SimpleExperiment) Variant(args map[string]interface{}) (string, error) {
+func (e *SimpleExperiment) Variant(args map[string]interface{}, tls *bucketScratch) (string, error) {
 	if !e.isEnabled() {
 		return "", nil
 	}
@@ -330,25 +332,53 @@ func (e *SimpleExperiment) Variant(args map[string]interface{}) (string, error) 
 		)
 	}
 
-	bucket := e.calculateBucket(bucketVal)
+	bucket := e.calculateBucket(bucketVal, tls)
 	return e.variantSet.ChooseVariant(bucket), nil
 }
 
-func lowerArguments(args map[string]interface{}) map[string]interface{} {
-	lowered := make(map[string]interface{}, len(args))
+func lowerArguments(args map[string]any) map[string]any {
+	for key := range args {
+		for _, r := range key {
+			if unicode.IsUpper(r) {
+				goto slowPath
+			}
+		}
+	}
+	return args
+
+slowPath:
+	lowered := make(map[string]any, len(args))
 	for key, value := range args {
 		lowered[strings.ToLower(key)] = value
 	}
 	return lowered
 }
 
-func (e *SimpleExperiment) calculateBucket(bucketKey string) int {
-	target := new(big.Int)
-	bucket := new(big.Int)
-	hashed := sha1.Sum([]byte(e.bucketSeed + bucketKey))
-	target.SetBytes(hashed[:])
-	bucket.Mod(target, big.NewInt(int64(e.numBuckets)))
-	return int(bucket.Int64())
+type bucketScratch struct {
+	numBuckets big.Int
+	target     big.Int
+	bucket     big.Int
+	hash       hash.Hash
+	hashInput  [1024]byte
+	checksum   [sha1.Size]byte
+}
+
+func (e *SimpleExperiment) calculateBucket(bucketKey string, scratch *bucketScratch) int {
+	if scratch.hash == nil {
+		scratch.hash = sha1.New()
+	} else {
+		scratch.hash.Reset()
+	}
+
+	inputLen := copy(scratch.hashInput[:], e.bucketSeed)
+	inputLen += copy(scratch.hashInput[inputLen:], bucketKey)
+	scratch.hash.Write(scratch.hashInput[:inputLen])
+	hashed := scratch.hash.Sum(scratch.checksum[:0])
+
+	scratch.numBuckets.SetInt64(int64(e.numBuckets))
+	scratch.target.SetBytes(hashed[:])
+	scratch.target.QuoRem(&scratch.target, &scratch.numBuckets, &scratch.bucket)
+	return int(scratch.bucket.Int64())
 }
 
 // UniqueID returns a unique ID for the experiment.
