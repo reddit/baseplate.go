@@ -51,7 +51,7 @@ type trace struct {
 	tags     map[string]string
 }
 
-func (t *trace) getTracer() *Tracer {
+func (t *trace) internalTracer() *Tracer {
 	if t == nil {
 		return nil
 	}
@@ -113,7 +113,7 @@ func (t *trace) toZipkinSpan() ZipkinSpan {
 	zs.Duration = timebp.DurationMicrosecond(end.Sub(t.start))
 
 	var endpoint ZipkinEndpointInfo
-	if tracer := t.getTracer(); tracer != nil {
+	if tracer := t.internalTracer(); tracer != nil {
 		endpoint = tracer.endpoint
 	}
 
@@ -181,7 +181,7 @@ func (t *trace) publish(ctx context.Context) error {
 	if !t.shouldSample() || t.tracer == nil {
 		return nil
 	}
-	if tracer := t.getTracer(); tracer != nil {
+	if tracer := t.internalTracer(); tracer != nil {
 		return tracer.Record(ctx, t.toZipkinSpan())
 	}
 	return nil
