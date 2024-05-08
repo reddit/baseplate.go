@@ -56,6 +56,9 @@ type ServerConfig struct {
 	//
 	// Report the payload size metrics with this sample rate.
 	// If not set none of the requests will be sampled.
+	//
+	// Deprecated: Server side payload size reporting is always 100% enabled when
+	// using NewBaseplateServer.
 	ReportPayloadSizeMetricsSampleRate float64
 
 	// Optional, used by NewBaseplateServer and NewServer.
@@ -139,9 +142,8 @@ func NewBaseplateServer(
 ) (baseplate.Server, error) {
 	middlewares := BaseplateDefaultProcessorMiddlewares(
 		DefaultProcessorMiddlewaresArgs{
-			EdgeContextImpl:                    bp.EdgeContextImpl(),
-			ErrorSpanSuppressor:                cfg.ErrorSpanSuppressor,
-			ReportPayloadSizeMetricsSampleRate: cfg.ReportPayloadSizeMetricsSampleRate,
+			EdgeContextImpl:     bp.EdgeContextImpl(),
+			ErrorSpanSuppressor: cfg.ErrorSpanSuppressor,
 		},
 	)
 	middlewares = append(middlewares, cfg.Middlewares...)
