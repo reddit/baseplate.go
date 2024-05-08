@@ -159,7 +159,6 @@ func NewBaseplateServer(cfg ServerConfig) (*Server, error) {
 	middlewares = append(middlewares, cfg.ProcessorMiddlewares...)
 	serverCfg := thriftbp.ServerConfig{
 		Socket:      socket,
-		Logger:      thrift.NopLogger,
 		Processor:   cfg.Processor,
 		Middlewares: middlewares,
 	}

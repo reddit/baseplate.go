@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -61,8 +62,19 @@ type ClientPoolConfig struct {
 	//     ImageUploadService -> image-upload
 	ServiceSlug string `yaml:"serviceSlug"`
 
-	// Addr is the address of a thrift service.  Addr must be in the format
-	// "${host}:${port}"
+	// Addr is the address of a thrift service.
+	//
+	// Addr must be in one of the following formats:
+	//
+	//  - "${host}:${port}" for TCP
+	//  - "unix://${path}" for Unix Domain Socket
+	//
+	// NOTE: When using unix domain socket with an absolute path, there must be 3
+	// slashes after "unix:", with the third slash being the root. For example,
+	// "unix:///var/run/thrift.socket" means Unix Domain Socket to
+	// "/var/run/thrift.socket" (an absolute path), while
+	// "unix://var/run/thrift.socket" means Unix Domain Socket to
+	// "var/run/thrift.socket" (a relative path).
 	Addr string `yaml:"addr"`
 
 	// InitialConnections is the desired inital number of thrift connections
@@ -211,6 +223,11 @@ type ClientPoolConfig struct {
 	//
 	// Optional. If this is empty, no "User-Agent" header will be sent.
 	ClientName string `yaml:"clientName"`
+
+	// The hostname to add as a "thrift-hostname" header.
+	//
+	// Optional. If empty, no "thrift-hostname" header will be sent.
+	ThriftHostnameHeader string `yaml:"thriftHostnameHeader"`
 }
 
 // Validate checks ClientPoolConfig for any missing or erroneous values.
@@ -429,6 +446,24 @@ func NewCustomClientPoolWithContext(
 	return newClientPool(ctx, cfg, genAddr, protoFactory, middlewares...)
 }
 
+const ThriftHostnameHeader = "thrift-hostname"
+
+// thriftHostnameHeaderMiddleware adds a `thrift-hostname` header if one was
+// specified in the configuration.
+// This middleware is always added but will only add the header is necessary.
+func thriftHostnameHeaderMiddleware(hostname string) thrift.ClientMiddleware {
+	return func(next thrift.TClient) thrift.TClient {
+		return thrift.WrappedTClient{
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				if hostname != "" {
+					ctx = AddClientHeader(ctx, ThriftHostnameHeader, hostname)
+				}
+				return next.Call(ctx, method, args, result)
+			},
+		}
+	}
+}
+
 func newClientPool(
 	ctx context.Context,
 	cfg ClientPoolConfig,
@@ -505,6 +540,8 @@ func newClientPool(
 
 		slug: cfg.ServiceSlug,
 	}
+	middlewares = append(middlewares, thriftHostnameHeaderMiddleware(cfg.ThriftHostnameHeader))
+
 	// finish setting up the clientPool by wrapping the inner "Call" with the
 	// given middleware.
 	//
@@ -530,13 +567,24 @@ func newClient(
 	genAddr AddressGenerator,
 	protoFactory thrift.TProtocolFactory,
 ) (*ttlClient, error) {
-	return newTTLClient(func() (thrift.TClient, thrift.TTransport, error) {
+	return newTTLClient(func() (thrift.TClient, *countingDelegateTransport, error) {
 		addr, err := genAddr()
 		if err != nil {
 			return nil, nil, fmt.Errorf("thriftbp: error getting next address for new Thrift client: %w", err)
 		}
 
-		transport := thrift.NewTSocketConf(addr, cfg)
+		var raw thrift.TTransport
+		if path, ok := strings.CutPrefix(addr, "unix://"); ok {
+			raw = thrift.NewTSocketFromAddrConf(&net.UnixAddr{
+				Net:  "unix",
+				Name: path,
+			}, cfg)
+		} else {
+			raw = thrift.NewTSocketConf(addr, cfg)
+		}
+		transport := &countingDelegateTransport{
+			TTransport: raw,
+		}
 		if err := transport.Open(); err != nil {
 			return nil, nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client: %w", err)
 		}

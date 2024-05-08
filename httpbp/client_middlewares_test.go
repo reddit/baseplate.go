@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -256,36 +257,19 @@ func TestClientErrorWrapper(t *testing.T) {
 	})
 }
 
+func unwrapRetryErrors(err error) []error {
+	var errs interface {
+		error
+
+		Unwrap() []error
+	}
+	if errors.As(err, &errs) {
+		return errs.Unwrap()
+	}
+	return []error{err}
+}
+
 func TestRetry(t *testing.T) {
-	t.Run("retry for timeout", func(t *testing.T) {
-		const timeout = time.Millisecond * 10
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			time.Sleep(timeout * 10)
-		}))
-		defer server.Close()
-
-		var attempts uint
-		client := &http.Client{
-			Transport: Retries(
-				DefaultMaxErrorReadAhead,
-				retry.Attempts(2),
-				retry.OnRetry(func(n uint, err error) {
-					// set number of attempts to check if retries were attempted
-					attempts = n + 1
-				}),
-			)(http.DefaultTransport),
-			Timeout: timeout,
-		}
-		_, err := client.Get(server.URL)
-		if err == nil {
-			t.Fatalf("expected error to be non-nil")
-		}
-		expected := uint(1)
-		if attempts != expected {
-			t.Errorf("expected %d, actual: %d", expected, attempts)
-		}
-	})
-
 	t.Run("retry for HTTP 500", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -303,7 +287,20 @@ func TestRetry(t *testing.T) {
 				}),
 			)(http.DefaultTransport),
 		}
-		_, err := client.Get(server.URL)
+		u, err := url.Parse(server.URL)
+		if err != nil {
+			t.Fatalf("Failed to parse url %q: %v", server.URL, err)
+		}
+		req := &http.Request{
+			Method: http.MethodPost,
+			URL:    u,
+
+			// Explicitly set Body to http.NoBody and GetBody to nil,
+			// This request should not cause Retries middleware to be skipped.
+			Body:    http.NoBody,
+			GetBody: nil,
+		}
+		_, err = client.Do(req)
 		if err == nil {
 			t.Fatalf("expected error to be non-nil")
 		}
@@ -311,10 +308,24 @@ func TestRetry(t *testing.T) {
 		if attempts != expected {
 			t.Errorf("expected %d, actual: %d", expected, attempts)
 		}
+		errs := unwrapRetryErrors(err)
+		if len(errs) != int(expected) {
+			t.Errorf("Expected %d retry erros, got %+v", expected, errs)
+		}
+		for i, err := range errs {
+			var ce *ClientError
+			if errors.As(err, &ce) {
+				if got, want := ce.StatusCode, http.StatusInternalServerError; got != want {
+					t.Errorf("#%d: status got %d want %d", i, got, want)
+				}
+			} else {
+				t.Errorf("#%d: %#v is not of type *httpbp.ClientError", i, err)
+			}
+		}
 	})
 
-	t.Run("retry POST request", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	t.Run("retry POST+HTTPS request", func(t *testing.T) {
+		server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			b, err := io.ReadAll(r.Body)
 			if err != nil {
 				t.Fatal(err)
@@ -324,21 +335,22 @@ func TestRetry(t *testing.T) {
 			if got != expected {
 				t.Errorf("expected %q, got: %q", expected, got)
 			}
+			t.Logf("Full body: %q", got)
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer server.Close()
 
 		var attempts uint
-		client := &http.Client{
-			Transport: Retries(
-				DefaultMaxErrorReadAhead,
-				retry.Attempts(2),
-				retry.OnRetry(func(n uint, err error) {
-					// set number of attempts to check if retries were attempted
-					attempts = n + 1
-				}),
-			)(http.DefaultTransport),
-		}
+		t.Log(server.URL)
+		client := server.Client()
+		client.Transport = Retries(
+			DefaultMaxErrorReadAhead,
+			retry.Attempts(2),
+			retry.OnRetry(func(n uint, err error) {
+				// set number of attempts to check if retries were attempted
+				attempts = n + 1
+			}),
+		)(client.Transport)
 		_, err := client.Post(server.URL, "application/json", bytes.NewBufferString("{}"))
 		if err == nil {
 			t.Fatalf("expected error to be non-nil")
@@ -346,6 +358,45 @@ func TestRetry(t *testing.T) {
 		expected := uint(2)
 		if attempts != expected {
 			t.Errorf("expected %d, actual: %d", expected, attempts)
+		}
+		errs := unwrapRetryErrors(err)
+		if len(errs) != int(expected) {
+			t.Errorf("Expected %d retry erros, got %+v", expected, errs)
+		}
+		for i, err := range errs {
+			var ce *ClientError
+			if errors.As(err, &ce) {
+				if got, want := ce.StatusCode, http.StatusInternalServerError; got != want {
+					t.Errorf("#%d: status got %d want %d", i, got, want)
+				}
+			} else {
+				t.Errorf("#%d: %#v is not of type *httpbp.ClientError", i, err)
+			}
+		}
+	})
+
+	t.Run("skip retry for wrongly constructed request", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		client := &http.Client{
+			Transport: Retries(
+				DefaultMaxErrorReadAhead,
+				retry.Attempts(2),
+				retry.OnRetry(func(n uint, err error) {
+					t.Errorf("Retry not skipped. OnRetry called with (%d, %v)", n, err)
+				}),
+			)(http.DefaultTransport),
+		}
+		req, err := http.NewRequest(http.MethodGet, server.URL, bytes.NewBufferString("{}"))
+		if err != nil {
+			t.Fatalf("Failed to create http request: %v", err)
+		}
+		req.GetBody = nil
+		if _, err := client.Do(req); err == nil {
+			t.Fatalf("expected error to be non-nil")
 		}
 	})
 }

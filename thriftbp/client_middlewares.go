@@ -16,6 +16,8 @@ import (
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/thriftint"
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
@@ -193,6 +195,9 @@ type MonitorClientArgs struct {
 // this will be included automatically and should not be passed in as a
 // ClientMiddleware to NewBaseplateClientPool.
 func MonitorClient(args MonitorClientArgs) thrift.ClientMiddleware {
+	if mw := internalv2compat.V2TracingThriftClientMiddleware(); mw != nil {
+		return mw
+	}
 	prefix := args.ServiceSlug + "."
 	s := args.ErrorSpanSuppressor
 	if s == nil {

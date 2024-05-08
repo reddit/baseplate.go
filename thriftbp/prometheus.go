@@ -135,9 +135,15 @@ const (
 )
 
 var (
-	payloadSizeLabels = []string{
+	serverPayloadSizeLabels = []string{
 		methodLabel,
 		protoLabel,
+	}
+
+	clientPayloadSizeLabels = []string{
+		methodLabel,
+		clientNameLabel,
+		successLabel,
 	}
 
 	// 8 bytes to 4 mebibytes
@@ -146,21 +152,29 @@ var (
 	// (up to ~500 KiB).
 	payloadSizeBuckets = prometheus.ExponentialBuckets(8, 2, 20)
 
-	payloadSizeRequestBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemServer,
-		Name:      "request_payload_size_bytes",
-		Help:      "The size of thrift request payloads",
-		Buckets:   payloadSizeBuckets,
-	}, payloadSizeLabels)
+	serverPayloadSizeRequestBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "thriftbp_server_request_payload_size_bytes",
+		Help:    "The (approximate) size of thrift request payloads",
+		Buckets: payloadSizeBuckets,
+	}, serverPayloadSizeLabels)
 
-	payloadSizeResponseBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemServer,
-		Name:      "response_payload_size_bytes",
-		Help:      "The size of thrift response payloads",
-		Buckets:   payloadSizeBuckets,
-	}, payloadSizeLabels)
+	serverPayloadSizeResponseBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "thriftbp_server_response_payload_size_bytes",
+		Help:    "The (approximate) size of thrift response payloads",
+		Buckets: payloadSizeBuckets,
+	}, serverPayloadSizeLabels)
+
+	clientPayloadSizeRequestBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "thriftbp_client_request_payload_size_bytes",
+		Help:    "The size of thrift request payloads",
+		Buckets: payloadSizeBuckets,
+	}, clientPayloadSizeLabels)
+
+	clientPayloadSizeResponseBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "thriftbp_client_response_payload_size_bytes",
+		Help:    "The size of thrift response payloads",
+		Buckets: payloadSizeBuckets,
+	}, clientPayloadSizeLabels)
 )
 
 var (

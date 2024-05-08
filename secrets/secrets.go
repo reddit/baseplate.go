@@ -49,6 +49,22 @@ func (s *Secrets) GetSimpleSecret(path string) (SimpleSecret, error) {
 	}
 	secret, ok := s.simpleSecrets[path]
 	if !ok {
+		_, ok := s.versionedSecrets[path]
+		if ok {
+			return secret, SecretWrongTypeError{
+				Path:         path,
+				DeclaredType: SimpleType,
+				CorrectType:  VersionedType,
+			}
+		}
+		_, ok = s.credentialSecrets[path]
+		if ok {
+			return secret, SecretWrongTypeError{
+				Path:         path,
+				DeclaredType: SimpleType,
+				CorrectType:  CredentialType,
+			}
+		}
 		return secret, SecretNotFoundError(path)
 	}
 
@@ -62,6 +78,22 @@ func (s *Secrets) GetVersionedSecret(path string) (VersionedSecret, error) {
 	}
 	secret, ok := s.versionedSecrets[path]
 	if !ok {
+		_, ok := s.simpleSecrets[path]
+		if ok {
+			return secret, SecretWrongTypeError{
+				Path:         path,
+				DeclaredType: VersionedType,
+				CorrectType:  SimpleType,
+			}
+		}
+		_, ok = s.credentialSecrets[path]
+		if ok {
+			return secret, SecretWrongTypeError{
+				Path:         path,
+				DeclaredType: VersionedType,
+				CorrectType:  CredentialType,
+			}
+		}
 		return secret, SecretNotFoundError(path)
 	}
 
@@ -76,6 +108,22 @@ func (s *Secrets) GetCredentialSecret(path string) (CredentialSecret, error) {
 	}
 	secret, ok := s.credentialSecrets[path]
 	if !ok {
+		_, ok := s.simpleSecrets[path]
+		if ok {
+			return secret, SecretWrongTypeError{
+				Path:         path,
+				DeclaredType: CredentialType,
+				CorrectType:  SimpleType,
+			}
+		}
+		_, ok = s.versionedSecrets[path]
+		if ok {
+			return secret, SecretWrongTypeError{
+				Path:         path,
+				DeclaredType: CredentialType,
+				CorrectType:  VersionedType,
+			}
+		}
 		return secret, SecretNotFoundError(path)
 	}
 

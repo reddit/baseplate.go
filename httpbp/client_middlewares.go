@@ -2,7 +2,9 @@ package httpbp
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"sync"
@@ -14,6 +16,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
@@ -198,16 +202,36 @@ func CircuitBreaker(config breakerbp.Config) ClientMiddleware {
 // Retries provides a retry middleware by ensuring certain HTTP responses are
 // wrapped in errors. Retries wraps the ClientErrorWrapper middleware, e.g. if
 // you are using Retries there is no need to also use ClientErrorWrapper.
-func Retries(limit int, retryOptions ...retry.Option) ClientMiddleware {
+func Retries(maxErrorReadAhead int, retryOptions ...retry.Option) ClientMiddleware {
 	if len(retryOptions) == 0 {
 		retryOptions = []retry.Option{retry.Attempts(1)}
 	}
 	return func(next http.RoundTripper) http.RoundTripper {
+		// include ClientErrorWrapper to ensure retry is applied for some HTTP 5xx
+		// responses
+		next = ClientErrorWrapper(maxErrorReadAhead)(next)
+
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
+			if req.Body != nil && req.Body != http.NoBody && req.GetBody == nil {
+				slog.WarnContext(
+					req.Context(),
+					"Request comes with a Body but nil GetBody cannot be retried. httpbp.Retries middleware skipped.",
+					"req", req,
+				)
+				return next.RoundTrip(req)
+			}
+
 			err = retrybp.Do(req.Context(), func() error {
-				// include ClientErrorWrapper to ensure retry is applied for
-				// some HTTP 5xx responses
-				resp, err = ClientErrorWrapper(limit)(next).RoundTrip(req)
+				req = req.Clone(req.Context())
+				if req.GetBody != nil {
+					body, err := req.GetBody()
+					if err != nil {
+						return fmt.Errorf("httpbp.Retries: GetBody returned error: %w", err)
+					}
+					req.Body = body
+				}
+
+				resp, err = next.RoundTrip(req)
 				if err != nil {
 					return err
 				}
@@ -243,6 +267,9 @@ func MaxConcurrency(maxConcurrency int64) ClientMiddleware {
 // MonitorClient is an HTTP client middleware that wraps HTTP requests in a
 // client span.
 func MonitorClient(slug string) ClientMiddleware {
+	if mw := internalv2compat.V2TracingHTTPClientMiddleware(); mw != nil {
+		return mw
+	}
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
 			span, ctx := opentracing.StartSpanFromContext(

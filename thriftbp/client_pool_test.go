@@ -5,14 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
 
+	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
+	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/thriftbp"
+	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
 )
 
 const (
@@ -190,6 +194,49 @@ func TestBehaviorWithNetworkIssues(t *testing.T) {
 	}
 }
 
+type thriftHostnameHandler struct {
+	server baseplate.Server
+}
+
+func (thriftHostnameHandler) IsHealthy(ctx context.Context, _ *baseplatethrift.IsHealthyRequest) (r bool, err error) {
+	value, ok := thrift.GetHeader(ctx, thriftbp.ThriftHostnameHeader)
+	if !ok {
+		return false, errors.New("did not find the thrift header")
+	}
+	if value != "my-thrift-header" {
+		return false, errors.New("unexpected value for the thrift header")
+	}
+	return true, nil
+}
+
+func TestThriftHostnameHeader(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store := newSecretsStore(t)
+	defer store.Close()
+
+	handler := thriftHostnameHandler{}
+	server, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
+		Processor:   baseplatethrift.NewBaseplateServiceV2Processor(&handler),
+		SecretStore: store,
+		ClientConfig: thriftbp.ClientPoolConfig{
+			ThriftHostnameHeader: "my-thrift-header",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler.server = server
+	server.Start(ctx)
+
+	client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool.TClient())
+	_, err = client.IsHealthy(ctx, &baseplatethrift.IsHealthyRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestInitialConnectionsFallback(t *testing.T) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -255,5 +302,60 @@ func TestInitialConnectionsFallback(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestUDS(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "socket")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	store := newSecretsStore(t)
+	t.Cleanup(func() {
+		store.Close()
+	})
+
+	handler := thriftHostnameHandler{}
+	server, err := thriftbp.NewServer(thriftbp.ServerConfig{
+		Processor: baseplatethrift.NewBaseplateServiceV2Processor(&handler),
+		Socket: thrift.NewTServerSocketFromAddrTimeout(&net.UnixAddr{
+			Net:  "unix",
+			Name: path,
+		}, 0),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Store: store,
+	})
+
+	handler.server = thriftbp.ApplyBaseplate(bp, server)
+	go server.Serve()
+	// give the server a little time to start serving
+	time.Sleep(10 * time.Millisecond)
+	t.Cleanup(func() {
+		server.Stop()
+	})
+
+	pool, err := thriftbp.NewBaseplateClientPool(thriftbp.ClientPoolConfig{
+		ServiceSlug:          "test",
+		Addr:                 "unix://" + path,
+		MaxConnections:       10,
+		ThriftHostnameHeader: "my-thrift-header",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create client pool: %v", err)
+	}
+	t.Cleanup(func() {
+		pool.Close()
+	})
+	client := baseplatethrift.NewBaseplateServiceV2Client(pool.TClient())
+	_, err = client.IsHealthy(ctx, &baseplatethrift.IsHealthyRequest{})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

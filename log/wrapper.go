@@ -90,6 +90,8 @@ func (w Wrapper) Log(ctx context.Context, msg string) {
 }
 
 // ToThriftLogger wraps Wrapper into thrift.Logger.
+//
+// Deprecated: thrift.Logger is deprecated.
 func (w Wrapper) ToThriftLogger() thrift.Logger {
 	if w == nil {
 		w = DefaultWrapper
@@ -180,6 +182,8 @@ func (w *Wrapper) UnmarshalText(text []byte) error {
 var _ encoding.TextUnmarshaler = (*Wrapper)(nil)
 
 // WrapToThriftLogger wraps a Wrapper into thrift.Logger.
+//
+// Deprecated: thrift.Logger is deprecated.
 func WrapToThriftLogger(w Wrapper) thrift.Logger {
 	return w.ToThriftLogger()
 }
