@@ -19,7 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/reddit/baseplate.go/filewatcher"
+	"github.com/reddit/baseplate.go/filewatcher/v2"
 	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/timebp"
@@ -66,7 +66,7 @@ func (e MissingBucketKeyError) Error() string {
 // the experiment configuration fetcher daemon.  It will automatically reload
 // the cache when changed.
 type Experiments struct {
-	watcher     filewatcher.FileWatcher
+	watcher     filewatcher.FileWatcher[document]
 	eventLogger EventLogger
 }
 
@@ -76,7 +76,7 @@ type Experiments struct {
 // Context should come with a timeout otherwise this might block forever, i.e.
 // if the path never becomes available.
 func NewExperiments(ctx context.Context, path string, eventLogger EventLogger, logger log.Wrapper) (*Experiments, error) {
-	parser := func(r io.Reader) (interface{}, error) {
+	parser := func(r io.Reader) (document, error) {
 		var doc document
 		err := json.NewDecoder(r).Decode(&doc)
 		if err != nil {
@@ -86,11 +86,8 @@ func NewExperiments(ctx context.Context, path string, eventLogger EventLogger, l
 	}
 	result, err := filewatcher.New(
 		ctx,
-		filewatcher.Config{
-			Path:   path,
-			Parser: parser,
-			Logger: logger,
-		},
+		path,
+		parser,
 	)
 	if err != nil {
 		return nil, err
@@ -128,7 +125,7 @@ func (e *Experiments) Variant(name string, args map[string]interface{}, bucketin
 func (e *Experiments) Expose(ctx context.Context, experimentName string, event ExperimentEvent) error {
 	exposeTotalRequests.Inc()
 
-	doc := e.watcher.Get().(document)
+	doc := e.watcher.Get()
 	experiment, ok := doc[experimentName]
 	if !ok {
 		return UnknownExperimentError(experimentName)
@@ -141,7 +138,7 @@ func (e *Experiments) Expose(ctx context.Context, experimentName string, event E
 }
 
 func (e *Experiments) experiment(name string) (*SimpleExperiment, error) {
-	doc := e.watcher.Get().(document)
+	doc := e.watcher.Get()
 	experiment, ok := doc[name]
 	if !ok {
 		return nil, UnknownExperimentError(name)
