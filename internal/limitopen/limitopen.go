@@ -1,10 +1,10 @@
 package limitopen
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -12,7 +12,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/reddit/baseplate.go/internal/prometheusbpint"
-	"github.com/reddit/baseplate.go/log"
 )
 
 const (
@@ -91,7 +90,7 @@ type readCloser struct {
 // It always reports the size of the path as a prometheus gauge of
 // "limitopen_file_size_bytes".
 // When softLimit > 0 and the size of the path as reported by the os is larger,
-// it will also use log.DefaultWrapper to report it and increase prometheus
+// it will also use slog at error level to report it and increase prometheus
 // counter of limitopen_softlimit_violation_total.
 // When hardLimit > 0 and the size of the path as reported by the os is larger,
 // it will close the file and return an error directly.
@@ -108,13 +107,12 @@ func OpenWithLimit(path string, softLimit, hardLimit int64) (io.ReadCloser, erro
 	sizeGauge.With(labels).Set(float64(size))
 
 	if softLimit > 0 && size > softLimit {
-		msg := fmt.Sprintf(
-			"limitopen.OpenWithLimit: file size > soft limit, path=%q size=%d limit=%d",
-			path,
-			size,
-			softLimit,
+		slog.Error(
+			"limitopen.OpenWithLimit: file size > soft limit",
+			"path", path,
+			"size", size,
+			"limit", softLimit,
 		)
-		log.DefaultWrapper.Log(context.Background(), msg)
 		softLimitCounter.With(labels).Inc()
 	}
 
