@@ -7,22 +7,63 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/reddit/baseplate.go/filewatcher"
+	"github.com/reddit/baseplate.go/filewatcher/v2"
 )
 
 const fsEventsDelayForTests = 10 * time.Millisecond
 
-func parser(f io.Reader) (interface{}, error) {
+func parser(f io.Reader) ([]byte, error) {
 	return io.ReadAll(f)
+}
+
+// Fails the test when called with level >= error
+type failSlogHandler struct {
+	slog.Handler
+
+	tb testing.TB
+}
+
+func (fsh failSlogHandler) Handle(ctx context.Context, r slog.Record) error {
+	if r.Level >= slog.LevelError {
+		fsh.tb.Errorf("slog called at %v level with: %q", r.Level, r.Message)
+	} else {
+		fsh.tb.Logf("slog called at %v level with: %q", r.Level, r.Message)
+	}
+	return nil
+}
+
+// Counts the number of calls
+type countingSlogHandler struct {
+	slog.Handler
+
+	tb    testing.TB
+	count atomic.Int64
+}
+
+func (csh *countingSlogHandler) Handle(ctx context.Context, r slog.Record) error {
+	csh.count.Add(1)
+	if csh.tb != nil {
+		csh.tb.Logf("slog called at %v level with: %q", r.Level, r.Message)
+		return nil
+	}
+	return csh.Handler.Handle(ctx, r)
+}
+
+func swapSlog(tb testing.TB, logger *slog.Logger) {
+	backupLogger := slog.Default()
+	tb.Cleanup(func() {
+		slog.SetDefault(backupLogger)
+	})
+	slog.SetDefault(logger)
 }
 
 // writeFile does atomic write/overwrite (write to a tmp file, then use rename
@@ -45,20 +86,11 @@ func writeFile(tb testing.TB, path string, content []byte) {
 	}
 }
 
-func compareBytesData(t *testing.T, data interface{}, expected []byte) {
+func compareBytesData(t *testing.T, data []byte, expected []byte) {
 	t.Helper()
 
-	if data == nil {
-		t.Error("data is nil")
-		return
-	}
-	b, ok := (data).([]byte)
-	if !ok {
-		t.Errorf("data is not of type *[]byte, actual value: %#v", data)
-		return
-	}
-	if string(b) != string(expected) {
-		t.Errorf("*data expected to be %q, got %q", expected, b)
+	if string(data) != string(expected) {
+		t.Errorf("*data expected to be %q, got %q", expected, data)
 	}
 }
 
@@ -77,12 +109,12 @@ func TestFileWatcher(t *testing.T) {
 		},
 	} {
 		t.Run(c.label, func(t *testing.T) {
+			swapSlog(t, slog.New(failSlogHandler{
+				tb:      t,
+				Handler: slog.Default().Handler(),
+			}))
+
 			interval := fsEventsDelayForTests
-			backupInitialReadInterval := filewatcher.InitialReadInterval
-			t.Cleanup(func() {
-				filewatcher.InitialReadInterval = backupInitialReadInterval
-			})
-			filewatcher.InitialReadInterval = interval
 			writeDelay := interval * 10
 			timeout := writeDelay * 20
 
@@ -103,17 +135,18 @@ func TestFileWatcher(t *testing.T) {
 			t.Cleanup(cancel)
 			data, err := filewatcher.New(
 				ctx,
-				filewatcher.Config{
-					Path:            path,
-					Parser:          parser,
-					PollingInterval: c.interval,
-					FSEventsDelay:   fsEventsDelayForTests,
-				},
+				path,
+				parser,
+				filewatcher.WithPollingInterval(c.interval),
+				filewatcher.WithFSEventsDelay(fsEventsDelayForTests),
+				filewatcher.WithInitialReadInterval(interval),
 			)
 			if err != nil {
 				t.Fatal(err)
 			}
-			t.Cleanup(data.Stop)
+			t.Cleanup(func() {
+				data.Close()
+			})
 			compareBytesData(t, data.Get(), payload1)
 
 			writeFile(t, path, payload2)
@@ -130,12 +163,12 @@ func TestFileWatcher(t *testing.T) {
 }
 
 func TestFileWatcherTimeout(t *testing.T) {
+	swapSlog(t, slog.New(failSlogHandler{
+		tb:      t,
+		Handler: slog.Default().Handler(),
+	}))
+
 	interval := fsEventsDelayForTests
-	backupInitialReadInterval := filewatcher.InitialReadInterval
-	t.Cleanup(func() {
-		filewatcher.InitialReadInterval = backupInitialReadInterval
-	})
-	filewatcher.InitialReadInterval = interval
 	round := interval * 20
 	timeout := round * 4
 
@@ -145,16 +178,18 @@ func TestFileWatcherTimeout(t *testing.T) {
 	before := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	t.Cleanup(cancel)
-	_, err := filewatcher.New(
+	data, err := filewatcher.New(
 		ctx,
-		filewatcher.Config{
-			Path:          path,
-			Parser:        parser,
-			FSEventsDelay: fsEventsDelayForTests,
-		},
+		path,
+		parser,
+		filewatcher.WithFSEventsDelay(fsEventsDelayForTests),
+		filewatcher.WithInitialReadInterval(interval),
 	)
 	if err == nil {
 		t.Error("Expected context cancellation error, got nil.")
+		t.Cleanup(func() {
+			data.Close()
+		})
 	}
 	duration := time.Since(before)
 	if duration.Round(round) > timeout.Round(round) {
@@ -165,12 +200,12 @@ func TestFileWatcherTimeout(t *testing.T) {
 }
 
 func TestFileWatcherRename(t *testing.T) {
+	swapSlog(t, slog.New(failSlogHandler{
+		tb:      t,
+		Handler: slog.Default().Handler(),
+	}))
+
 	interval := fsEventsDelayForTests
-	backupInitialReadInterval := filewatcher.InitialReadInterval
-	t.Cleanup(func() {
-		filewatcher.InitialReadInterval = backupInitialReadInterval
-	})
-	filewatcher.InitialReadInterval = interval
 	writeDelay := interval * 10
 	timeout := writeDelay * 20
 
@@ -190,17 +225,18 @@ func TestFileWatcherRename(t *testing.T) {
 	t.Cleanup(cancel)
 	data, err := filewatcher.New(
 		ctx,
-		filewatcher.Config{
-			Path:            path,
-			Parser:          parser,
-			PollingInterval: writeDelay,
-			FSEventsDelay:   fsEventsDelayForTests,
-		},
+		path,
+		parser,
+		filewatcher.WithPollingInterval(writeDelay),
+		filewatcher.WithFSEventsDelay(fsEventsDelayForTests),
+		filewatcher.WithInitialReadInterval(interval),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(data.Stop)
+	t.Cleanup(func() {
+		data.Close()
+	})
 	compareBytesData(t, data.Get(), payload1)
 
 	func() {
@@ -216,13 +252,19 @@ func TestFileWatcherRename(t *testing.T) {
 }
 
 func TestParserFailure(t *testing.T) {
+	counter := countingSlogHandler{
+		Handler: slog.Default().Handler(),
+		tb:      t,
+	}
+	swapSlog(t, slog.New(&counter))
+
 	errParser := errors.New("parser failed")
 	var n atomic.Int64
-	parser := func(_ io.Reader) (interface{}, error) {
+	parser := func(io.Reader) (int64, error) {
 		// This parser implementation fails every other call
 		value := n.Add(1)
 		if value%2 == 0 {
-			return nil, errParser
+			return 0, errParser
 		}
 		return value, nil
 	}
@@ -235,21 +277,20 @@ func TestParserFailure(t *testing.T) {
 	// Initial call to parser should return 1, nil
 	data, err := filewatcher.New(
 		context.Background(),
-		filewatcher.Config{
-			Path:            path,
-			Parser:          parser,
-			PollingInterval: -1, // disable polling as we need exact numbers of parser calls in this test
-			FSEventsDelay:   fsEventsDelayForTests,
-		},
+		path,
+		parser,
+		filewatcher.WithPollingInterval(-1), // disable polling as we need exact numbers of parser calls in this test
+		filewatcher.WithFSEventsDelay(fsEventsDelayForTests),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(data.Stop)
+	t.Cleanup(func() {
+		data.Close()
+	})
 	expected := int64(1)
-	value := data.Get().(int64)
-	if value != expected {
-		t.Errorf("data.Get().(int64) expected %d, got %d", expected, value)
+	if value := data.Get(); value != expected {
+		t.Errorf("data.Get() expected %d, got %d", expected, value)
 	}
 
 	// Next call to parser should return nil, err
@@ -260,9 +301,11 @@ func TestParserFailure(t *testing.T) {
 	}
 	// Give it some time to handle the file content change
 	time.Sleep(500 * time.Millisecond)
-	value = data.Get().(int64)
-	if value != expected {
-		t.Errorf("data.Get().(int64) expected %d, got %d", expected, value)
+	if counter.count.Load() == 0 {
+		t.Error("Expected logger being called")
+	}
+	if value := data.Get(); value != expected {
+		t.Errorf("data.Get() expected %d, got %d", expected, value)
 	}
 
 	// Next call to parser should return 3, nil
@@ -272,10 +315,8 @@ func TestParserFailure(t *testing.T) {
 	}
 	// Give it some time to handle the file content change
 	time.Sleep(500 * time.Millisecond)
-	expected = 3
-	value = data.Get().(int64)
-	if value != expected {
-		t.Errorf("data.Get().(int64) expected %d, got %d", expected, value)
+	if got, want := data.Get(), int64(3); got != want {
+		t.Errorf("data.Get() got %d, want %d", got, want)
 	}
 }
 
@@ -307,18 +348,23 @@ func updateDirWithContents(tb testing.TB, dst string, contents map[string]string
 }
 
 func TestFileWatcherDir(t *testing.T) {
+	swapSlog(t, slog.New(failSlogHandler{
+		tb:      t,
+		Handler: slog.Default().Handler(),
+	}))
+
 	root := t.TempDir()
 	dir := filepath.Join(root, "dir")
 	if err := os.Mkdir(dir, 0777); err != nil {
 		t.Fatalf("Failed to create directory %q: %v", dir, err)
 	}
 	var parserCalled atomic.Int64
-	parser := filewatcher.DirParser(func(dir fs.FS) (any, error) {
+	parser := filewatcher.WrapDirParser(func(dir fs.FS) (map[string]string, error) {
 		parserCalled.Add(1)
 		m := make(map[string]string)
 		if err := fs.WalkDir(dir, ".", func(path string, de fs.DirEntry, err error) error {
 			if err != nil {
-				return nil
+				return nil // skip to the next file
 			}
 			if de.IsDir() {
 				return nil
@@ -347,20 +393,19 @@ func TestFileWatcherDir(t *testing.T) {
 	updateDirWithContents(t, dir, content1)
 	data, err := filewatcher.New(
 		context.Background(),
-		filewatcher.Config{
-			Path:            dir,
-			Parser:          filewatcher.WrapDirParser(parser),
-			PollingInterval: -1, // disable polling
-			FSEventsDelay:   fsEventsDelayForTests,
-		},
+		dir,
+		parser,
+		filewatcher.WithPollingInterval(-1), // disable polling
+		filewatcher.WithFSEventsDelay(fsEventsDelayForTests),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create filewatcher: %v", err)
 	}
-	t.Cleanup(data.Stop)
+	t.Cleanup(func() {
+		data.Close()
+	})
 
-	got := data.Get().(map[string]string)
-	if diff := cmp.Diff(got, content1); diff != "" {
+	if diff := cmp.Diff(data.Get(), content1); diff != "" {
 		t.Errorf("unexpected result (-got, +want):\n%s", diff)
 	}
 	if got, want := parserCalled.Load(), int64(1); got != want {
@@ -373,8 +418,7 @@ func TestFileWatcherDir(t *testing.T) {
 	}
 	updateDirWithContents(t, dir, content2)
 	time.Sleep(fsEventsDelayForTests * 5)
-	got = data.Get().(map[string]string)
-	if diff := cmp.Diff(got, content2); diff != "" {
+	if diff := cmp.Diff(data.Get(), content2); diff != "" {
 		t.Errorf("unexpected result (-got, +want):\n%s", diff)
 	}
 	if got, want := parserCalled.Load(), int64(2); got != want {
@@ -387,8 +431,7 @@ func TestFileWatcherDir(t *testing.T) {
 	}
 	updateDirWithContents(t, dir, content3)
 	time.Sleep(fsEventsDelayForTests * 5)
-	got = data.Get().(map[string]string)
-	if diff := cmp.Diff(got, content3); diff != "" {
+	if diff := cmp.Diff(data.Get(), content3); diff != "" {
 		t.Errorf("unexpected result (-got, +want):\n%s", diff)
 	}
 	if got, want := parserCalled.Load(), int64(3); got != want {
@@ -396,8 +439,8 @@ func TestFileWatcherDir(t *testing.T) {
 	}
 }
 
-func limitedParser(t *testing.T, expectedSize int64) filewatcher.Parser {
-	return func(f io.Reader) (interface{}, error) {
+func limitedParser(t *testing.T, expectedSize int64) filewatcher.Parser[[]byte] {
+	return func(f io.Reader) ([]byte, error) {
 		var buf bytes.Buffer
 		size, err := io.Copy(&buf, f)
 		if err != nil {
@@ -417,12 +460,13 @@ func limitedParser(t *testing.T, expectedSize int64) filewatcher.Parser {
 }
 
 func TestParserSizeLimit(t *testing.T) {
+	counter := countingSlogHandler{
+		Handler: slog.Default().Handler(),
+		tb:      t,
+	}
+	swapSlog(t, slog.New(&counter))
+
 	interval := fsEventsDelayForTests
-	backupInitialReadInterval := filewatcher.InitialReadInterval
-	t.Cleanup(func() {
-		filewatcher.InitialReadInterval = backupInitialReadInterval
-	})
-	filewatcher.InitialReadInterval = interval
 	writeDelay := interval * 10
 	timeout := writeDelay * 20
 
@@ -449,18 +493,19 @@ func TestParserSizeLimit(t *testing.T) {
 	t.Cleanup(cancel)
 	data, err := filewatcher.New(
 		ctx,
-		filewatcher.Config{
-			Path:            path,
-			Parser:          limitedParser(t, size),
-			MaxFileSize:     limit,
-			PollingInterval: writeDelay,
-			FSEventsDelay:   fsEventsDelayForTests,
-		},
+		path,
+		limitedParser(t, size),
+		filewatcher.WithFileSizeLimit(limit),
+		filewatcher.WithPollingInterval(writeDelay),
+		filewatcher.WithFSEventsDelay(fsEventsDelayForTests),
+		filewatcher.WithInitialReadInterval(interval),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(data.Stop)
+	t.Cleanup(func() {
+		data.Close()
+	})
 	compareBytesData(t, data.Get(), expectedPayload)
 
 	writeFile(t, path, payload2)
@@ -469,99 +514,11 @@ func TestParserSizeLimit(t *testing.T) {
 	// We expect the second parse would fail because of the data is beyond the
 	// hard limit, so the data should still be expectedPayload
 	compareBytesData(t, data.Get(), expectedPayload)
-}
-
-func TestMockFileWatcher(t *testing.T) {
-	t.Parallel()
-
-	const (
-		foo = "foo"
-		bar = "bar"
-	)
-
-	r := strings.NewReader(foo)
-	fw, err := filewatcher.NewMockFilewatcher(r, func(r io.Reader) (interface{}, error) {
-		var buf bytes.Buffer
-		_, err := io.Copy(&buf, r)
-		if err != nil {
-			return "", err
-		}
-		return buf.String(), nil
-	})
-	if err != nil {
-		t.Fatal(err)
+	// Since we expect the second parse would fail, we also expect the logger to
+	// be called at least once.
+	// The logger could be called twice because of reload triggered by polling.
+	const expectedCalledMin = 1
+	if called := counter.count.Load(); called < expectedCalledMin {
+		t.Errorf("Expected log.Wrapper to be called at least %d times, actual %d", expectedCalledMin, called)
 	}
-
-	t.Run(
-		"get",
-		func(t *testing.T) {
-			data, ok := fw.Get().(string)
-			if !ok {
-				t.Fatalf("%#v is not a string", data)
-			}
-
-			if strings.Compare(data, foo) != 0 {
-				t.Fatalf("%q does not match %q", data, foo)
-			}
-		},
-	)
-
-	t.Run(
-		"update",
-		func(t *testing.T) {
-			if err := fw.Update(strings.NewReader(bar)); err != nil {
-				t.Fatal(err)
-			}
-
-			data, ok := fw.Get().(string)
-			if !ok {
-				t.Fatalf("%#v is not a string", data)
-			}
-
-			if strings.Compare(data, bar) != 0 {
-				t.Fatalf("%q does not match %q", data, foo)
-			}
-		},
-	)
-
-	t.Run(
-		"errors",
-		func(t *testing.T) {
-			t.Run(
-				"NewMockFilewatcher",
-				func(t *testing.T) {
-					if _, err := filewatcher.NewMockFilewatcher(r, func(r io.Reader) (interface{}, error) {
-						return "", errors.New("test")
-					}); err == nil {
-						t.Fatal("expected an error, got nil")
-					}
-				},
-			)
-
-			t.Run(
-				"update",
-				func(t *testing.T) {
-					fw, err := filewatcher.NewMockFilewatcher(r, func(r io.Reader) (interface{}, error) {
-						var buf bytes.Buffer
-						_, err := io.Copy(&buf, r)
-						if err != nil {
-							return "", err
-						}
-						data := buf.String()
-						if strings.Compare(data, bar) == 0 {
-							return "", errors.New("test")
-						}
-						return data, nil
-					})
-					if err != nil {
-						t.Fatal(err)
-					}
-
-					if err := fw.Update(strings.NewReader(bar)); err == nil {
-						t.Fatal("expected an error, got nil")
-					}
-				},
-			)
-		},
-	)
 }
