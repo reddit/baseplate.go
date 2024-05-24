@@ -283,4 +283,10 @@ func testPool(t *testing.T, pool clientpool.Pool, openerCalled *atomic.Int32, mi
 			t.Logf("opener called %d times", openerCalled.Load())
 		},
 	)
+
+	t.Run("get-after-close", func(t *testing.T) {
+		if _, err := pool.Get(); err == nil {
+			t.Error("Want pool.Get to return an error, got nil")
+		}
+	})
 }

@@ -2,6 +2,7 @@ package clientpool
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"time"
 
@@ -97,7 +98,10 @@ func (cp *channelPool) Get() (client Client, err error) {
 	}()
 
 	select {
-	case c := <-cp.pool:
+	case c, ok := <-cp.pool:
+		if !ok {
+			return nil, errors.New("clientpool: Get called after Close")
+		}
 		if c.IsOpen() {
 			return c, nil
 		}
