@@ -2,7 +2,7 @@ package tracing_test
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -19,7 +19,7 @@ type CallContainer struct {
 func (c *CallContainer) AddCall(call string, fail bool) error {
 	c.Calls = append(c.Calls, call)
 	if fail {
-		return fmt.Errorf(call)
+		return errors.New(call)
 	}
 	return nil
 }

@@ -50,7 +50,6 @@ var expectedMetrics = []string{
 	"go_godebug_non_default_behavior_http2client_events_total",
 	"go_godebug_non_default_behavior_http2server_events_total",
 	"go_godebug_non_default_behavior_installgoroot_events_total",
-	"go_godebug_non_default_behavior_jstmpllitinterp_events_total",
 	"go_godebug_non_default_behavior_multipartmaxheaders_events_total",
 	"go_godebug_non_default_behavior_multipartmaxparts_events_total",
 	"go_godebug_non_default_behavior_multipathtcp_events_total",

@@ -13,8 +13,8 @@ jobs:
     strategy:
       matrix:
         go-version:
-          - "1.21"
           - "1.22"
+          - "1.23"
 
     container:
       image: golang:${{ matrix.go-version }}
