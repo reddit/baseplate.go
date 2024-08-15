@@ -10,6 +10,7 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/reddit/baseplate.go/log"
+	"gopkg.in/yaml.v2"
 )
 
 func TestLogWrapperNilSafe(t *testing.T) {
@@ -101,6 +102,33 @@ func TestLogWrapperUnmarshalText(t *testing.T) {
 		})
 	}
 }
+
+func TestWrapperMarshalYAML(t *testing.T) {
+	type foo struct {
+		Log log.Wrapper `yaml:"log,omitempty"`
+	}
+	t.Run("nil", func(t *testing.T) {
+		bar := foo{Log: nil}
+		var sb strings.Builder
+		if err := yaml.NewEncoder(&sb).Encode(bar); err != nil {
+			t.Fatal(err)
+		}
+		if got, want := strings.TrimSpace(sb.String()), `log: null`; got != want {
+			t.Errorf("yaml got %q want %q", got, want)
+		}
+	})
+	t.Run("non-nil", func(t *testing.T) {
+		bar := foo{Log: log.NopWrapper}
+		var sb strings.Builder
+		if err := yaml.NewEncoder(&sb).Encode(bar); err == nil {
+			t.Errorf("Expected marshal error, got yaml %q", sb.String())
+		}
+	})
+}
+
+var (
+	_ yaml.Marshaler = (log.Wrapper)(nil)
+)
 
 var (
 	_ log.Counter = (prometheus.Counter)(nil)

@@ -179,6 +179,18 @@ func (w *Wrapper) UnmarshalText(text []byte) error {
 	return nil
 }
 
+// MarshalYAML implements yaml.Marshaler (both v2 and v3).
+//
+// It only support nil values, as it's almost impossible to detect which non-nil
+// value it really is to marshal to some meaningful value that can be
+// unmarshaled.
+func (w Wrapper) MarshalYAML() (any, error) {
+	if w == nil {
+		return nil, nil
+	}
+	return nil, errors.New("log.Wrapper.MarshalYAML only supports nil value")
+}
+
 var _ encoding.TextUnmarshaler = (*Wrapper)(nil)
 
 // WrapToThriftLogger wraps a Wrapper into thrift.Logger.

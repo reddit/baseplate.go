@@ -95,7 +95,7 @@ type ClientPoolConfig struct {
 	InitialConnectionsFallback bool `yaml:"initialConnectionsFallback"`
 	// Deprecated: Individual connection errors during initialization is always
 	// logged via zap logger on warning level.
-	InitialConnectionsFallbackLogger log.Wrapper `yaml:"initialConnectionsFallbackLogger"`
+	InitialConnectionsFallbackLogger log.Wrapper `yaml:"initialConnectionsFallbackLogger,omitempty"`
 
 	// MaxConnections is the maximum number of thrift connections the client
 	// pool can maintain.
@@ -171,7 +171,7 @@ type ClientPoolConfig struct {
 	// retry.Attempts(1).  This sets up the retry middleware but does not
 	// automatically retry any requests.  You can set retry behavior per-call by
 	// using retrybp.WithOptions.
-	DefaultRetryOptions []retry.Option
+	DefaultRetryOptions []retry.Option `yaml:"-"`
 
 	// ReportPoolStats signals to the ClientPool that it should report
 	// statistics on the underlying clientpool.Pool in a background
@@ -206,7 +206,7 @@ type ClientPoolConfig struct {
 	// See MonitorClientArgs.ErrorSpanSuppressor for more details.
 	//
 	// This is optional. If it's not set IDLExceptionSuppressor will be used.
-	ErrorSpanSuppressor errorsbp.Suppressor
+	ErrorSpanSuppressor errorsbp.Suppressor `yaml:"-"`
 
 	// When BreakerConfig is non-nil,
 	// a breakerbp.FailureRatioBreaker will be created for the pool,
@@ -216,7 +216,7 @@ type ClientPoolConfig struct {
 	// The edge context implementation. Optional.
 	//
 	// If it's not set, the global one from ecinterface.Get will be used instead.
-	EdgeContextImpl ecinterface.Interface
+	EdgeContextImpl ecinterface.Interface `yaml:"-"`
 
 	// The name for the server to identify this client,
 	// via the "User-Agent" (HeaderUserAgent) THeader.
