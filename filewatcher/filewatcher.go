@@ -119,7 +119,7 @@ type Config struct {
 	// call, which will be returned directly.
 	//
 	// Deprecated: Errors will be logged via slog at error level instead.
-	Logger log.Wrapper `yaml:"logger"`
+	Logger log.Wrapper `yaml:"logger,omitempty"`
 
 	// Optional. When <=0 DefaultMaxFileSize will be used instead.
 	//
