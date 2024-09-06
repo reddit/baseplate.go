@@ -33,6 +33,24 @@ func getDeploymentType(addr string) string {
 	}
 }
 
+func getTargetCluster(addr string) string {
+	if strings.Contains(addr, "cache.amazonaws") {
+		return ""
+	} else {
+		// redis-<cluster name>.<vpc>.<region>.<postfix>.net:6379
+		tokens := strings.Split(addr, ".")
+		if len(tokens) != 5 {
+			return ""
+		}
+
+		if strings.Contains(tokens[0], "redis-") && len(tokens[0]) > 6 {
+			return tokens[0][6:]
+		}
+
+		return ""
+	}
+}
+
 // NewMonitoredClient creates a new *redis.Client object with a redisbp.SpanHook
 // attached that connects to a single Redis instance.
 func NewMonitoredClient(name string, opt *redis.Options) *redis.Client {
@@ -40,6 +58,7 @@ func NewMonitoredClient(name string, opt *redis.Options) *redis.Client {
 		ClientName: name,
 		Type:       "standalone",
 		Deployment: getDeploymentType(opt.Addr),
+		Cluster:    getTargetCluster(opt.Addr),
 		Database:   strconv.Itoa(opt.DB),
 		promActive: &prometheusbpint.HighWatermarkGauge{
 			HighWatermarkValue:   &prometheusbpint.HighWatermarkValue{},
@@ -79,6 +98,7 @@ func NewMonitoredFailoverClient(name string, opt *redis.FailoverOptions) *redis.
 		ClientName: name,
 		Type:       "sentinel",
 		Deployment: getDeploymentType(opt.SentinelAddrs[0]),
+		Cluster:    getTargetCluster(opt.SentinelAddrs[0]),
 		Database:   strconv.Itoa(opt.DB),
 		promActive: &prometheusbpint.HighWatermarkGauge{
 			HighWatermarkValue:   &prometheusbpint.HighWatermarkValue{},
@@ -154,6 +174,7 @@ func NewMonitoredClusterClient(name string, opt *redis.ClusterOptions) *ClusterC
 		ClientName: name,
 		Type:       "cluster",
 		Deployment: getDeploymentType(opt.Addrs[0]),
+		Cluster:    getTargetCluster(opt.Addrs[0]),
 		Database:   "", // We don't have that for cluster clients
 		promActive: &prometheusbpint.HighWatermarkGauge{
 			HighWatermarkValue:   &prometheusbpint.HighWatermarkValue{},

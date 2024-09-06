@@ -32,6 +32,9 @@ type SpanHook struct {
 	Type       string
 	Deployment string
 	Database   string
+	// The cluster identifier based on the connection address. If we cannot identify
+	// a cluster based on connection address this field will be empty.
+	Cluster string
 
 	promActive *prometheusbpint.HighWatermarkGauge
 }
@@ -94,6 +97,7 @@ func (h SpanHook) startChildSpan(ctx context.Context, cmdName string) context.Co
 		redisprom.CommandLabel:    cmdName,
 		redisprom.DeploymentLabel: h.Deployment,
 		redisprom.DatabaseLabel:   h.Database,
+		redisprom.ClusterLabel:    h.Cluster,
 	}).Inc()
 	return context.WithValue(ctx, promCtxKey, &promCtx{
 		command: cmdName,
@@ -118,6 +122,7 @@ func (h SpanHook) endChildSpan(ctx context.Context, err error) {
 			redisprom.DeploymentLabel: h.Deployment,
 			redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
 			redisprom.DatabaseLabel:   h.Database,
+			redisprom.ClusterLabel:    h.Cluster,
 		}).Observe(durationSeconds)
 	}
 	// Outside of the context casting because we always want this to work.
@@ -128,6 +133,7 @@ func (h SpanHook) endChildSpan(ctx context.Context, err error) {
 		redisprom.DeploymentLabel: h.Deployment,
 		redisprom.SuccessLabel:    prometheusbp.BoolString(err == nil),
 		redisprom.DatabaseLabel:   h.Database,
+		redisprom.ClusterLabel:    h.Cluster,
 	}).Inc()
 	redisprom.ActiveRequests.With(prometheus.Labels{
 		redisprom.ClientNameLabel: h.ClientName,
@@ -135,6 +141,7 @@ func (h SpanHook) endChildSpan(ctx context.Context, err error) {
 		redisprom.CommandLabel:    command,
 		redisprom.DeploymentLabel: h.Deployment,
 		redisprom.DatabaseLabel:   h.Database,
+		redisprom.ClusterLabel:    h.Cluster,
 	}).Dec()
 	if h.promActive != nil {
 		h.promActive.Dec()

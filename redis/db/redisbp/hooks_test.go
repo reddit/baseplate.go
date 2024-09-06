@@ -20,6 +20,7 @@ func TestSpanHook(t *testing.T) {
 		ClientName: "redis",
 		Type:       "type",
 		Deployment: "Deployment",
+		Cluster:    "cluster",
 	}
 	statusCmd := redis.NewStatusCmd(ctx, "ping")
 	stringCmd := redis.NewStringCmd(ctx, "get", "1")
@@ -40,6 +41,7 @@ func TestSpanHook(t *testing.T) {
 				redisprom.DeploymentLabel: "Deployment",
 				redisprom.SuccessLabel:    "true",
 				redisprom.DatabaseLabel:   "",
+				redisprom.ClusterLabel:    "cluster",
 			}
 			defer promtest.NewPrometheusMetricTest(t, "spec latency timer", redisprom.LatencySeconds, labels).CheckSampleCountDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "spec requests total", redisprom.RequestsTotal, labels).CheckDelta(1)
