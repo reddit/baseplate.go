@@ -36,19 +36,19 @@ func getDeploymentType(addr string) string {
 func getTargetCluster(addr string) string {
 	if strings.Contains(addr, "cache.amazonaws") {
 		return ""
-	} else {
-		// redis-<cluster name>.<vpc>.<region>.<postfix>.net:6379
-		tokens := strings.Split(addr, ".")
-		if len(tokens) != 5 {
-			return ""
-		}
+	}
 
-		if strings.Contains(tokens[0], "redis-") && len(tokens[0]) > 6 {
-			return tokens[0][6:]
-		}
-
+	// redis-<cluster name>.<vpc>.<region>.<postfix>.net:6379
+	tokens := strings.Split(addr, ".")
+	if len(tokens) != 5 {
 		return ""
 	}
+
+	if name, found := strings.CutPrefix(tokens[0], "redis-"); found {
+		return name
+	}
+
+	return ""
 }
 
 // NewMonitoredClient creates a new *redis.Client object with a redisbp.SpanHook
