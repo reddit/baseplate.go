@@ -44,8 +44,9 @@ var (
 
 // MonitoredSync wraps Sync methods in client spans.
 type MonitoredSync struct {
-	Sync redisx.Sync
-	Name string
+	Sync    redisx.Sync
+	Name    string
+	Cluster string
 }
 
 func extractCommand(cmd string) string {
@@ -69,6 +70,7 @@ func (s MonitoredSync) Do(ctx context.Context, cmd string, args ...interface{}) 
 		redisprom.DatabaseLabel:   "", // We don't have that info
 		redisprom.TypeLabel:       "", // We don't have that info
 		redisprom.DeploymentLabel: "", // We don't have that info
+		redisprom.ClusterLabel:    s.Cluster,
 	})
 	active.Inc()
 	defer func(start time.Time) {
@@ -87,6 +89,7 @@ func (s MonitoredSync) Do(ctx context.Context, cmd string, args ...interface{}) 
 			redisprom.DatabaseLabel:   "", // We don't have that info
 			redisprom.TypeLabel:       "", // We don't have that info
 			redisprom.DeploymentLabel: "", // We don't have that info
+			redisprom.ClusterLabel:    s.Cluster,
 		}).Observe(durationSeconds)
 		redisprom.RequestsTotal.With(prometheus.Labels{
 			redisprom.ClientNameLabel: s.Name,
@@ -95,6 +98,7 @@ func (s MonitoredSync) Do(ctx context.Context, cmd string, args ...interface{}) 
 			redisprom.DatabaseLabel:   "", // We don't have that info
 			redisprom.TypeLabel:       "", // We don't have that info
 			redisprom.DeploymentLabel: "", // We don't have that info
+			redisprom.ClusterLabel:    s.Cluster,
 		}).Inc()
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
@@ -122,6 +126,7 @@ func (s MonitoredSync) Send(ctx context.Context, r redis.Request) (result interf
 		redisprom.DatabaseLabel:   "", // We don't have that info
 		redisprom.TypeLabel:       "", // We don't have that info
 		redisprom.DeploymentLabel: "", // We don't have that info
+		redisprom.ClusterLabel:    s.Cluster,
 	})
 	active.Inc()
 	defer func(start time.Time) {
@@ -140,6 +145,7 @@ func (s MonitoredSync) Send(ctx context.Context, r redis.Request) (result interf
 			redisprom.DatabaseLabel:   "", // We don't have that info
 			redisprom.TypeLabel:       "", // We don't have that info
 			redisprom.DeploymentLabel: "", // We don't have that info
+			redisprom.ClusterLabel:    s.Cluster,
 		}).Observe(durationSeconds)
 		redisprom.RequestsTotal.With(prometheus.Labels{
 			redisprom.ClientNameLabel: s.Name,
@@ -148,6 +154,7 @@ func (s MonitoredSync) Send(ctx context.Context, r redis.Request) (result interf
 			redisprom.DatabaseLabel:   "", // We don't have that info
 			redisprom.TypeLabel:       "", // We don't have that info
 			redisprom.DeploymentLabel: "", // We don't have that info
+			redisprom.ClusterLabel:    s.Cluster,
 		}).Inc()
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
@@ -172,6 +179,7 @@ func (s MonitoredSync) SendMany(ctx context.Context, reqs []redis.Request) (resu
 		redisprom.DatabaseLabel:   "", // We don't have that info
 		redisprom.TypeLabel:       "", // We don't have that info
 		redisprom.DeploymentLabel: "", // We don't have that info
+		redisprom.ClusterLabel:    s.Cluster,
 	})
 	active.Inc()
 	defer func(start time.Time) {
@@ -209,6 +217,7 @@ func (s MonitoredSync) SendMany(ctx context.Context, reqs []redis.Request) (resu
 			redisprom.DatabaseLabel:   "", // We don't have that info
 			redisprom.TypeLabel:       "", // We don't have that info
 			redisprom.DeploymentLabel: "", // We don't have that info
+			redisprom.ClusterLabel:    s.Cluster,
 		}).Observe(durationSeconds)
 		redisprom.RequestsTotal.With(prometheus.Labels{
 			redisprom.ClientNameLabel: s.Name,
@@ -217,6 +226,7 @@ func (s MonitoredSync) SendMany(ctx context.Context, reqs []redis.Request) (resu
 			redisprom.DatabaseLabel:   "", // We don't have that info
 			redisprom.TypeLabel:       "", // We don't have that info
 			redisprom.DeploymentLabel: "", // We don't have that info
+			redisprom.ClusterLabel:    s.Cluster,
 		}).Inc()
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
@@ -241,6 +251,7 @@ func (s MonitoredSync) SendTransaction(ctx context.Context, reqs []redis.Request
 		redisprom.DatabaseLabel:   "", // We don't have that info
 		redisprom.TypeLabel:       "", // We don't have that info
 		redisprom.DeploymentLabel: "", // We don't have that info
+		redisprom.ClusterLabel:    s.Cluster,
 	})
 	active.Inc()
 	defer func(start time.Time) {
@@ -258,6 +269,7 @@ func (s MonitoredSync) SendTransaction(ctx context.Context, reqs []redis.Request
 			redisprom.DatabaseLabel:   "", // We don't have that info
 			redisprom.TypeLabel:       "", // We don't have that info
 			redisprom.DeploymentLabel: "", // We don't have that info
+			redisprom.ClusterLabel:    s.Cluster,
 		}).Observe(durationSeconds)
 		redisprom.RequestsTotal.With(prometheus.Labels{
 			redisprom.ClientNameLabel: s.Name,
@@ -266,6 +278,7 @@ func (s MonitoredSync) SendTransaction(ctx context.Context, reqs []redis.Request
 			redisprom.DatabaseLabel:   "", // We don't have that info
 			redisprom.TypeLabel:       "", // We don't have that info
 			redisprom.DeploymentLabel: "", // We don't have that info
+			redisprom.ClusterLabel:    s.Cluster,
 		}).Inc()
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
@@ -281,6 +294,7 @@ func (s MonitoredSync) Scanner(ctx context.Context, opts redis.ScanOpts) redisx.
 	return MonitoredScanIterator{
 		ScanIterator: s.Sync.Scanner(ctx, opts),
 		name:         s.Name,
+		cluster:      s.Cluster,
 		ctx:          ctx,
 	}
 }
@@ -289,8 +303,9 @@ func (s MonitoredSync) Scanner(ctx context.Context, opts redis.ScanOpts) redisx.
 type MonitoredScanIterator struct {
 	redisx.ScanIterator
 
-	name string
-	ctx  context.Context
+	name    string
+	cluster string
+	ctx     context.Context
 }
 
 // Next wraps s.ScanIterator.Next in a client span.
@@ -307,6 +322,7 @@ func (s MonitoredScanIterator) Next() (results []string, err error) {
 		redisprom.DatabaseLabel:   "", // We don't have that info
 		redisprom.TypeLabel:       "", // We don't have that info
 		redisprom.DeploymentLabel: "", // We don't have that info
+		redisprom.ClusterLabel:    s.cluster,
 	})
 	active.Inc()
 	defer func(start time.Time) {
@@ -324,6 +340,7 @@ func (s MonitoredScanIterator) Next() (results []string, err error) {
 			redisprom.DatabaseLabel:   "", // We don't have that info
 			redisprom.TypeLabel:       "", // We don't have that info
 			redisprom.DeploymentLabel: "", // We don't have that info
+			redisprom.ClusterLabel:    s.cluster,
 		}).Observe(durationSeconds)
 		redisprom.RequestsTotal.With(prometheus.Labels{
 			redisprom.ClientNameLabel: s.name,
@@ -332,6 +349,7 @@ func (s MonitoredScanIterator) Next() (results []string, err error) {
 			redisprom.DatabaseLabel:   "", // We don't have that info
 			redisprom.TypeLabel:       "", // We don't have that info
 			redisprom.DeploymentLabel: "", // We don't have that info
+			redisprom.ClusterLabel:    s.cluster,
 		}).Inc()
 		span.FinishWithOptions(tracing.FinishOptions{
 			Ctx: ctx,
