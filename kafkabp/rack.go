@@ -41,6 +41,8 @@ type RackIDFunc func() string
 //
 // - "aws": AWSAvailabilityZoneRackID.
 //
+// - "aws-zone-id": AWSAvailabilityZoneIDRackID.
+//
 // - "http://url" or "https://url": SimpleHTTPRackID with
 // log.DefaultWrapper and prometheus counter of
 // kafkabp_http_rack_id_failure_total, default timeout & limit, and given URL.
@@ -57,6 +59,9 @@ func (r *RackIDFunc) UnmarshalText(text []byte) error {
 		return nil
 	case "aws":
 		*r = AWSAvailabilityZoneRackID
+		return nil
+	case "aws-zone-id":
+		*r = AWSAvailabilityZoneIDRackID
 		return nil
 	}
 
@@ -181,13 +186,11 @@ func doHTTP(r *http.Request, readLimit int64) (string, error) {
 	return body, nil
 }
 
-var awsRackID = sync.OnceValues(func() (string, error) {
+func awsURL(url string) (string, error) {
 	const (
 		// References:
 		// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
-		// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-categories.html
 		tokenURL = "http://169.254.169.254/latest/api/token"
-		azURL    = "http://169.254.169.254/latest/meta-data/placement/availability-zone"
 
 		timeout   = time.Second
 		readLimit = 1024
@@ -199,13 +202,13 @@ var awsRackID = sync.OnceValues(func() (string, error) {
 	token, err := func(ctx context.Context) (string, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPut, tokenURL, http.NoBody)
 		if err != nil {
-			return "", fmt.Errorf("kafkabp.awsRackID: failed to create request from url %q: %w", tokenURL, err)
+			return "", fmt.Errorf("kafkabp.awsURL: failed to create request from url %q: %w", tokenURL, err)
 		}
 		req.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "21600")
 
 		token, err := doHTTP(req, readLimit)
 		if err != nil {
-			return "", fmt.Errorf("kafkabp.awsRackID: failed to get AWS IMDS v2 token from url %q: %w", tokenURL, err)
+			return "", fmt.Errorf("kafkabp.awsURL: failed to get AWS IMDS v2 token from url %q: %w", tokenURL, err)
 		}
 		return token, nil
 	}(ctx)
@@ -213,17 +216,29 @@ var awsRackID = sync.OnceValues(func() (string, error) {
 		return "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, azURL, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
-		return "", fmt.Errorf("kafkabp.awsRackID: failed to create request from url %q: %w", azURL, err)
+		return "", fmt.Errorf("kafkabp.awsURL: failed to create request from url %q: %w", url, err)
 	}
 	req.Header.Set("X-aws-ec2-metadata-token", token)
 
 	id, err := doHTTP(req, readLimit)
 	if err != nil {
-		err = fmt.Errorf("kafkabp.awsRackID: failed to get AWS availability zone from url %q: %w", azURL, err)
+		err = fmt.Errorf("kafkabp.awsURL: failed to query AWS url %q: %w", url, err)
 	}
 	return id, err
+}
+
+var awsZoneRackID = sync.OnceValues(func() (string, error) {
+	// Ref: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html#instancedata-data-categories
+	const zoneURL = "http://169.254.169.254/latest/meta-data/placement/availability-zone"
+	return awsURL(zoneURL)
+})
+
+var awsZoneIDRackID = sync.OnceValues(func() (string, error) {
+	// Ref: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html#instancedata-data-categories
+	const zoneIDURL = "http://169.254.169.254/latest/meta-data/placement/availability-zone-id"
+	return awsURL(zoneIDURL)
 })
 
 // AWSAvailabilityZoneRackID is a RackIDFunc implementation that returns AWS
@@ -251,10 +266,49 @@ var awsRackID = sync.OnceValues(func() (string, error) {
 // the same error will be logged at slog's warning level every time
 // AWSAvailabilityZoneRackID is called.
 func AWSAvailabilityZoneRackID() string {
-	id, err := awsRackID()
+	id, err := awsZoneRackID()
 	if err != nil {
 		awsRackFailure.Inc()
 		slog.Warn("Failed to get AWS availability zone as rack id", "err", err)
+		return ""
+	}
+	return id
+}
+
+// AWSAvailabilityZoneIDRackID is a RackIDFunc implementation that returns AWS
+// availability zone id as the rack id.
+//
+// It also caches the result globally, so if you have more than one
+// AWSAvailabilityZoneRackID in your process only the first one actually makes
+// the HTTP request, for example:
+//
+//	consumer1 := kafkabp.NewConsumer(kafkabp.ConsumerConfig{
+//	    RackID: kafkabp.AWSAvailabilityZoneIDRackID,
+//	    Topic:  "topic1",
+//	    // other configs
+//	})
+//	consumer2 := kafkabp.NewConsumer(kafkabp.ConsumerConfig{
+//	    RackID: kafkabp.AWSAvailabilityZoneIDRackID,
+//	    Topic:  "topic2",
+//	    // other configs
+//	})
+//
+// It uses AWS instance metadata HTTP API with 1second overall timeout and 1024
+// HTTP response read limits..
+//
+// If there was an error retrieving rack id through AWS instance metadata API,
+// the same error will be logged at slog's warning level every time
+// AWSAvailabilityZoneRackID is called.
+//
+// See [1] for differences between AWS availability zone and availability zone
+// id.
+//
+// [1]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-availability-zones
+func AWSAvailabilityZoneIDRackID() string {
+	id, err := awsZoneIDRackID()
+	if err != nil {
+		awsRackFailure.Inc()
+		slog.Warn("Failed to get AWS availability zone id as rack id", "err", err)
 		return ""
 	}
 	return id
