@@ -228,6 +228,12 @@ type ClientPoolConfig struct {
 	//
 	// Optional. If empty, no "thrift-hostname" header will be sent.
 	ThriftHostnameHeader string `yaml:"thriftHostnameHeader"`
+
+	// Uses zlib transform in thrift THeader connections between client and
+	// server. Requires server to support zlib transform.
+	//
+	// Optional. Default is false.
+	UseZlib bool `yaml:"useZlib"`
 }
 
 // Validate checks ClientPoolConfig for any missing or erroneous values.
@@ -249,10 +255,15 @@ var tHeaderProtocolCompact = thrift.THeaderProtocolIDPtrMust(thrift.THeaderProto
 // even though that's not part of the ClientPoolConfig.
 // To override this behavior, change the value from the returned TConfiguration.
 func (c ClientPoolConfig) ToTConfiguration() *thrift.TConfiguration {
+	var transforms []thrift.THeaderTransformID
+	if c.UseZlib {
+		transforms = []thrift.THeaderTransformID{thrift.TransformZlib}
+	}
 	return &thrift.TConfiguration{
 		ConnectTimeout:    c.ConnectTimeout,
 		SocketTimeout:     c.SocketTimeout,
 		THeaderProtocolID: thrift.THeaderProtocolIDPtrMust(*tHeaderProtocolCompact),
+		THeaderTransforms: transforms,
 	}
 }
 
