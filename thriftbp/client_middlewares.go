@@ -109,29 +109,23 @@ type DefaultClientMiddlewareArgs struct {
 //
 // 2. SetClientName(clientName)
 //
-// 3. MonitorClient with MonitorClientWrappedSlugSuffix - This creates the spans
-// from the view of the client that group all retries into a single,
-// wrapped span.
-//
-// 4. PrometheusClientMiddleware with MonitorClientWrappedSlugSuffix - This
+// 3. PrometheusClientMiddleware with MonitorClientWrappedSlugSuffix - This
 // creates the prometheus client metrics from the view of the client that group
 // all retries into a single operation.
 //
-// 5. Retry(retryOptions) - If retryOptions is empty/nil, default to only
+// 4. Retry(retryOptions) - If retryOptions is empty/nil, default to only
 // retry.Attempts(1), this will not actually retry any calls but your client is
 // configured to set retry logic per-call using retrybp.WithOptions.
 //
-// 6. FailureRatioBreaker - Only if BreakerConfig is non-nil.
+// 5. FailureRatioBreaker - Only if BreakerConfig is non-nil.
 //
-// 7. MonitorClient - This creates the spans of the raw client calls.
+// 6. PrometheusClientMiddleware
 //
-// 8. PrometheusClientMiddleware
+// 7. BaseplateErrorWrapper
 //
-// 9. BaseplateErrorWrapper
+// 8. thrift.ExtractIDLExceptionClientMiddleware
 //
-// 10. thrift.ExtractIDLExceptionClientMiddleware
-//
-// 11. SetDeadlineBudget
+// 9. SetDeadlineBudget
 func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
@@ -139,10 +133,6 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 	middlewares := []thrift.ClientMiddleware{
 		ForwardEdgeRequestContext(args.EdgeContextImpl),
 		SetClientName(args.ClientName),
-		MonitorClient(MonitorClientArgs{
-			ServiceSlug:         args.ServiceSlug + MonitorClientWrappedSlugSuffix,
-			ErrorSpanSuppressor: args.ErrorSpanSuppressor,
-		}),
 		PrometheusClientMiddleware(args.ServiceSlug + MonitorClientWrappedSlugSuffix),
 		Retry(args.RetryOptions...),
 	}
@@ -154,10 +144,6 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 	}
 	middlewares = append(
 		middlewares,
-		MonitorClient(MonitorClientArgs{
-			ServiceSlug:         args.ServiceSlug,
-			ErrorSpanSuppressor: args.ErrorSpanSuppressor,
-		}),
 		PrometheusClientMiddleware(args.ServiceSlug),
 		BaseplateErrorWrapper,
 		thrift.ExtractIDLExceptionClientMiddleware,

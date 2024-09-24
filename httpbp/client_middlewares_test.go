@@ -57,18 +57,6 @@ func TestNewClient(t *testing.T) {
 		}))
 		defer server.Close()
 
-		recorder := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
-			MaxQueueSize:   tracing.MaxQueueSize,
-			MaxMessageSize: tracing.MaxSpanSize,
-		})
-		err := tracing.InitGlobalTracer(tracing.Config{
-			SampleRate:               1,
-			TestOnlyMockMessageQueue: recorder,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		client, err := NewClient(ClientConfig{
 			Slug: "test",
 		})
@@ -84,21 +72,6 @@ func TestNewClient(t *testing.T) {
 		var e *ClientError
 		if !errors.As(err, &e) {
 			t.Errorf("expected error wrap error of type %T", *e)
-		}
-
-		// MonitorClient is applied
-		b, err := recorder.Receive(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-		var span tracing.ZipkinSpan
-		err = json.Unmarshal(b, &span)
-		if err != nil {
-			t.Fatal(err)
-		}
-		expected := "test.request"
-		if span.Name != expected {
-			t.Errorf("expected %s, actual: %q", expected, span.Name)
 		}
 	})
 }

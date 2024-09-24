@@ -57,6 +57,8 @@ func Wrap(name string, handle HandlerFunc, middlewares ...Middleware) HandlerFun
 type DefaultMiddlewareArgs struct {
 	// The HeaderTrustHandler to use.
 	// If empty, NeverTrustHeaders will be used instead.
+	//
+	// Deprecated: This is no longer used by default middlewares.
 	TrustHandler HeaderTrustHandler
 
 	// The logger to be called when edgecontext parsing failed.
@@ -70,15 +72,10 @@ type DefaultMiddlewareArgs struct {
 // DefaultMiddleware returns a slice of all the default Middleware for a
 // Baseplate HTTP server. The default middleware are (in order):
 //
-//  1. InjectServerSpan
-//  2. InjectEdgeRequestContext
-//  3. PrometheusServerMetrics
+//  1. InjectEdgeRequestContext
+//  2. PrometheusServerMetrics
 func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
-	if args.TrustHandler == nil {
-		args.TrustHandler = NeverTrustHeaders{}
-	}
 	return []Middleware{
-		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
 		PrometheusServerMetrics(""),
 	}

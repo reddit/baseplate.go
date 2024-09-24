@@ -2,26 +2,22 @@ package thriftbp_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
-	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/prometheusbpint/spectest"
-	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/retrybp"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
-	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
 )
 
@@ -46,152 +42,6 @@ func initClients(ecImpl ecinterface.Interface) (*thrifttest.MockClient, *thriftt
 		)...,
 	)
 	return mock, recorder, client
-}
-
-func initServerSpan(ctx context.Context, t *testing.T) (context.Context, *mqsend.MockMessageQueue) {
-	t.Helper()
-
-	recorder := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
-		MaxQueueSize:   100,
-		MaxMessageSize: 1024,
-	})
-	tracing.InitGlobalTracer(tracing.Config{
-		SampleRate:               1.0,
-		TestOnlyMockMessageQueue: recorder,
-	})
-
-	span, ctx := opentracing.StartSpanFromContext(
-		ctx,
-		"test-service",
-		tracing.SpanTypeOption{Type: tracing.SpanTypeServer},
-	)
-	tracing.AsSpan(span).SetDebug(true)
-	return ctx, recorder
-}
-
-func initLocalSpan(ctx context.Context, t *testing.T) (context.Context, *mqsend.MockMessageQueue) {
-	t.Helper()
-
-	ctx, recorder := initServerSpan(ctx, t)
-	span := opentracing.SpanFromContext(ctx)
-	if span == nil {
-		t.Fatal("server span was nill")
-	}
-	_, ctx = opentracing.StartSpanFromContext(
-		ctx,
-		"local-test",
-		tracing.SpanTypeOption{
-			Type: tracing.SpanTypeLocal,
-		},
-	)
-	return ctx, recorder
-}
-
-func drainRecorder(recorder *mqsend.MockMessageQueue) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
-	defer cancel()
-	return recorder.Receive(ctx)
-}
-
-func TestWrapMonitoredClient(t *testing.T) {
-	cases := []struct {
-		name          string
-		call          thrifttest.MockCall
-		errorExpected bool
-		initSpan      func(context.Context, *testing.T) (context.Context, *mqsend.MockMessageQueue)
-	}{
-		{
-			name: "server span: success",
-			call: func(ctx context.Context, args, result thrift.TStruct) (meta thrift.ResponseMeta, err error) {
-				return
-			},
-			errorExpected: false,
-			initSpan:      initServerSpan,
-		},
-		{
-			name: "server span: error",
-			call: func(ctx context.Context, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-				return thrift.ResponseMeta{}, errors.New("test error")
-			},
-			errorExpected: true,
-			initSpan:      initServerSpan,
-		},
-		{
-			name: "local span: success",
-			call: func(ctx context.Context, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-				return thrift.ResponseMeta{}, nil
-			},
-			errorExpected: false,
-			initSpan:      initLocalSpan,
-		},
-		{
-			name: "local span: error",
-			call: func(ctx context.Context, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-				return thrift.ResponseMeta{}, errors.New("test error")
-			},
-			errorExpected: true,
-			initSpan:      initLocalSpan,
-		},
-	}
-	for _, c := range cases {
-		t.Run(
-			c.name,
-			func(t *testing.T) {
-				defer func() {
-					tracing.CloseTracer()
-					tracing.InitGlobalTracer(tracing.Config{})
-				}()
-
-				mock, recorder, client := initClients(nil)
-				mock.AddMockCall(method, c.call)
-
-				ctx, mmq := c.initSpan(context.Background(), t)
-				if _, err := client.Call(ctx, method, nil, nil); !c.errorExpected && err != nil {
-					t.Fatal(err)
-				} else if c.errorExpected && err == nil {
-					t.Fatal("expected an error, got nil")
-				}
-				call := recorder.Calls()[0]
-				s := opentracing.SpanFromContext(call.Ctx)
-				if s == nil {
-					t.Fatal("span was nil")
-				}
-				spanName := service + "." + method
-				span := tracing.AsSpan(s)
-				if span.Name() != spanName {
-					t.Errorf("span name mismatch, expected %q, got %q", spanName, span.Name())
-				}
-				if span.SpanType() != tracing.SpanTypeClient {
-					t.Errorf("span type mismatch, expected %s, got %s", tracing.SpanTypeClient, span.SpanType())
-				}
-				if call.Method != method {
-					t.Errorf("method mismatch, expected %q, got %q", method, call.Method)
-				}
-
-				msg, err := drainRecorder(mmq)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				var trace tracing.ZipkinSpan
-				err = json.Unmarshal(msg, &trace)
-				if err != nil {
-					t.Fatal(err)
-				}
-				hasError := false
-				for _, annotation := range trace.BinaryAnnotations {
-					if annotation.Key == "error" {
-						hasError = true
-					}
-				}
-				if !c.errorExpected && hasError {
-					t.Error("error binary annotation present")
-				} else if c.errorExpected && !hasError {
-					t.Error("error binary annotation not present")
-				}
-			},
-		)
-	}
 }
 
 func TestForwardEdgeRequestContext(t *testing.T) {

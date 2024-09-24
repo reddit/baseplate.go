@@ -45,13 +45,9 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 // plus any additional client middleware passed into this function. Default
 // middlewares are:
 //
-// * MonitorClient with transport.WithRetrySlugSuffix
-//
 // * PrometheusClientMetrics with transport.WithRetrySlugSuffix
 //
 // * Retries
-//
-// * MonitorClient
 //
 // * PrometheusClientMetrics
 //
@@ -78,10 +74,8 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 	}
 
 	defaults := []ClientMiddleware{
-		MonitorClient(config.Slug + transport.WithRetrySlugSuffix),
 		PrometheusClientMetrics(config.Slug + transport.WithRetrySlugSuffix),
 		Retries(config.MaxErrorReadAhead, config.RetryOptions...),
-		MonitorClient(config.Slug),
 		PrometheusClientMetrics(config.Slug),
 	}
 

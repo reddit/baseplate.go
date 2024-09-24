@@ -63,17 +63,14 @@ type DefaultProcessorMiddlewaresArgs struct {
 //
 // 1. ExtractDeadlineBudget
 //
-// 2. InjectServerSpan
+// 2. InjectEdgeContext
 //
-// 3. InjectEdgeContext
+// 3. ReportPayloadSizeMetrics
 //
-// 4. ReportPayloadSizeMetrics
-//
-// 5. PrometheusServerMiddleware
+// 4. PrometheusServerMiddleware
 func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) []thrift.ProcessorMiddleware {
 	return []thrift.ProcessorMiddleware{
 		ExtractDeadlineBudget,
-		InjectServerSpan(args.ErrorSpanSuppressor),
 		InjectEdgeContext(args.EdgeContextImpl),
 		ReportPayloadSizeMetrics(0),
 		PrometheusServerMiddleware,
