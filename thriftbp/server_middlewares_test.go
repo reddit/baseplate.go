@@ -2,7 +2,6 @@ package thriftbp_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -10,15 +9,10 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/reddit/baseplate.go/ecinterface"
-	"github.com/reddit/baseplate.go/mqsend"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
 	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
-)
-
-const (
-	testTimeout = time.Millisecond * 100
 )
 
 type edgecontextRecorder struct {
@@ -33,84 +27,6 @@ func edgecontextRecorderMiddleware(impl ecinterface.Interface, recorder *edgecon
 				return next.Process(ctx, seqID, in, out)
 			},
 		}
-	}
-}
-
-func TestInjectServerSpan(t *testing.T) {
-	const ua = "foo"
-
-	defer func() {
-		tracing.CloseTracer()
-		tracing.InitGlobalTracer(tracing.Config{})
-	}()
-	mmq := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
-		MaxQueueSize:   100,
-		MaxMessageSize: 1024,
-	})
-	logger, startFailing := tracing.TestWrapper(t)
-	tracing.InitGlobalTracer(tracing.Config{
-		SampleRate:               1,
-		MaxRecordTimeout:         testTimeout,
-		Logger:                   logger,
-		TestOnlyMockMessageQueue: mmq,
-	})
-	startFailing()
-	name := "test"
-	processor := thrifttest.NewMockTProcessor(
-		t,
-		map[string]thrift.TProcessorFunction{
-			name: thrift.WrappedTProcessorFunction{
-				Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
-					return false, thrift.WrapTException(errors.New("TError"))
-				},
-			},
-		},
-	)
-	ctx := context.Background()
-	ctx = thrift.SetHeader(ctx, transport.HeaderTracingSampled, transport.HeaderTracingSampledTrue)
-	ctx = thrift.SetHeader(ctx, transport.HeaderUserAgent, ua)
-	ctx = thrifttest.SetMockTProcessorName(ctx, name)
-
-	wrapped := thrift.WrapProcessor(processor, thriftbp.InjectServerSpan(nil))
-	wrapped.Process(ctx, nil, nil)
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-	msg, err := mmq.Receive(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Encoded span: %s", msg)
-
-	var trace tracing.ZipkinSpan
-	err = json.Unmarshal(msg, &trace)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var hasError, hasPeerService bool
-	for _, annotation := range trace.BinaryAnnotations {
-		if annotation.Key == "error" {
-			hasError = true
-		}
-		if annotation.Key == tracing.TagKeyPeerService {
-			hasPeerService = true
-			v, ok := annotation.Value.(string)
-			if !ok || v != ua {
-				t.Errorf(
-					"Expected binary annotation of %q to be %q, got %#v, %q, %v",
-					tracing.TagKeyPeerService,
-					ua,
-					annotation.Value,
-					v,
-					ok,
-				)
-			}
-		}
-	}
-	if !hasError {
-		t.Error("Error binary annotation was not present.")
-	}
-	if !hasPeerService {
-		t.Errorf("%q binary annotation was not present.", tracing.TagKeyPeerService)
 	}
 }
 

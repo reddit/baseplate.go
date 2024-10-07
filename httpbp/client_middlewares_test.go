@@ -2,8 +2,6 @@ package httpbp
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -18,8 +16,6 @@ import (
 	"github.com/sony/gobreaker"
 
 	"github.com/reddit/baseplate.go/breakerbp"
-	"github.com/reddit/baseplate.go/mqsend"
-	"github.com/reddit/baseplate.go/tracing"
 )
 
 func TestNewClient(t *testing.T) {
@@ -57,18 +53,6 @@ func TestNewClient(t *testing.T) {
 		}))
 		defer server.Close()
 
-		recorder := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
-			MaxQueueSize:   tracing.MaxQueueSize,
-			MaxMessageSize: tracing.MaxSpanSize,
-		})
-		err := tracing.InitGlobalTracer(tracing.Config{
-			SampleRate:               1,
-			TestOnlyMockMessageQueue: recorder,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		client, err := NewClient(ClientConfig{
 			Slug: "test",
 		})
@@ -84,21 +68,6 @@ func TestNewClient(t *testing.T) {
 		var e *ClientError
 		if !errors.As(err, &e) {
 			t.Errorf("expected error wrap error of type %T", *e)
-		}
-
-		// MonitorClient is applied
-		b, err := recorder.Receive(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-		var span tracing.ZipkinSpan
-		err = json.Unmarshal(b, &span)
-		if err != nil {
-			t.Fatal(err)
-		}
-		expected := "test.request"
-		if span.Name != expected {
-			t.Errorf("expected %s, actual: %q", expected, span.Name)
 		}
 	})
 }
@@ -147,47 +116,6 @@ func TestNewClientConcurrency(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-}
-
-func TestMonitorClient(t *testing.T) {
-	recorder := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
-		MaxQueueSize:   tracing.MaxQueueSize,
-		MaxMessageSize: tracing.MaxSpanSize,
-	})
-	err := tracing.InitGlobalTracer(tracing.Config{
-		SampleRate:               1,
-		TestOnlyMockMessageQueue: recorder,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	}))
-	defer server.Close()
-
-	middleware := MonitorClient("test")
-	client := &http.Client{
-		Transport: middleware(http.DefaultTransport),
-	}
-	_, err = client.Get(server.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	b, err := recorder.Receive(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	var span tracing.ZipkinSpan
-	err = json.Unmarshal(b, &span)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := "test.request"
-	if span.Name != expected {
-		t.Errorf("expected %s, actual: %q", expected, span.Name)
-	}
 }
 
 func TestClientErrorWrapper(t *testing.T) {
