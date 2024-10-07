@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/httpbp"
@@ -16,10 +15,6 @@ import (
 type jsonResponseBody struct {
 	X int `json:"x"`
 }
-
-const (
-	testTimeout = time.Millisecond * 100
-)
 
 var testSecrets = map[string]secrets.GenericSecret{
 	"secret/http/edge-context-signature": {

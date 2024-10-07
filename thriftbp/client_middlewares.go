@@ -3,12 +3,13 @@ package thriftbp
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
-	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
@@ -20,7 +21,6 @@ import (
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/prometheusbp"
 	"github.com/reddit/baseplate.go/retrybp"
-	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
 )
 
@@ -188,42 +188,23 @@ type MonitorClientArgs struct {
 	ErrorSpanSuppressor errorsbp.Suppressor
 }
 
+var monitorClientLoggingOnce sync.Once
+
 // MonitorClient is a ClientMiddleware that wraps the inner thrift.TClient.Call
 // in a thrift client span.
 //
-// If you are using a thrift ClientPool created by NewBaseplateClientPool,
-// this will be included automatically and should not be passed in as a
-// ClientMiddleware to NewBaseplateClientPool.
+// This middleware always use the injected v2 tracing thrift client middleware.
+// If there's no v2 tracing thrift client middleware injected, it's no-op.
 func MonitorClient(args MonitorClientArgs) thrift.ClientMiddleware {
 	if mw := internalv2compat.V2TracingThriftClientMiddleware(); mw != nil {
 		return mw
 	}
-	prefix := args.ServiceSlug + "."
-	s := args.ErrorSpanSuppressor
-	if s == nil {
-		s = IDLExceptionSuppressor
-	}
 	return func(next thrift.TClient) thrift.TClient {
-		return thrift.WrappedTClient{
-			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (_ thrift.ResponseMeta, err error) {
-				span, ctx := opentracing.StartSpanFromContext(
-					ctx,
-					prefix+method,
-					tracing.SpanTypeOption{
-						Type: tracing.SpanTypeClient,
-					},
-				)
-				ctx = CreateThriftContextFromSpan(ctx, tracing.AsSpan(span))
-				defer func() {
-					span.FinishWithOptions(tracing.FinishOptions{
-						Ctx: ctx,
-						Err: s.Wrap(getClientError(result, err)),
-					}.Convert())
-				}()
-
-				return next.Call(ctx, method, args, result)
-			},
-		}
+		// no-op but log for once
+		monitorClientLoggingOnce.Do(func() {
+			slog.Warn("thriftbp.MonitorClient: internalv2compat.V2TracingThriftClientMiddleware() returned nil")
+		})
+		return next
 	}
 }
 

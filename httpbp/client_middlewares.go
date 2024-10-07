@@ -12,14 +12,12 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
-	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/retrybp"
-	"github.com/reddit/baseplate.go/tracing"
 	"github.com/reddit/baseplate.go/transport"
 )
 
@@ -264,30 +262,23 @@ func MaxConcurrency(maxConcurrency int64) ClientMiddleware {
 	}
 }
 
+var monitorClientLoggingOnce sync.Once
+
 // MonitorClient is an HTTP client middleware that wraps HTTP requests in a
 // client span.
+//
+// This middleware always use the injected v2 tracing http client middleware.
+// If there's no v2 tracing http client middleware injected, it's no-op.
 func MonitorClient(slug string) ClientMiddleware {
 	if mw := internalv2compat.V2TracingHTTPClientMiddleware(); mw != nil {
 		return mw
 	}
 	return func(next http.RoundTripper) http.RoundTripper {
-		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
-			span, ctx := opentracing.StartSpanFromContext(
-				req.Context(),
-				slug+".request",
-				tracing.SpanTypeOption{Type: tracing.SpanTypeClient},
-			)
-			span.SetTag("http.method", req.Method)
-			span.SetTag("http.url", req.URL)
-
-			defer func() {
-				span.FinishWithOptions(tracing.FinishOptions{
-					Ctx: req.Context(),
-					Err: err,
-				}.Convert())
-			}()
-			return next.RoundTrip(req.WithContext(ctx))
+		// no-op but log for once
+		monitorClientLoggingOnce.Do(func() {
+			slog.Warn("httpbp.MonitorClient: internalv2compat.V2TracingHTTPClientMiddleware() returned nil")
 		})
+		return next
 	}
 }
 

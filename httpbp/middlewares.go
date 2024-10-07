@@ -70,15 +70,13 @@ type DefaultMiddlewareArgs struct {
 // DefaultMiddleware returns a slice of all the default Middleware for a
 // Baseplate HTTP server. The default middleware are (in order):
 //
-//  1. InjectServerSpan
-//  2. InjectEdgeRequestContext
-//  3. PrometheusServerMetrics
+//  1. InjectEdgeRequestContext
+//  2. PrometheusServerMetrics
 func DefaultMiddleware(args DefaultMiddlewareArgs) []Middleware {
 	if args.TrustHandler == nil {
 		args.TrustHandler = NeverTrustHeaders{}
 	}
 	return []Middleware{
-		InjectServerSpan(args.TrustHandler),
 		InjectEdgeRequestContext(InjectEdgeRequestContextArgs(args)),
 		PrometheusServerMetrics(""),
 	}

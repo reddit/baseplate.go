@@ -3,7 +3,6 @@ package httpbp_test
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
@@ -16,8 +15,6 @@ import (
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/mqsend"
-	"github.com/reddit/baseplate.go/tracing"
 )
 
 func TestWrap(t *testing.T) {
@@ -37,125 +34,6 @@ func TestWrap(t *testing.T) {
 	handler(context.Background(), nil, nil)
 	if c.count != 1 {
 		t.Fatalf("Unexpected count value %v", c.count)
-	}
-}
-
-func TestInjectServerSpan(t *testing.T) {
-	t.Parallel()
-
-	defer func() {
-		tracing.CloseTracer()
-		tracing.InitGlobalTracer(tracing.Config{})
-	}()
-	mmq := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
-		MaxQueueSize:   100,
-		MaxMessageSize: 1024,
-	})
-	logger, startFailing := tracing.TestWrapper(t)
-	tracing.InitGlobalTracer(tracing.Config{
-		SampleRate:               0,
-		MaxRecordTimeout:         testTimeout,
-		Logger:                   logger,
-		TestOnlyMockMessageQueue: mmq,
-	})
-	startFailing()
-
-	req := newRequest(t, "")
-
-	cases := []struct {
-		name           string
-		truster        httpbp.HeaderTrustHandler
-		err            error
-		hasAnnotations bool
-	}{
-		{
-			name:           "trust/no-err",
-			truster:        httpbp.AlwaysTrustHeaders{},
-			hasAnnotations: true,
-		},
-		{
-			name:           "trust/err",
-			truster:        httpbp.AlwaysTrustHeaders{},
-			hasAnnotations: true,
-			err:            errors.New("test"),
-		},
-		{
-			name:           "trust/http-err/4xx",
-			truster:        httpbp.AlwaysTrustHeaders{},
-			hasAnnotations: true,
-			err:            httpbp.JSONError(httpbp.BadRequest(), nil),
-		},
-		{
-			name:           "trust/http-err/5xx",
-			truster:        httpbp.AlwaysTrustHeaders{},
-			hasAnnotations: true,
-			err:            httpbp.JSONError(httpbp.InternalServerError(), nil),
-		},
-		{
-			name:           "no-trust/no-err",
-			truster:        httpbp.NeverTrustHeaders{},
-			hasAnnotations: false,
-		},
-		{
-			name:           "no-trust/err",
-			truster:        httpbp.NeverTrustHeaders{},
-			hasAnnotations: false,
-			err:            errors.New("test"),
-		},
-	}
-	for _, _c := range cases {
-		c := _c
-		t.Run(
-			c.name,
-			func(t *testing.T) {
-				handle := httpbp.Wrap(
-					"test",
-					newTestHandler(testHandlerPlan{err: c.err}),
-					httpbp.InjectServerSpan(c.truster),
-				)
-				handle(req.Context(), httptest.NewRecorder(), req)
-
-				ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-				defer cancel()
-				msg, err := mmq.Receive(ctx)
-				if !c.hasAnnotations && err == nil {
-					t.Fatal("expected error, got nil")
-				} else if c.hasAnnotations && err != nil {
-					t.Fatal(err)
-				}
-				if !c.hasAnnotations {
-					return
-				}
-
-				var trace tracing.ZipkinSpan
-				err = json.Unmarshal(msg, &trace)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if len(trace.BinaryAnnotations) == 0 {
-					t.Fatal("no binary annotations")
-				}
-				t.Logf("%#v", trace.BinaryAnnotations)
-				hasError := false
-				for _, annotation := range trace.BinaryAnnotations {
-					if annotation.Key == "error" {
-						hasError = true
-					}
-				}
-				expectedErr := c.err
-				var httpErr httpbp.HTTPError
-				if errors.As(c.err, &httpErr) {
-					if httpErr.Response().Code < 500 {
-						expectedErr = nil
-					}
-				}
-				if expectedErr != nil && !hasError {
-					t.Error("error binary annotation was not present.")
-				} else if expectedErr == nil && hasError {
-					t.Error("unexpected error binary annotation")
-				}
-			},
-		)
 	}
 }
 

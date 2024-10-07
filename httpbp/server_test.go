@@ -14,8 +14,6 @@ import (
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/httpbp"
 	"github.com/reddit/baseplate.go/log"
-	"github.com/reddit/baseplate.go/mqsend"
-	"github.com/reddit/baseplate.go/tracing"
 )
 
 func TestEndpoint(t *testing.T) {
@@ -289,23 +287,6 @@ func TestServerArgsSetupEndpoints(t *testing.T) {
 				t.Fatalf("no handler at %q: %#v", pattern, registry.registry)
 			}
 
-			defer func() {
-				tracing.CloseTracer()
-				tracing.InitGlobalTracer(tracing.Config{})
-			}()
-			mmq := mqsend.OpenMockMessageQueue(mqsend.MessageQueueConfig{
-				MaxQueueSize:   100,
-				MaxMessageSize: 1024,
-			})
-			logger, startFailing := tracing.TestWrapper(t)
-			tracing.InitGlobalTracer(tracing.Config{
-				SampleRate:               1,
-				MaxRecordTimeout:         testTimeout,
-				Logger:                   logger,
-				TestOnlyMockMessageQueue: mmq,
-			})
-			startFailing()
-
 			req := newRequest(t, "foo")
 			req.Method = http.MethodGet
 			handle.ServeHTTP(httptest.NewRecorder(), req)
@@ -313,23 +294,6 @@ func TestServerArgsSetupEndpoints(t *testing.T) {
 			// Test that the EdgeRequestContext midddleware was set up
 			if recorder.header == "" {
 				t.Error("edge request context not set")
-			}
-
-			// Test that the Span middleware was set up
-			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-			defer cancel()
-			msg, err := mmq.Receive(ctx)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			var trace tracing.ZipkinSpan
-			err = json.Unmarshal(msg, &trace)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(trace.BinaryAnnotations) == 0 {
-				t.Fatal("no binary annotations")
 			}
 		},
 	)

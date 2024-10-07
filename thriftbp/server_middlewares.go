@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -126,46 +128,23 @@ func wrapErrorForServerSpan(err error, suppressor errorsbp.Suppressor) error {
 	return thriftint.WrapBaseplateError(suppressor.Wrap(err))
 }
 
+var injectServerSpanLoggingOnce sync.Once
+
 // InjectServerSpan implements thrift.ProcessorMiddleware and injects a server
 // span into the `next` context.
 //
-// Starts the server span before calling the `next` TProcessorFunction and stops
-// the span after it finishes.
-// If the function returns an error that's not suppressed by the suppressor,
-// that will be passed to span.Stop.
-//
-// Please note that if suppressor passed in is nil,
-// it will be changed to IDLExceptionSuppressor instead.
-// Please use errorsbp.SuppressNone explicitly instead if that's what's wanted.
-//
-// If "User-Agent" (HeaderUserAgent) THeader is set,
-// the created server span will also have
-// "peer.service" (tracing.TagKeyPeerService) tag set to its value.
-//
-// Note, the span will be created according to tracing related headers already
-// being set on the context object.
-// These should be automatically injected by your thrift.TSimpleServer.
-func InjectServerSpan(suppressor errorsbp.Suppressor) thrift.ProcessorMiddleware {
+// This middleware always use the injected v2 tracing thrift server middleware.
+// If there's no v2 tracing thrift server middleware injected, it's no-op.
+func InjectServerSpan(_ errorsbp.Suppressor) thrift.ProcessorMiddleware {
 	if mw := internalv2compat.V2TracingThriftServerMiddleware(); mw != nil {
 		return mw
 	}
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
-		return thrift.WrappedTProcessorFunction{
-			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
-				ctx, span := StartSpanFromThriftContext(ctx, name)
-				if userAgent, ok := header(ctx, transport.HeaderUserAgent); ok {
-					span.SetTag(tracing.TagKeyPeerService, userAgent)
-				}
-				defer func() {
-					span.FinishWithOptions(tracing.FinishOptions{
-						Ctx: ctx,
-						Err: wrapErrorForServerSpan(err, suppressor),
-					}.Convert())
-				}()
-
-				return next.Process(ctx, seqID, in, out)
-			},
-		}
+		// no-op but log for once
+		injectServerSpanLoggingOnce.Do(func() {
+			slog.Warn("thriftbp.InjectServerSpan: internalv2compat.V2TracingThriftServerMiddleware() returned nil")
+		})
+		return next
 	}
 }
 
