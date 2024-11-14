@@ -11,12 +11,15 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/exp/rand"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/faults"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/thriftint"
+
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/prometheusbp"
@@ -66,6 +69,11 @@ type DefaultClientMiddlewareArgs struct {
 	//     ImageUploadService -> image-upload
 	ServiceSlug string
 
+	// Address is the DNS address of the thrift service you are creating clients for.
+	//
+	// If not provided, the client will be unable to use the fault injection middleware.
+	Address string
+
 	// RetryOptions is the list of retry.Options to apply as the defaults for the
 	// Retry middleware.
 	//
@@ -105,38 +113,42 @@ type DefaultClientMiddlewareArgs struct {
 //
 // Currently they are (in order):
 //
-// 1. ForwardEdgeRequestContext.
+// 1. FaultInjectionClientMiddleware - This injects faults at the client side if
+// the request matches the provided configuration.
 //
-// 2. SetClientName(clientName)
+// 2. ForwardEdgeRequestContext
 //
-// 3. MonitorClient with MonitorClientWrappedSlugSuffix - This creates the spans
+// 3. SetClientName(clientName)
+//
+// 4. MonitorClient with MonitorClientWrappedSlugSuffix - This creates the spans
 // from the view of the client that group all retries into a single,
 // wrapped span.
 //
-// 4. PrometheusClientMiddleware with MonitorClientWrappedSlugSuffix - This
+// 5. PrometheusClientMiddleware with MonitorClientWrappedSlugSuffix - This
 // creates the prometheus client metrics from the view of the client that group
 // all retries into a single operation.
 //
-// 5. Retry(retryOptions) - If retryOptions is empty/nil, default to only
+// 6. Retry(retryOptions) - If retryOptions is empty/nil, default to only
 // retry.Attempts(1), this will not actually retry any calls but your client is
 // configured to set retry logic per-call using retrybp.WithOptions.
 //
-// 6. FailureRatioBreaker - Only if BreakerConfig is non-nil.
+// 7. FailureRatioBreaker - Only if BreakerConfig is non-nil.
 //
-// 7. MonitorClient - This creates the spans of the raw client calls.
+// 8. MonitorClient - This creates the spans of the raw client calls.
 //
-// 8. PrometheusClientMiddleware
+// 9. PrometheusClientMiddleware
 //
-// 9. BaseplateErrorWrapper
+// 10. BaseplateErrorWrapper
 //
-// 10. thrift.ExtractIDLExceptionClientMiddleware
+// 11. thrift.ExtractIDLExceptionClientMiddleware
 //
-// 11. SetDeadlineBudget
+// 12. SetDeadlineBudget
 func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
 	}
 	middlewares := []thrift.ClientMiddleware{
+		FaultInjectionClientMiddleware(args.Address),
 		ForwardEdgeRequestContext(args.EdgeContextImpl),
 		SetClientName(args.ClientName),
 		MonitorClient(MonitorClientArgs{
@@ -383,6 +395,104 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 					clientTotalRequests.With(totalRequestLabels).Inc()
 					clientActiveRequests.With(activeRequestLabels).Dec()
 				}()
+
+				return next.Call(ctx, method, args, result)
+			},
+		}
+	}
+}
+
+// differences:
+// -- resume function
+// -- get header function
+func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
+	return func(next thrift.TClient) thrift.TClient {
+		return thrift.WrappedTClient{
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				serverAddress, ok := thrift.GetHeader(ctx, faults.FaultServerAddressHeader)
+				if !ok {
+					return next.Call(ctx, method, args, result)
+				}
+				if serverAddress == "" || serverAddress != faults.GetShortenedAddress(address) {
+					return next.Call(ctx, method, args, result)
+				}
+
+				serverMethod, ok := thrift.GetHeader(ctx, faults.FaultServerMethodHeader)
+				if !ok {
+					return next.Call(ctx, method, args, result)
+				}
+				if serverMethod != "" && serverMethod != method {
+					return next.Call(ctx, method, args, result)
+				}
+
+				delayMs, ok := thrift.GetHeader(ctx, faults.FaultDelayMsHeader)
+				if !ok {
+					return next.Call(ctx, method, args, result)
+				}
+				if delayMs != "" {
+					delayPercentage, ok := thrift.GetHeader(ctx, faults.FaultDelayPercentageHeader)
+					if !ok {
+						return next.Call(ctx, method, args, result)
+					}
+					if delayPercentage != "" {
+						percentage, err := strconv.Atoi(delayPercentage)
+						if err != nil {
+							// log "provided delay percentage is not a valid integer"
+							return next.Call(ctx, method, args, result)
+						}
+						if percentage < 0 || percentage > 100 {
+							// log "provided delay percentage is outside the valid range of [0-100]"
+							return next.Call(ctx, method, args, result)
+						}
+						if percentage == 0 || (percentage != 100 && rand.Intn(100) >= percentage) {
+							return next.Call(ctx, method, args, result)
+						}
+					}
+
+					delay, err := strconv.Atoi(delayMs)
+					if err != nil {
+						// log "provided delay is not a valid integer"
+						return next.Call(ctx, method, args, result)
+					}
+					time.Sleep(time.Duration(delay) * time.Millisecond)
+				}
+
+				abortCode, ok := thrift.GetHeader(ctx, faults.FaultAbortCodeHeader)
+				if !ok {
+					return next.Call(ctx, method, args, result)
+				}
+				if abortCode != "" {
+					abortPercentage, ok := thrift.GetHeader(ctx, faults.FaultAbortPercentageHeader)
+					if !ok {
+						return next.Call(ctx, method, args, result)
+					}
+					if abortPercentage != "" {
+						percentage, err := strconv.Atoi(abortPercentage)
+						if err != nil {
+							// log "provided abort percentage is not a valid integer"
+							return next.Call(ctx, method, args, result)
+						}
+						if percentage < 0 || percentage > 100 {
+							// log "provided abort percentage is outside the valid range of [0-100]"
+							return next.Call(ctx, method, args, result)
+						}
+						if percentage != 100 && rand.Intn(100) >= percentage {
+							return next.Call(ctx, method, args, result)
+						}
+					}
+
+					code, err := strconv.Atoi(abortCode)
+					if err != nil {
+						// log "provided abort code is not a valid integer"
+						return next.Call(ctx, method, args, result)
+					}
+					if code < 100 || code >= 600 {
+						// log "provided abort code is outside the valid HTTP status code range of [100-599]"
+						return next.Call(ctx, method, args, result)
+					}
+					resp.StatusCode = code
+					return resp, nil
+				}
 
 				return next.Call(ctx, method, args, result)
 			},
