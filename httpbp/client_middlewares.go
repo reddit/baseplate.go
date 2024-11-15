@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math/rand"
 	"net/http"
-	"net/url"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,6 +16,7 @@ import (
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/faults"
+
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/retrybp"
@@ -359,78 +357,32 @@ type ServiceAddressParts struct {
 	Namespace string
 }
 
-func GetShortenedAddress(url *url.URL) string {
-	hostParts := strings.Split(url.Host, ".")
-	if len(hostParts) < 2 {
-		return ""
-	}
-	return strings.Join(hostParts[:2], ".")
-}
-
 func FaultInjection(serverSlug string) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
-		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
-			serverAddress := req.Header.Get(faults.FaultServerAddressHeader)
-			if serverAddress == "" || serverAddress != GetShortenedAddress(req.URL) {
+		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			resumeFn := func() (interface{}, error) {
 				return next.RoundTrip(req)
 			}
-
-			serverMethod := req.Header.Get(faults.FaultServerMethodHeader)
-			if serverMethod != "" && serverMethod != req.URL.Path {
-				return next.RoundTrip(req)
+			responseFn := func(code int, message string) interface{} {
+				return &http.Response{
+					Status:     http.StatusText(code),
+					StatusCode: code,
+					Proto:      req.Proto,
+					ProtoMajor: req.ProtoMajor,
+					ProtoMinor: req.ProtoMinor,
+					Header: map[string][]string{
+						// Copied from the standard http.Error() function.
+						"Content-Type":           {"text/plain; charset=utf-8"},
+						"X-Content-Type-Options": {"nosniff"},
+					},
+					ContentLength:    0,
+					TransferEncoding: req.TransferEncoding,
+					Request:          req,
+					TLS:              req.TLS,
+				}
 			}
-
-			delayMs := req.Header.Get(faults.FaultDelayMsHeader)
-			if delayMs != "" {
-				delayPercentage := req.Header.Get(faults.FaultDelayPercentageHeader)
-				if delayPercentage != "" {
-					percentage, err := strconv.Atoi(delayPercentage)
-					if err != nil {
-						return nil, errors.New("provided delay percentage is not a valid integer")
-					}
-					if percentage < 0 || percentage > 100 {
-						return nil, errors.New("provided delay percentage is outside the valid range of [0-100]")
-					}
-					if percentage == 0 || (percentage != 100 && rand.Intn(100) >= percentage) {
-						return next.RoundTrip(req)
-					}
-				}
-
-				delay, err := strconv.Atoi(delayMs)
-				if err != nil {
-					return nil, errors.New("provided delay is not a valid integer")
-				}
-				time.Sleep(time.Duration(delay) * time.Millisecond)
-			}
-
-			abortCode := req.Header.Get(faults.FaultAbortCodeHeader)
-			if abortCode != "" {
-				abortPercentage := req.Header.Get(faults.FaultAbortPercentageHeader)
-				if abortPercentage != "" {
-					percentage, err := strconv.Atoi(abortPercentage)
-					if err != nil {
-						return nil, errors.New("provided abort percentage is not a valid integer")
-					}
-					if percentage < 0 || percentage > 100 {
-						return nil, errors.New("provided abort percentage is outside the valid range of [0-100]")
-					}
-					if percentage != 100 && rand.Intn(100) >= percentage {
-						return next.RoundTrip(req)
-					}
-				}
-
-				code, err := strconv.Atoi(abortCode)
-				if err != nil {
-					return nil, errors.New("provided abort code is not a valid integer")
-				}
-				if code < 100 || code >= 600 {
-					return nil, errors.New("provided abort code is outside the valid HTTP status code range of [100-599]")
-				}
-				resp.StatusCode = code
-				return resp, nil
-			}
-
-			return next.RoundTrip(req)
+			resp, err := faults.InjectFault(req.URL.Host, req.URL.Path, req.Header.Get, resumeFn, responseFn)
+			return resp.(*http.Response), err
 		})
 	}
 }

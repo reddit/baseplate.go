@@ -11,13 +11,13 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
 	"github.com/prometheus/client_golang/prometheus"
-	"golang.org/x/exp/rand"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/faults"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
+	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/thriftint"
 
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
@@ -402,99 +402,29 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 	}
 }
 
-// differences:
-// -- resume function
-// -- get header function
 func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-				serverAddress, ok := thrift.GetHeader(ctx, faults.FaultServerAddressHeader)
-				if !ok {
-					return next.Call(ctx, method, args, result)
-				}
-				if serverAddress == "" || serverAddress != faults.GetShortenedAddress(address) {
-					return next.Call(ctx, method, args, result)
-				}
-
-				serverMethod, ok := thrift.GetHeader(ctx, faults.FaultServerMethodHeader)
-				if !ok {
-					return next.Call(ctx, method, args, result)
-				}
-				if serverMethod != "" && serverMethod != method {
-					return next.Call(ctx, method, args, result)
-				}
-
-				delayMs, ok := thrift.GetHeader(ctx, faults.FaultDelayMsHeader)
-				if !ok {
-					return next.Call(ctx, method, args, result)
-				}
-				if delayMs != "" {
-					delayPercentage, ok := thrift.GetHeader(ctx, faults.FaultDelayPercentageHeader)
+				getHeaderFn := func(key string) string {
+					header, ok := thrift.GetHeader(ctx, key)
 					if !ok {
-						return next.Call(ctx, method, args, result)
+						return ""
 					}
-					if delayPercentage != "" {
-						percentage, err := strconv.Atoi(delayPercentage)
-						if err != nil {
-							// log "provided delay percentage is not a valid integer"
-							return next.Call(ctx, method, args, result)
-						}
-						if percentage < 0 || percentage > 100 {
-							// log "provided delay percentage is outside the valid range of [0-100]"
-							return next.Call(ctx, method, args, result)
-						}
-						if percentage == 0 || (percentage != 100 && rand.Intn(100) >= percentage) {
-							return next.Call(ctx, method, args, result)
-						}
-					}
-
-					delay, err := strconv.Atoi(delayMs)
-					if err != nil {
-						// log "provided delay is not a valid integer"
-						return next.Call(ctx, method, args, result)
-					}
-					time.Sleep(time.Duration(delay) * time.Millisecond)
+					return header
 				}
-
-				abortCode, ok := thrift.GetHeader(ctx, faults.FaultAbortCodeHeader)
-				if !ok {
+				resumeFn := func() (interface{}, error) {
 					return next.Call(ctx, method, args, result)
 				}
-				if abortCode != "" {
-					abortPercentage, ok := thrift.GetHeader(ctx, faults.FaultAbortPercentageHeader)
-					if !ok {
-						return next.Call(ctx, method, args, result)
+				responseFn := func(code int, message string) interface{} {
+					return &baseplatethrift.Error{
+						Code:    thrift.Int32Ptr(int32(code)),
+						Message: thrift.StringPtr(message),
 					}
-					if abortPercentage != "" {
-						percentage, err := strconv.Atoi(abortPercentage)
-						if err != nil {
-							// log "provided abort percentage is not a valid integer"
-							return next.Call(ctx, method, args, result)
-						}
-						if percentage < 0 || percentage > 100 {
-							// log "provided abort percentage is outside the valid range of [0-100]"
-							return next.Call(ctx, method, args, result)
-						}
-						if percentage != 100 && rand.Intn(100) >= percentage {
-							return next.Call(ctx, method, args, result)
-						}
-					}
-
-					code, err := strconv.Atoi(abortCode)
-					if err != nil {
-						// log "provided abort code is not a valid integer"
-						return next.Call(ctx, method, args, result)
-					}
-					if code < 100 || code >= 600 {
-						// log "provided abort code is outside the valid HTTP status code range of [100-599]"
-						return next.Call(ctx, method, args, result)
-					}
-					resp.StatusCode = code
-					return resp, nil
 				}
 
-				return next.Call(ctx, method, args, result)
+				responseMeta, err := faults.InjectFault(address, method, getHeaderFn, resumeFn, responseFn)
+				return responseMeta.(thrift.ResponseMeta), err
 			},
 		}
 	}
