@@ -416,23 +416,10 @@ func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
 					return next.Call(ctx, method, args, result)
 				}
 				responseFn := func(code int, message string) interface{} {
-					switch errorType := getHeaderFn(faults.FaultThriftErrorTypeHeader); errorType {
-					case "transport":
-						if code <= thrift.UNKNOWN_TRANSPORT_EXCEPTION || code > thrift.END_OF_FILE {
-							return thrift.NewTTransportException(thrift.UNKNOWN_TRANSPORT_EXCEPTION, message)
-						}
-					case "protocol":
-						if code <= thrift.UNKNOWN_PROTOCOL_EXCEPTION || code > thrift.DEPTH_LIMIT {
-							return thrift.NewTProtocolExceptionWithType(thrift.UNKNOWN_PROTOCOL_EXCEPTION, errors.New(message))
-						}
-					case "application":
-						if code <= thrift.UNKNOWN_APPLICATION_EXCEPTION || code > thrift.VALIDATION_FAILED {
-							return thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, message)
-						}
+					if code <= thrift.UNKNOWN_TRANSPORT_EXCEPTION || code > thrift.END_OF_FILE {
+						return thrift.NewTTransportException(thrift.UNKNOWN_TRANSPORT_EXCEPTION, message)
 					}
-
-					// Log exception type doesn't match
-					return thrift.NewTTransportException(thrift.UNKNOWN_TRANSPORT_EXCEPTION, message)
+					return thrift.NewTTransportException(code, message)
 				}
 
 				responseMeta, err := faults.InjectFault(address, method, getHeaderFn, resumeFn, responseFn)
