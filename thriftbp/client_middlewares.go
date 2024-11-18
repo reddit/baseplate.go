@@ -17,7 +17,6 @@ import (
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/faults"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
-	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/thriftint"
 
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
@@ -417,10 +416,23 @@ func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
 					return next.Call(ctx, method, args, result)
 				}
 				responseFn := func(code int, message string) interface{} {
-					return &baseplatethrift.Error{
-						Code:    thrift.Int32Ptr(int32(code)),
-						Message: thrift.StringPtr(message),
+					switch errorType := getHeaderFn(faults.FaultThriftErrorTypeHeader); errorType {
+					case "transport":
+						if code <= thrift.UNKNOWN_TRANSPORT_EXCEPTION || code > thrift.END_OF_FILE {
+							return thrift.NewTTransportException(thrift.UNKNOWN_TRANSPORT_EXCEPTION, message)
+						}
+					case "protocol":
+						if code <= thrift.UNKNOWN_PROTOCOL_EXCEPTION || code > thrift.DEPTH_LIMIT {
+							return thrift.NewTProtocolExceptionWithType(thrift.UNKNOWN_PROTOCOL_EXCEPTION, errors.New(message))
+						}
+					case "application":
+						if code <= thrift.UNKNOWN_APPLICATION_EXCEPTION || code > thrift.VALIDATION_FAILED {
+							return thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, message)
+						}
 					}
+
+					// Log exception type doesn't match
+					return thrift.NewTTransportException(thrift.UNKNOWN_TRANSPORT_EXCEPTION, message)
 				}
 
 				responseMeta, err := faults.InjectFault(address, method, getHeaderFn, resumeFn, responseFn)
