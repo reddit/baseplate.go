@@ -415,15 +415,14 @@ func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
 				resumeFn := func() (interface{}, error) {
 					return next.Call(ctx, method, args, result)
 				}
-				responseFn := func(code int, message string) interface{} {
-					if code <= thrift.UNKNOWN_TRANSPORT_EXCEPTION || code > thrift.END_OF_FILE {
-						return thrift.NewTTransportException(thrift.UNKNOWN_TRANSPORT_EXCEPTION, message)
-					}
-					return thrift.NewTTransportException(code, message)
+				responseFn := func(code int, message string) (interface{}, error) {
+					return thrift.ResponseMeta{}, thrift.NewTTransportException(code, message)
 				}
 
-				responseMeta, err := faults.InjectFault(address, method, getHeaderFn, resumeFn, responseFn)
-				return responseMeta.(thrift.ResponseMeta), err
+				abortCodeMin := thrift.UNKNOWN_TRANSPORT_EXCEPTION
+				abortCodeMax := thrift.END_OF_FILE
+				resp, err := faults.InjectFault(address, method, abortCodeMin, abortCodeMax, getHeaderFn, resumeFn, responseFn)
+				return resp.(thrift.ResponseMeta), err
 			},
 		}
 	}

@@ -363,7 +363,7 @@ func FaultInjection(serverSlug string) ClientMiddleware {
 			resumeFn := func() (interface{}, error) {
 				return next.RoundTrip(req)
 			}
-			responseFn := func(code int, message string) interface{} {
+			responseFn := func(code int, message string) (interface{}, error) {
 				return &http.Response{
 					Status:     http.StatusText(code),
 					StatusCode: code,
@@ -379,9 +379,12 @@ func FaultInjection(serverSlug string) ClientMiddleware {
 					TransferEncoding: req.TransferEncoding,
 					Request:          req,
 					TLS:              req.TLS,
-				}
+				}, nil
 			}
-			resp, err := faults.InjectFault(req.URL.Host, req.URL.Path, req.Header.Get, resumeFn, responseFn)
+
+			abortCodeMin := 100
+			abortCodeMax := 599
+			resp, err := faults.InjectFault(req.URL.Host, req.URL.Path, abortCodeMin, abortCodeMax, req.Header.Get, resumeFn, responseFn)
 			return resp.(*http.Response), err
 		})
 	}

@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/reddit/baseplate.go/faults"
 	"golang.org/x/exp/rand"
 )
 
@@ -17,20 +16,20 @@ func getShortenedAddress(address string) string {
 	return strings.Join(parts[:2], ".")
 }
 
-func InjectFault(address, method string, getHeaderFn func(key string) string, resumeFn func() (interface{}, error), responseFn func(code int, message string) interface{}) (interface{}, error) {
-	serverAddress := getHeaderFn(faults.FaultServerAddressHeader)
+func InjectFault(address, method string, abortCodeMin, abortCodeMax int, getHeaderFn func(key string) string, resumeFn func() (interface{}, error), responseFn func(code int, message string) (interface{}, error)) (interface{}, error) {
+	serverAddress := getHeaderFn(FaultServerAddressHeader)
 	if serverAddress == "" || serverAddress != getShortenedAddress(address) {
 		return resumeFn()
 	}
 
-	serverMethod := getHeaderFn(faults.FaultServerMethodHeader)
+	serverMethod := getHeaderFn(FaultServerMethodHeader)
 	if serverMethod != "" && serverMethod != method {
 		return resumeFn()
 	}
 
-	delayMs := getHeaderFn(faults.FaultDelayMsHeader)
+	delayMs := getHeaderFn(FaultDelayMsHeader)
 	if delayMs != "" {
-		delayPercentage := getHeaderFn(faults.FaultDelayPercentageHeader)
+		delayPercentage := getHeaderFn(FaultDelayPercentageHeader)
 		if delayPercentage != "" {
 			percentage, err := strconv.Atoi(delayPercentage)
 			if err != nil {
@@ -54,9 +53,9 @@ func InjectFault(address, method string, getHeaderFn func(key string) string, re
 		time.Sleep(time.Duration(delay) * time.Millisecond)
 	}
 
-	abortCode := getHeaderFn(faults.FaultAbortCodeHeader)
+	abortCode := getHeaderFn(FaultAbortCodeHeader)
 	if abortCode != "" {
-		abortPercentage := getHeaderFn(faults.FaultAbortPercentageHeader)
+		abortPercentage := getHeaderFn(FaultAbortPercentageHeader)
 		if abortPercentage != "" {
 			percentage, err := strconv.Atoi(abortPercentage)
 			if err != nil {
@@ -77,12 +76,12 @@ func InjectFault(address, method string, getHeaderFn func(key string) string, re
 			// log "provided abort code is not a valid integer"
 			return resumeFn()
 		}
-		if code < 100 || code >= 600 {
-			// log "provided abort code is outside the valid HTTP status code range of [100-599]"
+		if code < abortCodeMin || code > abortCodeMax {
+			// log "provided abort code is outside of the valid range"
 			return resumeFn()
 		}
-		abortMessage := getHeaderFn(faults.FaultAbortMessageHeader)
-		return responseFn(code, abortMessage), nil
+		abortMessage := getHeaderFn(FaultAbortMessageHeader)
+		return responseFn(code, abortMessage)
 	}
 
 	return resumeFn()
