@@ -405,23 +405,28 @@ func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-				getHeaderFn := func(key string) string {
+				getHeaderFn := faults.GetHeaderFn(func(key string) string {
 					header, ok := thrift.GetHeader(ctx, key)
 					if !ok {
 						return ""
 					}
 					return header
-				}
-				resumeFn := func() (interface{}, error) {
+				})
+				resumeFn := faults.ResumeFn(func() (interface{}, error) {
 					return next.Call(ctx, method, args, result)
-				}
-				responseFn := func(code int, message string) (interface{}, error) {
+				})
+				responseFn := faults.ResponseFn(func(code int, message string) (interface{}, error) {
 					return thrift.ResponseMeta{}, thrift.NewTTransportException(code, message)
-				}
+				})
 
-				abortCodeMin := thrift.UNKNOWN_TRANSPORT_EXCEPTION
-				abortCodeMax := thrift.END_OF_FILE
-				resp, err := faults.InjectFault(address, method, abortCodeMin, abortCodeMax, getHeaderFn, resumeFn, responseFn)
+				resp, err := faults.InjectFault(faults.InjectFaultParams{
+					Address:      address,
+					Method:       method,
+					AbortCodeMin: thrift.UNKNOWN_TRANSPORT_EXCEPTION,
+					AbortCodeMax: thrift.END_OF_FILE,
+					GetHeaderFn:  getHeaderFn,
+					ResumeFn:     resumeFn,
+					ResponseFn:   responseFn})
 				return resp.(thrift.ResponseMeta), err
 			},
 		}

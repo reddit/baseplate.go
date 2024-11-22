@@ -398,6 +398,10 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 	}
 }
 
+func intPtr(i int) *int {
+	return &i
+}
+
 func TestFaultInjectionClientMiddleware(t *testing.T) {
 	testCases := []struct {
 		name string
@@ -413,7 +417,7 @@ func TestFaultInjectionClientMiddleware(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "no fault",
+			name:    "no fault specified",
 			wantErr: nil,
 		},
 		{
@@ -425,6 +429,46 @@ func TestFaultInjectionClientMiddleware(t *testing.T) {
 			faultAbortMessageHeader: "test fault",
 
 			wantErr: thrift.NewTTransportException(1, "test fault"),
+		},
+		{
+			name: "service does not match",
+
+			faultServerAddrHeader:   "fooService.testNamespace",
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "1", // NOT_OPEN
+			faultAbortMessageHeader: "test fault",
+
+			wantErr: nil,
+		},
+		{
+			name: "method does not match",
+
+			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerMethodHeader: "fooMethod",
+			faultAbortCodeHeader:    "1", // NOT_OPEN
+			faultAbortMessageHeader: "test fault",
+
+			wantErr: nil,
+		},
+		{
+			name: "less than min abort code",
+
+			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "-1",
+			faultAbortMessageHeader: "test fault",
+
+			wantErr: nil,
+		},
+		{
+			name: "greater than max abort code",
+
+			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "5",
+			faultAbortMessageHeader: "test fault",
+
+			wantErr: nil,
 		},
 	}
 
