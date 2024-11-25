@@ -78,6 +78,7 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 	}
 
 	defaults := []ClientMiddleware{
+		FaultInjection(config.Slug),
 		MonitorClient(config.Slug + transport.WithRetrySlugSuffix),
 		PrometheusClientMetrics(config.Slug + transport.WithRetrySlugSuffix),
 		Retries(config.MaxErrorReadAhead, config.RetryOptions...),
@@ -382,9 +383,14 @@ func FaultInjection(serverSlug string) ClientMiddleware {
 				}, nil
 			}
 
-			abortCodeMin := 100
-			abortCodeMax := 599
-			resp, err := faults.InjectFault(req.URL.Host, req.URL.Path, abortCodeMin, abortCodeMax, req.Header.Get, resumeFn, responseFn)
+			resp, err := faults.InjectFault(faults.InjectFaultParams{
+				Address:      req.URL.Host,
+				Method:       req.URL.Path,
+				AbortCodeMin: 100,
+				AbortCodeMax: 599,
+				GetHeaderFn:  req.Header.Get,
+				ResumeFn:     resumeFn,
+				ResponseFn:   responseFn})
 			return resp.(*http.Response), err
 		})
 	}

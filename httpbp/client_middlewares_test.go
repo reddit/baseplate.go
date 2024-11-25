@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/sony/gobreaker"
 
 	"github.com/reddit/baseplate.go/breakerbp"
+	"github.com/reddit/baseplate.go/faults"
 )
 
 func TestNewClient(t *testing.T) {
@@ -393,5 +395,130 @@ func TestCircuitBreaker(t *testing.T) {
 	_, err = client.Get(server.URL)
 	if !errors.Is(err, gobreaker.ErrOpenState) {
 		t.Errorf("Expected the third request to return %v, got %v", gobreaker.ErrOpenState, err)
+	}
+}
+
+func TestFaultInjection(t *testing.T) {
+	testCases := []struct {
+		name                       string
+		faultServerAddrHeader      string
+		faultServerMethodHeader    string
+		faultDelayMsHeader         string
+		faultDelayPercentageHeader string
+		faultAbortCodeHeader       string
+		faultAbortMessageHeader    string
+		faultAbortPercentageHeader string
+
+		wantResp *http.Response
+	}{
+		{
+			name: "no fault specified",
+			wantResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+		},
+		{
+			name: "abort",
+
+			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "500",
+
+			wantResp: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+			},
+		},
+		{
+			name: "service does not match",
+
+			faultServerAddrHeader:   "fooService.testNamespace",
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "500",
+
+			wantResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+		},
+		{
+			name: "method does not match",
+
+			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerMethodHeader: "fooMethod",
+			faultAbortCodeHeader:    "500",
+
+			wantResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+		},
+		{
+			name: "less than min abort code",
+
+			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "99",
+
+			wantResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+		},
+		{
+			name: "greater than max abort code",
+
+			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "600",
+
+			wantResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				io.WriteString(w, "Success!")
+			}))
+			defer server.Close()
+
+			client := server.Client()
+			req, err := http.NewRequest("GET", server.URL, nil)
+			if err != nil {
+				t.Fatalf("unexpected error when creating request: %v", err)
+			}
+
+			if tt.faultServerAddrHeader != "" {
+				req.Header.Set(faults.FaultServerAddressHeader, tt.faultServerAddrHeader)
+			}
+			if tt.faultServerMethodHeader != "" {
+				req.Header.Set(faults.FaultServerMethodHeader, tt.faultServerMethodHeader)
+			}
+			if tt.faultDelayMsHeader != "" {
+				req.Header.Set(faults.FaultDelayMsHeader, tt.faultDelayMsHeader)
+			}
+			if tt.faultDelayPercentageHeader != "" {
+				req.Header.Set(faults.FaultDelayPercentageHeader, tt.faultDelayPercentageHeader)
+			}
+			if tt.faultAbortCodeHeader != "" {
+				req.Header.Set(faults.FaultAbortCodeHeader, tt.faultAbortCodeHeader)
+			}
+			if tt.faultAbortMessageHeader != "" {
+				req.Header.Set(faults.FaultAbortMessageHeader, tt.faultAbortMessageHeader)
+			}
+			if tt.faultAbortPercentageHeader != "" {
+				req.Header.Set(faults.FaultAbortPercentageHeader, tt.faultAbortPercentageHeader)
+			}
+
+			resp, err := client.Do(req)
+
+			if err != nil {
+				t.Log(string(debug.Stack()))
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if tt.wantResp.StatusCode != resp.StatusCode {
+				t.Fatalf("expected response code %v, got %v", tt.wantResp.StatusCode, resp.StatusCode)
+			}
+		})
 	}
 }
