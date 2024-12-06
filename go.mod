@@ -22,7 +22,6 @@ require (
 	github.com/sony/gobreaker v0.4.1
 	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/zap v1.24.0
-	golang.org/x/exp v0.0.0-20190121172915-509febef88a4
 	golang.org/x/sys v0.18.0
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
 	google.golang.org/grpc v1.56.3
