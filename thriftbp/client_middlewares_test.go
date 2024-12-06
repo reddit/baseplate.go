@@ -398,10 +398,6 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 	}
 }
 
-func intPtr(i int) *int {
-	return &i
-}
-
 func TestFaultInjectionClientMiddleware(t *testing.T) {
 	testCases := []struct {
 		name string
