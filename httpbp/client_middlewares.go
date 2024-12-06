@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -385,7 +386,7 @@ func FaultInjection(serverSlug string) ClientMiddleware {
 
 			resp, err := faults.InjectFault(faults.InjectFaultParams{
 				Address:      req.URL.Host,
-				Method:       req.URL.Path,
+				Method:       strings.TrimPrefix(req.URL.Path, "/"),
 				AbortCodeMin: 100,
 				AbortCodeMax: 599,
 				GetHeaderFn:  req.Header.Get,

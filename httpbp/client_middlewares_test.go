@@ -401,7 +401,7 @@ func TestCircuitBreaker(t *testing.T) {
 func TestFaultInjection(t *testing.T) {
 	testCases := []struct {
 		name                       string
-		faultServerAddrHeader      string
+		faultServerAddrMatch       bool
 		faultServerMethodHeader    string
 		faultDelayMsHeader         string
 		faultDelayPercentageHeader string
@@ -420,7 +420,7 @@ func TestFaultInjection(t *testing.T) {
 		{
 			name: "abort",
 
-			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerAddrMatch:    true,
 			faultServerMethodHeader: "testMethod",
 			faultAbortCodeHeader:    "500",
 
@@ -431,7 +431,7 @@ func TestFaultInjection(t *testing.T) {
 		{
 			name: "service does not match",
 
-			faultServerAddrHeader:   "fooService.testNamespace",
+			faultServerAddrMatch:    false,
 			faultServerMethodHeader: "testMethod",
 			faultAbortCodeHeader:    "500",
 
@@ -442,7 +442,7 @@ func TestFaultInjection(t *testing.T) {
 		{
 			name: "method does not match",
 
-			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerAddrMatch:    true,
 			faultServerMethodHeader: "fooMethod",
 			faultAbortCodeHeader:    "500",
 
@@ -453,7 +453,7 @@ func TestFaultInjection(t *testing.T) {
 		{
 			name: "less than min abort code",
 
-			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerAddrMatch:    true,
 			faultServerMethodHeader: "testMethod",
 			faultAbortCodeHeader:    "99",
 
@@ -464,7 +464,7 @@ func TestFaultInjection(t *testing.T) {
 		{
 			name: "greater than max abort code",
 
-			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerAddrMatch:    true,
 			faultServerMethodHeader: "testMethod",
 			faultAbortCodeHeader:    "600",
 
@@ -482,14 +482,26 @@ func TestFaultInjection(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := server.Client()
-			req, err := http.NewRequest("GET", server.URL, nil)
+			client, err := NewClient(ClientConfig{
+				Slug: "test",
+			})
+			if err != nil {
+				t.Fatalf("NewClient returned error: %v", err)
+			}
+
+			req, err := http.NewRequest("GET", server.URL+"/testMethod", nil)
 			if err != nil {
 				t.Fatalf("unexpected error when creating request: %v", err)
 			}
 
-			if tt.faultServerAddrHeader != "" {
-				req.Header.Set(faults.FaultServerAddressHeader, tt.faultServerAddrHeader)
+			if tt.faultServerAddrMatch {
+				// This is a hack to get the fault injection middleware address
+				// matching to work with an HTTP test server, as the fault injection
+				// middleware relies on the DNS address for request matching. HTTP
+				// test servers run on the local machine, and modifying the DNS
+				// logic to route an arbitrary test address to this local server is
+				// extremely non-trivial.
+				req.Header.Set(faults.FaultServerAddressHeader, "127.0")
 			}
 			if tt.faultServerMethodHeader != "" {
 				req.Header.Set(faults.FaultServerMethodHeader, tt.faultServerMethodHeader)
