@@ -59,7 +59,11 @@ type InjectFaultParams struct {
 
 func InjectFault(params InjectFaultParams) (interface{}, error) {
 	serverAddress := params.GetHeaderFn(FaultServerAddressHeader)
-	if serverAddress == "" || serverAddress != strings.TrimSuffix(params.Address, ".svc.cluster.local") {
+	shortAddress := params.Address
+	if i := strings.Index(params.Address, ".svc.cluster.local"); i != -1 {
+		shortAddress = params.Address[:i]
+	}
+	if serverAddress == "" || serverAddress != shortAddress {
 		return params.ResumeFn()
 	}
 

@@ -46,6 +46,8 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 // plus any additional client middleware passed into this function. Default
 // middlewares are:
 //
+// * FaultInjection
+//
 // * MonitorClient with transport.WithRetrySlugSuffix
 //
 // * PrometheusClientMetrics with transport.WithRetrySlugSuffix

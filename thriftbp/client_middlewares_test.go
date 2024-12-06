@@ -24,7 +24,7 @@ import (
 
 const (
 	service = "testService"
-	address = "testService.testNamespace.svc.cluster.local"
+	address = "testService.testNamespace.svc.cluster.local:12345"
 	method  = "testMethod"
 )
 
