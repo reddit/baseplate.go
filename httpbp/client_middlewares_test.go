@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -495,13 +496,10 @@ func TestFaultInjection(t *testing.T) {
 			}
 
 			if tt.faultServerAddrMatch {
-				// This is a hack to get the fault injection middleware address
-				// matching to work with an HTTP test server, as the fault injection
-				// middleware relies on the DNS address for request matching. HTTP
-				// test servers run on the local machine, and modifying the DNS
-				// logic to route an arbitrary test address to this local server is
-				// extremely non-trivial.
-				req.Header.Set(faults.FaultServerAddressHeader, "127.0")
+				// We can't set a specific address here because the middleware
+				// relies on the DNS address, which is not customizeable when making
+				// real requests to a local HTTP test server.
+				req.Header.Set(faults.FaultServerAddressHeader, strings.TrimPrefix(server.URL, "http://"))
 			}
 			if tt.faultServerMethodHeader != "" {
 				req.Header.Set(faults.FaultServerMethodHeader, tt.faultServerMethodHeader)

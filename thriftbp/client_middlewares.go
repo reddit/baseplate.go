@@ -420,6 +420,7 @@ func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
 				})
 
 				resp, err := faults.InjectFault(faults.InjectFaultParams{
+					CallerName:   "thriftpb.FaultInjectionClientMiddleware",
 					Address:      address,
 					Method:       method,
 					AbortCodeMin: thrift.UNKNOWN_TRANSPORT_EXCEPTION,

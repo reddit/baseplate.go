@@ -79,7 +79,7 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 	}
 
 	defaults := []ClientMiddleware{
-		FaultInjection(config.Slug),
+		FaultInjection(),
 		MonitorClient(config.Slug + transport.WithRetrySlugSuffix),
 		PrometheusClientMetrics(config.Slug + transport.WithRetrySlugSuffix),
 		Retries(config.MaxErrorReadAhead, config.RetryOptions...),
@@ -359,13 +359,13 @@ type ServiceAddressParts struct {
 	Namespace string
 }
 
-func FaultInjection(serverSlug string) ClientMiddleware {
+func FaultInjection() ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			resumeFn := func() (interface{}, error) {
+			resumeFn := faults.ResumeFn(func() (interface{}, error) {
 				return next.RoundTrip(req)
-			}
-			responseFn := func(code int, message string) (interface{}, error) {
+			})
+			responseFn := faults.ResponseFn(func(code int, message string) (interface{}, error) {
 				return &http.Response{
 					Status:     http.StatusText(code),
 					StatusCode: code,
@@ -382,14 +382,15 @@ func FaultInjection(serverSlug string) ClientMiddleware {
 					Request:          req,
 					TLS:              req.TLS,
 				}, nil
-			}
+			})
 
 			resp, err := faults.InjectFault(faults.InjectFaultParams{
+				CallerName:   "httpbp.FaultInjection",
 				Address:      req.URL.Host,
 				Method:       strings.TrimPrefix(req.URL.Path, "/"),
 				AbortCodeMin: 100,
 				AbortCodeMax: 599,
-				GetHeaderFn:  req.Header.Get,
+				GetHeaderFn:  faults.GetHeaderFn(req.Header.Get),
 				ResumeFn:     resumeFn,
 				ResponseFn:   responseFn})
 			return resp.(*http.Response), err

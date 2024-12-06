@@ -1,6 +1,8 @@
 package faults
 
 import (
+	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -24,32 +26,24 @@ func (r randSingleton) getRandInt() int {
 	return *r.randInt
 }
 
-func getShortenedAddress(address string) string {
-	parts := strings.Split(address, ".")
-	if len(parts) < 2 {
-		return ""
-	}
-	return strings.Join(parts[:2], ".")
-}
-
-func isSelected(percentageHeader string, GetHeaderFn func(key string) string, singleRand randSingleton) bool {
+func isSelected(percentageHeader string, GetHeaderFn func(key string) string, singleRand randSingleton) (bool, string) {
 	percentageStr := GetHeaderFn(percentageHeader)
 	if percentageStr == "" {
-		return true
+		return true, ""
 	}
 	percentage, err := strconv.Atoi(percentageStr)
 	if err != nil {
-		// log "provided delay percentage is not a valid integer"
-		return false
+		return false, fmt.Sprintf("provided delay percentage %s is not a valid integer", percentageStr)
 	}
 	if percentage < 0 || percentage > 100 {
-		// log "provided delay percentage is outside the valid range of [0-100]"
-		return false
+		return false, fmt.Sprintf("provided delay percentage %d is outside the valid range of [0-100]", percentage)
 	}
-	return singleRand.getRandInt() < percentage
+	return singleRand.getRandInt() < percentage, ""
 }
 
 type InjectFaultParams struct {
+	CallerName string
+
 	Address, Method            string
 	AbortCodeMin, AbortCodeMax int
 
@@ -64,7 +58,7 @@ type InjectFaultParams struct {
 
 func InjectFault(params InjectFaultParams) (interface{}, error) {
 	serverAddress := params.GetHeaderFn(FaultServerAddressHeader)
-	if serverAddress == "" || serverAddress != getShortenedAddress(params.Address) {
+	if serverAddress == "" || serverAddress != strings.TrimSuffix(params.Address, ".svc.cluster.local") {
 		return params.ResumeFn()
 	}
 
@@ -79,13 +73,14 @@ func InjectFault(params InjectFaultParams) (interface{}, error) {
 
 	delayMs := params.GetHeaderFn(FaultDelayMsHeader)
 	if delayMs != "" {
-		if !isSelected(FaultDelayPercentageHeader, params.GetHeaderFn, singleRand) {
+		if selected, msg := isSelected(FaultDelayPercentageHeader, params.GetHeaderFn, singleRand); !selected {
+			slog.Warn(fmt.Sprintf("%s: %s", params.CallerName, msg))
 			return params.ResumeFn()
 		}
 
 		delay, err := strconv.Atoi(delayMs)
 		if err != nil {
-			// log "provided delay is not a valid integer"
+			slog.Warn(fmt.Sprintf("%s: provided delay %s is not a valid integer", params.CallerName, delayMs))
 			return params.ResumeFn()
 		}
 
@@ -98,17 +93,18 @@ func InjectFault(params InjectFaultParams) (interface{}, error) {
 
 	abortCode := params.GetHeaderFn(FaultAbortCodeHeader)
 	if abortCode != "" {
-		if !isSelected(FaultAbortPercentageHeader, params.GetHeaderFn, singleRand) {
+		if selected, msg := isSelected(FaultAbortPercentageHeader, params.GetHeaderFn, singleRand); !selected {
+			slog.Warn(fmt.Sprintf("%s: %s", params.CallerName, msg))
 			return params.ResumeFn()
 		}
 
 		code, err := strconv.Atoi(abortCode)
 		if err != nil {
-			// log "provided abort code is not a valid integer"
+			slog.Warn(fmt.Sprintf("%s: provided abort code %s is not a valid integer", params.CallerName, abortCode))
 			return params.ResumeFn()
 		}
 		if code < params.AbortCodeMin || code > params.AbortCodeMax {
-			// log "provided abort code is outside of the valid range"
+			slog.Warn(fmt.Sprintf("%s: provided abort code %d is outside of the valid range", params.CallerName, code))
 			return params.ResumeFn()
 		}
 		abortMessage := params.GetHeaderFn(FaultAbortMessageHeader)
