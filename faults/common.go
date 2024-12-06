@@ -1,3 +1,4 @@
+// Package faults provides common headers and client-side fault injection functionality.
 package faults
 
 import (
@@ -9,7 +10,6 @@ import (
 	"time"
 )
 
-// Function signatures for use in protocol-specific dependency injection.
 type GetHeaderFn func(key string) string
 type ResumeFn func() (interface{}, error)
 type ResponseFn func(code int, message string) (interface{}, error)
