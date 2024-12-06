@@ -3,25 +3,26 @@ package faults
 import (
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"strconv"
 	"strings"
 	"time"
-
-	"golang.org/x/exp/rand"
 )
 
+// Function signatures for use in protocol-specific dependency injection.
 type GetHeaderFn func(key string) string
 type ResumeFn func() (interface{}, error)
 type ResponseFn func(code int, message string) (interface{}, error)
 type SleepFn func(d time.Duration)
 
+// Object to ensure a random number is only generated at most 1 time.
 type randSingleton struct {
 	randInt *int
 }
 
 func (r randSingleton) getRandInt() int {
 	if r.randInt == nil {
-		*r.randInt = rand.Intn(100)
+		*r.randInt = rand.IntN(100)
 	}
 	return *r.randInt
 }
@@ -33,10 +34,10 @@ func isSelected(percentageHeader string, GetHeaderFn func(key string) string, si
 	}
 	percentage, err := strconv.Atoi(percentageStr)
 	if err != nil {
-		return false, fmt.Sprintf("provided delay percentage %s is not a valid integer", percentageStr)
+		return false, fmt.Sprintf("provided percentage \"%s\" is not a valid integer", percentageStr)
 	}
 	if percentage < 0 || percentage > 100 {
-		return false, fmt.Sprintf("provided delay percentage %d is outside the valid range of [0-100]", percentage)
+		return false, fmt.Sprintf("provided percentage \"%d\" is outside the valid range of [0-100]", percentage)
 	}
 	return singleRand.getRandInt() < percentage, ""
 }
@@ -51,7 +52,7 @@ type InjectFaultParams struct {
 	ResumeFn    ResumeFn
 	ResponseFn  ResponseFn
 
-	// Exposed for tests
+	// Exposed for tests.
 	RandInt *int
 	SleepFn *SleepFn
 }
@@ -73,14 +74,16 @@ func InjectFault(params InjectFaultParams) (interface{}, error) {
 
 	delayMs := params.GetHeaderFn(FaultDelayMsHeader)
 	if delayMs != "" {
-		if selected, msg := isSelected(FaultDelayPercentageHeader, params.GetHeaderFn, singleRand); !selected {
-			slog.Warn(fmt.Sprintf("%s: %s", params.CallerName, msg))
+		if selected, reason := isSelected(FaultDelayPercentageHeader, params.GetHeaderFn, singleRand); !selected {
+			if reason != "" {
+				slog.Warn(fmt.Sprintf("%s: %s", params.CallerName, reason))
+			}
 			return params.ResumeFn()
 		}
 
 		delay, err := strconv.Atoi(delayMs)
 		if err != nil {
-			slog.Warn(fmt.Sprintf("%s: provided delay %s is not a valid integer", params.CallerName, delayMs))
+			slog.Warn(fmt.Sprintf("%s: provided delay \"%s\" is not a valid integer", params.CallerName, delayMs))
 			return params.ResumeFn()
 		}
 
@@ -93,18 +96,20 @@ func InjectFault(params InjectFaultParams) (interface{}, error) {
 
 	abortCode := params.GetHeaderFn(FaultAbortCodeHeader)
 	if abortCode != "" {
-		if selected, msg := isSelected(FaultAbortPercentageHeader, params.GetHeaderFn, singleRand); !selected {
-			slog.Warn(fmt.Sprintf("%s: %s", params.CallerName, msg))
+		if selected, reason := isSelected(FaultAbortPercentageHeader, params.GetHeaderFn, singleRand); !selected {
+			if reason != "" {
+				slog.Warn(fmt.Sprintf("%s: %s", params.CallerName, reason))
+			}
 			return params.ResumeFn()
 		}
 
 		code, err := strconv.Atoi(abortCode)
 		if err != nil {
-			slog.Warn(fmt.Sprintf("%s: provided abort code %s is not a valid integer", params.CallerName, abortCode))
+			slog.Warn(fmt.Sprintf("%s: provided abort code \"%s\" is not a valid integer", params.CallerName, abortCode))
 			return params.ResumeFn()
 		}
 		if code < params.AbortCodeMin || code > params.AbortCodeMax {
-			slog.Warn(fmt.Sprintf("%s: provided abort code %d is outside of the valid range", params.CallerName, code))
+			slog.Warn(fmt.Sprintf("%s: provided abort code \"%d\" is outside of the valid range", params.CallerName, code))
 			return params.ResumeFn()
 		}
 		abortMessage := params.GetHeaderFn(FaultAbortMessageHeader)
