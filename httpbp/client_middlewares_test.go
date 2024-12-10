@@ -17,7 +17,7 @@ import (
 	"github.com/sony/gobreaker"
 
 	"github.com/reddit/baseplate.go/breakerbp"
-	"github.com/reddit/baseplate.go/faults"
+	"github.com/reddit/baseplate.go/internal/faults"
 )
 
 func TestNewClient(t *testing.T) {

@@ -12,7 +12,7 @@ import (
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
-	"github.com/reddit/baseplate.go/faults"
+	"github.com/reddit/baseplate.go/internal/faults"
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/prometheusbpint/spectest"
 	"github.com/reddit/baseplate.go/prometheusbp"

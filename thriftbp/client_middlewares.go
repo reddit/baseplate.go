@@ -15,7 +15,7 @@ import (
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
-	"github.com/reddit/baseplate.go/faults"
+	"github.com/reddit/baseplate.go/internal/faults"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/thriftint"
 
