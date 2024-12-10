@@ -405,21 +405,25 @@ func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-				getHeaderFn := faults.GetHeaderFn(func(key string) string {
+				if address == "" {
+					return next.Call(ctx, method, args, result)
+				}
+
+				var getHeaderFn faults.GetHeaderFn = func(key string) string {
 					header, ok := thrift.GetHeader(ctx, key)
 					if !ok {
 						return ""
 					}
 					return header
-				})
-				resumeFn := faults.ResumeFn(func() (interface{}, error) {
+				}
+				var resumeFn faults.ResumeFn[thrift.ResponseMeta] = func() (thrift.ResponseMeta, error) {
 					return next.Call(ctx, method, args, result)
-				})
-				responseFn := faults.ResponseFn(func(code int, message string) (interface{}, error) {
+				}
+				var responseFn faults.ResponseFn[thrift.ResponseMeta] = func(code int, message string) (thrift.ResponseMeta, error) {
 					return thrift.ResponseMeta{}, thrift.NewTTransportException(code, message)
-				})
+				}
 
-				resp, err := faults.InjectFault(faults.InjectFaultParams{
+				resp, err := faults.InjectFault(faults.InjectFaultParams[thrift.ResponseMeta]{
 					CallerName:   "thriftpb.FaultInjectionClientMiddleware",
 					Address:      address,
 					Method:       method,
@@ -427,8 +431,9 @@ func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
 					AbortCodeMax: thrift.END_OF_FILE,
 					GetHeaderFn:  getHeaderFn,
 					ResumeFn:     resumeFn,
-					ResponseFn:   responseFn})
-				return resp.(thrift.ResponseMeta), err
+					ResponseFn:   responseFn,
+				})
+				return resp, err
 			},
 		}
 	}

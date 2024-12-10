@@ -364,10 +364,10 @@ type ServiceAddressParts struct {
 func FaultInjection() ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			resumeFn := faults.ResumeFn(func() (interface{}, error) {
+			var resumeFn faults.ResumeFn[*http.Response] = func() (*http.Response, error) {
 				return next.RoundTrip(req)
-			})
-			responseFn := faults.ResponseFn(func(code int, message string) (interface{}, error) {
+			}
+			var responseFn faults.ResponseFn[*http.Response] = func(code int, message string) (*http.Response, error) {
 				return &http.Response{
 					Status:     http.StatusText(code),
 					StatusCode: code,
@@ -384,18 +384,19 @@ func FaultInjection() ClientMiddleware {
 					Request:          req,
 					TLS:              req.TLS,
 				}, nil
-			})
+			}
 
-			resp, err := faults.InjectFault(faults.InjectFaultParams{
+			resp, err := faults.InjectFault(faults.InjectFaultParams[*http.Response]{
 				CallerName:   "httpbp.FaultInjection",
 				Address:      req.URL.Host,
 				Method:       strings.TrimPrefix(req.URL.Path, "/"),
-				AbortCodeMin: 100,
+				AbortCodeMin: 400,
 				AbortCodeMax: 599,
 				GetHeaderFn:  faults.GetHeaderFn(req.Header.Get),
 				ResumeFn:     resumeFn,
-				ResponseFn:   responseFn})
-			return resp.(*http.Response), err
+				ResponseFn:   responseFn,
+			})
+			return resp, err
 		})
 	}
 }

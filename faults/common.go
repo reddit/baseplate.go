@@ -1,4 +1,5 @@
-// Package faults provides common headers and client-side fault injection functionality.
+// Package faults provides common headers and client-side fault injection
+// functionality.
 package faults
 
 import (
@@ -10,9 +11,20 @@ import (
 	"time"
 )
 
+// GetHeaderFn is the function type to return the value of a protocol-specific
+// header with the given key.
 type GetHeaderFn func(key string) string
-type ResumeFn func() (interface{}, error)
-type ResponseFn func(code int, message string) (interface{}, error)
+
+// ResumeFn is the function type to continue processing the protocol-specific
+// request without injecting a fault.
+type ResumeFn[T any] func() (T, error)
+
+// ResponseFn is the function type to inject a protocol-specific fault with the
+// given code and message.
+type ResponseFn[T any] func(code int, message string) (T, error)
+
+// SleepFn is the function type to sleep for the given duration. It is only
+// exposed for testing purposes.
 type SleepFn func(d time.Duration)
 
 // Object to ensure a random number is only generated at most 1 time.
@@ -27,38 +39,42 @@ func (r randSingleton) getRandInt() int {
 	return *r.randInt
 }
 
-func isSelected(percentageHeader string, GetHeaderFn func(key string) string, singleRand randSingleton) (bool, string) {
+func isSelected(percentageHeader string, GetHeaderFn func(key string) string, singleRand randSingleton) (bool, error) {
 	percentageStr := GetHeaderFn(percentageHeader)
 	if percentageStr == "" {
-		return true, ""
+		return true, nil
 	}
 	percentage, err := strconv.Atoi(percentageStr)
 	if err != nil {
-		return false, fmt.Sprintf("provided percentage \"%s\" is not a valid integer", percentageStr)
+		return false, fmt.Errorf("provided percentage %q is not a valid integer: %w", percentageStr, err)
 	}
 	if percentage < 0 || percentage > 100 {
-		return false, fmt.Sprintf("provided percentage \"%d\" is outside the valid range of [0-100]", percentage)
+		return false, fmt.Errorf("provided percentage %q is outside the valid range of [0-100]", percentage)
 	}
-	return singleRand.getRandInt() < percentage, ""
+	return singleRand.getRandInt() < percentage, nil
 }
 
-type InjectFaultParams struct {
+type InjectFaultParams[T any] struct {
 	CallerName string
 
 	Address, Method            string
 	AbortCodeMin, AbortCodeMax int
 
 	GetHeaderFn GetHeaderFn
-	ResumeFn    ResumeFn
-	ResponseFn  ResponseFn
+	ResumeFn    ResumeFn[T]
+	ResponseFn  ResponseFn[T]
 
 	// Exposed for tests.
 	RandInt *int
 	SleepFn *SleepFn
 }
 
-func InjectFault(params InjectFaultParams) (interface{}, error) {
+func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 	serverAddress := params.GetHeaderFn(FaultServerAddressHeader)
+
+	// The short address should just be <service>.<namespace>, without the
+	// local cluster suffix or port. Non-cluster-local addresses are not
+	// shortened.
 	shortAddress := params.Address
 	if i := strings.Index(params.Address, ".svc.cluster.local"); i != -1 {
 		shortAddress = params.Address[:i]
@@ -78,9 +94,9 @@ func InjectFault(params InjectFaultParams) (interface{}, error) {
 
 	delayMs := params.GetHeaderFn(FaultDelayMsHeader)
 	if delayMs != "" {
-		if selected, reason := isSelected(FaultDelayPercentageHeader, params.GetHeaderFn, singleRand); !selected {
-			if reason != "" {
-				slog.Warn(fmt.Sprintf("%s: %s", params.CallerName, reason))
+		if selected, err := isSelected(FaultDelayPercentageHeader, params.GetHeaderFn, singleRand); !selected {
+			if err != nil {
+				slog.Warn(fmt.Sprintf("%s: %v", params.CallerName, err))
 			}
 			return params.ResumeFn()
 		}
@@ -100,9 +116,9 @@ func InjectFault(params InjectFaultParams) (interface{}, error) {
 
 	abortCode := params.GetHeaderFn(FaultAbortCodeHeader)
 	if abortCode != "" {
-		if selected, reason := isSelected(FaultAbortPercentageHeader, params.GetHeaderFn, singleRand); !selected {
-			if reason != "" {
-				slog.Warn(fmt.Sprintf("%s: %s", params.CallerName, reason))
+		if selected, err := isSelected(FaultAbortPercentageHeader, params.GetHeaderFn, singleRand); !selected {
+			if err != nil {
+				slog.Warn(fmt.Sprintf("%s: %v", params.CallerName, err))
 			}
 			return params.ResumeFn()
 		}

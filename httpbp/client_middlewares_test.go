@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -523,7 +522,6 @@ func TestFaultInjection(t *testing.T) {
 			resp, err := client.Do(req)
 
 			if err != nil {
-				t.Log(string(debug.Stack()))
 				t.Fatalf("expected no error, got %v", err)
 			}
 			if tt.wantResp.StatusCode != resp.StatusCode {
