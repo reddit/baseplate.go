@@ -355,11 +355,6 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 	}
 }
 
-type ServiceAddressParts struct {
-	Name      string
-	Namespace string
-}
-
 func FaultInjection() ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
