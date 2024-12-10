@@ -27,31 +27,19 @@ type ResponseFn[T any] func(code int, message string) (T, error)
 // exposed for testing purposes.
 type SleepFn func(d time.Duration)
 
-// Object to ensure a random number is only generated at most 1 time.
-type randSingleton struct {
-	randInt *int
-}
-
-func (r randSingleton) getRandInt() int {
-	if r.randInt == nil {
-		*r.randInt = rand.IntN(100)
-	}
-	return *r.randInt
-}
-
-func isSelected(percentageHeader string, GetHeaderFn func(key string) string, singleRand randSingleton) (bool, error) {
+func getPercentage(percentageHeader string, GetHeaderFn func(key string) string) (int, error) {
 	percentageStr := GetHeaderFn(percentageHeader)
 	if percentageStr == "" {
-		return true, nil
+		return 100, nil
 	}
 	percentage, err := strconv.Atoi(percentageStr)
 	if err != nil {
-		return false, fmt.Errorf("provided percentage %q is not a valid integer: %w", percentageStr, err)
+		return 0, fmt.Errorf("provided percentage %q is not a valid integer: %w", percentageStr, err)
 	}
 	if percentage < 0 || percentage > 100 {
-		return false, fmt.Errorf("provided percentage %q is outside the valid range of [0-100]", percentage)
+		return 0, fmt.Errorf("provided percentage %q is outside the valid range of [0-100]", percentage)
 	}
-	return singleRand.getRandInt() < percentage, nil
+	return percentage, nil
 }
 
 type InjectFaultParams[T any] struct {
@@ -88,16 +76,21 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 		return params.ResumeFn()
 	}
 
-	singleRand := randSingleton{
-		randInt: params.RandInt,
+	var randInt int
+	if params.RandInt != nil {
+		randInt = *params.RandInt
+	} else {
+		randInt = rand.IntN(100)
 	}
 
 	delayMs := params.GetHeaderFn(FaultDelayMsHeader)
 	if delayMs != "" {
-		if selected, err := isSelected(FaultDelayPercentageHeader, params.GetHeaderFn, singleRand); !selected {
-			if err != nil {
-				slog.Warn(fmt.Sprintf("%s: %v", params.CallerName, err))
-			}
+		percentage, err := getPercentage(FaultDelayPercentageHeader, params.GetHeaderFn)
+		if err != nil {
+			slog.Warn(fmt.Sprintf("%s: %v", params.CallerName, err))
+			return params.ResumeFn()
+		}
+		if randInt >= percentage {
 			return params.ResumeFn()
 		}
 
@@ -116,10 +109,12 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 
 	abortCode := params.GetHeaderFn(FaultAbortCodeHeader)
 	if abortCode != "" {
-		if selected, err := isSelected(FaultAbortPercentageHeader, params.GetHeaderFn, singleRand); !selected {
-			if err != nil {
-				slog.Warn(fmt.Sprintf("%s: %v", params.CallerName, err))
-			}
+		percentage, err := getPercentage(FaultAbortPercentageHeader, params.GetHeaderFn)
+		if err != nil {
+			slog.Warn(fmt.Sprintf("%s: %v", params.CallerName, err))
+			return params.ResumeFn()
+		}
+		if randInt >= percentage {
 			return params.ResumeFn()
 		}
 
