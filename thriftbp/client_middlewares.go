@@ -18,7 +18,6 @@ import (
 	"github.com/reddit/baseplate.go/internal/faults"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/thriftint"
-
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/prometheusbp"
