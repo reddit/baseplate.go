@@ -382,7 +382,7 @@ func FaultInjection() ClientMiddleware {
 
 			resp, err := faults.InjectFault(faults.InjectFaultParams[*http.Response]{
 				CallerName:   "httpbp.FaultInjection",
-				Address:      req.URL.Host,
+				Address:      req.URL.Hostname(),
 				Method:       strings.TrimPrefix(req.URL.Path, "/"),
 				AbortCodeMin: 400,
 				AbortCodeMax: 599,

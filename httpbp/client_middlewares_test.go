@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -498,7 +497,11 @@ func TestFaultInjection(t *testing.T) {
 				// We can't set a specific address here because the middleware
 				// relies on the DNS address, which is not customizeable when making
 				// real requests to a local HTTP test server.
-				req.Header.Set(faults.FaultServerAddressHeader, strings.TrimPrefix(server.URL, "http://"))
+				parsed, err := url.Parse(server.URL)
+				if err != nil {
+					t.Fatalf("unexpected error when parsing httptest server URL: %v", err)
+				}
+				req.Header.Set(faults.FaultServerAddressHeader, parsed.Hostname())
 			}
 			if tt.faultServerMethodHeader != "" {
 				req.Header.Set(faults.FaultServerMethodHeader, tt.faultServerMethodHeader)
