@@ -61,6 +61,15 @@ func parsePercentage(percentage string) (int, error) {
 	return intPercentage, nil
 }
 
+func selected(randInt *int, percentage int) bool {
+	if randInt != nil {
+		return *randInt < percentage
+	}
+	// Use a different random integer per feature as per
+	// https://github.com/grpc/proposal/blob/master/A33-Fault-Injection.md#evaluate-possibility-fraction.
+	return rand.IntN(100) < percentage
+}
+
 type InjectFaultParams[T any] struct {
 	CallerName string
 
@@ -87,13 +96,6 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 		return params.ResumeFn()
 	}
 
-	var randInt int
-	if params.randInt != nil {
-		randInt = *params.randInt
-	} else {
-		randInt = rand.IntN(100)
-	}
-
 	delayMs := params.GetHeaderFn(FaultDelayMsHeader)
 	if delayMs != "" {
 		percentage, err := parsePercentage(params.GetHeaderFn(FaultDelayPercentageHeader))
@@ -101,7 +103,7 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 			slog.Warn(fmt.Sprintf("%s: %v", params.CallerName, err))
 			return params.ResumeFn()
 		}
-		if randInt >= percentage {
+		if !selected(params.randInt, percentage) {
 			return params.ResumeFn()
 		}
 
@@ -125,7 +127,7 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 			slog.Warn(fmt.Sprintf("%s: %v", params.CallerName, err))
 			return params.ResumeFn()
 		}
-		if randInt >= percentage {
+		if !selected(params.randInt, percentage) {
 			return params.ResumeFn()
 		}
 
