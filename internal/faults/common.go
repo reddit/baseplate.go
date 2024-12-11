@@ -29,11 +29,21 @@ type sleepFn func(d time.Duration)
 
 // The canonical address for a cluster-local address is <service>.<namespace>,
 // without the local cluster suffix or port. The canonical address for a
-// non-cluster-local address is the full original address.
+// non-cluster-local address is the full original address without the port.
 func getCanonicalAddress(serverAddress string) string {
+	// Cluster-local address.
 	if i := strings.Index(serverAddress, ".svc.cluster.local"); i != -1 {
 		return serverAddress[:i]
 	}
+	// External host:port address.
+	if i := strings.LastIndex(serverAddress, ":"); i != -1 {
+		port := serverAddress[i+1:]
+		// Verify this is actually a port number.
+		if port != "" && port[0] >= '0' && port[0] <= '9' {
+			return serverAddress[:i]
+		}
+	}
+	// Other address, i.e. unix domain socket.
 	return serverAddress
 }
 

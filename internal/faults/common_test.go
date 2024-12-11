@@ -25,9 +25,19 @@ func TestGetCanonicalAddress(t *testing.T) {
 			want:    "testService.testNamespace",
 		},
 		{
-			name:    "external address",
+			name:    "external address port stripped",
 			address: "foo.bar:12345",
-			want:    "foo.bar:12345",
+			want:    "foo.bar",
+		},
+		{
+			name:    "unexpected address path stripped",
+			address: "foo.bar:12345/path",
+			want:    "foo.bar",
+		},
+		{
+			name:    "external address without port untouched",
+			address: "unix://foo",
+			want:    "unix://foo",
 		},
 	}
 
