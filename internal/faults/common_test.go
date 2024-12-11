@@ -1,10 +1,9 @@
-package faults_test
+package faults
 
 import (
+	"strings"
 	"testing"
 	"time"
-
-	"github.com/reddit/baseplate.go/internal/faults"
 )
 
 const (
@@ -13,6 +12,87 @@ const (
 	minAbortCode   = 0
 	maxAbortCode   = 10
 )
+
+func TestGetCanonicalAddress(t *testing.T) {
+	testCases := []struct {
+		name    string
+		address string
+		want    string
+	}{
+		{
+			name:    "cluster local address",
+			address: "testService.testNamespace.svc.cluster.local:12345",
+			want:    "testService.testNamespace",
+		},
+		{
+			name:    "external address",
+			address: "foo.bar:12345",
+			want:    "foo.bar:12345",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getCanonicalAddress(tc.address)
+			if got != tc.want {
+				t.Fatalf("expected %q, got %q", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestParsePercentage(t *testing.T) {
+	testCases := []struct {
+		name       string
+		percentage string
+		want       int
+		wantErr    string
+	}{
+		{
+			name:       "empty",
+			percentage: "",
+			want:       100,
+		},
+		{
+			name:       "valid",
+			percentage: "50",
+			want:       50,
+		},
+		{
+			name:       "NaN",
+			percentage: "NaN",
+			want:       0,
+			wantErr:    "not a valid integer",
+		},
+		{
+			name:       "under min",
+			percentage: "-1",
+			want:       0,
+			wantErr:    "outside the valid range",
+		},
+		{
+			name:       "over max",
+			percentage: "101",
+			want:       0,
+			wantErr:    "outside the valid range",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parsePercentage(tc.percentage)
+			if got != tc.want {
+				t.Fatalf("expected %v, got %v", tc.want, got)
+			}
+			if tc.wantErr == "" && err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("expected error to contain %q, got %v", tc.wantErr, err)
+			}
+		})
+	}
+}
 
 type Response struct {
 	code    int
@@ -264,45 +344,45 @@ func TestInjectFault(t *testing.T) {
 				address = defaultAddress
 			}
 
-			getHeaderFn := faults.GetHeaderFn(func(key string) string {
-				if key == faults.FaultServerAddressHeader {
+			getHeaderFn := GetHeaderFn(func(key string) string {
+				if key == FaultServerAddressHeader {
 					return tc.faultServerAddressHeader
 				}
-				if key == faults.FaultServerMethodHeader {
+				if key == FaultServerMethodHeader {
 					return tc.faultServerMethodHeader
 				}
-				if key == faults.FaultDelayMsHeader {
+				if key == FaultDelayMsHeader {
 					return tc.faultDelayMsHeader
 				}
-				if key == faults.FaultDelayPercentageHeader {
+				if key == FaultDelayPercentageHeader {
 					return tc.faultDelayPercentageHeader
 				}
-				if key == faults.FaultAbortCodeHeader {
+				if key == FaultAbortCodeHeader {
 					return tc.faultAbortCodeHeader
 				}
-				if key == faults.FaultAbortMessageHeader {
+				if key == FaultAbortMessageHeader {
 					return tc.faultAbortMessageHeader
 				}
-				if key == faults.FaultAbortPercentageHeader {
+				if key == FaultAbortPercentageHeader {
 					return tc.faultAbortPercentageHeader
 				}
 				return ""
 			})
-			var resumeFn faults.ResumeFn[*Response] = func() (*Response, error) {
+			var resumeFn ResumeFn[*Response] = func() (*Response, error) {
 				return nil, nil
 			}
-			var responseFn faults.ResponseFn[*Response] = func(code int, message string) (*Response, error) {
+			var responseFn ResponseFn[*Response] = func(code int, message string) (*Response, error) {
 				return &Response{
 					code:    code,
 					message: message,
 				}, nil
 			}
 			delayMs := 0
-			sleepFn := faults.SleepFn(func(d time.Duration) {
+			sleepFn := sleepFn(func(d time.Duration) {
 				delayMs = int(d.Milliseconds())
 			})
 
-			resp, err := faults.InjectFault(faults.InjectFaultParams[*Response]{
+			resp, err := InjectFault(InjectFaultParams[*Response]{
 				CallerName:   "faults_test.TestInjectFault",
 				Address:      address,
 				Method:       method,
@@ -311,8 +391,8 @@ func TestInjectFault(t *testing.T) {
 				GetHeaderFn:  getHeaderFn,
 				ResumeFn:     resumeFn,
 				ResponseFn:   responseFn,
-				SleepFn:      &sleepFn,
-				RandInt:      tc.randInt,
+				sleepFn:      &sleepFn,
+				randInt:      tc.randInt,
 			})
 
 			if err != nil {

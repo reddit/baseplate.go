@@ -23,23 +23,32 @@ type ResumeFn[T any] func() (T, error)
 // given code and message.
 type ResponseFn[T any] func(code int, message string) (T, error)
 
-// SleepFn is the function type to sleep for the given duration. It is only
-// exposed for testing purposes.
-type SleepFn func(d time.Duration)
+// sleepFn is the function type to sleep for the given duration. Only used in
+// tests.
+type sleepFn func(d time.Duration)
 
-func getPercentage(percentageHeader string, GetHeaderFn func(key string) string) (int, error) {
-	percentageStr := GetHeaderFn(percentageHeader)
-	if percentageStr == "" {
+// The canonical address for a cluster-local address is <service>.<namespace>,
+// without the local cluster suffix or port. The canonical address for a
+// non-cluster-local address is the full original address.n
+func getCanonicalAddress(serverAddress string) string {
+	if i := strings.Index(serverAddress, ".svc.cluster.local"); i != -1 {
+		return serverAddress[:i]
+	}
+	return serverAddress
+}
+
+func parsePercentage(percentage string) (int, error) {
+	if percentage == "" {
 		return 100, nil
 	}
-	percentage, err := strconv.Atoi(percentageStr)
+	intPercentage, err := strconv.Atoi(percentage)
 	if err != nil {
-		return 0, fmt.Errorf("provided percentage %q is not a valid integer: %w", percentageStr, err)
+		return 0, fmt.Errorf("provided percentage %q is not a valid integer: %w", percentage, err)
 	}
-	if percentage < 0 || percentage > 100 {
-		return 0, fmt.Errorf("provided percentage %q is outside the valid range of [0-100]", percentage)
+	if intPercentage < 0 || intPercentage > 100 {
+		return 0, fmt.Errorf("provided percentage \"%d\" is outside the valid range of [0-100]", intPercentage)
 	}
-	return percentage, nil
+	return intPercentage, nil
 }
 
 type InjectFaultParams[T any] struct {
@@ -52,22 +61,14 @@ type InjectFaultParams[T any] struct {
 	ResumeFn    ResumeFn[T]
 	ResponseFn  ResponseFn[T]
 
-	// Exposed for tests.
-	RandInt *int
-	SleepFn *SleepFn
+	randInt *int
+	sleepFn *sleepFn
 }
 
 func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
-	serverAddress := params.GetHeaderFn(FaultServerAddressHeader)
-
-	// The short address should just be <service>.<namespace>, without the
-	// local cluster suffix or port. Non-cluster-local addresses are not
-	// shortened.
-	shortAddress := params.Address
-	if i := strings.Index(params.Address, ".svc.cluster.local"); i != -1 {
-		shortAddress = params.Address[:i]
-	}
-	if serverAddress == "" || serverAddress != shortAddress {
+	faultHeaderAddress := params.GetHeaderFn(FaultServerAddressHeader)
+	requestAddress := getCanonicalAddress(params.Address)
+	if faultHeaderAddress == "" || faultHeaderAddress != requestAddress {
 		return params.ResumeFn()
 	}
 
@@ -77,15 +78,15 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 	}
 
 	var randInt int
-	if params.RandInt != nil {
-		randInt = *params.RandInt
+	if params.randInt != nil {
+		randInt = *params.randInt
 	} else {
 		randInt = rand.IntN(100)
 	}
 
 	delayMs := params.GetHeaderFn(FaultDelayMsHeader)
 	if delayMs != "" {
-		percentage, err := getPercentage(FaultDelayPercentageHeader, params.GetHeaderFn)
+		percentage, err := parsePercentage(params.GetHeaderFn(FaultDelayPercentageHeader))
 		if err != nil {
 			slog.Warn(fmt.Sprintf("%s: %v", params.CallerName, err))
 			return params.ResumeFn()
@@ -101,15 +102,15 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 		}
 
 		sleepFn := time.Sleep
-		if params.SleepFn != nil {
-			sleepFn = *params.SleepFn
+		if params.sleepFn != nil {
+			sleepFn = *params.sleepFn
 		}
 		sleepFn(time.Duration(delay) * time.Millisecond)
 	}
 
 	abortCode := params.GetHeaderFn(FaultAbortCodeHeader)
 	if abortCode != "" {
-		percentage, err := getPercentage(FaultAbortPercentageHeader, params.GetHeaderFn)
+		percentage, err := parsePercentage(params.GetHeaderFn(FaultAbortPercentageHeader))
 		if err != nil {
 			slog.Warn(fmt.Sprintf("%s: %v", params.CallerName, err))
 			return params.ResumeFn()

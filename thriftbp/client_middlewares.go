@@ -18,6 +18,7 @@ import (
 	"github.com/reddit/baseplate.go/internal/faults"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/thriftint"
+
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/prometheusbp"
@@ -408,17 +409,17 @@ func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
 					return next.Call(ctx, method, args, result)
 				}
 
-				var getHeaderFn faults.GetHeaderFn = func(key string) string {
+				getHeaderFn := func(key string) string {
 					header, ok := thrift.GetHeader(ctx, key)
 					if !ok {
 						return ""
 					}
 					return header
 				}
-				var resumeFn faults.ResumeFn[thrift.ResponseMeta] = func() (thrift.ResponseMeta, error) {
+				resumeFn := func() (thrift.ResponseMeta, error) {
 					return next.Call(ctx, method, args, result)
 				}
-				var responseFn faults.ResponseFn[thrift.ResponseMeta] = func(code int, message string) (thrift.ResponseMeta, error) {
+				responseFn := func(code int, message string) (thrift.ResponseMeta, error) {
 					return thrift.ResponseMeta{}, thrift.NewTTransportException(code, message)
 				}
 
