@@ -35,6 +35,11 @@ func TestGetCanonicalAddress(t *testing.T) {
 			want:    "foo.bar",
 		},
 		{
+			name:    "unexpected trailing colon untouched",
+			address: "foo.bar:",
+			want:    "foo.bar:",
+		},
+		{
 			name:    "external address without port untouched",
 			address: "unix://foo",
 			want:    "unix://foo",
