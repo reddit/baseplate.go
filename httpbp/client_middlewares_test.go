@@ -495,7 +495,7 @@ func TestFaultInjection(t *testing.T) {
 
 			if tt.faultServerAddrMatch {
 				// We can't set a specific address here because the middleware
-				// relies on the DNS address, which is not customizeable when making
+				// relies on the DNS address, which is not customizable when making
 				// real requests to a local HTTP test server.
 				parsed, err := url.Parse(server.URL)
 				if err != nil {
