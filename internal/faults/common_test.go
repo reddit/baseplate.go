@@ -291,12 +291,14 @@ func TestInjectFault(t *testing.T) {
 			wantDelayMs: 0,
 		},
 		{
-			name:     "error while sleeping",
+			name:     "error while sleeping short circuits",
 			sleepErr: true,
 
 			faultServerAddressHeader: "testService.testNamespace",
 			faultServerMethodHeader:  "testMethod",
 			faultDelayMsHeader:       "1",
+			faultAbortCodeHeader:     "1",
+			faultAbortMessageHeader:  "test fault",
 
 			wantDelayMs: 0,
 		},
