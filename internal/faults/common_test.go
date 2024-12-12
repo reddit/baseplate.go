@@ -1,6 +1,8 @@
 package faults
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -120,9 +122,10 @@ func intPtr(i int) *int {
 
 func TestInjectFault(t *testing.T) {
 	testCases := []struct {
-		name    string
-		address string
-		randInt *int
+		name     string
+		address  string
+		randInt  *int
+		sleepErr bool
 
 		faultServerAddressHeader   string
 		faultServerMethodHeader    string
@@ -288,6 +291,16 @@ func TestInjectFault(t *testing.T) {
 			wantDelayMs: 0,
 		},
 		{
+			name:     "error while sleeping",
+			sleepErr: true,
+
+			faultServerAddressHeader: "testService.testNamespace",
+			faultServerMethodHeader:  "testMethod",
+			faultDelayMsHeader:       "1",
+
+			wantDelayMs: 0,
+		},
+		{
 			name: "invalid abort percentage negative",
 
 			faultServerAddressHeader:   "testService.testNamespace",
@@ -393,8 +406,12 @@ func TestInjectFault(t *testing.T) {
 				}, nil
 			}
 			delayMs := 0
-			sleepFn := sleepFn(func(d time.Duration) {
+			sleepFn := sleepFn(func(ctx context.Context, d time.Duration) error {
+				if tc.sleepErr {
+					return fmt.Errorf("context cancelled")
+				}
 				delayMs = int(d.Milliseconds())
+				return nil
 			})
 
 			resp, err := InjectFault(InjectFaultParams[*Response]{

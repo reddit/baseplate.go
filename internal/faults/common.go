@@ -3,6 +3,7 @@
 package faults
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
@@ -25,7 +26,7 @@ type ResponseFn[T any] func(code int, message string) (T, error)
 
 // sleepFn is the function type to sleep for the given duration. Only used in
 // tests.
-type sleepFn func(d time.Duration)
+type sleepFn func(ctx context.Context, d time.Duration) error
 
 // The canonical address for a cluster-local address is <service>.<namespace>,
 // without the local cluster suffix or port. The canonical address for a
@@ -71,6 +72,7 @@ func selected(randInt *int, percentage int) bool {
 }
 
 type InjectFaultParams[T any] struct {
+	Context    context.Context
 	CallerName string
 
 	Address, Method            string
@@ -82,6 +84,17 @@ type InjectFaultParams[T any] struct {
 
 	randInt *int
 	sleepFn *sleepFn
+}
+
+func sleep(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	select {
+	case <-t.C:
+	case <-ctx.Done():
+		t.Stop()
+		return ctx.Err()
+	}
+	return nil
 }
 
 func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
@@ -113,11 +126,14 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 			return params.ResumeFn()
 		}
 
-		sleepFn := time.Sleep
+		sleepFn := sleep
 		if params.sleepFn != nil {
 			sleepFn = *params.sleepFn
 		}
-		sleepFn(time.Duration(delay) * time.Millisecond)
+		if err := sleepFn(params.Context, time.Duration(delay)*time.Millisecond); err != nil {
+			slog.Warn(fmt.Sprintf("%s: error when delaying request: %v", params.CallerName, err))
+			return params.ResumeFn()
+		}
 	}
 
 	abortCode := params.GetHeaderFn(FaultAbortCodeHeader)

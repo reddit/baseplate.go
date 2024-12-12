@@ -423,6 +423,7 @@ func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
 				}
 
 				resp, err := faults.InjectFault(faults.InjectFaultParams[thrift.ResponseMeta]{
+					Context:      ctx,
 					CallerName:   "thriftpb.FaultInjectionClientMiddleware",
 					Address:      address,
 					Method:       method,
