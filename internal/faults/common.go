@@ -142,21 +142,20 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 			slog.Warn(fmt.Sprintf("%s: %v", params.CallerName, err))
 			return params.ResumeFn()
 		}
-		if !selected(params.randInt, percentage) {
-			return params.ResumeFn()
-		}
 
-		code, err := strconv.Atoi(abortCode)
-		if err != nil {
-			slog.Warn(fmt.Sprintf("%s: provided abort code %q is not a valid integer", params.CallerName, abortCode))
-			return params.ResumeFn()
+		if selected(params.randInt, percentage) {
+			code, err := strconv.Atoi(abortCode)
+			if err != nil {
+				slog.Warn(fmt.Sprintf("%s: provided abort code %q is not a valid integer", params.CallerName, abortCode))
+				return params.ResumeFn()
+			}
+			if code < params.AbortCodeMin || code > params.AbortCodeMax {
+				slog.Warn(fmt.Sprintf("%s: provided abort code \"%d\" is outside of the valid range", params.CallerName, code))
+				return params.ResumeFn()
+			}
+			abortMessage := params.GetHeaderFn(FaultAbortMessageHeader)
+			return params.ResponseFn(code, abortMessage)
 		}
-		if code < params.AbortCodeMin || code > params.AbortCodeMax {
-			slog.Warn(fmt.Sprintf("%s: provided abort code \"%d\" is outside of the valid range", params.CallerName, code))
-			return params.ResumeFn()
-		}
-		abortMessage := params.GetHeaderFn(FaultAbortMessageHeader)
-		return params.ResponseFn(code, abortMessage)
 	}
 
 	return params.ResumeFn()
