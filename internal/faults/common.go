@@ -71,6 +71,17 @@ func selected(randInt *int, percentage int) bool {
 	return rand.IntN(100) < percentage
 }
 
+func sleep(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	select {
+	case <-t.C:
+	case <-ctx.Done():
+		t.Stop()
+		return ctx.Err()
+	}
+	return nil
+}
+
 type InjectFaultParams[T any] struct {
 	Context    context.Context
 	CallerName string
@@ -84,17 +95,6 @@ type InjectFaultParams[T any] struct {
 
 	randInt *int
 	sleepFn *sleepFn
-}
-
-func sleep(ctx context.Context, d time.Duration) error {
-	t := time.NewTimer(d)
-	select {
-	case <-t.C:
-	case <-ctx.Done():
-		t.Stop()
-		return ctx.Err()
-	}
-	return nil
 }
 
 func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
