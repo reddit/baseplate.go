@@ -116,23 +116,22 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 			slog.Warn(fmt.Sprintf("%s: %v", params.CallerName, err))
 			return params.ResumeFn()
 		}
-		if !selected(params.randInt, percentage) {
-			return params.ResumeFn()
-		}
 
-		delay, err := strconv.Atoi(delayMs)
-		if err != nil {
-			slog.Warn(fmt.Sprintf("%s: provided delay %q is not a valid integer", params.CallerName, delayMs))
-			return params.ResumeFn()
-		}
+		if selected(params.randInt, percentage) {
+			delay, err := strconv.Atoi(delayMs)
+			if err != nil {
+				slog.Warn(fmt.Sprintf("%s: provided delay %q is not a valid integer", params.CallerName, delayMs))
+				return params.ResumeFn()
+			}
 
-		sleepFn := sleep
-		if params.sleepFn != nil {
-			sleepFn = *params.sleepFn
-		}
-		if err := sleepFn(params.Context, time.Duration(delay)*time.Millisecond); err != nil {
-			slog.Warn(fmt.Sprintf("%s: error when delaying request: %v", params.CallerName, err))
-			return params.ResumeFn()
+			sleepFn := sleep
+			if params.sleepFn != nil {
+				sleepFn = *params.sleepFn
+			}
+			if err := sleepFn(params.Context, time.Duration(delay)*time.Millisecond); err != nil {
+				slog.Warn(fmt.Sprintf("%s: error when delaying request: %v", params.CallerName, err))
+				return params.ResumeFn()
+			}
 		}
 	}
 

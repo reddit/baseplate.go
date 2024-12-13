@@ -262,6 +262,24 @@ func TestInjectFault(t *testing.T) {
 			wantResponse: nil,
 		},
 		{
+			name:    "only skip delay",
+			randInt: intPtr(50),
+
+			faultServerAddressHeader:   "testService.testNamespace",
+			faultServerMethodHeader:    "testMethod",
+			faultDelayMsHeader:         "250",
+			faultDelayPercentageHeader: "0", // No requests delayed
+			faultAbortCodeHeader:       "1",
+			faultAbortMessageHeader:    "test fault",
+			faultAbortPercentageHeader: "100", // All requests aborted
+
+			wantDelayMs: 0,
+			wantResponse: &Response{
+				code:    1,
+				message: "test fault",
+			},
+		},
+		{
 			name: "invalid delay percentage negative",
 
 			faultServerAddressHeader:   "testService.testNamespace",
