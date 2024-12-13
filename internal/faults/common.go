@@ -122,7 +122,7 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 
 		delay, err := strconv.Atoi(delayMs)
 		if err != nil {
-			slog.Warn(fmt.Sprintf("%s: provided delay \"%s\" is not a valid integer", params.CallerName, delayMs))
+			slog.Warn(fmt.Sprintf("%s: provided delay %q is not a valid integer", params.CallerName, delayMs))
 			return params.ResumeFn()
 		}
 
@@ -149,7 +149,7 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 
 		code, err := strconv.Atoi(abortCode)
 		if err != nil {
-			slog.Warn(fmt.Sprintf("%s: provided abort code \"%s\" is not a valid integer", params.CallerName, abortCode))
+			slog.Warn(fmt.Sprintf("%s: provided abort code %q is not a valid integer", params.CallerName, abortCode))
 			return params.ResumeFn()
 		}
 		if code < params.AbortCodeMin || code > params.AbortCodeMax {
