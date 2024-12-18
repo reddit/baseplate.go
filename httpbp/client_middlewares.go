@@ -17,6 +17,7 @@ import (
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/internal/faults"
+
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/retrybp"
@@ -358,6 +359,8 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 func FaultInjection() ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			slog.Info(fmt.Sprintf("Starting HTTP FaultInjection on request: %v", *req))
+
 			resumeFn := func() (*http.Response, error) {
 				return next.RoundTrip(req)
 			}

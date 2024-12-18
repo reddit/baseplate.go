@@ -98,6 +98,8 @@ type InjectFaultParams[T any] struct {
 }
 
 func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
+	slog.Info(fmt.Sprintf("Starting InjectFault with the following parameters: %v", params))
+
 	faultHeaderAddress := params.GetHeaderFn(FaultServerAddressHeader)
 	requestAddress := getCanonicalAddress(params.Address)
 	if faultHeaderAddress == "" || faultHeaderAddress != requestAddress {

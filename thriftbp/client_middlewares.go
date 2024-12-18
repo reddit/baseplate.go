@@ -3,6 +3,7 @@ package thriftbp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"sync"
@@ -18,6 +19,7 @@ import (
 	"github.com/reddit/baseplate.go/internal/faults"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/thriftint"
+
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/prometheusbp"
@@ -404,6 +406,8 @@ func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				slog.Info(fmt.Sprintf("Starting Thrift FaultInjection on address, method: %s, %s", address, method))
+
 				if address == "" {
 					return next.Call(ctx, method, args, result)
 				}
