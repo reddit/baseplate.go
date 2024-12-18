@@ -98,16 +98,18 @@ type InjectFaultParams[T any] struct {
 }
 
 func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
-	slog.Info(fmt.Sprintf("Starting InjectFault with the following parameters: %v", params))
+	slog.Info(fmt.Sprintf("Starting InjectFault with the following parameters:\n- CallerName: %s\n- Address: %s\n- Method: %s\n- AbortCodeMin: %d\n- AbortCodeMax: %d\n", params.CallerName, params.Address, params.Method, params.AbortCodeMin, params.AbortCodeMax))
 
 	faultHeaderAddress := params.GetHeaderFn(FaultServerAddressHeader)
 	requestAddress := getCanonicalAddress(params.Address)
 	if faultHeaderAddress == "" || faultHeaderAddress != requestAddress {
+		slog.Info(fmt.Sprintf("Skipping InjectFault as the faultHeaderAddress is %q and the requestAddress is %q", faultHeaderAddress, requestAddress))
 		return params.ResumeFn()
 	}
 
 	serverMethod := params.GetHeaderFn(FaultServerMethodHeader)
 	if serverMethod != "" && serverMethod != params.Method {
+		slog.Info(fmt.Sprintf("Skipping InjectFault as the serverMethod is %q and the params.Method is %q", serverMethod, params.Method))
 		return params.ResumeFn()
 	}
 
@@ -156,9 +158,11 @@ func InjectFault[T any](params InjectFaultParams[T]) (T, error) {
 				return params.ResumeFn()
 			}
 			abortMessage := params.GetHeaderFn(FaultAbortMessageHeader)
+			slog.Info(fmt.Sprintf("Injecting fault with code %d and message %q", code, abortMessage))
 			return params.ResponseFn(code, abortMessage)
 		}
 	}
 
+	slog.Info("No abort fault injected")
 	return params.ResumeFn()
 }
