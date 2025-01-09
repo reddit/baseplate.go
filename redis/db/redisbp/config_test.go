@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/reddit/baseplate.go/configbp"
 	"github.com/reddit/baseplate.go/redis/db/redisbp"
@@ -78,10 +78,10 @@ timeouts:
 				Network: "tcp",
 				Addr:    "localhost:6379",
 
-				MinIdleConns: 5,
-				MaxConnAge:   time.Minute,
-				PoolSize:     10,
-				PoolTimeout:  time.Second * 10,
+				MinIdleConns:    5,
+				ConnMaxLifetime: time.Minute,
+				PoolSize:        10,
+				PoolTimeout:     time.Second * 10,
 
 				MaxRetries:      2,
 				MinRetryBackoff: time.Millisecond,
@@ -187,10 +187,10 @@ timeouts:
 			options: &redis.ClusterOptions{
 				Addrs: []string{"localhost:6379", "localhost:6380"},
 
-				MinIdleConns: 5,
-				MaxConnAge:   time.Minute,
-				PoolSize:     10,
-				PoolTimeout:  time.Second * 10,
+				MinIdleConns:    5,
+				ConnMaxLifetime: time.Minute,
+				PoolSize:        10,
+				PoolTimeout:     time.Second * 10,
 
 				MaxRetries:      2,
 				MinRetryBackoff: time.Millisecond,

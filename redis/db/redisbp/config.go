@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 // ClientConfig can be used to configure a redis-go "Client".  See the docs for
@@ -150,7 +150,7 @@ func (opts PoolOptions) ApplyOptions(options *redis.Options) {
 		options.MinIdleConns = opts.MinIdleConnections
 	}
 	if opts.MaxConnectionAge != 0 {
-		options.MaxConnAge = opts.MaxConnectionAge
+		options.ConnMaxLifetime = opts.MaxConnectionAge
 	}
 	if opts.Size != 0 {
 		options.PoolSize = opts.Size
@@ -166,7 +166,7 @@ func (opts PoolOptions) ApplyClusterOptions(options *redis.ClusterOptions) {
 		options.MinIdleConns = opts.MinIdleConnections
 	}
 	if opts.MaxConnectionAge != 0 {
-		options.MaxConnAge = opts.MaxConnectionAge
+		options.ConnMaxLifetime = opts.MaxConnectionAge
 	}
 	if opts.Size != 0 {
 		options.PoolSize = opts.Size

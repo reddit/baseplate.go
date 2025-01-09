@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/reddit/baseplate.go/prometheusbp/promtest"
 	"github.com/reddit/baseplate.go/redis/internal/redisprom"

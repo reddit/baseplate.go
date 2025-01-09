@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/prometheusbp"
@@ -40,6 +41,43 @@ type SpanHook struct {
 }
 
 var _ redis.Hook = SpanHook{}
+
+func (h SpanHook) DialHook(hook redis.DialHook) redis.DialHook {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		fmt.Printf("dialing %s %s\n", network, addr)
+		conn, err := hook(ctx, network, addr)
+		fmt.Printf("finished dialing %s %s\n", network, addr)
+		return conn, err
+	}
+}
+
+func (h SpanHook) ProcessHook(hook redis.ProcessHook) redis.ProcessHook {
+	return func(ctx context.Context, cmd redis.Cmder) error {
+		fmt.Printf("starting processing: <%s>\n", cmd)
+		h.startChildSpan(ctx, cmd.Name())
+		err := cmd.Err()
+		h.endChildSpan(ctx, err)
+		fmt.Printf("finished processing: <%s>\n", cmd)
+		return err
+	}
+}
+
+func (h SpanHook) ProcessPipelineHook(hook redis.ProcessPipelineHook) redis.ProcessPipelineHook {
+	return func(ctx context.Context, cmds []redis.Cmder) error {
+		fmt.Printf("pipeline starting processing: %v\n", cmds)
+		h.startChildSpan(ctx, "pipeline")
+		errs := make([]error, 0, len(cmds))
+		for _, cmd := range cmds {
+			if err := cmd.Err(); !errors.Is(err, redis.Nil) {
+				errs = append(errs, err)
+			}
+		}
+
+		h.endChildSpan(ctx, errors.Join(errs...))
+		fmt.Printf("pipeline finished processing: %v\n", cmds)
+		return nil
+	}
+}
 
 // BeforeProcess starts a client Span before processing a Redis command and
 // starts a timer to record how long the command took.

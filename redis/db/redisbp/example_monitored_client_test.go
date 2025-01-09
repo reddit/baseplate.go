@@ -3,8 +3,8 @@ package redisbp_test
 import (
 	"context"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/opentracing/opentracing-go"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/reddit/baseplate.go/redis/db/redisbp"
 	"github.com/reddit/baseplate.go/tracing"
