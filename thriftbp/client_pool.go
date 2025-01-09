@@ -711,22 +711,14 @@ func shouldCloseConnection(err error) bool {
 	var te thrift.TException
 	if errors.As(err, &te) {
 		switch te.TExceptionType() {
-		case thrift.TExceptionTypeApplication, thrift.TExceptionTypeProtocol, thrift.TExceptionTypeTransport:
-			// We definitely should close the connection on TTransportException.
-			// We probably don't need to close the connection on TApplicationException
-			// and TProtocolException, but just close them to be safe, as the
-			// connection might be in some weird state when those errors happen.
-			return true
 		case thrift.TExceptionTypeCompiled:
-			// For exceptions defined from the IDL, we definitely shouldn't close the
-			// connection.
+			// Exceptions defined in thrift IDL.
+			// Getting those means the roundtrip is done and response is read fully,
+			// so safe to reuse.
+			// This is the only non-nil error that the connection is safe for reuse
 			return false
 		}
 	}
-	// We should avoid reusing the client if it hits a network error.
-	// We should also actively close the connection if it's a timeout,
-	// as this helps the server side to abandon the request early.
-	return errors.As(err, new(net.Error)) ||
-		errors.Is(err, context.Canceled) ||
-		errors.Is(err, context.DeadlineExceeded)
+	// Everything else has different degrees of risks of reusing the connection.
+	return true
 }
