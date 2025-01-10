@@ -16,8 +16,8 @@ const (
 	IsUntrustedRequestHeaderLower         = "x-rddt-untrusted"
 )
 
-var V2HeaderLookup = func(ctx context.Context) (map[string]string, bool) {
-	return nil, false
+var SetV2Context = func(ctx context.Context, _ map[string]string) context.Context {
+	return ctx
 }
 
 // ErrNewInternalHeaderNotAllowed is returned by a client when the call tries to set an internal header is not allowlisted
@@ -93,12 +93,13 @@ func (h *IncomingHeaders) SetOnContext(ctx context.Context) context.Context {
 		h.service,
 		h.method,
 	).Observe(float64(h.estimatedSizeBytes))
-	return context.WithValue(ctx, headersKey{}, h.headers)
+	ctx = SetV2Context(ctx, h.headers)
+	return ToContext(ctx, h.headers)
 }
 
-func FromContext(ctx context.Context) (map[string]string, bool) {
-	h, ok := ctx.Value(headersKey{}).(map[string]string)
-	return h, ok
+// ToContext is used by internalv2compat to allow interoperability with the v2 library.
+func ToContext(ctx context.Context, headers map[string]string) context.Context {
+	return context.WithValue(ctx, headersKey{}, headers)
 }
 
 // CheckClientHeader checks if the header is allowlisted and returns an error if it is not.
@@ -330,11 +331,7 @@ func SetOutgoingHeaders(ctx context.Context, options ...SetOutgoingHeadersOption
 
 	headers, ok := ctx.Value(headersKey{}).(map[string]string)
 	if !ok {
-		h, ok := V2HeaderLookup(ctx)
-		if !ok {
-			return
-		}
-		headers = h
+		return
 	}
 	var forwarded int
 	var estimatedSizeBytes int

@@ -141,10 +141,10 @@ func V2TracingHTTPServerMiddleware() func(name string, next http.Handler) http.H
 	return v2Tracing.httpServerMiddleware
 }
 
-func V0BaseplateHeadersFromContext(ctx context.Context) (map[string]string, bool) {
-	return headerbp.FromContext(ctx)
+func SetV0BaseplateHeadersToContext(ctx context.Context, headers map[string]string) context.Context {
+	return headerbp.ToContext(ctx, headers)
 }
 
-func SetV2BaseplateHeadersLookup(lookup func(context.Context) (map[string]string, bool)) {
-	headerbp.V2HeaderLookup = lookup
+func SetV2BaseplateHeadersLookup(setter func(context.Context, map[string]string) context.Context) {
+	headerbp.SetV2Context = setter
 }
