@@ -2,6 +2,8 @@ package redisbp
 
 import (
 	"context"
+	"github.com/reddit/baseplate.go/internal/prometheusbpint"
+	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"github.com/opentracing/opentracing-go"
@@ -23,9 +25,26 @@ func TestSpanHook(t *testing.T) {
 		Cluster:    "cluster",
 	}
 	statusCmd := redis.NewStatusCmd(ctx, "ping")
-	stringCmd := redis.NewStringCmd(ctx, "get", "1")
-	stringCmd.SetErr(nil)
-
+	t.Run(
+		"ProcessHook",
+		func(t *testing.T) {
+			hook := SpanHook{
+				promActive: &prometheusbpint.HighWatermarkGauge{
+					HighWatermarkValue:   &prometheusbpint.HighWatermarkValue{},
+					CurrGauge:            redisprom.ActiveConnectionsDesc,
+					CurrGaugeLabelValues: []string{"test"},
+					MaxGauge:             redisprom.PeakActiveConnectionsDesc,
+					MaxGaugeLabelValues:  []string{"test"},
+				},
+			}
+			ph := func(ctx context.Context, cmd redis.Cmder) error { return nil }
+			err := hook.ProcessHook(ph)(context.Background(), statusCmd)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			assert.Equal(t, int64(1), hook.promActive.Max())
+		},
+	)
 	t.Run(
 		"Before/AfterProcess",
 		func(t *testing.T) {
@@ -46,10 +65,7 @@ func TestSpanHook(t *testing.T) {
 			defer promtest.NewPrometheusMetricTest(t, "spec latency timer", redisprom.LatencySeconds, labels).CheckSampleCountDelta(1)
 			defer promtest.NewPrometheusMetricTest(t, "spec requests total", redisprom.RequestsTotal, labels).CheckDelta(1)
 
-			ctx, err := hooks.BeforeProcess(ctx, statusCmd)
-			if err != nil {
-				t.Fatalf("Unexpected error: %s", err)
-			}
+			ctx := hooks.startChildSpan(ctx, statusCmd.Name())
 			activeSpan := opentracing.SpanFromContext(ctx)
 			if activeSpan == nil {
 				t.Fatalf("'activeSpan' is 'nil'")
@@ -58,37 +74,7 @@ func TestSpanHook(t *testing.T) {
 				t.Fatalf("Incorrect span name %q", name)
 			}
 
-			if err = hooks.AfterProcess(ctx, statusCmd); err != nil {
-				t.Fatalf("Unexpected error: %s", err)
-			}
-		},
-	)
-
-	t.Run(
-		"Before/AfterProcessPipeline",
-		func(t *testing.T) {
-			defer promtest.NewPrometheusMetricTest(t, "latency timer", latencyTimer, prometheus.Labels{
-				nameLabel:    "redis",
-				commandLabel: "pipeline",
-				successLabel: "true",
-			}).CheckSampleCountDelta(1)
-
-			cmds := []redis.Cmder{statusCmd, stringCmd}
-			ctx, err := hooks.BeforeProcessPipeline(ctx, cmds)
-			if err != nil {
-				t.Fatalf("Unexpected error: %s", err)
-			}
-			activeSpan := opentracing.SpanFromContext(ctx)
-			if activeSpan == nil {
-				t.Fatalf("'activeSpan' is 'nil'")
-			}
-			if name := tracing.AsSpan(activeSpan).Name(); name != "redis.pipeline" {
-				t.Fatalf("Incorrect span name %q", name)
-			}
-
-			if err = hooks.AfterProcessPipeline(ctx, cmds); err != nil {
-				t.Fatalf("Unexpected error: %s", err)
-			}
+			hooks.endChildSpan(ctx, nil)
 		},
 	)
 }

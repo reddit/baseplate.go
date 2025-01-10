@@ -46,13 +46,12 @@ func TestNewMonitoredClient(t *testing.T) {
 	defer s.Close()
 
 	client := redisbp.NewMonitoredClient("redis", &redis.Options{Addr: s.Addr()})
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
 	if resp := client.Ping(ctx); resp.Err() != nil {
 		t.Fatal(resp.Err())
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, testTimeout)
-	defer cancel()
 	msg, err := mmq.Receive(ctx)
 	if err != nil {
 		t.Fatal(err)

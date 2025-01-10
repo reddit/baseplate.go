@@ -20,6 +20,7 @@ require (
 	github.com/prometheus/client_model v0.5.0
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/sony/gobreaker v0.4.1
+	github.com/stretchr/testify v1.8.1
 	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/zap v1.24.0
 	golang.org/x/sys v0.18.0
@@ -54,6 +55,7 @@ require (
 	github.com/klauspost/compress v1.12.2 // indirect
 	github.com/mediocregopher/radix.v2 v0.0.0-20181115013041-b67df6e626f9 // indirect
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/common v0.48.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
@@ -65,6 +67,7 @@ require (
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apimachinery v0.25.0 // indirect
 	k8s.io/klog/v2 v2.80.1 // indirect
 )
