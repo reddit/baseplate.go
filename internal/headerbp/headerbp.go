@@ -16,6 +16,10 @@ const (
 	IsUntrustedRequestHeaderLower         = "x-rddt-untrusted"
 )
 
+var V2HeaderLookup = func(ctx context.Context) (map[string]string, bool) {
+	return nil, false
+}
+
 // ErrNewInternalHeaderNotAllowed is returned by a client when the call tries to set an internal header is not allowlisted
 var ErrNewInternalHeaderNotAllowed = fmt.Errorf("cannot send new internal headers on requests")
 
@@ -90,6 +94,11 @@ func (h *IncomingHeaders) SetOnContext(ctx context.Context) context.Context {
 		h.method,
 	).Observe(float64(h.estimatedSizeBytes))
 	return context.WithValue(ctx, headersKey{}, h.headers)
+}
+
+func FromContext(ctx context.Context) (map[string]string, bool) {
+	h, ok := ctx.Value(headersKey{}).(map[string]string)
+	return h, ok
 }
 
 // CheckClientHeader checks if the header is allowlisted and returns an error if it is not.
@@ -321,7 +330,11 @@ func SetOutgoingHeaders(ctx context.Context, options ...SetOutgoingHeadersOption
 
 	headers, ok := ctx.Value(headersKey{}).(map[string]string)
 	if !ok {
-		return
+		h, ok := V2HeaderLookup(ctx)
+		if !ok {
+			return
+		}
+		headers = h
 	}
 	var forwarded int
 	var estimatedSizeBytes int
