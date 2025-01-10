@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/reddit/baseplate.go/internal/headerbp"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
@@ -79,6 +81,7 @@ func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) 
 		InjectEdgeContext(args.EdgeContextImpl),
 		ReportPayloadSizeMetrics(0),
 		PrometheusServerMiddleware,
+		ServerHeaderBPMiddleware(),
 	}
 }
 
@@ -449,4 +452,51 @@ func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) t
 		return next.Process(ctx, seqID, in, out)
 	}
 	return thrift.WrappedTProcessorFunction{Wrapped: process}
+}
+
+// ServerHeaderBPMiddleware is a middleware that extracts baseplate headers from the incoming request and adds them to the context.
+func ServerHeaderBPMiddleware() thrift.ProcessorMiddleware {
+	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+		return thrift.WrappedTProcessorFunction{
+			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+				readHeaderList := thrift.GetReadHeaderList(ctx)
+				if len(readHeaderList) == 0 {
+					return next.Process(ctx, seqID, in, out)
+				}
+
+				// check both the lower case and the http canonical case since thrift.GetHeader is case sensitive
+				var untrusted bool
+				if _, ok := thrift.GetHeader(ctx, headerbp.IsUntrustedRequestHeaderLower); ok {
+					untrusted = true
+				} else if _, ok := thrift.GetHeader(ctx, headerbp.IsUntrustedRequestHeaderCanonicalHTTP); ok {
+					untrusted = true
+				}
+				if untrusted {
+					var cleared bool
+					for i := 0; i < len(readHeaderList); i++ {
+						k := readHeaderList[i]
+						if headerbp.IsBaseplateHeader(k) {
+							cleared = true
+							readHeaderList = slices.Delete(readHeaderList, i, i+1)
+							thrift.SetHeader(ctx, k, "")
+						}
+					}
+					if cleared {
+						ctx = thrift.SetReadHeaderList(ctx, readHeaderList)
+					}
+					return next.Process(ctx, seqID, in, out)
+				}
+
+				headers := headerbp.NewIncomingHeaders(
+					headerbp.WithThriftService("", name),
+				)
+				for _, k := range readHeaderList {
+					v, _ := thrift.GetHeader(ctx, k)
+					headers.RecordHeader(k, v)
+				}
+				ctx = headers.SetOnContext(ctx)
+				return next.Process(ctx, seqID, in, out)
+			},
+		}
+	}
 }

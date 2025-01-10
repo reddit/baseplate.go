@@ -17,5 +17,8 @@ func newSecretsStore(t testing.TB) *secrets.Store {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		store.Close()
+	})
 	return store
 }

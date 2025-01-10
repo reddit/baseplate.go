@@ -214,7 +214,6 @@ func TestThriftHostnameHeader(t *testing.T) {
 	defer cancel()
 
 	store := newSecretsStore(t)
-	defer store.Close()
 
 	handler := thriftHostnameHandler{}
 	server, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
@@ -313,9 +312,6 @@ func TestUDS(t *testing.T) {
 	t.Cleanup(cancel)
 
 	store := newSecretsStore(t)
-	t.Cleanup(func() {
-		store.Close()
-	})
 
 	handler := thriftHostnameHandler{}
 	server, err := thriftbp.NewServer(thriftbp.ServerConfig{
