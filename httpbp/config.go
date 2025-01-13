@@ -16,6 +16,7 @@ type ClientConfig struct {
 	MaxConnections    int               `yaml:"maxConnections"`
 	CircuitBreaker    *breakerbp.Config `yaml:"circuitBreaker"`
 	RetryOptions      []retry.Option
+	InternalOnly      bool
 }
 
 // Validate checks ClientConfig for any missing or erroneous values.

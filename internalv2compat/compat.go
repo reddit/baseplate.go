@@ -7,6 +7,7 @@
 package internalv2compat
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"sync"
@@ -15,6 +16,8 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/reddit/baseplate.go/internal/headerbp"
 )
 
 // globalLogger() is used by all top-level log methods (e.g. Infof) in the log package.
@@ -136,4 +139,12 @@ func V2TracingHTTPServerMiddleware() func(name string, next http.Handler) http.H
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
 	return v2Tracing.httpServerMiddleware
+}
+
+func SetV0BaseplateHeadersToContext(ctx context.Context, headers map[string]string) context.Context {
+	return headerbp.ToContext(ctx, headers)
+}
+
+func SetV2BaseplateHeadersLookup(setter func(context.Context, map[string]string) context.Context) {
+	headerbp.SetV2Context = setter
 }

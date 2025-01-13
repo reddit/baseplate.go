@@ -15,6 +15,7 @@ import (
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/internal/headerbp"
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
@@ -516,4 +517,30 @@ func (rr *responseRecorder) Write(b []byte) (n int, err error) {
 func (rr *responseRecorder) WriteHeader(code int) {
 	rr.ResponseWriter.WriteHeader(code)
 	rr.responseCode = code
+}
+
+// ServerHeaderBPMiddleware is a middleware that extracts baseplate headers from the incoming request and adds them to the context.
+func ServerHeaderBPMiddleware(service string) Middleware {
+	return func(name string, next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+			if r.Header.Get(headerbp.IsUntrustedRequestHeaderCanonicalHTTP) != "" {
+				for k := range r.Header {
+					if headerbp.IsBaseplateHeader(k) {
+						r.Header.Del(k)
+					}
+				}
+				return next(ctx, w, r)
+			}
+			headers := headerbp.NewIncomingHeaders(
+				headerbp.WithHTTPService(service, name),
+			)
+			for k, v := range r.Header {
+				if len(v) > 0 {
+					headers.RecordHeader(k, v[0])
+				}
+			}
+			ctx = headers.SetOnContext(ctx)
+			return next(ctx, w, r.WithContext(ctx))
+		}
+	}
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/reddit/baseplate.go/internal/headerbp"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/ecinterface"
@@ -162,6 +163,7 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 		BaseplateErrorWrapper,
 		thrift.ExtractIDLExceptionClientMiddleware,
 		SetDeadlineBudget,
+		ClientHeaderBPMiddleware(args.ServiceSlug, args.ClientName),
 	)
 	return middlewares
 }
@@ -395,4 +397,46 @@ func getClientError(result thrift.TStruct, err error) error {
 		return err
 	}
 	return thrift.ExtractExceptionFromResult(result)
+}
+
+// ClientHeaderBPMiddleware is a middleware that forwards baseplate headers from the context to the outgoing request.
+//
+// It will also verify that you are not adding any headers with the baseplate header prefix, if you try to send
+// a header with the baseplate header prefix it will return an error.
+func ClientHeaderBPMiddleware(service, client string) thrift.ClientMiddleware {
+	return func(next thrift.TClient) thrift.TClient {
+		return thrift.WrappedTClient{
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				outgoing := thrift.GetWriteHeaderList(ctx)
+				for _, k := range outgoing {
+					if err := headerbp.CheckClientHeader(k,
+						headerbp.WithThriftClient(service, client, method),
+					); err != nil {
+						return thrift.ResponseMeta{}, err
+					}
+				}
+
+				var toAdd map[string]string
+				headerbp.SetOutgoingHeaders(
+					ctx,
+					headerbp.WithThriftClient(service, client, method),
+					headerbp.WithHeaderSetter(func(k, v string) {
+						if toAdd == nil {
+							toAdd = make(map[string]string)
+						}
+						toAdd[k] = v
+						outgoing = append(outgoing, k)
+					}),
+				)
+
+				if len(toAdd) > 0 {
+					for k, v := range toAdd {
+						ctx = thrift.SetHeader(ctx, k, v)
+					}
+					ctx = thrift.SetWriteHeaderList(ctx, outgoing)
+				}
+				return next.Call(ctx, method, args, result)
+			},
+		}
+	}
 }
