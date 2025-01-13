@@ -77,46 +77,6 @@ func (h SpanHook) ProcessPipelineHook(hook redis.ProcessPipelineHook) redis.Proc
 	}
 }
 
-//// BeforeProcess starts a client Span before processing a Redis command and
-//// starts a timer to record how long the command took.
-//func (h SpanHook) BeforeProcess(ctx context.Context, cmd redis.Cmder) (context.Context, error) {
-//	return h.startChildSpan(ctx, cmd.Name()), nil
-//}
-//
-//// AfterProcess ends the client Span started by BeforeProcess, publishes the
-//// time the Redis command took to complete, and a metric indicating whether the
-//// command was a "success" or "fail"
-//func (h SpanHook) AfterProcess(ctx context.Context, cmd redis.Cmder) error {
-//	h.endChildSpan(ctx, cmd.Err())
-//	// NOTE: returning non-nil error from the hook changes the error the caller gets.
-//	// for this particular case if we return cmd.Err(), it will not change the client error,
-//	// but anyway it's not necessary
-//	// see: https://github.com/go-redis/redis/blob/v8.10.0/redis.go#L60
-//	return nil
-//}
-
-// BeforeProcessPipeline starts a client span before processing a Redis pipeline
-// and starts a timer to record how long the pipeline took.
-//func (h SpanHook) BeforeProcessPipeline(ctx context.Context, cmds []redis.Cmder) (context.Context, error) {
-//	return h.startChildSpan(ctx, "pipeline"), nil
-//}
-//
-//// AfterProcessPipeline ends the client span started by BeforeProcessPipeline,
-//// publishes the time the Redis pipeline took to complete, and a metric
-//// indicating whether the pipeline was a "success" or "fail"
-//func (h SpanHook) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmder) error {
-//	errs := make([]error, 0, len(cmds))
-//	for _, cmd := range cmds {
-//		if err := cmd.Err(); !errors.Is(err, redis.Nil) {
-//			errs = append(errs, err)
-//		}
-//	}
-//	h.endChildSpan(ctx, errors.Join(errs...))
-//	// NOTE: returning non-nil error from the hook changes the error the caller gets, and that's something we want to avoid.
-//	// see: https://github.com/go-redis/redis/blob/v8.10.0/redis.go#L101
-//	return nil
-//}
-
 func (h SpanHook) startChildSpan(ctx context.Context, cmdName string) context.Context {
 	name := fmt.Sprintf("%s.%s", h.ClientName, cmdName)
 	_, ctx = opentracing.StartSpanFromContext(

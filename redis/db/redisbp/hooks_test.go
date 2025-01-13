@@ -37,7 +37,13 @@ func TestSpanHook(t *testing.T) {
 					MaxGaugeLabelValues:  []string{"test"},
 				},
 			}
-			ph := func(ctx context.Context, cmd redis.Cmder) error { return nil }
+			ph := func(ctx context.Context, cmd redis.Cmder) error {
+				span := opentracing.SpanFromContext(ctx)
+				if span == nil {
+					t.Fatalf("Failed to get span from context\n")
+				}
+				return nil
+			}
 			err := hook.ProcessHook(ph)(context.Background(), statusCmd)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
@@ -45,6 +51,34 @@ func TestSpanHook(t *testing.T) {
 			assert.Equal(t, int64(1), hook.promActive.Max())
 		},
 	)
+	t.Run(
+		"ProcessPipelineHook",
+		func(t *testing.T) {
+			hook := SpanHook{
+				promActive: &prometheusbpint.HighWatermarkGauge{
+					HighWatermarkValue:   &prometheusbpint.HighWatermarkValue{},
+					CurrGauge:            redisprom.ActiveConnectionsDesc,
+					CurrGaugeLabelValues: []string{"test"},
+					MaxGauge:             redisprom.PeakActiveConnectionsDesc,
+					MaxGaugeLabelValues:  []string{"test"},
+				},
+			}
+			infoCmd := redis.NewStatusCmd(ctx, "info")
+			ph := func(ctx context.Context, cmd []redis.Cmder) error {
+				span := opentracing.SpanFromContext(ctx)
+				if span == nil {
+					t.Fatalf("Failed to get span from context\n")
+				}
+				return nil
+			}
+			err := hook.ProcessPipelineHook(ph)(context.Background(), []redis.Cmder{statusCmd, infoCmd})
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			assert.Equal(t, int64(1), hook.promActive.Max())
+		},
+	)
+
 	t.Run(
 		"Before/AfterProcess",
 		func(t *testing.T) {
