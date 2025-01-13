@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
+	"github.com/reddit/baseplate.go/internal/faults"
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/retrybp"
@@ -42,6 +44,8 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 // NewClient returns a standard HTTP client wrapped with the default middleware
 // plus any additional client middleware passed into this function. Default
 // middlewares are:
+//
+// * FaultInjection
 //
 // * MonitorClient with transport.WithRetrySlugSuffix
 //
@@ -76,6 +80,7 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 	}
 
 	defaults := []ClientMiddleware{
+		FaultInjection(),
 		MonitorClient(config.Slug + transport.WithRetrySlugSuffix),
 		PrometheusClientMetrics(config.Slug + transport.WithRetrySlugSuffix),
 		Retries(config.MaxErrorReadAhead, config.RetryOptions...),
@@ -346,6 +351,47 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 			}()
 
 			return next.RoundTrip(req)
+		})
+	}
+}
+
+func FaultInjection() ClientMiddleware {
+	return func(next http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			resumeFn := func() (*http.Response, error) {
+				return next.RoundTrip(req)
+			}
+			responseFn := func(code int, message string) (*http.Response, error) {
+				return &http.Response{
+					Status:     http.StatusText(code),
+					StatusCode: code,
+					Proto:      req.Proto,
+					ProtoMajor: req.ProtoMajor,
+					ProtoMinor: req.ProtoMinor,
+					Header: map[string][]string{
+						// Copied from the standard http.Error() function.
+						"Content-Type":           {"text/plain; charset=utf-8"},
+						"X-Content-Type-Options": {"nosniff"},
+					},
+					ContentLength:    0,
+					TransferEncoding: req.TransferEncoding,
+					Request:          req,
+					TLS:              req.TLS,
+				}, nil
+			}
+
+			resp, err := faults.InjectFault(faults.InjectFaultParams[*http.Response]{
+				Context:      req.Context(),
+				CallerName:   "httpbp.FaultInjection",
+				Address:      req.URL.Hostname(),
+				Method:       strings.TrimPrefix(req.URL.Path, "/"),
+				AbortCodeMin: 400,
+				AbortCodeMax: 599,
+				GetHeaderFn:  faults.GetHeaderFn(req.Header.Get),
+				ResumeFn:     resumeFn,
+				ResponseFn:   responseFn,
+			})
+			return resp, err
 		})
 	}
 }

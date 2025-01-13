@@ -401,6 +401,7 @@ func NewBaseplateClientPoolWithContext(ctx context.Context, cfg ClientPoolConfig
 	}
 	defaults := BaseplateDefaultClientMiddlewares(
 		DefaultClientMiddlewareArgs{
+			Address:             cfg.Addr,
 			EdgeContextImpl:     cfg.EdgeContextImpl,
 			ServiceSlug:         cfg.ServiceSlug,
 			RetryOptions:        cfg.DefaultRetryOptions,

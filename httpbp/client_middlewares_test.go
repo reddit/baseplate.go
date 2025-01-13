@@ -16,6 +16,7 @@ import (
 	"github.com/sony/gobreaker"
 
 	"github.com/reddit/baseplate.go/breakerbp"
+	"github.com/reddit/baseplate.go/internal/faults"
 )
 
 func TestNewClient(t *testing.T) {
@@ -393,5 +394,142 @@ func TestCircuitBreaker(t *testing.T) {
 	_, err = client.Get(server.URL)
 	if !errors.Is(err, gobreaker.ErrOpenState) {
 		t.Errorf("Expected the third request to return %v, got %v", gobreaker.ErrOpenState, err)
+	}
+}
+
+func TestFaultInjection(t *testing.T) {
+	testCases := []struct {
+		name                       string
+		faultServerAddrMatch       bool
+		faultServerMethodHeader    string
+		faultDelayMsHeader         string
+		faultDelayPercentageHeader string
+		faultAbortCodeHeader       string
+		faultAbortMessageHeader    string
+		faultAbortPercentageHeader string
+
+		wantResp *http.Response
+	}{
+		{
+			name: "no fault specified",
+			wantResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+		},
+		{
+			name: "abort",
+
+			faultServerAddrMatch:    true,
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "500",
+
+			wantResp: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+			},
+		},
+		{
+			name: "service does not match",
+
+			faultServerAddrMatch:    false,
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "500",
+
+			wantResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+		},
+		{
+			name: "method does not match",
+
+			faultServerAddrMatch:    true,
+			faultServerMethodHeader: "fooMethod",
+			faultAbortCodeHeader:    "500",
+
+			wantResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+		},
+		{
+			name: "less than min abort code",
+
+			faultServerAddrMatch:    true,
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "99",
+
+			wantResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+		},
+		{
+			name: "greater than max abort code",
+
+			faultServerAddrMatch:    true,
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "600",
+
+			wantResp: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				io.WriteString(w, "Success!")
+			}))
+			defer server.Close()
+
+			client, err := NewClient(ClientConfig{
+				Slug: "test",
+			})
+			if err != nil {
+				t.Fatalf("NewClient returned error: %v", err)
+			}
+
+			req, err := http.NewRequest("GET", server.URL+"/testMethod", nil)
+			if err != nil {
+				t.Fatalf("unexpected error when creating request: %v", err)
+			}
+
+			if tt.faultServerAddrMatch {
+				// We can't set a specific address here because the middleware
+				// relies on the DNS address, which is not customizable when making
+				// real requests to a local HTTP test server.
+				parsed, err := url.Parse(server.URL)
+				if err != nil {
+					t.Fatalf("unexpected error when parsing httptest server URL: %v", err)
+				}
+				req.Header.Set(faults.FaultServerAddressHeader, parsed.Hostname())
+			}
+			if tt.faultServerMethodHeader != "" {
+				req.Header.Set(faults.FaultServerMethodHeader, tt.faultServerMethodHeader)
+			}
+			if tt.faultDelayMsHeader != "" {
+				req.Header.Set(faults.FaultDelayMsHeader, tt.faultDelayMsHeader)
+			}
+			if tt.faultDelayPercentageHeader != "" {
+				req.Header.Set(faults.FaultDelayPercentageHeader, tt.faultDelayPercentageHeader)
+			}
+			if tt.faultAbortCodeHeader != "" {
+				req.Header.Set(faults.FaultAbortCodeHeader, tt.faultAbortCodeHeader)
+			}
+			if tt.faultAbortMessageHeader != "" {
+				req.Header.Set(faults.FaultAbortMessageHeader, tt.faultAbortMessageHeader)
+			}
+			if tt.faultAbortPercentageHeader != "" {
+				req.Header.Set(faults.FaultAbortPercentageHeader, tt.faultAbortPercentageHeader)
+			}
+
+			resp, err := client.Do(req)
+
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if tt.wantResp.StatusCode != resp.StatusCode {
+				t.Fatalf("expected response code %v, got %v", tt.wantResp.StatusCode, resp.StatusCode)
+			}
+		})
 	}
 }

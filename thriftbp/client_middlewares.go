@@ -15,6 +15,7 @@ import (
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/internal/faults"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/thriftint"
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
@@ -66,6 +67,11 @@ type DefaultClientMiddlewareArgs struct {
 	//     ImageUploadService -> image-upload
 	ServiceSlug string
 
+	// Address is the DNS address of the thrift service you are creating clients for.
+	//
+	// If not provided, the client will be unable to use the fault injection middleware.
+	Address string
+
 	// RetryOptions is the list of retry.Options to apply as the defaults for the
 	// Retry middleware.
 	//
@@ -105,38 +111,42 @@ type DefaultClientMiddlewareArgs struct {
 //
 // Currently they are (in order):
 //
-// 1. ForwardEdgeRequestContext.
+// 1. FaultInjectionClientMiddleware - This injects faults at the client side if
+// the request matches the provided configuration.
 //
-// 2. SetClientName(clientName)
+// 2. ForwardEdgeRequestContext
 //
-// 3. MonitorClient with MonitorClientWrappedSlugSuffix - This creates the spans
+// 3. SetClientName(clientName)
+//
+// 4. MonitorClient with MonitorClientWrappedSlugSuffix - This creates the spans
 // from the view of the client that group all retries into a single,
 // wrapped span.
 //
-// 4. PrometheusClientMiddleware with MonitorClientWrappedSlugSuffix - This
+// 5. PrometheusClientMiddleware with MonitorClientWrappedSlugSuffix - This
 // creates the prometheus client metrics from the view of the client that group
 // all retries into a single operation.
 //
-// 5. Retry(retryOptions) - If retryOptions is empty/nil, default to only
+// 6. Retry(retryOptions) - If retryOptions is empty/nil, default to only
 // retry.Attempts(1), this will not actually retry any calls but your client is
 // configured to set retry logic per-call using retrybp.WithOptions.
 //
-// 6. FailureRatioBreaker - Only if BreakerConfig is non-nil.
+// 7. FailureRatioBreaker - Only if BreakerConfig is non-nil.
 //
-// 7. MonitorClient - This creates the spans of the raw client calls.
+// 8. MonitorClient - This creates the spans of the raw client calls.
 //
-// 8. PrometheusClientMiddleware
+// 9. PrometheusClientMiddleware
 //
-// 9. BaseplateErrorWrapper
+// 10. BaseplateErrorWrapper
 //
-// 10. thrift.ExtractIDLExceptionClientMiddleware
+// 11. thrift.ExtractIDLExceptionClientMiddleware
 //
-// 11. SetDeadlineBudget
+// 12. SetDeadlineBudget
 func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
 	}
 	middlewares := []thrift.ClientMiddleware{
+		FaultInjectionClientMiddleware(args.Address),
 		ForwardEdgeRequestContext(args.EdgeContextImpl),
 		SetClientName(args.ClientName),
 		MonitorClient(MonitorClientArgs{
@@ -385,6 +395,45 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 				}()
 
 				return next.Call(ctx, method, args, result)
+			},
+		}
+	}
+}
+
+func FaultInjectionClientMiddleware(address string) thrift.ClientMiddleware {
+	return func(next thrift.TClient) thrift.TClient {
+		return thrift.WrappedTClient{
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				if address == "" {
+					return next.Call(ctx, method, args, result)
+				}
+
+				getHeaderFn := func(key string) string {
+					header, ok := thrift.GetHeader(ctx, key)
+					if !ok {
+						return ""
+					}
+					return header
+				}
+				resumeFn := func() (thrift.ResponseMeta, error) {
+					return next.Call(ctx, method, args, result)
+				}
+				responseFn := func(code int, message string) (thrift.ResponseMeta, error) {
+					return thrift.ResponseMeta{}, thrift.NewTTransportException(code, message)
+				}
+
+				resp, err := faults.InjectFault(faults.InjectFaultParams[thrift.ResponseMeta]{
+					Context:      ctx,
+					CallerName:   "thriftpb.FaultInjectionClientMiddleware",
+					Address:      address,
+					Method:       method,
+					AbortCodeMin: thrift.UNKNOWN_TRANSPORT_EXCEPTION,
+					AbortCodeMax: thrift.END_OF_FILE,
+					GetHeaderFn:  getHeaderFn,
+					ResumeFn:     resumeFn,
+					ResponseFn:   responseFn,
+				})
+				return resp, err
 			},
 		}
 	}
