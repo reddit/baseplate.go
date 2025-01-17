@@ -519,16 +519,35 @@ func (rr *responseRecorder) WriteHeader(code int) {
 	rr.responseCode = code
 }
 
+type untrustedHeadersKey struct{}
+
+func setUntrustedHeaders(ctx context.Context, h map[string]string) context.Context {
+	return context.WithValue(ctx, untrustedHeadersKey{}, h)
+}
+
+func GetUntrustedBaseplateHeaders(ctx context.Context) (map[string]string, bool) {
+	h, ok := ctx.Value(untrustedHeadersKey{}).(map[string]string)
+	return h, ok
+}
+
 // ServerHeaderBPMiddleware is a middleware that extracts baseplate headers from the incoming request and adds them to the context.
+//
+// If the request is flagged as untrusted, it will remove the baseplate headers from the request and add them to the
+// context. These can be retrieved using GetUntrustedBaseplateHeaders.
 func ServerHeaderBPMiddleware(service string) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			if r.Header.Get(headerbp.IsUntrustedRequestHeaderCanonicalHTTP) != "" {
-				for k := range r.Header {
+				untrusted := make(map[string]string)
+				for k, v := range r.Header {
 					if headerbp.IsBaseplateHeader(k) {
+						if len(v) > 0 {
+							untrusted[strings.ToLower(k)] = v[0]
+						}
 						r.Header.Del(k)
 					}
 				}
+				ctx = setUntrustedHeaders(ctx, untrusted)
 				return next(ctx, w, r)
 			}
 			headers := headerbp.NewIncomingHeaders(

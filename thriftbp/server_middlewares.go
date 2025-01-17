@@ -488,7 +488,7 @@ func ServerHeaderBPMiddleware() thrift.ProcessorMiddleware {
 				}
 
 				headers := headerbp.NewIncomingHeaders(
-					headerbp.WithThriftService("", name),
+					headerbp.WithThriftService("" /* service */, name),
 				)
 				for _, k := range readHeaderList {
 					v, _ := thrift.GetHeader(ctx, k)

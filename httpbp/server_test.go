@@ -633,6 +633,18 @@ func TestBaseplateHeaderPropagation_untrusted(t *testing.T) {
 						}
 					}
 
+					untrusted, ok := httpbp.GetUntrustedBaseplateHeaders(ctx)
+					if !ok {
+						t.Fatal("expected untrusted headers")
+					}
+					for wantKey, wantValue := range expectedHeaders {
+						if v, ok := untrusted[wantKey]; !ok {
+							t.Fatalf("missing header %q", wantKey)
+						} else if diff := cmp.Diff(v, wantValue[0]); diff != "" {
+							t.Fatalf("header %q values mismatch (-want +got):\n%s", wantKey, diff)
+						}
+					}
+
 					return nil
 				},
 			},
