@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/google/go-cmp/cmp"
@@ -79,6 +80,7 @@ func TestHeaderPropagation(t *testing.T) {
 		t.Fatal(err)
 	}
 	downstreamServer.Start(ctx)
+	time.Sleep(100 * time.Millisecond) // wait for the server to start
 
 	originProcessor := baseplatethrift.NewBaseplateServiceV2Processor(&headerPropagationVerificationServic{
 		want: map[string]string{
@@ -96,6 +98,7 @@ func TestHeaderPropagation(t *testing.T) {
 		t.Fatal(err)
 	}
 	server.Start(ctx)
+	time.Sleep(100 * time.Millisecond) // wait for the server to start
 
 	clientCfg := thriftbp.ClientPoolConfig{
 		ServiceSlug:        thrifttest.DefaultServiceSlug,

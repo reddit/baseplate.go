@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -484,6 +485,7 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 		downstreamServer.Close()
 	})
 	go downstreamServer.Serve()
+	time.Sleep(100 * time.Millisecond) // wait for the server to start
 
 	downstreamBaseURL, err := url.Parse("http://" + downstreamServer.Baseplate().GetConfig().Addr + "/")
 	if err != nil {
@@ -563,6 +565,7 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 		originServer.Close()
 	})
 	go originServer.Serve()
+	time.Sleep(100 * time.Millisecond) // wait for the server to start
 
 	baseURL, err := url.Parse("http://" + originServer.Baseplate().GetConfig().Addr + "/")
 	if err != nil {
@@ -660,6 +663,7 @@ func TestBaseplateHeaderPropagation_untrusted(t *testing.T) {
 		originServer.Close()
 	})
 	go originServer.Serve()
+	time.Sleep(100 * time.Millisecond) // wait for the server to start
 
 	baseURL, err := url.Parse("http://" + originServer.Baseplate().GetConfig().Addr + "/")
 	if err != nil {
