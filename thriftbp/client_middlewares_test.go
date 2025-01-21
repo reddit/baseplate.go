@@ -190,7 +190,6 @@ func TestRetry(t *testing.T) {
 	defer cancel()
 
 	store := newSecretsStore(t)
-	defer store.Close()
 
 	c := &counter{}
 	handler := BaseplateService{}

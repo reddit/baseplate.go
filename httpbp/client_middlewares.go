@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/reddit/baseplate.go/breakerbp"
+	"github.com/reddit/baseplate.go/internal/headerbp"
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/retrybp"
@@ -87,6 +88,11 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 	// applied first
 	if config.CircuitBreaker != nil {
 		defaults = append([]ClientMiddleware{CircuitBreaker(*config.CircuitBreaker)}, defaults...)
+	}
+
+	// only add the middleware to forward baseplate headers if the client is for internal calls
+	if config.InternalOnly {
+		defaults = append(defaults, ClientBaseplateHeadersMiddleware(config.Slug))
 	}
 	middleware = append(middleware, defaults...)
 
@@ -345,6 +351,29 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 				clientActiveRequests.With(activeRequestLabels).Dec()
 			}()
 
+			return next.RoundTrip(req)
+		})
+	}
+}
+
+// ClientBaseplateHeadersMiddleware is a middleware that forwards baseplate headers from the context to the outgoing request.
+//
+// If it detects any new baseplate headers set on the request, it will reject the request and return an error.
+func ClientBaseplateHeadersMiddleware(client string) ClientMiddleware {
+	return func(next http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			for k := range req.Header {
+				if err := headerbp.CheckClientHeader(k,
+					headerbp.WithHTTPClient("", client, ""),
+				); err != nil {
+					return nil, err
+				}
+			}
+			headerbp.SetOutgoingHeaders(
+				req.Context(),
+				headerbp.WithHTTPClient("", client, ""),
+				headerbp.WithHeaderSetter(req.Header.Set),
+			)
 			return next.RoundTrip(req)
 		})
 	}

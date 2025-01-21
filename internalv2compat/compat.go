@@ -7,6 +7,7 @@
 package internalv2compat
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"sync"
@@ -136,4 +137,16 @@ func V2TracingHTTPServerMiddleware() func(name string, next http.Handler) http.H
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
 	return v2Tracing.httpServerMiddleware
+}
+
+var setHeaderbpV2Context = func(ctx context.Context, _ map[string]string) context.Context {
+	return ctx
+}
+
+func SetV2BaseplateHeadersSetter(setter func(context.Context, map[string]string) context.Context) {
+	setHeaderbpV2Context = setter
+}
+
+func SetV2BaseplateHeadersToContext(ctx context.Context, headers map[string]string) context.Context {
+	return setHeaderbpV2Context(ctx, headers)
 }

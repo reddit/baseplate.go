@@ -7,13 +7,20 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/httpbp"
+	"github.com/reddit/baseplate.go/internal/headerbp"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/secrets"
 )
 
 func TestEndpoint(t *testing.T) {
@@ -426,4 +433,287 @@ func TestPanicRecovery(t *testing.T) {
 	if res.StatusCode != http.StatusInternalServerError {
 		t.Fatalf("unexpected service code")
 	}
+}
+
+func TestBaseplateHeaderPropagation(t *testing.T) {
+	expectedHeaders := map[string][]string{
+		"x-bp-from-edge": {"true"},
+		"x-bp-test":      {"foo"},
+	}
+	store, _, err := secrets.NewTestSecrets(context.TODO(), nil)
+	if err != nil {
+		t.Fatalf("failed to create test secrets: %v", err)
+	}
+	t.Cleanup(func() {
+		store.Close()
+	})
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config: baseplate.Config{
+			Addr: ":8081",
+		},
+		Store:           store,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
+	downstreamServer, err := httpbp.NewBaseplateServer(httpbp.ServerArgs{
+		Baseplate: bp,
+		Endpoints: map[httpbp.Pattern]httpbp.Endpoint{
+			"/say-hello": {
+				Name:    "say-hello",
+				Methods: []string{http.MethodGet},
+				Handle: func(ctx context.Context, writer http.ResponseWriter, request *http.Request) error {
+					for wantKey, wantValue := range expectedHeaders {
+						if v := request.Header.Values(wantKey); len(v) == 0 {
+							t.Fatalf("missing header %q", wantKey)
+						} else if diff := cmp.Diff(v, wantValue, cmpopts.SortSlices(func(a, b string) bool {
+							return a < b
+						})); diff != "" {
+							t.Fatalf("header %q values mismatch (-want +got):\n%s", wantKey, diff)
+						}
+					}
+					return nil
+				},
+			},
+		},
+		Middlewares: []httpbp.Middleware{
+			httpbp.ServerBaseplateHeadersMiddleware("originHTTPBPV0"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to create test downstreamServer: %v", err)
+	}
+	t.Cleanup(func() {
+		downstreamServer.Close()
+	})
+	go downstreamServer.Serve()
+	time.Sleep(100 * time.Millisecond) // wait for the server to start
+
+	downstreamBaseURL, err := url.Parse("http://" + downstreamServer.Baseplate().GetConfig().Addr + "/")
+	if err != nil {
+		t.Fatalf("failed to parse test originServer base URL: %v", err)
+	}
+
+	downstreamClient, err := httpbp.NewClient(
+		httpbp.ClientConfig{
+			Slug:         "downstreamHTTPBPV0",
+			InternalOnly: true,
+		},
+		withBaseURL(downstreamBaseURL),
+	)
+	if err != nil {
+		t.Fatalf("failed to create test client: %v", err)
+	}
+
+	originServer, err := httpbp.NewBaseplateServer(httpbp.ServerArgs{
+		Baseplate: bp,
+		Endpoints: map[httpbp.Pattern]httpbp.Endpoint{
+			"/say-hello": {
+				Name:    "say-hello",
+				Methods: []string{http.MethodGet},
+				Handle: func(ctx context.Context, writer http.ResponseWriter, request *http.Request) error {
+					for wantKey, wantValue := range expectedHeaders {
+						if v := request.Header.Values(wantKey); len(v) == 0 {
+							t.Fatalf("missing header %q", wantKey)
+						} else if diff := cmp.Diff(v, wantValue, cmpopts.SortSlices(func(a, b string) bool {
+							return a < b
+						})); diff != "" {
+							t.Fatalf("header %q values mismatch (-want +got):\n%s", wantKey, diff)
+						}
+					}
+
+					req, err := http.NewRequest(
+						http.MethodGet,
+						downstreamBaseURL.JoinPath("say-hello").String(),
+						nil,
+					)
+					if err != nil {
+						t.Fatalf("creating request: %v", err)
+					}
+
+					resp, err := downstreamClient.Do(req)
+					if err != nil {
+						t.Fatalf("unexpected error: %v", err)
+					}
+					if resp.StatusCode != http.StatusOK {
+						t.Fatalf("unexpected status code: %d", resp.StatusCode)
+					}
+
+					invalidReq, err := http.NewRequest(
+						http.MethodGet,
+						downstreamBaseURL.JoinPath("say-hello").String(),
+						nil,
+					)
+					if err != nil {
+						t.Fatalf("creating request: %v", err)
+					}
+					invalidReq.Header.Set("x-bp-test", "bar")
+
+					if _, err := downstreamClient.Do(req); !errors.Is(err, headerbp.ErrNewInternalHeaderNotAllowed) {
+						t.Fatalf("error mismatch, want %v, got %v", headerbp.ErrNewInternalHeaderNotAllowed, err)
+					}
+					return nil
+				},
+			},
+		},
+		Middlewares: []httpbp.Middleware{
+			httpbp.ServerBaseplateHeadersMiddleware("originHTTPBPV0"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to create test originServer: %v", err)
+	}
+	t.Cleanup(func() {
+		originServer.Close()
+	})
+	go originServer.Serve()
+	time.Sleep(100 * time.Millisecond) // wait for the server to start
+
+	baseURL, err := url.Parse("http://" + originServer.Baseplate().GetConfig().Addr + "/")
+	if err != nil {
+		t.Fatalf("failed to parse test originServer base URL: %v", err)
+	}
+
+	client, err := httpbp.NewClient(
+		httpbp.ClientConfig{
+			Slug: "downstreamHTTPBPV0",
+		},
+		withBaseURL(baseURL),
+	)
+	if err != nil {
+		t.Fatalf("failed to create test client: %v", err)
+	}
+
+	req, err := http.NewRequest(
+		http.MethodGet,
+		baseURL.JoinPath("say-hello").String(),
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("creating request: %v", err)
+	}
+	for name, values := range expectedHeaders {
+		req.Header.Set(name, values[0])
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status code: %d", resp.StatusCode)
+	}
+}
+
+func TestBaseplateHeaderPropagation_untrusted(t *testing.T) {
+	expectedHeaders := map[string][]string{
+		"x-bp-from-edge": {"true"},
+		"x-bp-test":      {"foo"},
+	}
+	store, _, err := secrets.NewTestSecrets(context.TODO(), nil)
+	if err != nil {
+		t.Fatalf("failed to create test secrets: %v", err)
+	}
+	t.Cleanup(func() {
+		store.Close()
+	})
+	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config: baseplate.Config{
+			Addr: ":8081",
+		},
+		Store:           store,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
+
+	originServer, err := httpbp.NewBaseplateServer(httpbp.ServerArgs{
+		Baseplate: bp,
+		Endpoints: map[httpbp.Pattern]httpbp.Endpoint{
+			"/say-hello": {
+				Name:    "say-hello",
+				Methods: []string{http.MethodGet},
+				Handle: func(ctx context.Context, writer http.ResponseWriter, request *http.Request) error {
+					for wantKey := range expectedHeaders {
+						if v := request.Header.Values(wantKey); len(v) != 0 {
+							t.Fatalf("expected no values for header %q, got %+v", wantKey, v)
+						}
+					}
+
+					untrusted, ok := httpbp.GetUntrustedBaseplateHeaders(ctx)
+					if !ok {
+						t.Fatal("expected untrusted headers")
+					}
+					for wantKey, wantValue := range expectedHeaders {
+						if v, ok := untrusted[wantKey]; !ok {
+							t.Fatalf("missing header %q", wantKey)
+						} else if diff := cmp.Diff(v, wantValue[0]); diff != "" {
+							t.Fatalf("header %q values mismatch (-want +got):\n%s", wantKey, diff)
+						}
+					}
+
+					return nil
+				},
+			},
+		},
+		Middlewares: []httpbp.Middleware{
+			httpbp.ServerBaseplateHeadersMiddleware("originHTTPBPV0"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to create test originServer: %v", err)
+	}
+	t.Cleanup(func() {
+		originServer.Close()
+	})
+	go originServer.Serve()
+	time.Sleep(100 * time.Millisecond) // wait for the server to start
+
+	baseURL, err := url.Parse("http://" + originServer.Baseplate().GetConfig().Addr + "/")
+	if err != nil {
+		t.Fatalf("failed to parse test originServer base URL: %v", err)
+	}
+
+	client, err := httpbp.NewClient(
+		httpbp.ClientConfig{
+			Slug: "downstreamHTTPBPV0",
+		},
+		withBaseURL(baseURL),
+	)
+	if err != nil {
+		t.Fatalf("failed to create test client: %v", err)
+	}
+
+	req, err := http.NewRequest(
+		http.MethodGet,
+		baseURL.JoinPath("say-hello").String(),
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("creating request: %v", err)
+	}
+	req.Header.Set("X-Rddt-Untrusted", "1")
+	for name, values := range expectedHeaders {
+		req.Header.Set(name, values[0])
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status code: %d", resp.StatusCode)
+	}
+}
+
+func withBaseURL(baseURL *url.URL) httpbp.ClientMiddleware {
+	return func(next http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
+			resolved := req.Clone(req.Context())
+			resolved.URL = baseURL.ResolveReference(req.URL)
+			return next.RoundTrip(resolved)
+		})
+	}
+}
+
+type roundTripperFunc func(req *http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }

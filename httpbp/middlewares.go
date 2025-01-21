@@ -15,6 +15,7 @@ import (
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/internal/headerbp"
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
@@ -516,4 +517,49 @@ func (rr *responseRecorder) Write(b []byte) (n int, err error) {
 func (rr *responseRecorder) WriteHeader(code int) {
 	rr.ResponseWriter.WriteHeader(code)
 	rr.responseCode = code
+}
+
+type untrustedHeadersKey struct{}
+
+func setUntrustedHeaders(ctx context.Context, h map[string]string) context.Context {
+	return context.WithValue(ctx, untrustedHeadersKey{}, h)
+}
+
+func GetUntrustedBaseplateHeaders(ctx context.Context) (map[string]string, bool) {
+	h, ok := ctx.Value(untrustedHeadersKey{}).(map[string]string)
+	return h, ok
+}
+
+// ServerBaseplateHeadersMiddleware is a middleware that extracts baseplate headers from the incoming request and adds them to the context.
+//
+// If the request is flagged as untrusted, it will remove the baseplate headers from the request and add them to the
+// context. These can be retrieved using GetUntrustedBaseplateHeaders.
+func ServerBaseplateHeadersMiddleware(service string) Middleware {
+	return func(name string, next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
+			if r.Header.Get(headerbp.IsUntrustedRequestHeaderCanonicalHTTP) != "" {
+				untrusted := make(map[string]string)
+				for k, v := range r.Header {
+					if headerbp.IsBaseplateHeader(k) {
+						if len(v) > 0 {
+							untrusted[strings.ToLower(k)] = v[0]
+						}
+						r.Header.Del(k)
+					}
+				}
+				ctx = setUntrustedHeaders(ctx, untrusted)
+				return next(ctx, w, r)
+			}
+			headers := headerbp.NewIncomingHeaders(
+				headerbp.WithHTTPService(service, name),
+			)
+			for k, v := range r.Header {
+				if len(v) > 0 {
+					headers.RecordHeader(k, v[0])
+				}
+			}
+			ctx = headers.SetOnContext(ctx)
+			return next(ctx, w, r.WithContext(ctx))
+		}
+	}
 }
