@@ -139,18 +139,6 @@ func V2TracingHTTPServerMiddleware() func(name string, next http.Handler) http.H
 	return v2Tracing.httpServerMiddleware
 }
 
-var setHeaderbpV0Context = func(ctx context.Context, _ map[string]string) context.Context {
-	return ctx
-}
-
-func SetV0BaseplateHeadersSetter(setter func(context.Context, map[string]string) context.Context) {
-	setHeaderbpV0Context = setter
-}
-
-func SetV0BaseplateHeadersToContext(ctx context.Context, headers map[string]string) context.Context {
-	return setHeaderbpV0Context(ctx, headers)
-}
-
 var setHeaderbpV2Context = func(ctx context.Context, _ map[string]string) context.Context {
 	return ctx
 }

@@ -19,10 +19,6 @@ const (
 	IsUntrustedRequestHeaderLower         = "x-rddt-untrusted"
 )
 
-func init() {
-	internalv2compat.SetV0BaseplateHeadersSetter(headersToContext)
-}
-
 // ErrNewInternalHeaderNotAllowed is returned by a client when the call tries to set an internal header is not allowlisted
 var ErrNewInternalHeaderNotAllowed = fmt.Errorf("cannot send new internal headers on requests")
 
@@ -97,11 +93,11 @@ func (h *IncomingHeaders) SetOnContext(ctx context.Context) context.Context {
 		h.method,
 	).Observe(float64(h.estimatedSizeBytes))
 	ctx = internalv2compat.SetV2BaseplateHeadersToContext(ctx, h.headers)
-	return headersToContext(ctx, h.headers)
+	return HeadersToContext(ctx, h.headers)
 }
 
-// headersToContext is used by internalv2compat to allow interoperability with the v2 library.
-func headersToContext(ctx context.Context, headers map[string]string) context.Context {
+// HeadersToContext can be used to allow interoperability with the v2 library.
+func HeadersToContext(ctx context.Context, headers map[string]string) context.Context {
 	return context.WithValue(ctx, headersKey{}, headers)
 }
 
