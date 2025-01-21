@@ -16,8 +16,6 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/reddit/baseplate.go/internal/headerbp"
 )
 
 // globalLogger() is used by all top-level log methods (e.g. Infof) in the log package.
@@ -141,10 +139,26 @@ func V2TracingHTTPServerMiddleware() func(name string, next http.Handler) http.H
 	return v2Tracing.httpServerMiddleware
 }
 
-func SetV0BaseplateHeadersToContext(ctx context.Context, headers map[string]string) context.Context {
-	return headerbp.ToContext(ctx, headers)
+var setHeaderbpV0Context = func(ctx context.Context, _ map[string]string) context.Context {
+	return ctx
 }
 
-func SetV2BaseplateHeadersLookup(setter func(context.Context, map[string]string) context.Context) {
-	headerbp.SetV2Context = setter
+func SetV0BaseplateHeadersSetter(setter func(context.Context, map[string]string) context.Context) {
+	setHeaderbpV0Context = setter
+}
+
+func SetV0BaseplateHeadersToContext(ctx context.Context, headers map[string]string) context.Context {
+	return setHeaderbpV0Context(ctx, headers)
+}
+
+var setHeaderbpV2Context = func(ctx context.Context, _ map[string]string) context.Context {
+	return ctx
+}
+
+func SetV2BaseplateHeadersSetter(setter func(context.Context, map[string]string) context.Context) {
+	setHeaderbpV2Context = setter
+}
+
+func SetV2BaseplateHeadersToContext(ctx context.Context, headers map[string]string) context.Context {
+	return setHeaderbpV2Context(ctx, headers)
 }

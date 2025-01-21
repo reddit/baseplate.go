@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+
+	"github.com/reddit/baseplate.go/internalv2compat"
 )
 
 const (
@@ -16,8 +18,8 @@ const (
 	IsUntrustedRequestHeaderLower         = "x-rddt-untrusted"
 )
 
-var SetV2Context = func(ctx context.Context, _ map[string]string) context.Context {
-	return ctx
+func init() {
+	internalv2compat.SetV0BaseplateHeadersSetter(headersToContext)
 }
 
 // ErrNewInternalHeaderNotAllowed is returned by a client when the call tries to set an internal header is not allowlisted
@@ -93,12 +95,12 @@ func (h *IncomingHeaders) SetOnContext(ctx context.Context) context.Context {
 		h.service,
 		h.method,
 	).Observe(float64(h.estimatedSizeBytes))
-	ctx = SetV2Context(ctx, h.headers)
-	return ToContext(ctx, h.headers)
+	ctx = internalv2compat.SetV2BaseplateHeadersToContext(ctx, h.headers)
+	return headersToContext(ctx, h.headers)
 }
 
-// ToContext is used by internalv2compat to allow interoperability with the v2 library.
-func ToContext(ctx context.Context, headers map[string]string) context.Context {
+// headersToContext is used by internalv2compat to allow interoperability with the v2 library.
+func headersToContext(ctx context.Context, headers map[string]string) context.Context {
 	return context.WithValue(ctx, headersKey{}, headers)
 }
 

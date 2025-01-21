@@ -530,11 +530,11 @@ func GetUntrustedBaseplateHeaders(ctx context.Context) (map[string]string, bool)
 	return h, ok
 }
 
-// ServerHeaderBPMiddleware is a middleware that extracts baseplate headers from the incoming request and adds them to the context.
+// ServerBaseplateHeadersMiddleware is a middleware that extracts baseplate headers from the incoming request and adds them to the context.
 //
 // If the request is flagged as untrusted, it will remove the baseplate headers from the request and add them to the
 // context. These can be retrieved using GetUntrustedBaseplateHeaders.
-func ServerHeaderBPMiddleware(service string) Middleware {
+func ServerBaseplateHeadersMiddleware(service string) Middleware {
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
 			if r.Header.Get(headerbp.IsUntrustedRequestHeaderCanonicalHTTP) != "" {

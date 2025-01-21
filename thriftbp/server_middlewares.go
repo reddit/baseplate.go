@@ -81,7 +81,7 @@ func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) 
 		InjectEdgeContext(args.EdgeContextImpl),
 		ReportPayloadSizeMetrics(0),
 		PrometheusServerMiddleware,
-		ServerHeaderBPMiddleware(),
+		ServerBaseplateHeadersMiddleware(),
 	}
 }
 
@@ -454,8 +454,8 @@ func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) t
 	return thrift.WrappedTProcessorFunction{Wrapped: process}
 }
 
-// ServerHeaderBPMiddleware is a middleware that extracts baseplate headers from the incoming request and adds them to the context.
-func ServerHeaderBPMiddleware() thrift.ProcessorMiddleware {
+// ServerBaseplateHeadersMiddleware is a middleware that extracts baseplate headers from the incoming request and adds them to the context.
+func ServerBaseplateHeadersMiddleware() thrift.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
 			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {

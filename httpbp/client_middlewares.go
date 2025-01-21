@@ -92,7 +92,7 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 
 	// only add the middleware to forward baseplate headers if the client is for internal calls
 	if config.InternalOnly {
-		defaults = append(defaults, ClientHeaderBPMiddleware(config.Slug))
+		defaults = append(defaults, ClientBaseplateHeadersMiddleware(config.Slug))
 	}
 	middleware = append(middleware, defaults...)
 
@@ -356,10 +356,10 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 	}
 }
 
-// ClientHeaderBPMiddleware is a middleware that forwards baseplate headers from the context to the outgoing request.
+// ClientBaseplateHeadersMiddleware is a middleware that forwards baseplate headers from the context to the outgoing request.
 //
 // If it detects any new baseplate headers set on the request, it will reject the request and return an error.
-func ClientHeaderBPMiddleware(client string) ClientMiddleware {
+func ClientBaseplateHeadersMiddleware(client string) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			for k := range req.Header {

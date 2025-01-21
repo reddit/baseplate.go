@@ -475,7 +475,7 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 			},
 		},
 		Middlewares: []httpbp.Middleware{
-			httpbp.ServerHeaderBPMiddleware("originHTTPBPV0"),
+			httpbp.ServerBaseplateHeadersMiddleware("originHTTPBPV0"),
 		},
 	})
 	if err != nil {
@@ -555,7 +555,7 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 			},
 		},
 		Middlewares: []httpbp.Middleware{
-			httpbp.ServerHeaderBPMiddleware("originHTTPBPV0"),
+			httpbp.ServerBaseplateHeadersMiddleware("originHTTPBPV0"),
 		},
 	})
 	if err != nil {
@@ -653,7 +653,7 @@ func TestBaseplateHeaderPropagation_untrusted(t *testing.T) {
 			},
 		},
 		Middlewares: []httpbp.Middleware{
-			httpbp.ServerHeaderBPMiddleware("originHTTPBPV0"),
+			httpbp.ServerBaseplateHeadersMiddleware("originHTTPBPV0"),
 		},
 	})
 	if err != nil {
