@@ -275,6 +275,13 @@ func SetDeadlineBudget(next thrift.TClient) thrift.TClient {
 	}
 }
 
+func getClientError(result thrift.TStruct, err error) error {
+	if err != nil {
+		return err
+	}
+	return thrift.ExtractExceptionFromResult(result)
+}
+
 // Retry returns a thrift.ClientMiddleware that can be used to automatically
 // retry thrift requests.
 func Retry(defaults ...retry.Option) thrift.ClientMiddleware {
@@ -464,11 +471,4 @@ func (c clientFaultMiddleware) Middleware() thrift.ClientMiddleware {
 			},
 		}
 	}
-}
-
-func getClientError(result thrift.TStruct, err error) error {
-	if err != nil {
-		return err
-	}
-	return thrift.ExtractExceptionFromResult(result)
 }
