@@ -9,6 +9,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/reddit/baseplate.go/internal/headerbp"
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
@@ -472,27 +473,38 @@ func TestFaultInjectionClientMiddleware(t *testing.T) {
 			impl := ecinterface.Mock()
 			ctx := context.Background()
 
+			// Set the headers on the context as if the incoming
+			// request contained them. Setting via
+			// thrift.AddClientHeader would result in the headers
+			// being blocked by the headerbp middleware, as new
+			// headers are not allowed to be propagated.
+			headers := headerbp.NewIncomingHeaders(
+				headerbp.WithThriftService("", ""),
+			)
+
 			if tt.faultServerAddrHeader != "" {
-				ctx = thriftbp.AddClientHeader(ctx, faults.FaultServerAddressHeader, tt.faultServerAddrHeader)
+				headers.RecordHeader(faults.FaultServerAddressHeader, tt.faultServerAddrHeader)
 			}
 			if tt.faultServerMethodHeader != "" {
-				ctx = thriftbp.AddClientHeader(ctx, faults.FaultServerMethodHeader, tt.faultServerMethodHeader)
+				headers.RecordHeader(faults.FaultServerMethodHeader, tt.faultServerMethodHeader)
 			}
 			if tt.faultDelayMsHeader != "" {
-				ctx = thriftbp.AddClientHeader(ctx, faults.FaultDelayMsHeader, tt.faultDelayMsHeader)
+				headers.RecordHeader(faults.FaultDelayMsHeader, tt.faultDelayMsHeader)
 			}
 			if tt.faultDelayPercentageHeader != "" {
-				ctx = thriftbp.AddClientHeader(ctx, faults.FaultDelayPercentageHeader, tt.faultDelayPercentageHeader)
+				headers.RecordHeader(faults.FaultDelayPercentageHeader, tt.faultDelayPercentageHeader)
 			}
 			if tt.faultAbortCodeHeader != "" {
-				ctx = thriftbp.AddClientHeader(ctx, faults.FaultAbortCodeHeader, tt.faultAbortCodeHeader)
+				headers.RecordHeader(faults.FaultAbortCodeHeader, tt.faultAbortCodeHeader)
 			}
 			if tt.faultAbortMessageHeader != "" {
-				ctx = thriftbp.AddClientHeader(ctx, faults.FaultAbortMessageHeader, tt.faultAbortMessageHeader)
+				headers.RecordHeader(faults.FaultAbortMessageHeader, tt.faultAbortMessageHeader)
 			}
 			if tt.faultAbortPercentageHeader != "" {
-				ctx = thriftbp.AddClientHeader(ctx, faults.FaultAbortPercentageHeader, tt.faultAbortPercentageHeader)
+				headers.RecordHeader(faults.FaultAbortPercentageHeader, tt.faultAbortPercentageHeader)
 			}
+
+			ctx = headers.SetOnContext(ctx)
 
 			mock, _, client := initClients(impl)
 			mock.AddMockCall(

@@ -406,31 +406,6 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 	}
 }
 
-func (c clientFaultMiddleware) Middleware() thrift.ClientMiddleware {
-	return func(next thrift.TClient) thrift.TClient {
-		return thrift.WrappedTClient{
-			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-				if c.address == "" {
-					return next.Call(ctx, method, args, result)
-				}
-
-				resume := func() (thrift.ResponseMeta, error) {
-					return next.Call(ctx, method, args, result)
-				}
-
-				return c.injector.Inject(ctx, c.address, method, thriftHeaders{}, resume)
-			},
-		}
-	}
-}
-
-func getClientError(result thrift.TStruct, err error) error {
-	if err != nil {
-		return err
-	}
-	return thrift.ExtractExceptionFromResult(result)
-}
-
 // ClientBaseplateHeadersMiddleware is a middleware that forwards baseplate headers from the context to the outgoing request.
 //
 // It will also verify that you are not adding any headers with the baseplate header prefix, if you try to send
@@ -471,4 +446,29 @@ func ClientBaseplateHeadersMiddleware(service, client string) thrift.ClientMiddl
 			},
 		}
 	}
+}
+
+func (c clientFaultMiddleware) Middleware() thrift.ClientMiddleware {
+	return func(next thrift.TClient) thrift.TClient {
+		return thrift.WrappedTClient{
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				if c.address == "" {
+					return next.Call(ctx, method, args, result)
+				}
+
+				resume := func() (thrift.ResponseMeta, error) {
+					return next.Call(ctx, method, args, result)
+				}
+
+				return c.injector.Inject(ctx, c.address, method, thriftHeaders{}, resume)
+			},
+		}
+	}
+}
+
+func getClientError(result thrift.TStruct, err error) error {
+	if err != nil {
+		return err
+	}
+	return thrift.ExtractExceptionFromResult(result)
 }
