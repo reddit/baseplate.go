@@ -9,9 +9,11 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/avast/retry-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/reddit/baseplate.go/internal/headerbp"
 
 	"github.com/reddit/baseplate.go"
 	"github.com/reddit/baseplate.go/ecinterface"
+	"github.com/reddit/baseplate.go/internal/faults"
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/prometheusbpint/spectest"
 	"github.com/reddit/baseplate.go/prometheusbp"
@@ -23,6 +25,7 @@ import (
 
 const (
 	service = "testService"
+	address = "testService.testNamespace.svc.cluster.local:12345"
 	method  = "testMethod"
 )
 
@@ -38,6 +41,7 @@ func initClients(ecImpl ecinterface.Interface) (*thrifttest.MockClient, *thriftt
 			thriftbp.DefaultClientMiddlewareArgs{
 				EdgeContextImpl: ecImpl,
 				ServiceSlug:     service,
+				Address:         address,
 			},
 		)...,
 	)
@@ -389,6 +393,136 @@ func TestPrometheusClientMiddleware(t *testing.T) {
 
 			if result == tt.wantFail {
 				t.Errorf("result mismatch, expected %v, got %v", tt.wantFail, result)
+			}
+		})
+	}
+}
+
+func TestFaultInjectionClientMiddleware(t *testing.T) {
+	testCases := []struct {
+		name string
+
+		faultServerAddrHeader      string
+		faultServerMethodHeader    string
+		faultDelayMsHeader         string
+		faultDelayPercentageHeader string
+		faultAbortCodeHeader       string
+		faultAbortMessageHeader    string
+		faultAbortPercentageHeader string
+
+		wantErr error
+	}{
+		{
+			name:    "no fault specified",
+			wantErr: nil,
+		},
+		{
+			name: "abort",
+
+			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "1", // NOT_OPEN
+			faultAbortMessageHeader: "test fault",
+
+			wantErr: thrift.NewTTransportException(1, "test fault"),
+		},
+		{
+			name: "service does not match",
+
+			faultServerAddrHeader:   "foo",
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "1", // NOT_OPEN
+			faultAbortMessageHeader: "test fault",
+
+			wantErr: nil,
+		},
+		{
+			name: "method does not match",
+
+			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerMethodHeader: "foo",
+			faultAbortCodeHeader:    "1", // NOT_OPEN
+			faultAbortMessageHeader: "test fault",
+
+			wantErr: nil,
+		},
+		{
+			name: "less than min abort code",
+
+			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "-1",
+			faultAbortMessageHeader: "test fault",
+
+			wantErr: nil,
+		},
+		{
+			name: "greater than max abort code",
+
+			faultServerAddrHeader:   "testService.testNamespace",
+			faultServerMethodHeader: "testMethod",
+			faultAbortCodeHeader:    "5",
+			faultAbortMessageHeader: "test fault",
+
+			wantErr: nil,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			impl := ecinterface.Mock()
+			ctx := context.Background()
+
+			// Set the headers on the context as if the incoming
+			// request contained them. Setting via
+			// thrift.AddClientHeader would result in the headers
+			// being blocked by the headerbp middleware, as new
+			// headers are not allowed to be propagated.
+			headers := headerbp.NewIncomingHeaders(
+				headerbp.WithThriftService("", ""),
+			)
+
+			if tt.faultServerAddrHeader != "" {
+				headers.RecordHeader(faults.FaultServerAddressHeader, tt.faultServerAddrHeader)
+			}
+			if tt.faultServerMethodHeader != "" {
+				headers.RecordHeader(faults.FaultServerMethodHeader, tt.faultServerMethodHeader)
+			}
+			if tt.faultDelayMsHeader != "" {
+				headers.RecordHeader(faults.FaultDelayMsHeader, tt.faultDelayMsHeader)
+			}
+			if tt.faultDelayPercentageHeader != "" {
+				headers.RecordHeader(faults.FaultDelayPercentageHeader, tt.faultDelayPercentageHeader)
+			}
+			if tt.faultAbortCodeHeader != "" {
+				headers.RecordHeader(faults.FaultAbortCodeHeader, tt.faultAbortCodeHeader)
+			}
+			if tt.faultAbortMessageHeader != "" {
+				headers.RecordHeader(faults.FaultAbortMessageHeader, tt.faultAbortMessageHeader)
+			}
+			if tt.faultAbortPercentageHeader != "" {
+				headers.RecordHeader(faults.FaultAbortPercentageHeader, tt.faultAbortPercentageHeader)
+			}
+
+			ctx = headers.SetOnContext(ctx)
+
+			mock, _, client := initClients(impl)
+			mock.AddMockCall(
+				method,
+				func(ctx context.Context, args, result thrift.TStruct) (meta thrift.ResponseMeta, err error) {
+					return
+				},
+			)
+
+			_, err := client.Call(ctx, method, nil, nil)
+			if tt.wantErr == nil && err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if tt.wantErr != nil && err == nil {
+				t.Fatal("expected an error, got nil")
+			}
+			if err != nil && err.Error() != tt.wantErr.Error() {
+				t.Fatalf("expected error %v, got %v", tt.wantErr, err)
 			}
 		})
 	}

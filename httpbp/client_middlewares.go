@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	"github.com/reddit/baseplate.go/internal/headerbp"
+
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/retrybp"
@@ -54,7 +56,12 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 //
 // * PrometheusClientMetrics
 //
+// * clientFaultMiddleware
+//
 // ClientErrorWrapper is included as transitive middleware through Retries.
+//
+// IMPORTANT: clientFaultMiddleware MUST be the last middleware as it simulates
+// faults as if they originated from the upstream server.
 func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Client, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
@@ -94,7 +101,12 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 	if config.InternalOnly {
 		defaults = append(defaults, ClientBaseplateHeadersMiddleware(config.Slug))
 	}
+
 	middleware = append(middleware, defaults...)
+
+	// ensure client fault middleware is applied last
+	clientFaultMiddleware := NewClientFaultMiddleware(config.Slug)
+	middleware = append(middleware, clientFaultMiddleware.Middleware())
 
 	return &http.Client{
 		Transport: WrapTransport(&httpTransport, middleware...),
@@ -375,6 +387,42 @@ func ClientBaseplateHeadersMiddleware(client string) ClientMiddleware {
 				headerbp.WithHeaderSetter(req.Header.Set),
 			)
 			return next.RoundTrip(req)
+		})
+	}
+}
+
+// Middleware returns a middleware that injects faults into the outgoing HTTP
+// requests based on the X-Bp-Fault header values.
+func (c clientFaultMiddleware) Middleware() ClientMiddleware {
+	return func(next http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			resume := func() (*http.Response, error) {
+				return next.RoundTrip(req)
+			}
+
+			abort := func(code int, message string) (*http.Response, error) {
+				return &http.Response{
+					Status:     http.StatusText(code),
+					StatusCode: code,
+					Proto:      req.Proto,
+					ProtoMajor: req.ProtoMajor,
+					ProtoMinor: req.ProtoMinor,
+					Header: map[string][]string{
+						// Copied from the standard http.Error() function.
+						"Content-Type":           {"text/plain; charset=utf-8"},
+						"X-Content-Type-Options": {"nosniff"},
+					},
+					Body:             http.NoBody,
+					ContentLength:    0,
+					TransferEncoding: req.TransferEncoding,
+					Request:          req,
+					TLS:              req.TLS,
+				}, nil
+			}
+
+			address := req.URL.Hostname()
+			method := strings.TrimPrefix(req.URL.Path, "/")
+			return c.injector.InjectWithAbortOverride(req.Context(), address, method, httpHeaders{req}, resume, abort)
 		})
 	}
 }
