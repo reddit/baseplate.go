@@ -18,6 +18,7 @@ import (
 	"github.com/reddit/baseplate.go/errorsbp"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/thriftint"
+
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
 	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/prometheusbp"
@@ -67,6 +68,11 @@ type DefaultClientMiddlewareArgs struct {
 	//     ImageUploadService -> image-upload
 	ServiceSlug string
 
+	// Address is the DNS address of the thrift service you are creating clients for.
+	//
+	// If not provided, the client will be unable to use the fault injection middleware.
+	Address string
+
 	// RetryOptions is the list of retry.Options to apply as the defaults for the
 	// Retry middleware.
 	//
@@ -106,7 +112,7 @@ type DefaultClientMiddlewareArgs struct {
 //
 // Currently they are (in order):
 //
-// 1. ForwardEdgeRequestContext.
+// 1. ForwardEdgeRequestContext
 //
 // 2. SetClientName(clientName)
 //
@@ -133,6 +139,12 @@ type DefaultClientMiddlewareArgs struct {
 // 10. thrift.ExtractIDLExceptionClientMiddleware
 //
 // 11. SetDeadlineBudget
+//
+// 12. clientFaultMiddleware - This injects faults at the client side if the
+// request matches the provided configuration.
+//
+// IMPORTANT: clientFaultMiddleware MUST be the last middleware as it simulates
+// faults as if they originated from the upstream server.
 func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrift.ClientMiddleware {
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
@@ -153,6 +165,7 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 			breakerbp.NewFailureRatioBreaker(*args.BreakerConfig).ThriftMiddleware,
 		)
 	}
+	clientFaultMiddleware := NewClientFaultMiddleware(args.ClientName, args.Address)
 	middlewares = append(
 		middlewares,
 		MonitorClient(MonitorClientArgs{
@@ -164,6 +177,7 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 		thrift.ExtractIDLExceptionClientMiddleware,
 		SetDeadlineBudget,
 		ClientBaseplateHeadersMiddleware(args.ServiceSlug, args.ClientName),
+		clientFaultMiddleware.Middleware(), // clientFaultMiddleware MUST be last
 	)
 	return middlewares
 }
@@ -387,6 +401,24 @@ func PrometheusClientMiddleware(remoteServerSlug string) thrift.ClientMiddleware
 				}()
 
 				return next.Call(ctx, method, args, result)
+			},
+		}
+	}
+}
+
+func (c clientFaultMiddleware) Middleware() thrift.ClientMiddleware {
+	return func(next thrift.TClient) thrift.TClient {
+		return thrift.WrappedTClient{
+			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				if c.address == "" {
+					return next.Call(ctx, method, args, result)
+				}
+
+				resume := func() (thrift.ResponseMeta, error) {
+					return next.Call(ctx, method, args, result)
+				}
+
+				return c.injector.Inject(ctx, c.address, method, thriftHeaders{}, resume)
 			},
 		}
 	}
