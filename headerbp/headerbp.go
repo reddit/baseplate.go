@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-
-	//lint:ignore SA1019 This library is internal only, not actually deprecated
-	"github.com/reddit/baseplate.go/internalv2compat"
 )
 
 const (
@@ -21,6 +18,15 @@ const (
 
 // ErrNewInternalHeaderNotAllowed is returned by a client when the call tries to set an internal header is not allowlisted
 var ErrNewInternalHeaderNotAllowed = fmt.Errorf("cannot send new internal headers on requests")
+
+var setHeaderbpV2Context = func(ctx context.Context, _ map[string]string) context.Context {
+	return ctx
+}
+
+// SetV2BaseplateHeadersSetter sets the function to use to set baseplate headers in the v2 library.
+func SetV2BaseplateHeadersSetter(setter func(context.Context, map[string]string) context.Context) {
+	setHeaderbpV2Context = setter
+}
 
 // IsBaseplateHeader returns true if the header is for baseplate and should be propagated
 func IsBaseplateHeader(key string) bool {
@@ -92,7 +98,7 @@ func (h *IncomingHeaders) SetOnContext(ctx context.Context) context.Context {
 		h.service,
 		h.method,
 	).Observe(float64(h.estimatedSizeBytes))
-	ctx = internalv2compat.SetV2BaseplateHeadersToContext(ctx, h.headers)
+	ctx = setHeaderbpV2Context(ctx, h.headers)
 	return HeadersToContext(ctx, h.headers)
 }
 

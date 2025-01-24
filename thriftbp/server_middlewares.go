@@ -12,10 +12,9 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/reddit/baseplate.go/internal/headerbp"
-
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
+	"github.com/reddit/baseplate.go/headerbp"
 	"github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/internal/thriftint"
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
