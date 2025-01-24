@@ -10,10 +10,10 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/reddit/baseplate.go/headerbp"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
-	"github.com/reddit/baseplate.go/internal/headerbp"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
 )
