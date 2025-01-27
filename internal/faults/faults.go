@@ -180,7 +180,6 @@ func (i *Injector[T]) InjectWithAbortOverride(ctx context.Context, address, meth
 	}
 	requestAddress := getCanonicalAddress(address)
 	if faultHeaderAddress == "" || faultHeaderAddress != requestAddress {
-		infof("address %q does not match the %s header value %q", requestAddress, FaultServerAddressHeader, faultHeaderAddress)
 		totalReqsCounter(true, false).Inc()
 		return resume()
 	}
@@ -192,7 +191,6 @@ func (i *Injector[T]) InjectWithAbortOverride(ctx context.Context, address, meth
 		return resume()
 	}
 	if serverMethod != "" && serverMethod != method {
-		infof("method %q does not match the %s header value %q", method, FaultServerMethodHeader, serverMethod)
 		totalReqsCounter(true, false).Inc()
 		return resume()
 	}
