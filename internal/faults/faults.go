@@ -13,6 +13,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"golang.org/x/time/rate"
 
 	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 )
@@ -104,6 +105,8 @@ type Injector[T any] struct {
 
 	defaultAbort Abort[T]
 
+	chatty *rate.Limiter // Rate limiter for logs.
+
 	selected func(int) bool
 	sleep    func(context.Context, time.Duration) error
 }
@@ -140,6 +143,7 @@ func NewInjector[T any](clientName, callerName string, abortCodeMin, abortCodeMa
 		callerName:   callerName,
 		abortCodeMin: abortCodeMin,
 		abortCodeMax: abortCodeMax,
+		chatty:       rate.NewLimiter(rate.Every(1*time.Minute), 1),
 		selected:     defaultSelected,
 		sleep:        defaultSleep,
 	}
@@ -166,10 +170,14 @@ func (i *Injector[T]) InjectWithAbortOverride(ctx context.Context, address, meth
 	}
 
 	infof := func(format string, args ...interface{}) {
-		slog.With("caller", i.callerName).InfoContext(ctx, fmt.Sprintf(format, args...))
+		if i.chatty == nil || i.chatty.Allow() {
+			slog.With("caller", i.callerName).InfoContext(ctx, fmt.Sprintf(format, args...))
+		}
 	}
 	warnf := func(format string, args ...interface{}) {
-		slog.With("caller", i.callerName).WarnContext(ctx, fmt.Sprintf(format, args...))
+		if i.chatty == nil || i.chatty.Allow() {
+			slog.With("caller", i.callerName).WarnContext(ctx, fmt.Sprintf(format, args...))
+		}
 	}
 
 	faultHeaderAddress, err := headers.Lookup(ctx, FaultServerAddressHeader)
