@@ -28,9 +28,6 @@ type FinishOptions struct {
 func (fo FinishOptions) Convert() opentracing.FinishOptions {
 	var opts opentracing.FinishOptions
 	var lr opentracing.LogRecord
-	if fo.Ctx != nil {
-		lr.Fields = append(lr.Fields, log.Object(ctxKey, fo.Ctx))
-	}
 	if fo.Err != nil {
 		lr.Fields = append(lr.Fields, log.Error(fo.Err))
 	}
