@@ -43,7 +43,7 @@ func SetV0Setters(
 	setV0SignatureSetter func(func(context.Context, string) context.Context),
 ) {
 	setV0HeaderSetter(setHeadersOnContext)
-	//setV0SignatureSetter(setV2SignatureContext)
+	setV0SignatureSetter(setV2SignatureContext)
 }
 
 // IsBaseplateHeader returns true if the header is for baseplate and should be propagated
