@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -460,29 +459,6 @@ func ServerBaseplateHeadersMiddleware() thrift.ProcessorMiddleware {
 			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
 				readHeaderList := thrift.GetReadHeaderList(ctx)
 				if len(readHeaderList) == 0 {
-					return next.Process(ctx, seqID, in, out)
-				}
-
-				// check both the lower case and the http canonical case since thrift.GetHeader is case sensitive
-				var untrusted bool
-				if _, ok := thrift.GetHeader(ctx, headerbp.IsUntrustedRequestHeaderLower); ok {
-					untrusted = true
-				} else if _, ok := thrift.GetHeader(ctx, headerbp.IsUntrustedRequestHeaderCanonicalHTTP); ok {
-					untrusted = true
-				}
-				if untrusted {
-					var cleared bool
-					for i := 0; i < len(readHeaderList); i++ {
-						k := readHeaderList[i]
-						if headerbp.IsBaseplateHeader(k) {
-							cleared = true
-							readHeaderList = slices.Delete(readHeaderList, i, i+1)
-							thrift.SetHeader(ctx, k, "")
-						}
-					}
-					if cleared {
-						ctx = thrift.SetReadHeaderList(ctx, readHeaderList)
-					}
 					return next.Process(ctx, seqID, in, out)
 				}
 

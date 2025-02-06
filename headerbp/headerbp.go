@@ -12,20 +12,38 @@ const (
 	headerPrefixCanonicalHTTP = "X-Bp-"
 	headerPrefixLower         = "x-bp-"
 
-	IsUntrustedRequestHeaderCanonicalHTTP = "X-Rddt-Untrusted"
-	IsUntrustedRequestHeaderLower         = "x-rddt-untrusted"
+	SignatureHeaderCanonicalHTTP = "X-Rddt-Headerbp-Signature"
+
+	signatureVersion = 1
 )
 
 // ErrNewInternalHeaderNotAllowed is returned by a client when the call tries to set an internal header is not allowlisted
 var ErrNewInternalHeaderNotAllowed = fmt.Errorf("cannot send new internal headers on requests")
 
-var setHeaderbpV2Context = func(ctx context.Context, _ map[string]string) context.Context {
+var setV2HeadersContext = func(ctx context.Context, _ map[string]string) context.Context {
+	return ctx
+}
+
+var setV2SignatureContext = func(ctx context.Context, _ string) context.Context {
 	return ctx
 }
 
 // SetV2BaseplateHeadersSetter sets the function to use to set baseplate headers in the v2 library.
 func SetV2BaseplateHeadersSetter(setter func(context.Context, map[string]string) context.Context) {
-	setHeaderbpV2Context = setter
+	setV2HeadersContext = setter
+}
+
+// SetV2BaseplateSignatureSetter sets the function to use to set baseplate signature in the v2 library.
+func SetV2BaseplateSignatureSetter(setter func(context.Context, string) context.Context) {
+	setV2SignatureContext = setter
+}
+
+func SetV0Setters(
+	setV0HeaderSetter func(func(context.Context, map[string]string) context.Context),
+	setV0SignatureSetter func(func(context.Context, string) context.Context),
+) {
+	setV0HeaderSetter(setHeadersOnContext)
+	//setV0SignatureSetter(setV2SignatureContext)
 }
 
 // IsBaseplateHeader returns true if the header is for baseplate and should be propagated
@@ -42,12 +60,14 @@ type headersKey struct{} // context key storing `headers`
 // cache normalized (lowercased) keys to avoid repeated allocations
 var normalizedKeys sync.Map // map[string]string
 
-func normalizeKey(key string) string {
+func normalizeKey(key string, cacheOnMiss bool) string {
 	if normalized, ok := normalizedKeys.Load(key); ok {
 		return normalized.(string)
 	}
 	normalized := strings.ToLower(key)
-	normalizedKeys.LoadOrStore(key, normalized)
+	if cacheOnMiss {
+		normalizedKeys.LoadOrStore(key, normalized)
+	}
 	return normalized
 }
 
@@ -80,7 +100,7 @@ func (h *IncomingHeaders) RecordHeader(key, value string) {
 	if !IsBaseplateHeader(key) {
 		return
 	}
-	normalized := normalizeKey(key)
+	normalized := normalizeKey(key, true)
 	h.headers[normalized] = value
 	h.estimatedSizeBytes += len(normalized) + len(value)
 	serverHeadersReceivedTotal.WithLabelValues(
@@ -98,12 +118,11 @@ func (h *IncomingHeaders) SetOnContext(ctx context.Context) context.Context {
 		h.service,
 		h.method,
 	).Observe(float64(h.estimatedSizeBytes))
-	ctx = setHeaderbpV2Context(ctx, h.headers)
-	return HeadersToContext(ctx, h.headers)
+	ctx = setV2HeadersContext(ctx, h.headers)
+	return setHeadersOnContext(ctx, h.headers)
 }
 
-// HeadersToContext can be used to allow interoperability with the v2 library.
-func HeadersToContext(ctx context.Context, headers map[string]string) context.Context {
+func setHeadersOnContext(ctx context.Context, headers map[string]string) context.Context {
 	return context.WithValue(ctx, headersKey{}, headers)
 }
 
@@ -227,36 +246,6 @@ func (c *commonOption) ApplyToSetOutgoingHeaders(headers *setOutgoingHeaders) {
 
 func (c *commonOption) ApplyToNewIncomingHeaders(headers *newIncomingHeaders) {
 	c.applyToNewIncomingHeaders(headers)
-}
-
-func WithGRPCService(service, method string) CommonHeaderOption {
-	cc := commonOption{
-		RPCType: "grpc",
-		Service: service,
-		Method:  method,
-	}
-	return &commonOption{
-		applyToNewIncomingHeaders: func(headers *newIncomingHeaders) {
-			headers.commonOption = cc
-		},
-	}
-}
-
-func WithGRPCClient(service, client, method string) CommonHeaderOption {
-	cc := commonOption{
-		RPCType: "grpc",
-		Service: service,
-		Client:  client,
-		Method:  method,
-	}
-	return &commonOption{
-		applyToCheckClientHeaders: func(headers *checkClientHeaders) {
-			headers.commonOption = cc
-		},
-		applyToSetOutgoingHeaders: func(headers *setOutgoingHeaders) {
-			headers.commonOption = cc
-		},
-	}
 }
 
 func WithHTTPService(service, method string) CommonHeaderOption {

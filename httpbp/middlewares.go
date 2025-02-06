@@ -13,6 +13,7 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/reddit/baseplate.go/headerbp"
+	"github.com/reddit/baseplate.go/secrets"
 
 	"github.com/reddit/baseplate.go/ecinterface"
 	"github.com/reddit/baseplate.go/errorsbp"
@@ -530,14 +531,43 @@ func GetUntrustedBaseplateHeaders(ctx context.Context) (map[string]string, bool)
 	return h, ok
 }
 
+type SecretsStore interface {
+	GetVersionedSecret(path string) (secrets.VersionedSecret, error)
+}
+
 // ServerBaseplateHeadersMiddleware is a middleware that extracts baseplate headers from the incoming request and adds them to the context.
 //
 // If the request is flagged as untrusted, it will remove the baseplate headers from the request and add them to the
 // context. These can be retrieved using GetUntrustedBaseplateHeaders.
-func ServerBaseplateHeadersMiddleware(service string) Middleware {
+func ServerBaseplateHeadersMiddleware(service string, store SecretsStore, path string) Middleware {
+	getVerificationSecret := func() *secrets.VersionedSecret {
+		secret, err := store.GetVersionedSecret(path)
+		if err != nil {
+			log.Errorf("Failed to get secret %q: %v", path, err)
+		}
+		return &secret
+	}
+
 	return func(name string, next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) (err error) {
-			if r.Header.Get(headerbp.IsUntrustedRequestHeaderCanonicalHTTP) != "" {
+			verificationSecret := getVerificationSecret()
+			var trusted bool
+			if sig := r.Header.Get(headerbp.SignatureHeaderCanonicalHTTP); sig != "" && verificationSecret != nil {
+				var bpHeaderNames []string
+				for k := range r.Header {
+					if headerbp.IsBaseplateHeader(k) {
+						bpHeaderNames = append(bpHeaderNames, k)
+					}
+				}
+				if len(bpHeaderNames) > 0 {
+					_ctx, err := headerbp.VerifyHeaders(ctx, *verificationSecret, sig, bpHeaderNames, r.Header.Get)
+					if err == nil {
+						trusted = true
+						ctx = _ctx
+					}
+				}
+			}
+			if !trusted {
 				untrusted := make(map[string]string)
 				for k, v := range r.Header {
 					if headerbp.IsBaseplateHeader(k) {
@@ -550,6 +580,7 @@ func ServerBaseplateHeadersMiddleware(service string) Middleware {
 				ctx = setUntrustedHeaders(ctx, untrusted)
 				return next(ctx, w, r)
 			}
+
 			headers := headerbp.NewIncomingHeaders(
 				headerbp.WithHTTPService(service, name),
 			)
