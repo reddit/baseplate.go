@@ -38,6 +38,7 @@ func SetV2BaseplateSignatureSetter(setter func(context.Context, string) context.
 	setV2SignatureContext = setter
 }
 
+// SetV0Setters can be used by the baseplate interop library to hook headerbp v0 into v2.
 func SetV0Setters(
 	setV0HeaderSetter func(func(context.Context, map[string]string) context.Context),
 	setV0SignatureSetter func(func(context.Context, string) context.Context),
