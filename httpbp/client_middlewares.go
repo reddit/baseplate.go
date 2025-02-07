@@ -411,11 +411,11 @@ func ClientBaseplateHeadersMiddleware(client string, store SecretsStore, path st
 			// the !hasSignature check is redundant since we do not add to the baseplateHeaders list unless it is false, but
 			// it's here to make it clear that we only need to update the signature if there is no signature in the context
 			if len(baseplateHeaders) > 0 && !hasSignature {
-				_signature, err := headerbp.SignHeaders(req.Context(), *signingSecret, baseplateHeaders, req.Header.Get)
-				if err != nil {
+				if _signature, err := headerbp.SignHeaders(req.Context(), *signingSecret, baseplateHeaders, req.Header.Get); err != nil {
 					return nil, fmt.Errorf("signing baseplate headers: %w", err)
+				} else {
+					signature = _signature
 				}
-				signature = _signature
 			}
 			if signature != "" {
 				req.Header.Set(headerbp.SignatureHeaderCanonicalHTTP, signature)
