@@ -19,9 +19,6 @@ type ClientConfig struct {
 
 	SecretsStore           SecretsStore
 	HeaderbpSigningKeyPath string
-
-	// deprecated
-	InternalOnly bool
 }
 
 // Validate checks ClientConfig for any missing or erroneous values.
