@@ -531,6 +531,10 @@ func GetUntrustedBaseplateHeaders(ctx context.Context) (map[string]string, bool)
 	return h, ok
 }
 
+// SecretsStore is the minimum inteface required for the ServerBaseplateHeadersMiddleware and ClientBaseplateHeadersMiddleware.
+//
+// *secrets.Store fulfills this interface but an interface is used so that a service using v2 secrets can still use
+// these middlewares if needed through an interop library.
 type SecretsStore interface {
 	GetVersionedSecret(path string) (secrets.VersionedSecret, error)
 }
