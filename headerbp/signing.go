@@ -22,7 +22,7 @@ var ErrInvalidSignatureVersion = fmt.Errorf("invalid  version")
 
 type headerSignatureContextKey struct{}
 
-func setHeaderSignature(ctx context.Context, sig string) context.Context {
+func setSignatureOnContext(ctx context.Context, sig string) context.Context {
 	return context.WithValue(ctx, headerSignatureContextKey{}, sig)
 }
 
@@ -175,5 +175,5 @@ func VerifyHeaders(
 		return ctx, fmt.Errorf("verification error: %w", err)
 	}
 	ctx = setV2SignatureContext(ctx, signature)
-	return setHeaderSignature(ctx, signature), nil
+	return setSignatureOnContext(ctx, signature), nil
 }
