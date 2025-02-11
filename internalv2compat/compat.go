@@ -107,6 +107,12 @@ func SetV2TracingThriftClientMiddleware(middleware thrift.ClientMiddleware) {
 	}
 }
 
+func SetV2TracingThriftClientMiddlewareProvider(provider ThriftClientTraceMiddlewareProvider) {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	v2Tracing.thriftClientMiddlewareProvider = provider
+}
+
 func V2TracingThriftClientMiddleware() thrift.ClientMiddleware {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
