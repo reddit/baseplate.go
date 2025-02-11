@@ -67,12 +67,21 @@ type IsThrift interface {
 	isThrift()
 }
 
+// ClientTraceMiddlewareArgs is the arguments used to instantiate client tracing middleware
+//
+// This struct is exported so that it can be used by baseplate V2 interop utilities.
+type ClientTraceMiddlewareArgs struct {
+	ServiceName string
+}
+
+type ThriftClientTraceMiddlewareProvider func(args ClientTraceMiddlewareArgs) thrift.ClientMiddleware
+
 var v2Tracing struct {
 	sync.Mutex
 	enabled bool
 
-	thriftClientMiddleware thrift.ClientMiddleware
-	thriftServerMiddleware thrift.ProcessorMiddleware
+	thriftClientMiddlewareProvider ThriftClientTraceMiddlewareProvider
+	thriftServerMiddleware         thrift.ProcessorMiddleware
 
 	httpClientMiddleware func(base http.RoundTripper) http.RoundTripper
 	httpServerMiddleware func(name string, next http.Handler) http.Handler
@@ -93,13 +102,27 @@ func V2TracingEnabled() bool {
 func SetV2TracingThriftClientMiddleware(middleware thrift.ClientMiddleware) {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
-	v2Tracing.thriftClientMiddleware = middleware
+	v2Tracing.thriftClientMiddlewareProvider = func(args ClientTraceMiddlewareArgs) thrift.ClientMiddleware {
+		return middleware
+	}
 }
 
 func V2TracingThriftClientMiddleware() thrift.ClientMiddleware {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
-	return v2Tracing.thriftClientMiddleware
+	if v2Tracing.thriftClientMiddlewareProvider == nil {
+		return nil
+	}
+	return v2Tracing.thriftClientMiddlewareProvider(ClientTraceMiddlewareArgs{ServiceName: "unknown"})
+}
+
+func V2TracingThriftClientMiddlewareWithArgs(args ClientTraceMiddlewareArgs) thrift.ClientMiddleware {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	if v2Tracing.thriftClientMiddlewareProvider == nil {
+		return nil
+	}
+	return v2Tracing.thriftClientMiddlewareProvider(args)
 }
 
 func SetV2TracingThriftServerMiddleware(middleware thrift.ProcessorMiddleware) {

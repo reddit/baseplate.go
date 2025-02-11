@@ -152,7 +152,7 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 		ForwardEdgeRequestContext(args.EdgeContextImpl),
 		SetClientName(args.ClientName),
 		MonitorClient(MonitorClientArgs{
-			ServiceSlug:         args.ServiceSlug + MonitorClientWrappedSlugSuffix,
+			ServiceSlug:         args.ServiceSlug,
 			ErrorSpanSuppressor: args.ErrorSpanSuppressor,
 		}),
 		PrometheusClientMiddleware(args.ServiceSlug + MonitorClientWrappedSlugSuffix),
@@ -211,7 +211,9 @@ var monitorClientLoggingOnce sync.Once
 // This middleware always use the injected v2 tracing thrift client middleware.
 // If there's no v2 tracing thrift client middleware injected, it's no-op.
 func MonitorClient(args MonitorClientArgs) thrift.ClientMiddleware {
-	if mw := internalv2compat.V2TracingThriftClientMiddleware(); mw != nil {
+	if mw := internalv2compat.V2TracingThriftClientMiddlewareWithArgs(
+		internalv2compat.ClientTraceMiddlewareArgs{ServiceName: args.ServiceSlug},
+	); mw != nil {
 		return mw
 	}
 	return func(next thrift.TClient) thrift.TClient {
