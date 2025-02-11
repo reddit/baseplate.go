@@ -107,7 +107,7 @@ func SetV2TracingThriftClientMiddleware(middleware thrift.ClientMiddleware) {
 func V2TracingThriftClientMiddleware() thrift.ClientMiddleware {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
-	if v2Tracing.thriftClientMiddlewareProvider != nil {
+	if v2Tracing.thriftClientMiddlewareProvider == nil {
 		return nil
 	}
 	return v2Tracing.thriftClientMiddlewareProvider(ClientTraceMiddlewareArgs{ServiceName: "unknown"})
