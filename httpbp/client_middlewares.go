@@ -15,7 +15,6 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/reddit/baseplate.go/headerbp"
-	"github.com/reddit/baseplate.go/log"
 	"github.com/reddit/baseplate.go/secrets"
 
 	"github.com/reddit/baseplate.go/breakerbp"
@@ -376,7 +375,11 @@ func ClientBaseplateHeadersMiddleware(client string, store SecretsStore, path st
 	getSigningSecret := func() *secrets.VersionedSecret {
 		secret, err := store.GetVersionedSecret(path)
 		if err != nil {
-			log.Errorf("Failed to get secret %q: %v", path, err)
+			slog.Error(
+				"Failed to get secret:",
+				slog.String("path", path),
+				slog.String("err", err.Error()),
+			)
 		}
 		return &secret
 	}

@@ -2,6 +2,7 @@ package headerbp
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -18,7 +19,7 @@ const delimiter = rune(0)
 
 var signatureVersionPrefix = strconv.Itoa(signatureVersion)
 
-var ErrInvalidSignatureVersion = fmt.Errorf("invalid  version")
+var ErrInvalidSignatureVersion = fmt.Errorf("invalid version")
 
 type headerSignatureContextKey struct{}
 
@@ -67,14 +68,8 @@ func concatHeaders(b *bytes.Buffer, headerNames []string, getHeader func(string)
 			original:   k,
 		})
 	}
-	slices.SortFunc(manifest, func(i, j manifestEntry) int {
-		if i.normalized < j.normalized {
-			return -1
-		} else if i.normalized > j.normalized {
-			return 1
-		} else {
-			return 0
-		}
+	slices.SortFunc(manifest, func(left, right manifestEntry) int {
+		return cmp.Compare(left.normalized, right.normalized)
 	})
 
 	b.WriteString(versionPrefix)
@@ -109,12 +104,11 @@ func SignHeaders(
 	defer putBuffer(b)
 
 	concatHeaders(b, headerNames, getHeader, signatureVersionPrefix)
-	signature, err := signing.Sign(
-		signing.SignArgs{
-			Message:   b.Bytes(),
-			Secret:    signingSecret,
-			ExpiresIn: 5 * time.Minute,
-		})
+	signature, err := signing.Sign(signing.SignArgs{
+		Message:   b.Bytes(),
+		Secret:    signingSecret,
+		ExpiresIn: 5 * time.Minute,
+	})
 	if err != nil {
 		return "", fmt.Errorf("generating signature: %w", err)
 	}

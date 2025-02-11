@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strconv"
@@ -547,7 +548,11 @@ func ServerBaseplateHeadersMiddleware(service string, store SecretsStore, path s
 	getVerificationSecret := func() *secrets.VersionedSecret {
 		secret, err := store.GetVersionedSecret(path)
 		if err != nil {
-			log.Errorf("Failed to get secret %q: %v", path, err)
+			slog.Error(
+				"Failed to get secret:",
+				slog.String("path", path),
+				slog.String("err", err.Error()),
+			)
 		}
 		return &secret
 	}
