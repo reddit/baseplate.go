@@ -549,9 +549,9 @@ func ServerBaseplateHeadersMiddleware(service string, store SecretsStore, path s
 		secret, err := store.GetVersionedSecret(path)
 		if err != nil {
 			slog.Error(
-				"Failed to get secret:",
-				slog.String("path", path),
-				slog.String("err", err.Error()),
+				"Failed to get secret",
+				"path", path,
+				"err", err,
 			)
 		}
 		return &secret
