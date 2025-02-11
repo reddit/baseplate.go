@@ -440,7 +440,13 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 		"x-bp-from-edge": {"true"},
 		"x-bp-test":      {"foo"},
 	}
-	store, _, err := secrets.NewTestSecrets(context.TODO(), nil)
+	store, _, err := secrets.NewTestSecrets(context.TODO(), map[string]secrets.GenericSecret{
+		"secret/baseplate/headerbp/signature-key": {
+			Type:     secrets.VersionedType,
+			Current:  "dGVzdA==", // test
+			Encoding: secrets.Base64Encoding,
+		},
+	})
 	if err != nil {
 		t.Fatalf("failed to create test secrets: %v", err)
 	}
@@ -475,7 +481,7 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 			},
 		},
 		Middlewares: []httpbp.Middleware{
-			httpbp.ServerBaseplateHeadersMiddleware("originHTTPBPV0"),
+			httpbp.ServerBaseplateHeadersMiddleware("originHTTPBPV0", store, "secret/baseplate/headerbp/signature-key"),
 		},
 	})
 	if err != nil {
@@ -494,8 +500,9 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 
 	downstreamClient, err := httpbp.NewClient(
 		httpbp.ClientConfig{
-			Slug:         "downstreamHTTPBPV0",
-			InternalOnly: true,
+			Slug:                   "downstreamHTTPBPV0",
+			SecretsStore:           store,
+			HeaderbpSigningKeyPath: "secret/baseplate/headerbp/signature-key",
 		},
 		withBaseURL(downstreamBaseURL),
 	)
@@ -555,7 +562,7 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 			},
 		},
 		Middlewares: []httpbp.Middleware{
-			httpbp.ServerBaseplateHeadersMiddleware("originHTTPBPV0"),
+			httpbp.ServerBaseplateHeadersMiddleware("originHTTPBPV0", store, "secret/baseplate/headerbp/signature-key"),
 		},
 	})
 	if err != nil {
@@ -590,9 +597,20 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("creating request: %v", err)
 	}
+	var headerNames []string
 	for name, values := range expectedHeaders {
+		headerNames = append(headerNames, name)
 		req.Header.Set(name, values[0])
 	}
+	secret, err := store.GetVersionedSecret("secret/baseplate/headerbp/signature-key")
+	if err != nil {
+		t.Fatalf("failed to get secret: %v", err)
+	}
+	signature, err := headerbp.SignHeaders(req.Context(), secret, headerNames, req.Header.Get)
+	if err != nil {
+		t.Fatalf("failed to sign headers: %v", err)
+	}
+	req.Header.Set(headerbp.SignatureHeaderCanonicalHTTP, signature)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -653,7 +671,7 @@ func TestBaseplateHeaderPropagation_untrusted(t *testing.T) {
 			},
 		},
 		Middlewares: []httpbp.Middleware{
-			httpbp.ServerBaseplateHeadersMiddleware("originHTTPBPV0"),
+			httpbp.ServerBaseplateHeadersMiddleware("originHTTPBPV0", store, "secret/baseplate/headerbp/signature-key"),
 		},
 	})
 	if err != nil {
@@ -688,7 +706,6 @@ func TestBaseplateHeaderPropagation_untrusted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("creating request: %v", err)
 	}
-	req.Header.Set("X-Rddt-Untrusted", "1")
 	for name, values := range expectedHeaders {
 		req.Header.Set(name, values[0])
 	}

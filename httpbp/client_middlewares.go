@@ -15,6 +15,7 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/reddit/baseplate.go/headerbp"
+	"github.com/reddit/baseplate.go/secrets"
 
 	"github.com/reddit/baseplate.go/breakerbp"
 	//lint:ignore SA1019 This library is internal only, not actually deprecated
@@ -96,9 +97,9 @@ func NewClient(config ClientConfig, middleware ...ClientMiddleware) (*http.Clien
 		defaults = append([]ClientMiddleware{CircuitBreaker(*config.CircuitBreaker)}, defaults...)
 	}
 
-	// only add the middleware to forward baseplate headers if the client is for internal calls
-	if config.InternalOnly {
-		defaults = append(defaults, ClientBaseplateHeadersMiddleware(config.Slug))
+	// only add the middleware to forward baseplate headers if the client is configured for it
+	if config.SecretsStore != nil && config.HeaderbpSigningKeyPath != "" {
+		defaults = append(defaults, ClientBaseplateHeadersMiddleware(config.Slug, config.SecretsStore, config.HeaderbpSigningKeyPath))
 	}
 
 	middleware = append(middleware, defaults...)
@@ -370,9 +371,26 @@ func PrometheusClientMetrics(serverSlug string) ClientMiddleware {
 // ClientBaseplateHeadersMiddleware is a middleware that forwards baseplate headers from the context to the outgoing request.
 //
 // If it detects any new baseplate headers set on the request, it will reject the request and return an error.
-func ClientBaseplateHeadersMiddleware(client string) ClientMiddleware {
+func ClientBaseplateHeadersMiddleware(client string, store SecretsStore, path string) ClientMiddleware {
+	getSigningSecret := func() *secrets.VersionedSecret {
+		secret, err := store.GetVersionedSecret(path)
+		if err != nil {
+			slog.Error(
+				"Failed to get secret",
+				"path", path,
+				"err", err,
+			)
+		}
+		return &secret
+	}
+
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			signingSecret := getSigningSecret()
+			if signingSecret == nil {
+				return nil, fmt.Errorf("signing secret is required to set use baseplate headers")
+			}
+
 			for k := range req.Header {
 				if err := headerbp.CheckClientHeader(k,
 					headerbp.WithHTTPClient("", client, ""),
@@ -380,11 +398,31 @@ func ClientBaseplateHeadersMiddleware(client string) ClientMiddleware {
 					return nil, err
 				}
 			}
+
+			signature, hasSignature := headerbp.HeaderSignatureFromContext(req.Context())
+			var baseplateHeaders []string
 			headerbp.SetOutgoingHeaders(
 				req.Context(),
 				headerbp.WithHTTPClient("", client, ""),
-				headerbp.WithHeaderSetter(req.Header.Set),
+				headerbp.WithHeaderSetter(func(key, value string) {
+					if !hasSignature {
+						baseplateHeaders = append(baseplateHeaders, key)
+					}
+					req.Header.Set(key, value)
+				}),
 			)
+			// the !hasSignature check is redundant since we do not add to the baseplateHeaders list unless it is false, but
+			// it's here to make it clear that we only need to update the signature if there is no signature in the context
+			if len(baseplateHeaders) > 0 && !hasSignature {
+				if _signature, err := headerbp.SignHeaders(req.Context(), *signingSecret, baseplateHeaders, req.Header.Get); err != nil {
+					return nil, fmt.Errorf("signing baseplate headers: %w", err)
+				} else {
+					signature = _signature
+				}
+			}
+			if signature != "" {
+				req.Header.Set(headerbp.SignatureHeaderCanonicalHTTP, signature)
+			}
 			return next.RoundTrip(req)
 		})
 	}
