@@ -1,6 +1,6 @@
 module github.com/reddit/baseplate.go
 
-go 1.22.0
+go 1.23
 
 require (
 	github.com/Shopify/sarama v1.29.1
