@@ -233,6 +233,16 @@ func newCredentialSecret(secret *GenericSecret) (CredentialSecret, error) {
 	}, nil
 }
 
+// Returns username.
+func (c CredentialSecret) GetUsername() string {
+	return c.Username
+}
+
+// Returns password.
+func (c CredentialSecret) GetPassword() string {
+	return c.Password
+}
+
 // Document represents the raw parsed entity of a Secrets JSON and is
 // not meant to be used other than instantiating Secrets.
 type Document struct {
