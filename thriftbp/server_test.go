@@ -75,6 +75,9 @@ func TestHeaderPropagation(t *testing.T) {
 		Processor:       downstreamProcessor,
 		SecretStore:     store,
 		EdgeContextImpl: ecImpl,
+		ClientMiddlewares: []thrift.ClientMiddleware{
+			thriftbp.ClientBaseplateHeadersMiddleware("", ""),
+		},
 	})
 	if err != nil {
 		t.Fatal(err)

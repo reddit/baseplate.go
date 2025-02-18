@@ -34,16 +34,15 @@ func initClients(ecImpl ecinterface.Interface) (*thrifttest.MockClient, *thriftt
 	}
 	mock := &thrifttest.MockClient{FailUnregisteredMethods: true}
 	recorder := thrifttest.NewRecordedClient(mock)
-	client := thrift.WrapClient(
-		recorder,
-		thriftbp.BaseplateDefaultClientMiddlewares(
-			thriftbp.DefaultClientMiddlewareArgs{
-				EdgeContextImpl: ecImpl,
-				ServiceSlug:     service,
-				Address:         address,
-			},
-		)...,
-	)
+	middlewares := []thrift.ClientMiddleware{thriftbp.ClientBaseplateHeadersMiddleware(service, "")}
+	middlewares = append(middlewares, thriftbp.BaseplateDefaultClientMiddlewares(
+		thriftbp.DefaultClientMiddlewareArgs{
+			EdgeContextImpl: ecImpl,
+			ServiceSlug:     service,
+			Address:         address,
+		},
+	)...)
+	client := thrift.WrapClient(recorder, middlewares...)
 	return mock, recorder, client
 }
 
