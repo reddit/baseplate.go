@@ -175,7 +175,6 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 		BaseplateErrorWrapper,
 		thrift.ExtractIDLExceptionClientMiddleware,
 		SetDeadlineBudget,
-		ClientBaseplateHeadersMiddleware(args.ServiceSlug, args.ClientName),
 		clientFaultMiddleware.Middleware(), // clientFaultMiddleware MUST be last
 	)
 	return middlewares
