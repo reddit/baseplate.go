@@ -57,12 +57,6 @@ func (s *headerPropagationVerificationService) IsHealthy(ctx context.Context, _ 
 	return true, nil
 }
 
-type echoService struct{}
-
-func (s *echoService) IsHealthy(ctx context.Context, req *baseplatethrift.IsHealthyRequest) (bool, error) {
-	return true, nil
-}
-
 func TestHeaderPropagation(t *testing.T) {
 	store := newSecretsStore(t)
 
