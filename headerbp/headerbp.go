@@ -319,14 +319,21 @@ func WithHeaderSetter(setter func(key, value string)) SetOutgoingHeadersOption {
 	}
 }
 
+type setOutgoingIdempotencyKey struct{}
+
+func HasSetOutgoingHeaders(ctx context.Context) bool {
+	_, ok := ctx.Value(setOutgoingIdempotencyKey{}).(bool)
+	return ok
+}
+
 // SetOutgoingHeaders sets the baseplate headers in the outgoing headers if they have not already been set by the caller.
-func SetOutgoingHeaders(ctx context.Context, options ...SetOutgoingHeadersOption) {
+func SetOutgoingHeaders(ctx context.Context, options ...SetOutgoingHeadersOption) context.Context {
 	cfg := &setOutgoingHeaders{}
 	WithSetOutgoingHeadersOptions(options...).ApplyToSetOutgoingHeaders(cfg)
 
 	headers, ok := ctx.Value(headersKey{}).(map[string]string)
 	if !ok {
-		return
+		return ctx
 	}
 	var forwarded int
 	var estimatedSizeBytes int
@@ -347,4 +354,5 @@ func SetOutgoingHeaders(ctx context.Context, options ...SetOutgoingHeadersOption
 		cfg.Client,
 		cfg.Method,
 	).Observe(float64(estimatedSizeBytes))
+	return context.WithValue(ctx, setOutgoingIdempotencyKey{}, true)
 }

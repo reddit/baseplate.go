@@ -386,6 +386,11 @@ func ClientBaseplateHeadersMiddleware(client string, store SecretsStore, path st
 
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			if headerbp.HasSetOutgoingHeaders(req.Context()) {
+				return next.RoundTrip(req)
+			}
+
+			ctx := req.Context()
 			signingSecret := getSigningSecret()
 			if signingSecret == nil {
 				return nil, fmt.Errorf("signing secret is required to set use baseplate headers")
@@ -399,10 +404,10 @@ func ClientBaseplateHeadersMiddleware(client string, store SecretsStore, path st
 				}
 			}
 
-			signature, hasSignature := headerbp.HeaderSignatureFromContext(req.Context())
+			signature, hasSignature := headerbp.HeaderSignatureFromContext(ctx)
 			var baseplateHeaders []string
-			headerbp.SetOutgoingHeaders(
-				req.Context(),
+			ctx = headerbp.SetOutgoingHeaders(
+				ctx,
 				headerbp.WithHTTPClient("", client, ""),
 				headerbp.WithHeaderSetter(func(key, value string) {
 					if !hasSignature {
@@ -414,7 +419,7 @@ func ClientBaseplateHeadersMiddleware(client string, store SecretsStore, path st
 			// the !hasSignature check is redundant since we do not add to the baseplateHeaders list unless it is false, but
 			// it's here to make it clear that we only need to update the signature if there is no signature in the context
 			if len(baseplateHeaders) > 0 && !hasSignature {
-				if _signature, err := headerbp.SignHeaders(req.Context(), *signingSecret, baseplateHeaders, req.Header.Get); err != nil {
+				if _signature, err := headerbp.SignHeaders(ctx, *signingSecret, baseplateHeaders, req.Header.Get); err != nil {
 					return nil, fmt.Errorf("signing baseplate headers: %w", err)
 				} else {
 					signature = _signature
@@ -423,6 +428,7 @@ func ClientBaseplateHeadersMiddleware(client string, store SecretsStore, path st
 			if signature != "" {
 				req.Header.Set(headerbp.SignatureHeaderCanonicalHTTP, signature)
 			}
+			req = req.WithContext(ctx)
 			return next.RoundTrip(req)
 		})
 	}

@@ -422,6 +422,10 @@ func ClientBaseplateHeadersMiddleware(service, client string) thrift.ClientMiddl
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
+				if headerbp.HasSetOutgoingHeaders(ctx) {
+					return next.Call(ctx, method, args, result)
+				}
+
 				outgoing := thrift.GetWriteHeaderList(ctx)
 				for _, k := range outgoing {
 					if err := headerbp.CheckClientHeader(k,
@@ -432,7 +436,7 @@ func ClientBaseplateHeadersMiddleware(service, client string) thrift.ClientMiddl
 				}
 
 				var toAdd map[string]string
-				headerbp.SetOutgoingHeaders(
+				ctx = headerbp.SetOutgoingHeaders(
 					ctx,
 					headerbp.WithThriftClient(service, client, method),
 					headerbp.WithHeaderSetter(func(k, v string) {
