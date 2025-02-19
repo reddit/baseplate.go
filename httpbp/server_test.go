@@ -553,7 +553,7 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 					if resp.StatusCode != http.StatusOK {
 						t.Fatalf("unexpected status code: %d", resp.StatusCode)
 					}
-					
+
 					return nil
 				},
 			},

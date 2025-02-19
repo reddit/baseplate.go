@@ -386,11 +386,12 @@ func ClientBaseplateHeadersMiddleware(client string, store SecretsStore, path st
 
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			if headerbp.HasSetOutgoingHeaders(req.Context()) {
+			ctx := req.Context()
+
+			if headerbp.HasSetOutgoingHeaders(ctx) {
 				return next.RoundTrip(req)
 			}
 
-			ctx := req.Context()
 			signingSecret := getSigningSecret()
 			if signingSecret == nil {
 				return nil, fmt.Errorf("signing secret is required to set use baseplate headers")
