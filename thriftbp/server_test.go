@@ -141,6 +141,59 @@ func TestHeaderPropagation(t *testing.T) {
 	}
 }
 
+// verify that new headers are removed when there are no headers set to propagate
+func TestHeaderPropagation_removeOnly(t *testing.T) {
+	store := newSecretsStore(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	ecImpl := ecinterface.Mock()
+
+	downstreamProcessor := baseplatethrift.NewBaseplateServiceV2Processor(&headerPropagationVerificationService{
+		wantUnset: []string{"x-bp-test"},
+	})
+	downstreamServer, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
+		Processor:       downstreamProcessor,
+		SecretStore:     store,
+		EdgeContextImpl: ecImpl,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	downstreamServer.Start(ctx)
+	time.Sleep(100 * time.Millisecond) // wait for the server to start
+
+	originProcessor := baseplatethrift.NewBaseplateServiceV2Processor(&headerPropagationVerificationService{
+		wantUnset: []string{"x-bp-test"},
+		client: func() baseplatethrift.BaseplateServiceV2 {
+			return baseplatethrift.NewBaseplateServiceV2Client(downstreamServer.ClientPool.TClient())
+		},
+	})
+	server, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
+		Processor:   originProcessor,
+		SecretStore: store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.Start(ctx)
+	time.Sleep(100 * time.Millisecond) // wait for the server to start
+
+	client := baseplatethrift.NewBaseplateServiceV2Client(server.ClientPool.TClient())
+	got, err := client.IsHealthy(ctx, &baseplatethrift.IsHealthyRequest{
+		Probe: baseplatethrift.IsHealthyProbePtr(baseplatethrift.IsHealthyProbe_READINESS),
+	})
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	const want = true
+	if got != want {
+		t.Errorf("success mismatch, want %v, got %v", want, got)
+	}
+}
 func setHeader(ctx context.Context, key, value string) context.Context {
 	ctx = thrift.SetHeader(ctx, key, value)
 	return thrift.SetWriteHeaderList(ctx, append(thrift.GetWriteHeaderList(ctx), key))
