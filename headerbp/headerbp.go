@@ -371,6 +371,7 @@ func HasSetOutgoingHeaders(ctx context.Context, options ...HasSetOutgoingHeaders
 		clientMiddlewareIdempotencyCheckTotal.WithLabelValues(
 			cfg.RPCType,
 			cfg.Client,
+			"headerbp",
 		).Inc()
 		slog.ErrorContext(
 			ctx, "headerbp client middleware has beet triggered twice",

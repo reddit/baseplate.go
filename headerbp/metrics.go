@@ -23,6 +23,7 @@ var (
 	}, []string{
 		rpcTypeLabel,
 		clientNameLabel,
+		"middleware",
 	})
 
 	clientHeadersRejectedTotal = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
