@@ -362,11 +362,11 @@ func WithHeaderSetter(setter func(key, value string)) SetOutgoingHeadersOption {
 
 type setOutgoingIdempotencyKey struct{}
 
+// HasSetOutgoingHeaders returns true if the baseplate headers have already been set by the caller.
 func HasSetOutgoingHeaders(ctx context.Context, options ...HasSetOutgoingHeadersOption) bool {
 	cfg := &hasSetOutgoingHeaders{}
 	WithHasSetOutgoingHeadersOptions(options...).ApplyToHasSetOutgoingHeaders(cfg)
-	hasSet, ok := ctx.Value(setOutgoingIdempotencyKey{}).(bool)
-	hasSet = hasSet && ok
+	hasSet, _ := ctx.Value(setOutgoingIdempotencyKey{}).(bool)
 	if hasSet {
 		clientMiddlewareIdempotencyCheckTotal.WithLabelValues(
 			cfg.RPCType,
