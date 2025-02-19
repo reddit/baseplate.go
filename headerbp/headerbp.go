@@ -3,6 +3,7 @@ package headerbp
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 )
@@ -127,8 +128,8 @@ func setHeadersOnContext(ctx context.Context, headers map[string]string) context
 	return context.WithValue(ctx, headersKey{}, headers)
 }
 
-// CheckClientHeader checks if the header is allowlisted and returns an error if it is not.
-func CheckClientHeader(name string, options ...CheckClientHeaderOption) error {
+// ShouldRemoveClientHeader checks if the header is allowlisted and returns if the header should be removed
+func ShouldRemoveClientHeader(name string, options ...CheckClientHeaderOption) bool {
 	cfg := &checkClientHeaders{}
 	WithCheckClientHeaderOptions(options...).ApplyToCheckClientHeaders(cfg)
 
@@ -140,9 +141,13 @@ func CheckClientHeader(name string, options ...CheckClientHeaderOption) error {
 			cfg.Method,
 			strings.ToLower(name),
 		).Inc()
-		return fmt.Errorf("%w, %q is not allowlisted", ErrNewInternalHeaderNotAllowed, name)
+		slog.Error(
+			"client header rejected",
+			"header", name,
+		)
+		return true
 	}
-	return nil
+	return false
 }
 
 type CheckClientHeaderOption interface {

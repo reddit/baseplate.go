@@ -397,10 +397,10 @@ func ClientBaseplateHeadersMiddleware(client string, store SecretsStore, path st
 			}
 
 			for k := range req.Header {
-				if err := headerbp.CheckClientHeader(k,
+				if headerbp.ShouldRemoveClientHeader(k,
 					headerbp.WithHTTPClient("", client, ""),
-				); err != nil {
-					return nil, err
+				) {
+					req.Header.Del(k)
 				}
 			}
 

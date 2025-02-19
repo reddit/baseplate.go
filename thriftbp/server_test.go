@@ -10,22 +10,20 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/reddit/baseplate.go/headerbp"
-
 	"github.com/reddit/baseplate.go/ecinterface"
 	baseplatethrift "github.com/reddit/baseplate.go/internal/gen-go/reddit/baseplate"
 	"github.com/reddit/baseplate.go/thriftbp"
 	"github.com/reddit/baseplate.go/thriftbp/thrifttest"
 )
 
-type headerPropagationVerificationServic struct {
+type headerPropagationVerificationService struct {
 	want      map[string]string
 	wantUnset []string
 
 	client func() baseplatethrift.BaseplateServiceV2
 }
 
-func (s *headerPropagationVerificationServic) IsHealthy(ctx context.Context, _ *baseplatethrift.IsHealthyRequest) (bool, error) {
+func (s *headerPropagationVerificationService) IsHealthy(ctx context.Context, _ *baseplatethrift.IsHealthyRequest) (bool, error) {
 	var errs []error
 	got := make(map[string]string, len(s.want))
 	for k := range s.want {
@@ -49,14 +47,13 @@ func (s *headerPropagationVerificationServic) IsHealthy(ctx context.Context, _ *
 		return false, err
 	}
 
-	if _, err := s.client().IsHealthy(ctx, &baseplatethrift.IsHealthyRequest{}); err != nil {
-		return false, fmt.Errorf("unexpecte error calling downstream service: %w", err)
+	if s.client != nil {
+		ctx = setHeader(ctx, "x-bp-test", "bar")
+		if _, err := s.client().IsHealthy(ctx, &baseplatethrift.IsHealthyRequest{}); err != nil {
+			return false, fmt.Errorf("unexpected error calling downstream service: %w", err)
+		}
 	}
 
-	outgoingCtx := setHeader(ctx, "x-bp-test", "bar")
-	if _, err := s.client().IsHealthy(outgoingCtx, &baseplatethrift.IsHealthyRequest{}); !errors.Is(err, headerbp.ErrNewInternalHeaderNotAllowed) {
-		return false, fmt.Errorf("error mismatch, want %v, got %v", headerbp.ErrNewInternalHeaderNotAllowed, err)
-	}
 	return true, nil
 }
 
@@ -74,7 +71,11 @@ func TestHeaderPropagation(t *testing.T) {
 
 	ecImpl := ecinterface.Mock()
 
-	downstreamProcessor := baseplatethrift.NewBaseplateServiceV2Processor(&echoService{})
+	downstreamProcessor := baseplatethrift.NewBaseplateServiceV2Processor(&headerPropagationVerificationService{
+		want: map[string]string{
+			"x-bp-test": "foo",
+		},
+	})
 	downstreamServer, err := thrifttest.NewBaseplateServer(thrifttest.ServerConfig{
 		Processor:       downstreamProcessor,
 		SecretStore:     store,
@@ -91,7 +92,7 @@ func TestHeaderPropagation(t *testing.T) {
 	downstreamServer.Start(ctx)
 	time.Sleep(100 * time.Millisecond) // wait for the server to start
 
-	originProcessor := baseplatethrift.NewBaseplateServiceV2Processor(&headerPropagationVerificationServic{
+	originProcessor := baseplatethrift.NewBaseplateServiceV2Processor(&headerPropagationVerificationService{
 		want: map[string]string{
 			"x-bp-test": "foo",
 		},

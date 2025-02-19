@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -427,13 +428,11 @@ func ClientBaseplateHeadersMiddleware(service, client string) thrift.ClientMiddl
 				}
 
 				outgoing := thrift.GetWriteHeaderList(ctx)
-				for _, k := range outgoing {
-					if err := headerbp.CheckClientHeader(k,
+				outgoing = slices.DeleteFunc(outgoing, func(name string) bool {
+					return headerbp.ShouldRemoveClientHeader(name,
 						headerbp.WithThriftClient(service, client, method),
-					); err != nil {
-						return thrift.ResponseMeta{}, err
-					}
-				}
+					)
+				})
 
 				var toAdd map[string]string
 				ctx = headerbp.SetOutgoingHeaders(
