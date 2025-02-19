@@ -17,6 +17,15 @@ const (
 )
 
 var (
+	clientMiddlewareIdempotencyCheckTotal = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "baseplate_client_middleware_idempotency_check_failures_total",
+		Help: "Total number of times that the middleware detected that it was already called for the same request",
+	}, []string{
+		rpcTypeLabel,
+		clientNameLabel,
+		"middleware",
+	})
+
 	clientHeadersRejectedTotal = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
 		Name: "baseplate_client_rejected_headers_total",
 		Help: "Total number of requests that were rejected by a client due to unapproved internal headers",

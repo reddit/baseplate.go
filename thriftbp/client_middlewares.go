@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -175,6 +176,7 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 		BaseplateErrorWrapper,
 		thrift.ExtractIDLExceptionClientMiddleware,
 		SetDeadlineBudget,
+		ClientBaseplateHeadersMiddleware(args.ServiceSlug, args.ClientName),
 		clientFaultMiddleware.Middleware(), // clientFaultMiddleware MUST be last
 	)
 	return middlewares
@@ -421,17 +423,17 @@ func ClientBaseplateHeadersMiddleware(service, client string) thrift.ClientMiddl
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-				outgoing := thrift.GetWriteHeaderList(ctx)
-				for _, k := range outgoing {
-					if err := headerbp.CheckClientHeader(k,
-						headerbp.WithThriftClient(service, client, method),
-					); err != nil {
-						return thrift.ResponseMeta{}, err
-					}
+				if headerbp.HasSetOutgoingHeaders(ctx, headerbp.WithThriftClient(service, client, method)) {
+					return next.Call(ctx, method, args, result)
 				}
 
+				outgoing := thrift.GetWriteHeaderList(ctx)
+				outgoing = slices.DeleteFunc(outgoing, func(name string) bool {
+					return headerbp.ShouldRemoveClientHeader(name, headerbp.WithThriftClient(service, client, method))
+				})
+
 				var toAdd map[string]string
-				headerbp.SetOutgoingHeaders(
+				ctx = headerbp.SetOutgoingHeaders(
 					ctx,
 					headerbp.WithThriftClient(service, client, method),
 					headerbp.WithHeaderSetter(func(k, v string) {

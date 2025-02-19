@@ -453,7 +453,7 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 	t.Cleanup(func() {
 		store.Close()
 	})
-	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+	downstreamBP := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
 		Config: baseplate.Config{
 			Addr: ":8081",
 		},
@@ -461,7 +461,7 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 		EdgeContextImpl: ecinterface.Mock(),
 	})
 	downstreamServer, err := httpbp.NewBaseplateServer(httpbp.ServerArgs{
-		Baseplate: bp,
+		Baseplate: downstreamBP,
 		Endpoints: map[httpbp.Pattern]httpbp.Endpoint{
 			"/say-hello": {
 				Name:    "say-hello",
@@ -504,14 +504,22 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 			SecretsStore:           store,
 			HeaderbpSigningKeyPath: "secret/baseplate/headerbp/signature-key",
 		},
-		withBaseURL(downstreamBaseURL),
+		// This is to test that the client middleware is idempotent
+		httpbp.ClientBaseplateHeadersMiddleware("downstream", store, "secret/baseplate/headerbp/signature-key"),
 	)
 	if err != nil {
 		t.Fatalf("failed to create test client: %v", err)
 	}
 
+	originBP := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
+		Config: baseplate.Config{
+			Addr: ":8082",
+		},
+		Store:           store,
+		EdgeContextImpl: ecinterface.Mock(),
+	})
 	originServer, err := httpbp.NewBaseplateServer(httpbp.ServerArgs{
-		Baseplate: bp,
+		Baseplate: originBP,
 		Endpoints: map[httpbp.Pattern]httpbp.Endpoint{
 			"/say-hello": {
 				Name:    "say-hello",
@@ -527,7 +535,8 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 						}
 					}
 
-					req, err := http.NewRequest(
+					req, err := http.NewRequestWithContext(
+						ctx,
 						http.MethodGet,
 						downstreamBaseURL.JoinPath("say-hello").String(),
 						nil,
@@ -535,6 +544,7 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 					if err != nil {
 						t.Fatalf("creating request: %v", err)
 					}
+					req.Header.Set("x-bp-test", "bar")
 
 					resp, err := downstreamClient.Do(req)
 					if err != nil {
@@ -544,19 +554,6 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 						t.Fatalf("unexpected status code: %d", resp.StatusCode)
 					}
 
-					invalidReq, err := http.NewRequest(
-						http.MethodGet,
-						downstreamBaseURL.JoinPath("say-hello").String(),
-						nil,
-					)
-					if err != nil {
-						t.Fatalf("creating request: %v", err)
-					}
-					invalidReq.Header.Set("x-bp-test", "bar")
-
-					if _, err := downstreamClient.Do(req); !errors.Is(err, headerbp.ErrNewInternalHeaderNotAllowed) {
-						t.Fatalf("error mismatch, want %v, got %v", headerbp.ErrNewInternalHeaderNotAllowed, err)
-					}
 					return nil
 				},
 			},
@@ -583,7 +580,6 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 		httpbp.ClientConfig{
 			Slug: "downstreamHTTPBPV0",
 		},
-		withBaseURL(baseURL),
 	)
 	if err != nil {
 		t.Fatalf("failed to create test client: %v", err)
@@ -591,7 +587,7 @@ func TestBaseplateHeaderPropagation(t *testing.T) {
 
 	req, err := http.NewRequest(
 		http.MethodGet,
-		baseURL.JoinPath("say-hello").String(),
+		baseURL.JoinPath("/say-hello").String(),
 		nil,
 	)
 	if err != nil {
