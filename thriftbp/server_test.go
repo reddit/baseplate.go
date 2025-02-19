@@ -49,6 +49,10 @@ func (s *headerPropagationVerificationServic) IsHealthy(ctx context.Context, _ *
 		return false, err
 	}
 
+	if _, err := s.client().IsHealthy(ctx, &baseplatethrift.IsHealthyRequest{}); err != nil {
+		return false, fmt.Errorf("unexpecte error calling downstream service: %w", err)
+	}
+
 	outgoingCtx := setHeader(ctx, "x-bp-test", "bar")
 	if _, err := s.client().IsHealthy(outgoingCtx, &baseplatethrift.IsHealthyRequest{}); !errors.Is(err, headerbp.ErrNewInternalHeaderNotAllowed) {
 		return false, fmt.Errorf("error mismatch, want %v, got %v", headerbp.ErrNewInternalHeaderNotAllowed, err)
@@ -75,6 +79,11 @@ func TestHeaderPropagation(t *testing.T) {
 		Processor:       downstreamProcessor,
 		SecretStore:     store,
 		EdgeContextImpl: ecImpl,
+		// wire up the middleware manually to test that it is idempotent, we don't want a misconfiguration where the middleware
+		// is wired up twice to cause an error.
+		ClientMiddlewares: []thrift.ClientMiddleware{
+			thriftbp.ClientBaseplateHeadersMiddleware("", ""),
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
