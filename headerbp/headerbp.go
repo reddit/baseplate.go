@@ -130,8 +130,8 @@ func setHeadersOnContext(ctx context.Context, headers map[string]string) context
 
 // ShouldRemoveClientHeader checks if the header is allowlisted and returns if the header should be removed
 func ShouldRemoveClientHeader(name string, options ...CheckClientHeaderOption) bool {
-	cfg := &checkClientHeaders{}
-	WithCheckClientHeaderOptions(options...).ApplyToCheckClientHeaders(cfg)
+	cfg := &shouldRemoveClientHeaders{}
+	WithCheckClientHeaderOptions(options...).ApplyToShouldRemoveClientHeaders(cfg)
 
 	if IsBaseplateHeader(name) {
 		clientHeadersRejectedTotal.WithLabelValues(
@@ -151,15 +151,15 @@ func ShouldRemoveClientHeader(name string, options ...CheckClientHeaderOption) b
 }
 
 type CheckClientHeaderOption interface {
-	ApplyToCheckClientHeaders(*checkClientHeaders)
+	ApplyToShouldRemoveClientHeaders(*shouldRemoveClientHeaders)
 }
 
 func WithCheckClientHeaderOptions(options ...CheckClientHeaderOption) CheckClientHeaderOption {
-	return &checkClientHeaders{
+	return &shouldRemoveClientHeaders{
 		commonOption: commonOption{
-			applyToCheckClientHeaders: func(headers *checkClientHeaders) {
+			applyToCheckClientHeaders: func(headers *shouldRemoveClientHeaders) {
 				for _, opt := range options {
-					opt.ApplyToCheckClientHeaders(headers)
+					opt.ApplyToShouldRemoveClientHeaders(headers)
 				}
 			},
 		},
@@ -199,16 +199,34 @@ func WithNewIncomingHeadersOptions(options ...NewIncomingHeadersOption) NewIncom
 	return opt
 }
 
+type HasSetOutgoingHeadersOption interface {
+	ApplyToHasSetOutgoingHeaders(headers *hasSetOutgoingHeaders)
+}
+
+func WithHasSetOutgoingHeadersOptions(options ...HasSetOutgoingHeadersOption) HasSetOutgoingHeadersOption {
+	return &hasSetOutgoingHeaders{
+		commonOption: commonOption{
+			applyToHasSetOutgoingHeaders: func(headers *hasSetOutgoingHeaders) {
+				for _, opt := range options {
+					opt.ApplyToHasSetOutgoingHeaders(headers)
+				}
+			},
+		},
+	}
+}
+
 type CommonHeaderOption interface {
 	CheckClientHeaderOption
 	SetOutgoingHeadersOption
 	NewIncomingHeadersOption
+	HasSetOutgoingHeadersOption
 }
 
 type commonOption struct {
-	applyToCheckClientHeaders func(*checkClientHeaders)
-	applyToSetOutgoingHeaders func(*setOutgoingHeaders)
-	applyToNewIncomingHeaders func(*newIncomingHeaders)
+	applyToCheckClientHeaders    func(*shouldRemoveClientHeaders)
+	applyToSetOutgoingHeaders    func(*setOutgoingHeaders)
+	applyToNewIncomingHeaders    func(*newIncomingHeaders)
+	applyToHasSetOutgoingHeaders func(*hasSetOutgoingHeaders)
 
 	RPCType string
 	Service string
@@ -216,11 +234,11 @@ type commonOption struct {
 	Method  string
 }
 
-type checkClientHeaders struct {
+type shouldRemoveClientHeaders struct {
 	commonOption
 }
 
-func (c *checkClientHeaders) ApplyToCheckClientHeaders(headers *checkClientHeaders) {
+func (c *shouldRemoveClientHeaders) ApplyToShouldRemoveClientHeaders(headers *shouldRemoveClientHeaders) {
 	c.applyToCheckClientHeaders(headers)
 }
 
@@ -230,6 +248,14 @@ type newIncomingHeaders struct {
 
 func (n *newIncomingHeaders) ApplyToNewIncomingHeaders(headers *newIncomingHeaders) {
 	n.applyToNewIncomingHeaders(headers)
+}
+
+type hasSetOutgoingHeaders struct {
+	commonOption
+}
+
+func (c *hasSetOutgoingHeaders) ApplyToHasSetOutgoingHeaders(headers *hasSetOutgoingHeaders) {
+	c.applyToHasSetOutgoingHeaders(headers)
 }
 
 type setOutgoingHeaders struct {
@@ -242,7 +268,7 @@ func (s *setOutgoingHeaders) ApplyToSetOutgoingHeaders(headers *setOutgoingHeade
 	s.applyToSetOutgoingHeaders(headers)
 }
 
-func (c *commonOption) ApplyToCheckClientHeaders(headers *checkClientHeaders) {
+func (c *commonOption) ApplyToShouldRemoveClientHeaders(headers *shouldRemoveClientHeaders) {
 	c.applyToCheckClientHeaders(headers)
 }
 
@@ -252,6 +278,10 @@ func (c *commonOption) ApplyToSetOutgoingHeaders(headers *setOutgoingHeaders) {
 
 func (c *commonOption) ApplyToNewIncomingHeaders(headers *newIncomingHeaders) {
 	c.applyToNewIncomingHeaders(headers)
+}
+
+func (c *commonOption) ApplyToHasSetOutgoingHeaders(headers *hasSetOutgoingHeaders) {
+	c.applyToHasSetOutgoingHeaders(headers)
 }
 
 func WithHTTPService(service, method string) CommonHeaderOption {
@@ -275,10 +305,13 @@ func WithHTTPClient(service, client, endpoint string) CommonHeaderOption {
 		Method:  endpoint,
 	}
 	return &commonOption{
-		applyToCheckClientHeaders: func(headers *checkClientHeaders) {
+		applyToCheckClientHeaders: func(headers *shouldRemoveClientHeaders) {
 			headers.commonOption = cc
 		},
 		applyToSetOutgoingHeaders: func(headers *setOutgoingHeaders) {
+			headers.commonOption = cc
+		},
+		applyToHasSetOutgoingHeaders: func(headers *hasSetOutgoingHeaders) {
 			headers.commonOption = cc
 		},
 	}
@@ -305,10 +338,13 @@ func WithThriftClient(service, client, method string) CommonHeaderOption {
 		Method:  method,
 	}
 	return &commonOption{
-		applyToCheckClientHeaders: func(headers *checkClientHeaders) {
+		applyToCheckClientHeaders: func(headers *shouldRemoveClientHeaders) {
 			headers.commonOption = cc
 		},
 		applyToSetOutgoingHeaders: func(headers *setOutgoingHeaders) {
+			headers.commonOption = cc
+		},
+		applyToHasSetOutgoingHeaders: func(headers *hasSetOutgoingHeaders) {
 			headers.commonOption = cc
 		},
 	}
@@ -326,9 +362,23 @@ func WithHeaderSetter(setter func(key, value string)) SetOutgoingHeadersOption {
 
 type setOutgoingIdempotencyKey struct{}
 
-func HasSetOutgoingHeaders(ctx context.Context) bool {
-	_, ok := ctx.Value(setOutgoingIdempotencyKey{}).(bool)
-	return ok
+func HasSetOutgoingHeaders(ctx context.Context, options ...HasSetOutgoingHeadersOption) bool {
+	cfg := &hasSetOutgoingHeaders{}
+	WithHasSetOutgoingHeadersOptions(options...).ApplyToHasSetOutgoingHeaders(cfg)
+	hasSet, ok := ctx.Value(setOutgoingIdempotencyKey{}).(bool)
+	hasSet = hasSet && ok
+	if hasSet {
+		clientMiddlewareIdempotencyCheckTotal.WithLabelValues(
+			cfg.RPCType,
+			cfg.Client,
+		).Inc()
+		slog.ErrorContext(
+			ctx, "headerbp client middleware has beet triggered twice",
+			"client", cfg.Client,
+			"rpc_type", cfg.RPCType,
+		)
+	}
+	return hasSet
 }
 
 // SetOutgoingHeaders sets the baseplate headers in the outgoing headers if they have not already been set by the caller.

@@ -423,15 +423,13 @@ func ClientBaseplateHeadersMiddleware(service, client string) thrift.ClientMiddl
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
-				if headerbp.HasSetOutgoingHeaders(ctx) {
+				if headerbp.HasSetOutgoingHeaders(ctx, headerbp.WithThriftClient(service, client, method)) {
 					return next.Call(ctx, method, args, result)
 				}
 
 				outgoing := thrift.GetWriteHeaderList(ctx)
 				outgoing = slices.DeleteFunc(outgoing, func(name string) bool {
-					return headerbp.ShouldRemoveClientHeader(name,
-						headerbp.WithThriftClient(service, client, method),
-					)
+					return headerbp.ShouldRemoveClientHeader(name, headerbp.WithThriftClient(service, client, method))
 				})
 
 				var toAdd map[string]string

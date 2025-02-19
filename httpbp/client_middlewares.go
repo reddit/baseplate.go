@@ -388,7 +388,7 @@ func ClientBaseplateHeadersMiddleware(client string, store SecretsStore, path st
 		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			ctx := req.Context()
 
-			if headerbp.HasSetOutgoingHeaders(ctx) {
+			if headerbp.HasSetOutgoingHeaders(ctx, headerbp.WithHTTPClient("", client, "")) {
 				return next.RoundTrip(req)
 			}
 
