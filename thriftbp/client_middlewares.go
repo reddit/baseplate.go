@@ -449,8 +449,8 @@ func ClientBaseplateHeadersMiddleware(service, client string) thrift.ClientMiddl
 					for k, v := range toAdd {
 						ctx = thrift.SetHeader(ctx, k, v)
 					}
-					ctx = thrift.SetWriteHeaderList(ctx, outgoing)
 				}
+				ctx = thrift.SetWriteHeaderList(ctx, outgoing)
 				return next.Call(ctx, method, args, result)
 			},
 		}
