@@ -169,7 +169,7 @@ func InjectServerSpanWithArgs(args MonitorServerArgs) thrift.ProcessorMiddleware
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		// no-op but log for once
 		injectServerSpanLoggingOnce.Do(func() {
-			slog.Warn("thriftbp.InjectServerSpan: internalv2compat.V2TracingThriftServerMiddleware() returned nil")
+			slog.Warn("thriftbp.InjectServerSpan: internalv2compat.V2TracingThriftServerMiddlewareWithArgs() returned nil")
 		})
 		return next
 	}
