@@ -56,6 +56,13 @@ type DefaultProcessorMiddlewaresArgs struct {
 	//
 	// If it's not set, the global one from ecinterface.Get will be used instead.
 	EdgeContextImpl ecinterface.Interface
+
+	// The schema name for the thrift service being served by this server.
+	//
+	// The Thrift compiler does not generate schema metadata that can be read at
+	// runtime. So we rely on sourcing the service name used in the schema by
+	// passing an un-instrumented TProcessor to GetThriftServiceName.
+	ServiceName string
 }
 
 // BaseplateDefaultProcessorMiddlewares returns the default processor
@@ -75,7 +82,7 @@ type DefaultProcessorMiddlewaresArgs struct {
 func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) []thrift.ProcessorMiddleware {
 	return []thrift.ProcessorMiddleware{
 		ExtractDeadlineBudget,
-		InjectServerSpan(args.ErrorSpanSuppressor),
+		InjectServerSpanWithArgs(MonitorServerArgs{ServiceSlug: args.ServiceName}),
 		InjectEdgeContext(args.EdgeContextImpl),
 		ReportPayloadSizeMetrics(0),
 		PrometheusServerMiddleware,
@@ -138,6 +145,25 @@ var injectServerSpanLoggingOnce sync.Once
 // If there's no v2 tracing thrift server middleware injected, it's no-op.
 func InjectServerSpan(_ errorsbp.Suppressor) thrift.ProcessorMiddleware {
 	if mw := internalv2compat.V2TracingThriftServerMiddleware(); mw != nil {
+		return mw
+	}
+	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+		// no-op but log for once
+		injectServerSpanLoggingOnce.Do(func() {
+			slog.Warn("thriftbp.InjectServerSpan: internalv2compat.V2TracingThriftServerMiddleware() returned nil")
+		})
+		return next
+	}
+}
+
+type MonitorServerArgs struct {
+	ServiceSlug string
+}
+
+func InjectServerSpanWithArgs(args MonitorServerArgs) thrift.ProcessorMiddleware {
+	if mw := internalv2compat.V2TracingThriftServerMiddlewareWithArgs(internalv2compat.ServerTraceMiddlewareArgs{
+		ServiceName: args.ServiceSlug,
+	}); mw != nil {
 		return mw
 	}
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {

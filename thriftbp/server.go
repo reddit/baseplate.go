@@ -2,6 +2,10 @@ package thriftbp
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -143,6 +147,7 @@ func NewBaseplateServer(
 	middlewares := BaseplateDefaultProcessorMiddlewares(
 		DefaultProcessorMiddlewaresArgs{
 			EdgeContextImpl:     bp.EdgeContextImpl(),
+			ServiceName:         GetThriftServiceName(cfg.Processor),
 			ErrorSpanSuppressor: cfg.ErrorSpanSuppressor,
 		},
 	)
@@ -190,3 +195,19 @@ var (
 	_ baseplate.Server = impl{}
 	_ baseplate.Server = (*impl)(nil)
 )
+
+func GetThriftServiceName(processor thrift.TProcessor) string {
+	t := reflect.TypeOf(processor)
+	if t == nil {
+		return "unknown"
+	}
+	value := t.Elem()
+	if value == nil {
+		return "unknown"
+	}
+
+	return fmt.Sprintf("%s.%s",
+		filepath.Base(value.PkgPath()),
+		strings.TrimSuffix(value.Name(), "Processor"),
+	)
+}

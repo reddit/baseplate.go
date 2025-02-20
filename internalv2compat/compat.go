@@ -76,12 +76,18 @@ type ClientTraceMiddlewareArgs struct {
 
 type ThriftClientTraceMiddlewareProvider func(args ClientTraceMiddlewareArgs) thrift.ClientMiddleware
 
+type ServerTraceMiddlewareArgs struct {
+	ServiceName string
+}
+
+type ThriftServerTraceMiddlewareProvider func(args ServerTraceMiddlewareArgs) thrift.ProcessorMiddleware
+
 var v2Tracing struct {
 	sync.Mutex
 	enabled bool
 
 	thriftClientMiddlewareProvider ThriftClientTraceMiddlewareProvider
-	thriftServerMiddleware         thrift.ProcessorMiddleware
+	thriftServerMiddlewareProvider ThriftServerTraceMiddlewareProvider
 
 	httpClientMiddleware func(base http.RoundTripper) http.RoundTripper
 	httpServerMiddleware func(name string, next http.Handler) http.Handler
@@ -134,13 +140,33 @@ func V2TracingThriftClientMiddlewareWithArgs(args ClientTraceMiddlewareArgs) thr
 func SetV2TracingThriftServerMiddleware(middleware thrift.ProcessorMiddleware) {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
-	v2Tracing.thriftServerMiddleware = middleware
+	v2Tracing.thriftServerMiddlewareProvider = func(args ServerTraceMiddlewareArgs) thrift.ProcessorMiddleware {
+		return middleware
+	}
+}
+
+func SetV2TracingThriftServerMiddlewareProvider(provider ThriftServerTraceMiddlewareProvider) {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	v2Tracing.thriftServerMiddlewareProvider = provider
 }
 
 func V2TracingThriftServerMiddleware() thrift.ProcessorMiddleware {
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
-	return v2Tracing.thriftServerMiddleware
+	if v2Tracing.thriftServerMiddlewareProvider == nil {
+		return nil
+	}
+	return v2Tracing.thriftServerMiddlewareProvider(ServerTraceMiddlewareArgs{ServiceName: "unknown"})
+}
+
+func V2TracingThriftServerMiddlewareWithArgs(args ServerTraceMiddlewareArgs) thrift.ProcessorMiddleware {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	if v2Tracing.thriftServerMiddlewareProvider == nil {
+		return nil
+	}
+	return v2Tracing.thriftServerMiddlewareProvider(args)
 }
 
 func SetV2TracingHTTPClientMiddleware(middleware func(base http.RoundTripper) http.RoundTripper) {
