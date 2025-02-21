@@ -3,7 +3,7 @@ package thriftbp
 import (
 	"context"
 	"fmt"
-	"path/filepath"
+	"path"
 	"reflect"
 	"strings"
 	"time"
@@ -207,7 +207,7 @@ func GetThriftServiceName(processor thrift.TProcessor) string {
 	}
 
 	return fmt.Sprintf("%s.%s",
-		filepath.Base(value.PkgPath()),
+		path.Base(value.PkgPath()),
 		strings.TrimSuffix(value.Name(), "Processor"),
 	)
 }
