@@ -16,7 +16,20 @@ var (
 		prometheus.HistogramOpts{
 			Name:    "baseplate_log_latency_seconds",
 			Help:    "Latency of log calls",
-			Buckets: []float64{0.000005, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0},
+			Buckets: []float64{
+				0.000_005,
+				0.000_010,
+				0.000_050,
+				0.000_100,
+				0.000_500,
+				0.001,
+				0.005,
+				0.01,
+				0.05,
+				0.1,
+				0.5,
+				1.0,
+			},
 		},
 	)
 )
