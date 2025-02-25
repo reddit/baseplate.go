@@ -2,10 +2,23 @@ package log
 
 import (
 	"strconv"
+	"time"
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/reddit/baseplate.go/internal/thriftint"
+)
+
+var (
+	logLatencySeconds = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "baseplate_log_latency_seconds",
+			Help:    "Latency of log calls",
+			Buckets: []float64{0.000005, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0},
+		},
+	)
 )
 
 type wrappedCore struct {
@@ -17,7 +30,10 @@ func (w wrappedCore) With(fields []zapcore.Field) zapcore.Core {
 }
 
 func (w wrappedCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
-	return w.Core.Write(entry, wrapFields(fields))
+	start := time.Now()
+	err := w.Core.Write(entry, wrapFields(fields))
+	logLatencySeconds.Observe(time.Since(start).Seconds())
+	return err
 }
 
 func (w wrappedCore) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
