@@ -43,10 +43,10 @@ func (w wrappedCore) With(fields []zapcore.Field) zapcore.Core {
 }
 
 func (w wrappedCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
-	start := time.Now()
-	err := w.Core.Write(entry, wrapFields(fields))
-	logLatencySeconds.Observe(time.Since(start).Seconds())
-	return err
+	defer func(start time.Time) {
+		logLatencySeconds.Observe(time.Since(start).Seconds())
+	}(time.Now())
+	return w.Core.Write(entry, wrapFields(fields))
 }
 
 func (w wrappedCore) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
