@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	loggerWriteDurationSeconds = promauto.With(prometheusbpint.GlobalRegistry).NewHistogram(
+	logWriteDurationSeconds = promauto.With(prometheusbpint.GlobalRegistry).NewHistogram(
 		prometheus.HistogramOpts{
-			Name:    "baseplate_logger_write_duration_seconds",
+			Name:    "baseplate_log_write_duration_seconds",
 			Help:    "Latency of log calls",
 			Buckets: []float64{
 				0.000_005,
@@ -45,7 +45,7 @@ func (w wrappedCore) With(fields []zapcore.Field) zapcore.Core {
 
 func (w wrappedCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	defer func(start time.Time) {
-		loggerWriteDurationSeconds.Observe(time.Since(start).Seconds())
+		logWriteDurationSeconds.Observe(time.Since(start).Seconds())
 	}(time.Now())
 	return w.Core.Write(entry, wrapFields(fields))
 }
