@@ -15,7 +15,7 @@ type ClientConfig struct {
 	MaxErrorReadAhead int               `yaml:"limitErrorReading"`
 	MaxConnections    int               `yaml:"maxConnections"`
 	CircuitBreaker    *breakerbp.Config `yaml:"circuitBreaker"`
-	RetryOptions      []retry.Option
+	RetryOptions      []retry.Option    `yaml:"-"`
 
 	SecretsStore           SecretsStore
 	HeaderbpSigningKeyPath string

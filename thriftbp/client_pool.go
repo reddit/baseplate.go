@@ -162,7 +162,7 @@ type ClientPoolConfig struct {
 	// This includes the optional pool stats.
 	//
 	// Deprecated: We no longer emit any statsd metrics so this has no effect.
-	MetricsTags metricsbp.Tags `yaml:"metricsTags"`
+	MetricsTags metricsbp.Tags `yaml:"metricsTags,omitempty"`
 
 	// DefaultRetryOptions is the list of retry.Options to apply as the defaults
 	// for the Retry middleware.
