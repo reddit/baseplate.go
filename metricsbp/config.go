@@ -20,7 +20,7 @@ type Config struct {
 	Endpoint string `yaml:"endpoint"`
 
 	// Tags are the base tags that will be applied to all metrics.
-	Tags Tags `yaml:"tags"`
+	Tags Tags `yaml:"tags,omitempty"`
 
 	// HistogramSampleRate is the fraction of histograms (including timings) that
 	// you want to send to your metrics  backend.
