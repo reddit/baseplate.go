@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	logLatencySeconds = promauto.NewHistogram(
+	logLatencySeconds = promauto.With(prometheusbpint.GlobalRegistry).NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    "baseplate_log_latency_seconds",
 			Help:    "Latency of log calls",
