@@ -3,7 +3,6 @@ package faults
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 )
@@ -79,13 +78,7 @@ func (tc *headers) LookupValues(_ context.Context, key string) ([]string, error)
 	if key != FaultHeader {
 		return []string{}, fmt.Errorf("header %q not found", key)
 	}
-
-	values := strings.Split(tc.faultHeader, ",")
-	cleanedValues := []string{}
-	for _, value := range values {
-		cleanedValues = append(cleanedValues, strings.TrimSpace(value))
-	}
-	return cleanedValues, nil
+	return []string{tc.faultHeader}, nil
 }
 
 func TestInject(t *testing.T) {
