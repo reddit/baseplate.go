@@ -71,7 +71,6 @@ type injectTestCase struct {
 
 	wantDelayMs  int
 	wantResponse *response
-	wantErr      bool
 }
 
 type headers injectTestCase
@@ -184,7 +183,6 @@ func TestInject(t *testing.T) {
 			faultHeader: "foo",
 
 			wantDelayMs: 0,
-			wantErr:     true,
 		},
 		{
 			name:        "error while sleeping short circuits",
@@ -192,7 +190,6 @@ func TestInject(t *testing.T) {
 			faultHeader: "a=testService.testNamespace;m=testMethod;d=1;f=1;b=test fault",
 
 			wantDelayMs: 0,
-			wantErr:     true,
 		},
 	}
 
