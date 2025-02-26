@@ -97,12 +97,8 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 	}
 
 	config := &faultConfiguration{
-		serverAddress:   "",
-		serverMethod:    "",
-		delayMs:         -1,
 		delayPercentage: 100,
 		abortCode:       -1,
-		abortMessage:    "",
 		abortPercentage: 100,
 	}
 
