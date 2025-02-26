@@ -16,7 +16,7 @@ var (
 	logWriteDurationSeconds = promauto.With(prometheusbpint.GlobalRegistry).NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    "baseplate_log_write_duration_seconds",
-			Help:    "Latency of log calls",
+			Help:    "Latency of log writes",
 			Buckets: []float64{
 				0.000_005,
 				0.000_010,
