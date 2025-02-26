@@ -35,7 +35,9 @@ type httpHeaders struct {
 	req *http.Request
 }
 
-// Lookup returns the value of the header, if found.
-func (h httpHeaders) Lookup(ctx context.Context, key string) (string, error) {
-	return h.req.Header.Get(key), nil
+var _ faults.Headers = httpHeaders{}
+
+// Lookup returns the values of the header, if found.
+func (h httpHeaders) LookupValues(ctx context.Context, key string) ([]string, error) {
+	return h.req.Header.Values(key), nil
 }
