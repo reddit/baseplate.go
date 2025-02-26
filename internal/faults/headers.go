@@ -7,8 +7,8 @@ import (
 )
 
 /*
-The format of this header is a list of <key=value> pairs delimited by <;>, with support for the
-following keys:
+FaultHeader is the sole header used for fault injection configuration. It is formatted as a list
+of <key=value> pairs delimited by <;>, with support for the following keys:
 
 a = [Required] Server address of outgoing request.
 
