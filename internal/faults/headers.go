@@ -166,6 +166,7 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 func parseMatchingFaultConfiguration(headerValues []string, canonicalAddress, method string, abortCodeMin, abortCodeMax int) (*faultConfiguration, error) {
 	var errs error = nil
 	for _, headerValue := range headerValues {
+		// Additionally split combined values by comma, as per RFC 9110.
 		splitHeaderValues := strings.Split(headerValue, ",")
 
 		for _, splitHeaderValue := range splitHeaderValues {
