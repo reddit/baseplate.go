@@ -3,6 +3,7 @@ package httpbp
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -399,14 +400,9 @@ func TestCircuitBreaker(t *testing.T) {
 
 func TestFaultInjection(t *testing.T) {
 	testCases := []struct {
-		name                       string
-		faultServerAddrMatch       bool
-		faultServerMethodHeader    string
-		faultDelayMsHeader         string
-		faultDelayPercentageHeader string
-		faultAbortCodeHeader       string
-		faultAbortMessageHeader    string
-		faultAbortPercentageHeader string
+		name                 string
+		faultServerAddrMatch bool
+		remainingFaultHeader string // Fault header after the address portion.
 
 		wantStatusCode int
 	}{
@@ -417,45 +413,48 @@ func TestFaultInjection(t *testing.T) {
 		{
 			name: "abort",
 
-			faultServerAddrMatch:    true,
-			faultServerMethodHeader: "testMethod",
-			faultAbortCodeHeader:    "500",
+			faultServerAddrMatch: true,
+			remainingFaultHeader: "m=testMethod;f=500",
+
+			wantStatusCode: http.StatusInternalServerError,
+		},
+		{
+			name: "multiple header values abort",
+
+			faultServerAddrMatch: true,
+			remainingFaultHeader: "m=testMethod;f=500, a=foo",
 
 			wantStatusCode: http.StatusInternalServerError,
 		},
 		{
 			name: "service does not match",
 
-			faultServerAddrMatch:    false,
-			faultServerMethodHeader: "testMethod",
-			faultAbortCodeHeader:    "500",
+			faultServerAddrMatch: false,
+			remainingFaultHeader: "m=testMethod;f=500",
 
 			wantStatusCode: http.StatusOK,
 		},
 		{
 			name: "method does not match",
 
-			faultServerAddrMatch:    true,
-			faultServerMethodHeader: "fooMethod",
-			faultAbortCodeHeader:    "500",
+			faultServerAddrMatch: true,
+			remainingFaultHeader: "m=fooMethod;f=500",
 
 			wantStatusCode: http.StatusOK,
 		},
 		{
 			name: "less than min abort code",
 
-			faultServerAddrMatch:    true,
-			faultServerMethodHeader: "testMethod",
-			faultAbortCodeHeader:    "99",
+			faultServerAddrMatch: true,
+			remainingFaultHeader: "m=testMethod;f=99",
 
 			wantStatusCode: http.StatusOK,
 		},
 		{
 			name: "greater than max abort code",
 
-			faultServerAddrMatch:    true,
-			faultServerMethodHeader: "testMethod",
-			faultAbortCodeHeader:    "600",
+			faultServerAddrMatch: true,
+			remainingFaultHeader: "m=testMethod;f=600",
 
 			wantStatusCode: http.StatusOK,
 		},
@@ -481,6 +480,7 @@ func TestFaultInjection(t *testing.T) {
 				t.Fatalf("unexpected error when creating request: %v", err)
 			}
 
+			faultHeader := tt.remainingFaultHeader
 			if tt.faultServerAddrMatch {
 				// We can't set a specific address here because the middleware
 				// relies on the DNS address, which is not customizable when making
@@ -489,26 +489,9 @@ func TestFaultInjection(t *testing.T) {
 				if err != nil {
 					t.Fatalf("unexpected error when parsing httptest server URL: %v", err)
 				}
-				req.Header.Set(faults.FaultServerAddressHeader, parsed.Hostname())
+				faultHeader = fmt.Sprintf("a=%s;%s", parsed.Hostname(), faultHeader)
 			}
-			if tt.faultServerMethodHeader != "" {
-				req.Header.Set(faults.FaultServerMethodHeader, tt.faultServerMethodHeader)
-			}
-			if tt.faultDelayMsHeader != "" {
-				req.Header.Set(faults.FaultDelayMsHeader, tt.faultDelayMsHeader)
-			}
-			if tt.faultDelayPercentageHeader != "" {
-				req.Header.Set(faults.FaultDelayPercentageHeader, tt.faultDelayPercentageHeader)
-			}
-			if tt.faultAbortCodeHeader != "" {
-				req.Header.Set(faults.FaultAbortCodeHeader, tt.faultAbortCodeHeader)
-			}
-			if tt.faultAbortMessageHeader != "" {
-				req.Header.Set(faults.FaultAbortMessageHeader, tt.faultAbortMessageHeader)
-			}
-			if tt.faultAbortPercentageHeader != "" {
-				req.Header.Set(faults.FaultAbortPercentageHeader, tt.faultAbortPercentageHeader)
-			}
+			req.Header.Set(faults.FaultHeader, faultHeader)
 
 			resp, err := client.Do(req)
 
