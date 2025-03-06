@@ -31,10 +31,10 @@ func NewClientFaultMiddleware(clientName, address string) clientFaultMiddleware 
 
 type thriftHeaders struct{}
 
-var _ faults.Headers = thriftHeaders{}
+var _ faults.Headers = &thriftHeaders{}
 
 // Lookup returns the value of the header, if found.
-func (h thriftHeaders) LookupValues(ctx context.Context, key string) ([]string, error) {
+func (h *thriftHeaders) LookupValues(ctx context.Context, key string) ([]string, error) {
 	header, ok := thrift.GetHeader(ctx, key)
 	if !ok {
 		return []string{}, nil

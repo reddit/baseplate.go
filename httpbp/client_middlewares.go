@@ -466,7 +466,7 @@ func (c clientFaultMiddleware) Middleware() ClientMiddleware {
 
 			address := req.URL.Hostname()
 			method := strings.TrimPrefix(req.URL.Path, "/")
-			return c.injector.InjectWithAbortOverride(req.Context(), address, method, httpHeaders{req}, resume, abort)
+			return c.injector.InjectWithAbortOverride(req.Context(), address, method, &httpHeaders{req}, resume, abort)
 		})
 	}
 }
