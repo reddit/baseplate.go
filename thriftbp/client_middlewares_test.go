@@ -401,13 +401,7 @@ func TestFaultInjectionClientMiddleware(t *testing.T) {
 	testCases := []struct {
 		name string
 
-		faultServerAddrHeader      string
-		faultServerMethodHeader    string
-		faultDelayMsHeader         string
-		faultDelayPercentageHeader string
-		faultAbortCodeHeader       string
-		faultAbortMessageHeader    string
-		faultAbortPercentageHeader string
+		faultHeader string
 
 		wantErr error
 	}{
@@ -418,50 +412,42 @@ func TestFaultInjectionClientMiddleware(t *testing.T) {
 		{
 			name: "abort",
 
-			faultServerAddrHeader:   "testService.testNamespace",
-			faultServerMethodHeader: "testMethod",
-			faultAbortCodeHeader:    "1", // NOT_OPEN
-			faultAbortMessageHeader: "test fault",
+			// NOT_OPEN error code
+			faultHeader: "a=testService.testNamespace;m=testMethod;f=1;b=test fault",
 
 			wantErr: thrift.NewTTransportException(1, "test fault"),
 		},
 		{
-			name: "service does not match",
+			name: "multiple header values abort",
 
-			faultServerAddrHeader:   "foo",
-			faultServerMethodHeader: "testMethod",
-			faultAbortCodeHeader:    "1", // NOT_OPEN
-			faultAbortMessageHeader: "test fault",
+			// NOT_OPEN error code
+			faultHeader: "a=foo, a=testService.testNamespace;m=testMethod;f=1;b=test fault",
+
+			wantErr: thrift.NewTTransportException(1, "test fault"),
+		},
+		{
+			name:        "service does not match",
+			faultHeader: "a=foo;m=testMethod;f=1;b=test fault",
 
 			wantErr: nil,
 		},
 		{
 			name: "method does not match",
 
-			faultServerAddrHeader:   "testService.testNamespace",
-			faultServerMethodHeader: "foo",
-			faultAbortCodeHeader:    "1", // NOT_OPEN
-			faultAbortMessageHeader: "test fault",
+			// NOT_OPEN error code
+			faultHeader: "a=testService.testNamespace;m=foo;f=1;b=test fault",
 
 			wantErr: nil,
 		},
 		{
-			name: "less than min abort code",
-
-			faultServerAddrHeader:   "testService.testNamespace",
-			faultServerMethodHeader: "testMethod",
-			faultAbortCodeHeader:    "-1",
-			faultAbortMessageHeader: "test fault",
+			name:        "less than min abort code",
+			faultHeader: "a=testService.testNamespace;m=testMethod;f=-1;b=test fault",
 
 			wantErr: nil,
 		},
 		{
-			name: "greater than max abort code",
-
-			faultServerAddrHeader:   "testService.testNamespace",
-			faultServerMethodHeader: "testMethod",
-			faultAbortCodeHeader:    "5",
-			faultAbortMessageHeader: "test fault",
+			name:        "greater than max abort code",
+			faultHeader: "a=testService.testNamespace;m=testMethod;f=5;b=test fault",
 
 			wantErr: nil,
 		},
@@ -481,26 +467,8 @@ func TestFaultInjectionClientMiddleware(t *testing.T) {
 				headerbp.WithThriftService("", ""),
 			)
 
-			if tt.faultServerAddrHeader != "" {
-				headers.RecordHeader(faults.FaultServerAddressHeader, tt.faultServerAddrHeader)
-			}
-			if tt.faultServerMethodHeader != "" {
-				headers.RecordHeader(faults.FaultServerMethodHeader, tt.faultServerMethodHeader)
-			}
-			if tt.faultDelayMsHeader != "" {
-				headers.RecordHeader(faults.FaultDelayMsHeader, tt.faultDelayMsHeader)
-			}
-			if tt.faultDelayPercentageHeader != "" {
-				headers.RecordHeader(faults.FaultDelayPercentageHeader, tt.faultDelayPercentageHeader)
-			}
-			if tt.faultAbortCodeHeader != "" {
-				headers.RecordHeader(faults.FaultAbortCodeHeader, tt.faultAbortCodeHeader)
-			}
-			if tt.faultAbortMessageHeader != "" {
-				headers.RecordHeader(faults.FaultAbortMessageHeader, tt.faultAbortMessageHeader)
-			}
-			if tt.faultAbortPercentageHeader != "" {
-				headers.RecordHeader(faults.FaultAbortPercentageHeader, tt.faultAbortPercentageHeader)
+			if tt.faultHeader != "" {
+				headers.RecordHeader(faults.FaultHeader, tt.faultHeader)
 			}
 
 			ctx = headers.SetOnContext(ctx)

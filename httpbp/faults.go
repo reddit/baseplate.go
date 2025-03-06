@@ -31,11 +31,11 @@ func NewClientFaultMiddleware(clientName string) clientFaultMiddleware {
 	}
 }
 
-type httpHeaders struct {
-	req *http.Request
-}
+type httpHeader http.Header
+
+var _ faults.Headers = &httpHeader{}
 
 // Lookup returns the value of the header, if found.
-func (h httpHeaders) Lookup(ctx context.Context, key string) (string, error) {
-	return h.req.Header.Get(key), nil
+func (h *httpHeader) LookupValues(ctx context.Context, key string) ([]string, error) {
+	return http.Header(*h).Values(key), nil
 }

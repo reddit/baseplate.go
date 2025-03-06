@@ -469,7 +469,7 @@ func (c clientFaultMiddleware) Middleware() thrift.ClientMiddleware {
 					return next.Call(ctx, method, args, result)
 				}
 
-				return c.injector.Inject(ctx, c.address, method, thriftHeaders{}, resume)
+				return c.injector.Inject(ctx, c.address, method, &thriftHeaders{}, resume)
 			},
 		}
 	}
