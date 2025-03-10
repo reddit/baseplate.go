@@ -1,6 +1,7 @@
 package faults
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -67,7 +68,7 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 		abortCodeMin     int
 		abortCodeMax     int
 		want             *faultConfiguration
-		wantErr          string
+		wantErr          error
 	}{
 		{
 			name:        "empty",
@@ -107,44 +108,48 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 		{
 			name:        "invalid key-value pair",
 			headerValue: "foo",
-			wantErr:     "invalid key-value pair",
+			wantErr:     &errKVPairInvalid{"foo"},
 		},
 		{
 			name:             "server address does not match",
 			headerValue:      "a=foo",
 			canonicalAddress: "bar",
-			want:             nil,
 		},
 		{
 			name:             "method does not match",
 			headerValue:      "a=foo;m=bar",
 			canonicalAddress: "foo",
 			method:           "baz",
-			want:             nil,
 		},
 		{
 			name:             "invalid delay value",
 			headerValue:      "a=foo;d=NaN",
 			canonicalAddress: "foo",
-			wantErr:          "invalid delay value",
+			wantErr:          errDelayInvalid,
+		},
+		{
+			name:             "invalid delay percentage",
+			headerValue:      "a=foo;D=NaN",
+			canonicalAddress: "foo",
+			wantErr:          &errPercentageInvalidInt{"NaN"},
 		},
 		{
 			name:             "invalid delay percentage negative",
 			headerValue:      "a=foo;D=-1",
 			canonicalAddress: "foo",
-			wantErr:          "outside the valid range",
+			wantErr:          &errPercentageOutOfRange{-1},
 		},
 		{
 			name:             "invalid delay percentage over 100",
 			headerValue:      "a=foo;D=101",
 			canonicalAddress: "foo",
-			wantErr:          "outside the valid range",
+			wantErr:          &errPercentageOutOfRange{101},
 		},
 		{
 			name:             "invalid abort code value",
 			headerValue:      "a=foo;f=NaN",
 			canonicalAddress: "foo",
-			wantErr:          "invalid abort code value",
+			wantErr:          errAbortCodeInvalid,
 		},
 		{
 			name:             "invalid abort code below minimum",
@@ -152,7 +157,7 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 			canonicalAddress: "foo",
 			abortCodeMin:     400,
 			abortCodeMax:     599,
-			wantErr:          "outside the valid range",
+			wantErr:          &errAbortCodeOutOfRange{399, 400, 599},
 		},
 		{
 			name:             "invalid abort code above maximum",
@@ -160,40 +165,38 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 			canonicalAddress: "foo",
 			abortCodeMin:     400,
 			abortCodeMax:     599,
-			wantErr:          "outside the valid range",
+			wantErr:          &errAbortCodeOutOfRange{600, 400, 599},
+		},
+		{
+			name:             "invalid abort percentage",
+			headerValue:      "a=foo;F=NaN",
+			canonicalAddress: "foo",
+			wantErr:          &errPercentageInvalidInt{"NaN"},
 		},
 		{
 			name:             "invalid abort percentage negative",
 			headerValue:      "a=foo;F=-1",
 			canonicalAddress: "foo",
-			wantErr:          "outside the valid range",
+			wantErr:          &errPercentageOutOfRange{-1},
 		},
 		{
 			name:             "invalid abort percentage over 100",
 			headerValue:      "a=foo;F=101",
 			canonicalAddress: "foo",
-			wantErr:          "outside the valid range",
+			wantErr:          &errPercentageOutOfRange{101},
 		},
 		{
 			name:        "invalid key",
 			headerValue: "foo=bar",
-			wantErr:     "invalid key",
+			wantErr:     &errUnknownKey{"foo"},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := parseMatchingFaultHeader(tc.headerValue, tc.canonicalAddress, tc.method, tc.abortCodeMin, tc.abortCodeMax)
-			if tc.wantErr == "" && err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-			if tc.wantErr != "" {
-				if err == nil {
-					t.Fatalf("expected an error, got nil")
-				}
-				if !strings.Contains(err.Error(), tc.wantErr) {
-					t.Fatalf("expected error to contain %q, got %v", tc.wantErr, err)
-				}
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("expected error %v, got %v", tc.wantErr, err)
 			}
 			if tc.want != nil {
 				if got == nil {
