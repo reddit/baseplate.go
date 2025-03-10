@@ -187,8 +187,8 @@ func (i *Injector[T]) InjectWithAbortOverride(ctx context.Context, address, meth
 		return resume()
 	}
 
-	if faultConfiguration.DelayMs() > 0 && i.selected(faultConfiguration.DelayPercentage()) {
-		if err := i.sleep(ctx, time.Duration(faultConfiguration.DelayMs())*time.Millisecond); err != nil {
+	if faultConfiguration.DelayMs > 0 && i.selected(faultConfiguration.DelayPercentage) {
+		if err := i.sleep(ctx, time.Duration(faultConfiguration.DelayMs)*time.Millisecond); err != nil {
 			warnf("error when delaying request: %v", err)
 			totalReqsCounter(false, false).Inc()
 			return resume()
@@ -196,9 +196,9 @@ func (i *Injector[T]) InjectWithAbortOverride(ctx context.Context, address, meth
 		delayed = true
 	}
 
-	if faultConfiguration.AbortCode() != -1 && i.selected(faultConfiguration.AbortPercentage()) {
+	if faultConfiguration.AbortCode != -1 && i.selected(faultConfiguration.AbortPercentage) {
 		totalReqsCounter(true, true).Inc()
-		return abort(faultConfiguration.AbortCode(), faultConfiguration.AbortMessage())
+		return abort(faultConfiguration.AbortCode, faultConfiguration.AbortMessage)
 	}
 
 	totalReqsCounter(true, false).Inc()

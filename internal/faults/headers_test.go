@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestParsePercentage(t *testing.T) {
@@ -83,10 +85,10 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 			headerValue:      "a=foo",
 			canonicalAddress: "foo",
 			want: &faultConfiguration{
-				serverAddress:   "foo",
-				delayPercentage: 100,
-				abortCode:       -1,
-				abortPercentage: 100,
+				ServerAddress:   "foo",
+				DelayPercentage: 100,
+				AbortCode:       -1,
+				AbortPercentage: 100,
 			},
 		},
 		{
@@ -96,13 +98,13 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 			method:           "bar",
 			abortCodeMax:     599,
 			want: &faultConfiguration{
-				serverAddress:   "foo",
-				serverMethod:    "bar",
-				delayMs:         100,
-				delayPercentage: 50,
-				abortCode:       500,
-				abortMessage:    "Fault injected!",
-				abortPercentage: 75,
+				ServerAddress:   "foo",
+				ServerMethod:    "bar",
+				DelayMs:         100,
+				DelayPercentage: 50,
+				AbortCode:       500,
+				AbortMessage:    "Fault injected!",
+				AbortPercentage: 75,
 			},
 		},
 		{
@@ -198,31 +200,8 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 			if !errors.Is(err, tc.wantErr) {
 				t.Fatalf("expected error %v, got %v", tc.wantErr, err)
 			}
-			if tc.want != nil {
-				if got == nil {
-					t.Fatalf("expected a fault configuration, got nil")
-				}
-				if got.serverAddress != tc.want.serverAddress {
-					t.Fatalf("expected server address %q, got %q", tc.want.serverAddress, got.serverAddress)
-				}
-				if got.serverMethod != tc.want.serverMethod {
-					t.Fatalf("expected server method %q, got %q", tc.want.serverMethod, got.serverMethod)
-				}
-				if got.delayMs != tc.want.delayMs {
-					t.Fatalf("expected delay %d, got %d", tc.want.delayMs, got.delayMs)
-				}
-				if got.delayPercentage != tc.want.delayPercentage {
-					t.Fatalf("expected delay percentage %d, got %d", tc.want.delayPercentage, got.delayPercentage)
-				}
-				if got.abortCode != tc.want.abortCode {
-					t.Fatalf("expected abort code %d, got %d", tc.want.abortCode, got.abortCode)
-				}
-				if got.abortMessage != tc.want.abortMessage {
-					t.Fatalf("expected abort message %q, got %q", tc.want.abortMessage, got.abortMessage)
-				}
-				if got.abortPercentage != tc.want.abortPercentage {
-					t.Fatalf("expected abort percentage %d, got %d", tc.want.abortPercentage, got.abortPercentage)
-				}
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Fatalf("fault mismatch: (-want +got)\n%s", diff)
 			}
 		})
 	}
@@ -245,10 +224,10 @@ func TestParsingFaultConfiguration(t *testing.T) {
 			headerValues:     []string{"a=foo"},
 			canonicalAddress: "foo",
 			want: &faultConfiguration{
-				serverAddress:   "foo",
-				delayPercentage: 100,
-				abortCode:       -1,
-				abortPercentage: 100,
+				ServerAddress:   "foo",
+				DelayPercentage: 100,
+				AbortCode:       -1,
+				AbortPercentage: 100,
 			},
 		},
 		{
@@ -256,10 +235,10 @@ func TestParsingFaultConfiguration(t *testing.T) {
 			headerValues:     []string{"a=bar", "a=baz, a=foo"},
 			canonicalAddress: "foo",
 			want: &faultConfiguration{
-				serverAddress:   "foo",
-				delayPercentage: 100,
-				abortCode:       -1,
-				abortPercentage: 100,
+				ServerAddress:   "foo",
+				DelayPercentage: 100,
+				AbortCode:       -1,
+				AbortPercentage: 100,
 			},
 		},
 		{
@@ -282,10 +261,10 @@ func TestParsingFaultConfiguration(t *testing.T) {
 			headerValues:     []string{"foo", "a=bar, baz"},
 			canonicalAddress: "bar",
 			want: &faultConfiguration{
-				serverAddress:   "bar",
-				delayPercentage: 100,
-				abortCode:       -1,
-				abortPercentage: 100,
+				ServerAddress:   "bar",
+				DelayPercentage: 100,
+				AbortCode:       -1,
+				AbortPercentage: 100,
 			},
 			wantErr: "invalid key-value pair: \"foo\"",
 		},
@@ -312,26 +291,26 @@ func TestParsingFaultConfiguration(t *testing.T) {
 				if got == nil {
 					t.Fatalf("expected fault configuration, got nil")
 				}
-				if got.serverAddress != tc.want.serverAddress {
-					t.Fatalf("expected server address %q, got %q", tc.want.serverAddress, got.serverAddress)
+				if got.ServerAddress != tc.want.ServerAddress {
+					t.Fatalf("expected server address %q, got %q", tc.want.ServerAddress, got.ServerAddress)
 				}
-				if got.serverMethod != tc.want.serverMethod {
-					t.Fatalf("expected server method %q, got %q", tc.want.serverMethod, got.serverMethod)
+				if got.ServerMethod != tc.want.ServerMethod {
+					t.Fatalf("expected server method %q, got %q", tc.want.ServerMethod, got.ServerMethod)
 				}
-				if got.delayMs != tc.want.delayMs {
-					t.Fatalf("expected delay %d, got %d", tc.want.delayMs, got.delayMs)
+				if got.DelayMs != tc.want.DelayMs {
+					t.Fatalf("expected delay %d, got %d", tc.want.DelayMs, got.DelayMs)
 				}
-				if got.delayPercentage != tc.want.delayPercentage {
-					t.Fatalf("expected delay percentage %d, got %d", tc.want.delayPercentage, got.delayPercentage)
+				if got.DelayPercentage != tc.want.DelayPercentage {
+					t.Fatalf("expected delay percentage %d, got %d", tc.want.DelayPercentage, got.DelayPercentage)
 				}
-				if got.abortCode != tc.want.abortCode {
-					t.Fatalf("expected abort code %d, got %d", tc.want.abortCode, got.abortCode)
+				if got.AbortCode != tc.want.AbortCode {
+					t.Fatalf("expected abort code %d, got %d", tc.want.AbortCode, got.AbortCode)
 				}
-				if got.abortMessage != tc.want.abortMessage {
-					t.Fatalf("expected abort message %q, got %q", tc.want.abortMessage, got.abortMessage)
+				if got.AbortMessage != tc.want.AbortMessage {
+					t.Fatalf("expected abort message %q, got %q", tc.want.AbortMessage, got.AbortMessage)
 				}
-				if got.abortPercentage != tc.want.abortPercentage {
-					t.Fatalf("expected abort percentage %d, got %d", tc.want.abortPercentage, got.abortPercentage)
+				if got.AbortPercentage != tc.want.AbortPercentage {
+					t.Fatalf("expected abort percentage %d, got %d", tc.want.AbortPercentage, got.AbortPercentage)
 				}
 			}
 		})

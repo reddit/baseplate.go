@@ -46,35 +46,13 @@ Example:
 const FaultHeader = "x-bp-fault"
 
 type faultConfiguration struct {
-	serverAddress   string
-	serverMethod    string
-	delayMs         int
-	delayPercentage int
-	abortCode       int
-	abortMessage    string
-	abortPercentage int
-}
-
-func (f *faultConfiguration) ServerAddress() string {
-	return f.serverAddress
-}
-func (f *faultConfiguration) ServerMethod() string {
-	return f.serverMethod
-}
-func (f *faultConfiguration) DelayMs() int {
-	return f.delayMs
-}
-func (f *faultConfiguration) DelayPercentage() int {
-	return f.delayPercentage
-}
-func (f *faultConfiguration) AbortCode() int {
-	return f.abortCode
-}
-func (f *faultConfiguration) AbortMessage() string {
-	return f.abortMessage
-}
-func (f *faultConfiguration) AbortPercentage() int {
-	return f.abortPercentage
+	ServerAddress   string
+	ServerMethod    string
+	DelayMs         int
+	DelayPercentage int
+	AbortCode       int
+	AbortMessage    string
+	AbortPercentage int
 }
 
 func parsePercentage(percentage string) (int, error) {
@@ -97,9 +75,9 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 	}
 
 	config := &faultConfiguration{
-		delayPercentage: 100,
-		abortCode:       -1,
-		abortPercentage: 100,
+		DelayPercentage: 100,
+		AbortCode:       -1,
+		AbortPercentage: 100,
 	}
 
 	addressMatched := false
@@ -117,24 +95,24 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 				return nil, nil
 			}
 			addressMatched = true
-			config.serverAddress = value
+			config.ServerAddress = value
 		case "m":
 			if method != "" && value != method {
 				return nil, nil
 			}
-			config.serverMethod = value
+			config.ServerMethod = value
 		case "d":
 			delayMs, err := strconv.Atoi(value)
 			if err != nil {
 				return nil, fmt.Errorf("%w: %w", errDelayInvalid, err)
 			}
-			config.delayMs = delayMs
+			config.DelayMs = delayMs
 		case "D":
 			delayPercentage, err := parsePercentage(value)
 			if err != nil {
 				return nil, fmt.Errorf("error parsing delay percentage: %w", err)
 			}
-			config.delayPercentage = delayPercentage
+			config.DelayPercentage = delayPercentage
 		case "f":
 			abortCode, err := strconv.Atoi(value)
 			if err != nil {
@@ -143,15 +121,15 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 			if abortCode < abortCodeMin || abortCode > abortCodeMax {
 				return nil, &errAbortCodeOutOfRange{abortCode, abortCodeMin, abortCodeMax}
 			}
-			config.abortCode = abortCode
+			config.AbortCode = abortCode
 		case "b":
-			config.abortMessage = value
+			config.AbortMessage = value
 		case "F":
 			abortPercentage, err := parsePercentage(value)
 			if err != nil {
 				return nil, fmt.Errorf("error parsing abort code: %w", err)
 			}
-			config.abortPercentage = abortPercentage
+			config.AbortPercentage = abortPercentage
 		default:
 			return nil, &errUnknownKey{key}
 		}
