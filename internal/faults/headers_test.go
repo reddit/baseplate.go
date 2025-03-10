@@ -2,7 +2,6 @@ package faults
 
 import (
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -13,7 +12,7 @@ func TestParsePercentage(t *testing.T) {
 		name       string
 		percentage string
 		want       int
-		wantErr    string
+		wantErr    error
 	}{
 		{
 			name:       "empty",
@@ -29,19 +28,19 @@ func TestParsePercentage(t *testing.T) {
 			name:       "NaN",
 			percentage: "NaN",
 			want:       0,
-			wantErr:    "not a valid integer",
+			wantErr:    &errPercentageInvalidInt{"NaN"},
 		},
 		{
 			name:       "under min",
 			percentage: "-1",
 			want:       0,
-			wantErr:    "outside the valid range",
+			wantErr:    &errPercentageOutOfRange{percentage: -1},
 		},
 		{
 			name:       "over max",
 			percentage: "101",
 			want:       0,
-			wantErr:    "outside the valid range",
+			wantErr:    &errPercentageOutOfRange{percentage: 101},
 		},
 	}
 
@@ -51,11 +50,8 @@ func TestParsePercentage(t *testing.T) {
 			if got != tc.want {
 				t.Fatalf("expected %v, got %v", tc.want, got)
 			}
-			if tc.wantErr == "" && err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
-				t.Fatalf("expected error to contain %q, got %v", tc.wantErr, err)
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("expected error %v, got %v", tc.wantErr, err)
 			}
 		})
 	}
@@ -213,7 +209,7 @@ func TestParsingFaultConfiguration(t *testing.T) {
 		headerValues     []string
 		canonicalAddress string
 		want             *faultConfiguration
-		wantErr          string
+		wantErrs         []error
 	}{
 		{
 			name:         "empty",
@@ -249,12 +245,12 @@ func TestParsingFaultConfiguration(t *testing.T) {
 		{
 			name:         "single invalid",
 			headerValues: []string{"foo"},
-			wantErr:      "invalid key-value pair",
+			wantErrs:     []error{&errKVPairInvalid{"foo"}},
 		},
 		{
 			name:         "multiple invalid",
 			headerValues: []string{"foo", "bar, baz"},
-			wantErr:      "invalid key-value pair: \"foo\", invalid key-value pair: \"bar\", invalid key-value pair: \"baz\"",
+			wantErrs:     []error{&errKVPairInvalid{"foo"}, &errKVPairInvalid{"bar"}, &errKVPairInvalid{"baz"}},
 		},
 		{
 			name:             "mixed validity match",
@@ -266,7 +262,7 @@ func TestParsingFaultConfiguration(t *testing.T) {
 				AbortCode:       -1,
 				AbortPercentage: 100,
 			},
-			wantErr: "invalid key-value pair: \"foo\"",
+			wantErrs: []error{&errKVPairInvalid{"foo"}},
 		},
 	}
 
@@ -276,42 +272,13 @@ func TestParsingFaultConfiguration(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := parseMatchingFaultConfiguration(tc.headerValues, tc.canonicalAddress, testMethod, testAbortCodeMin, testAbortCodeMax)
-			if tc.wantErr == "" && err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-			if tc.wantErr != "" {
-				if err == nil {
-					t.Fatalf("expected an error, got nil")
-				}
-				if !strings.Contains(err.Error(), tc.wantErr) {
-					t.Fatalf("expected error to contain %q, got %v", tc.wantErr, err)
+			for _, wantErr := range tc.wantErrs {
+				if !errors.Is(err, wantErr) {
+					t.Fatalf("expected error %v, got %v", wantErr, err)
 				}
 			}
-			if tc.want != nil {
-				if got == nil {
-					t.Fatalf("expected fault configuration, got nil")
-				}
-				if got.ServerAddress != tc.want.ServerAddress {
-					t.Fatalf("expected server address %q, got %q", tc.want.ServerAddress, got.ServerAddress)
-				}
-				if got.ServerMethod != tc.want.ServerMethod {
-					t.Fatalf("expected server method %q, got %q", tc.want.ServerMethod, got.ServerMethod)
-				}
-				if got.DelayMs != tc.want.DelayMs {
-					t.Fatalf("expected delay %d, got %d", tc.want.DelayMs, got.DelayMs)
-				}
-				if got.DelayPercentage != tc.want.DelayPercentage {
-					t.Fatalf("expected delay percentage %d, got %d", tc.want.DelayPercentage, got.DelayPercentage)
-				}
-				if got.AbortCode != tc.want.AbortCode {
-					t.Fatalf("expected abort code %d, got %d", tc.want.AbortCode, got.AbortCode)
-				}
-				if got.AbortMessage != tc.want.AbortMessage {
-					t.Fatalf("expected abort message %q, got %q", tc.want.AbortMessage, got.AbortMessage)
-				}
-				if got.AbortPercentage != tc.want.AbortPercentage {
-					t.Fatalf("expected abort percentage %d, got %d", tc.want.AbortPercentage, got.AbortPercentage)
-				}
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Fatalf("fault mismatch: (-want +got)\n%s", diff)
 			}
 		})
 	}

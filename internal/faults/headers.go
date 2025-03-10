@@ -1,6 +1,7 @@
 package faults
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -142,7 +143,7 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 }
 
 func parseMatchingFaultConfiguration(headerValues []string, canonicalAddress, method string, abortCodeMin, abortCodeMax int) (*faultConfiguration, error) {
-	var errs error = nil
+	var errs []error
 	for _, headerValue := range headerValues {
 		// Additionally split combined values by comma, as per RFC 9110.
 		splitHeaderValues := strings.Split(headerValue, ",")
@@ -152,15 +153,11 @@ func parseMatchingFaultConfiguration(headerValues []string, canonicalAddress, me
 
 			config, err := parseMatchingFaultHeader(splitHeaderValue, canonicalAddress, method, abortCodeMin, abortCodeMax)
 			if err != nil {
-				if errs == nil {
-					errs = err
-				} else {
-					errs = fmt.Errorf("%w, %w", errs, err)
-				}
+				errs = append(errs, err)
 			} else if config != nil {
-				return config, errs
+				return config, errors.Join(errs...)
 			}
 		}
 	}
-	return nil, errs
+	return nil, errors.Join(errs...)
 }
