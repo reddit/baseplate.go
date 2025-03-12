@@ -3,7 +3,6 @@ package faults
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 )
@@ -58,59 +57,6 @@ func TestGetCanonicalAddress(t *testing.T) {
 	}
 }
 
-func TestParsePercentage(t *testing.T) {
-	testCases := []struct {
-		name       string
-		percentage string
-		want       int
-		wantErr    string
-	}{
-		{
-			name:       "empty",
-			percentage: "",
-			want:       100,
-		},
-		{
-			name:       "valid",
-			percentage: "50",
-			want:       50,
-		},
-		{
-			name:       "NaN",
-			percentage: "NaN",
-			want:       0,
-			wantErr:    "not a valid integer",
-		},
-		{
-			name:       "under min",
-			percentage: "-1",
-			want:       0,
-			wantErr:    "outside the valid range",
-		},
-		{
-			name:       "over max",
-			percentage: "101",
-			want:       0,
-			wantErr:    "outside the valid range",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := parsePercentage(tc.percentage)
-			if got != tc.want {
-				t.Fatalf("expected %v, got %v", tc.want, got)
-			}
-			if tc.wantErr == "" && err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
-				t.Fatalf("expected error to contain %q, got %v", tc.wantErr, err)
-			}
-		})
-	}
-}
-
 type response struct {
 	code    int
 	message string
@@ -120,43 +66,19 @@ type injectTestCase struct {
 	randInt  int
 	sleepErr bool
 
-	faultServerAddressHeader   string
-	faultServerMethodHeader    string
-	faultDelayMsHeader         string
-	faultDelayPercentageHeader string
-	faultAbortCodeHeader       string
-	faultAbortMessageHeader    string
-	faultAbortPercentageHeader string
+	faultHeader string
 
-	wantDelayMs  int
+	wantDelay    time.Duration
 	wantResponse *response
 }
 
 type headers injectTestCase
 
-func (tc *headers) Lookup(_ context.Context, key string) (string, error) {
-	if key == FaultServerAddressHeader {
-		return tc.faultServerAddressHeader, nil
+func (tc *headers) LookupValues(_ context.Context, key string) ([]string, error) {
+	if key != FaultHeader {
+		return []string{}, fmt.Errorf("header %q not found", key)
 	}
-	if key == FaultServerMethodHeader {
-		return tc.faultServerMethodHeader, nil
-	}
-	if key == FaultDelayMsHeader {
-		return tc.faultDelayMsHeader, nil
-	}
-	if key == FaultDelayPercentageHeader {
-		return tc.faultDelayPercentageHeader, nil
-	}
-	if key == FaultAbortCodeHeader {
-		return tc.faultAbortCodeHeader, nil
-	}
-	if key == FaultAbortMessageHeader {
-		return tc.faultAbortMessageHeader, nil
-	}
-	if key == FaultAbortPercentageHeader {
-		return tc.faultAbortPercentageHeader, nil
-	}
-	return "", fmt.Errorf("header %q not found", key)
+	return []string{tc.faultHeader}, nil
 }
 
 func TestInject(t *testing.T) {
@@ -165,21 +87,14 @@ func TestInject(t *testing.T) {
 			name: "no fault specified",
 		},
 		{
-			name: "delay",
+			name:        "delay",
+			faultHeader: "a=testService.testNamespace;m=testMethod;d=1",
 
-			faultServerAddressHeader: "testService.testNamespace",
-			faultServerMethodHeader:  "testMethod",
-			faultDelayMsHeader:       "1",
-
-			wantDelayMs: 1,
+			wantDelay: 1 * time.Millisecond,
 		},
 		{
-			name: "abort",
-
-			faultServerAddressHeader: "testService.testNamespace",
-			faultServerMethodHeader:  "testMethod",
-			faultAbortCodeHeader:     "1",
-			faultAbortMessageHeader:  "test fault",
+			name:        "abort",
+			faultHeader: "a=testService.testNamespace;m=testMethod;f=1;b=test fault",
 
 			wantResponse: &response{
 				code:    1,
@@ -187,194 +102,87 @@ func TestInject(t *testing.T) {
 			},
 		},
 		{
-			name: "server address does not match",
+			name:        "abort with multiple header values",
+			faultHeader: "a=fooService.testNamespace;f=2, a=testService.testNamespace;m=testMethod;f=1;b=test fault, a=barService.testNamespace;f=2",
 
-			faultServerAddressHeader: "fooService.testNamespace",
-			faultServerMethodHeader:  "testMethod",
-			faultAbortCodeHeader:     "1",
-			faultAbortMessageHeader:  "test fault",
+			wantResponse: &response{
+				code:    1,
+				message: "test fault",
+			},
 		},
 		{
-			name: "method does not match",
-
-			faultServerAddressHeader: "testService.testNamespace",
-			faultServerMethodHeader:  "fooMethod",
-			faultAbortCodeHeader:     "1",
-			faultAbortMessageHeader:  "test fault",
+			name:        "server address does not match",
+			faultHeader: "a=fooService.testNamespace;m=testMethod;f=1;b=test fault",
+		},
+		{
+			name:        "method does not match",
+			faultHeader: "a=testService.testNamespace;m=fooMethod;f=1;b=test fault",
 		},
 		{
 			name:    "guaranteed percent",
 			randInt: 99, // Maximum possible integer returned by rand.Intn(100)
 
-			faultServerAddressHeader:   "testService.testNamespace",
-			faultServerMethodHeader:    "testMethod",
-			faultDelayMsHeader:         "250",
-			faultDelayPercentageHeader: "100", // All requests delayed
-			faultAbortCodeHeader:       "1",
-			faultAbortMessageHeader:    "test fault",
-			faultAbortPercentageHeader: "100", // All requests aborted
+			// All requests delayed and aborted.
+			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=100;f=1;b=test fault;F=100",
 
-			wantDelayMs: 250,
+			wantDelay: 250 * time.Millisecond,
 			wantResponse: &response{
 				code:    1,
 				message: "test fault",
 			},
 		},
 		{
-			name:    "fence post below percent",
-			randInt: 49,
+			name:        "fence post below percent",
+			randInt:     49,
+			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=50;f=1;b=test fault;F=50",
 
-			faultServerAddressHeader:   "testService.testNamespace",
-			faultServerMethodHeader:    "testMethod",
-			faultDelayMsHeader:         "250",
-			faultDelayPercentageHeader: "50",
-			faultAbortCodeHeader:       "1",
-			faultAbortMessageHeader:    "test fault",
-			faultAbortPercentageHeader: "50",
-
-			wantDelayMs: 250,
+			wantDelay: 250 * time.Millisecond,
 			wantResponse: &response{
 				code:    1,
 				message: "test fault",
 			},
 		},
 		{
-			name:    "fence post at percent",
-			randInt: 50,
+			name:        "fence post at percent",
+			randInt:     50,
+			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=50;f=1;b=test fault;F=50",
 
-			faultServerAddressHeader:   "testService.testNamespace",
-			faultServerMethodHeader:    "testMethod",
-			faultDelayMsHeader:         "250",
-			faultDelayPercentageHeader: "50",
-			faultAbortCodeHeader:       "1",
-			faultAbortMessageHeader:    "test fault",
-			faultAbortPercentageHeader: "50",
-
-			wantDelayMs: 0,
+			wantDelay: 0,
 		},
 		{
 			name:    "guaranteed skip percent",
 			randInt: 0, // Minimum possible integer returned by rand.Intn(100)
 
-			faultServerAddressHeader:   "testService.testNamespace",
-			faultServerMethodHeader:    "testMethod",
-			faultDelayMsHeader:         "250",
-			faultDelayPercentageHeader: "0", // No requests delayed
-			faultAbortCodeHeader:       "1",
-			faultAbortMessageHeader:    "test fault",
-			faultAbortPercentageHeader: "0", // No requests aborted
+			// No requests delayed or aborted.
+			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=0;f=1;b=test fault;F=0",
 
-			wantDelayMs: 0,
+			wantDelay: 0,
 		},
 		{
 			name:    "only skip delay",
 			randInt: 50,
 
-			faultServerAddressHeader:   "testService.testNamespace",
-			faultServerMethodHeader:    "testMethod",
-			faultDelayMsHeader:         "250",
-			faultDelayPercentageHeader: "0", // No requests delayed
-			faultAbortCodeHeader:       "1",
-			faultAbortMessageHeader:    "test fault",
-			faultAbortPercentageHeader: "100", // All requests aborted
+			// No requests delayed; all requests aborted.
+			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=0;f=1;b=test fault;F=100",
 
-			wantDelayMs: 0,
+			wantDelay: 0,
 			wantResponse: &response{
 				code:    1,
 				message: "test fault",
 			},
 		},
 		{
-			name: "invalid delay percentage negative",
+			name:        "invalid header value",
+			faultHeader: "foo",
 
-			faultServerAddressHeader:   "testService.testNamespace",
-			faultServerMethodHeader:    "testMethod",
-			faultDelayMsHeader:         "250",
-			faultDelayPercentageHeader: "-1",
-
-			wantDelayMs: 0,
+			wantDelay: 0,
 		},
 		{
-			name: "invalid delay percentage over 100",
+			name:        "error while sleeping short circuits",
+			sleepErr:    true,
+			faultHeader: "a=testService.testNamespace;m=testMethod;d=1;f=1;b=test fault",
 
-			faultServerAddressHeader:   "testService.testNamespace",
-			faultServerMethodHeader:    "testMethod",
-			faultDelayMsHeader:         "250",
-			faultDelayPercentageHeader: "101",
-
-			wantDelayMs: 0,
-		},
-		{
-			name: "invalid delay ms",
-
-			faultServerAddressHeader: "testService.testNamespace",
-			faultServerMethodHeader:  "testMethod",
-			faultDelayMsHeader:       "NaN",
-
-			wantDelayMs: 0,
-		},
-		{
-			name:     "error while sleeping short circuits",
-			sleepErr: true,
-
-			faultServerAddressHeader: "testService.testNamespace",
-			faultServerMethodHeader:  "testMethod",
-			faultDelayMsHeader:       "1",
-			faultAbortCodeHeader:     "1",
-			faultAbortMessageHeader:  "test fault",
-
-			wantDelayMs: 0,
-		},
-		{
-			name: "invalid abort percentage negative",
-
-			faultServerAddressHeader:   "testService.testNamespace",
-			faultServerMethodHeader:    "testMethod",
-			faultAbortCodeHeader:       "1",
-			faultAbortMessageHeader:    "test fault",
-			faultAbortPercentageHeader: "-1",
-		},
-		{
-			name: "invalid abort percentage over 100",
-
-			faultServerAddressHeader:   "testService.testNamespace",
-			faultServerMethodHeader:    "testMethod",
-			faultAbortCodeHeader:       "1",
-			faultAbortMessageHeader:    "test fault",
-			faultAbortPercentageHeader: "101",
-		},
-		{
-			name: "invalid abort code",
-
-			faultServerAddressHeader: "testService.testNamespace",
-			faultServerMethodHeader:  "testMethod",
-			faultAbortCodeHeader:     "NaN",
-			faultAbortMessageHeader:  "test fault",
-		},
-		{
-			name: "less than min abort code",
-
-			faultServerAddressHeader: "testService.testNamespace",
-			faultServerMethodHeader:  "testMethod",
-			faultAbortCodeHeader:     "-1",
-			faultAbortMessageHeader:  "test fault",
-		},
-		{
-			name: "greater than max abort code",
-
-			faultServerAddressHeader: "testService.testNamespace",
-			faultServerMethodHeader:  "testMethod",
-			faultAbortCodeHeader:     "11",
-			faultAbortMessageHeader:  "test fault",
-		},
-		{
-			name: "invalid abort percentage",
-
-			faultServerAddressHeader:   "testService.testNamespace",
-			faultServerMethodHeader:    "testMethod",
-			faultAbortCodeHeader:       "1",
-			faultAbortMessageHeader:    "test fault",
-			faultAbortPercentageHeader: "NaN",
+			wantDelay: 0,
 		},
 	}
 
@@ -403,12 +211,12 @@ func TestInject(t *testing.T) {
 			injector.selected = func(percentage int) bool {
 				return tc.randInt < percentage
 			}
-			delayMs := 0
+			delay := time.Duration(0)
 			injector.sleep = func(_ context.Context, d time.Duration) error {
 				if tc.sleepErr {
 					return fmt.Errorf("context cancelled")
 				}
-				delayMs = int(d.Milliseconds())
+				delay = d
 				return nil
 			}
 
@@ -417,8 +225,8 @@ func TestInject(t *testing.T) {
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
-			if tc.wantDelayMs != delayMs {
-				t.Fatalf("expected delay of %v ms, got %v ms", tc.wantDelayMs, delayMs)
+			if tc.wantDelay != delay {
+				t.Fatalf("expected delay of %v ms, got %v ms", tc.wantDelay, delay)
 			}
 			if tc.wantResponse == nil && resp != nil {
 				t.Fatalf("expected no response, got %v", resp)

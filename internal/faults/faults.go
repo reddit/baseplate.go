@@ -48,9 +48,9 @@ var (
 // protocol-specific header lookup. Using an interface here rather than a
 // function type avoids any potential closure requirements of a function.
 type Headers interface {
-	// Lookup returns the value of a protocol-specific header with the
-	// given key.
-	Lookup(ctx context.Context, key string) (string, error)
+	// LookupValues returns the values of a protocol-specific header with
+	// the given key.
+	LookupValues(ctx context.Context, key string) ([]string, error)
 }
 
 // Resume is the function type to continue processing the protocol-specific
@@ -79,20 +79,6 @@ func getCanonicalAddress(serverAddress string) string {
 	}
 	// Other address, i.e. unix domain socket.
 	return serverAddress
-}
-
-func parsePercentage(percentage string) (int, error) {
-	if percentage == "" {
-		return 100, nil
-	}
-	intPercentage, err := strconv.Atoi(percentage)
-	if err != nil {
-		return 0, fmt.Errorf("provided percentage %q is not a valid integer: %w", percentage, err)
-	}
-	if intPercentage < 0 || intPercentage > 100 {
-		return 0, fmt.Errorf("provided percentage \"%d\" is outside the valid range of [0-100]", intPercentage)
-	}
-	return intPercentage, nil
 }
 
 // Injector contains the data common across all requests needed to inject
@@ -180,101 +166,39 @@ func (i *Injector[T]) InjectWithAbortOverride(ctx context.Context, address, meth
 		}
 	}
 
-	faultHeaderAddress, err := headers.Lookup(ctx, FaultServerAddressHeader)
+	faultHeaderValues, err := headers.LookupValues(ctx, FaultHeader)
 	if err != nil {
-		infof("error looking up header %q: %v", FaultServerAddressHeader, err)
-		totalReqsCounter(true, false).Inc()
-		return resume()
-	}
-	requestAddress := getCanonicalAddress(address)
-	if faultHeaderAddress == "" || faultHeaderAddress != requestAddress {
+		infof("error looking up the values of header %q: %v", FaultHeader, err)
 		totalReqsCounter(true, false).Inc()
 		return resume()
 	}
 
-	serverMethod, err := headers.Lookup(ctx, FaultServerMethodHeader)
+	faultConfiguration, err := parseMatchingFaultConfiguration(faultHeaderValues, getCanonicalAddress(address), method, i.abortCodeMin, i.abortCodeMax)
 	if err != nil {
-		infof("error looking up header %q: %v", FaultServerMethodHeader, err)
-		totalReqsCounter(true, false).Inc()
-		return resume()
-	}
-	if serverMethod != "" && serverMethod != method {
-		totalReqsCounter(true, false).Inc()
-		return resume()
-	}
+		warnf("error parsing fault header %q: %v", FaultHeader, err)
 
-	delayMs, err := headers.Lookup(ctx, FaultDelayMsHeader)
-	if err != nil {
-		infof("error looking up header %q: %v", FaultDelayMsHeader, err)
-	}
-	if delayMs != "" {
-		percentageHeader, err := headers.Lookup(ctx, FaultDelayPercentageHeader)
-		if err != nil {
-			infof("error looking up header %q: %v", FaultDelayPercentageHeader, err)
-		}
-		percentage, err := parsePercentage(percentageHeader)
-		if err != nil {
-			warnf("error parsing percentage header %q: %v", FaultDelayPercentageHeader, err)
+		if faultConfiguration == nil {
 			totalReqsCounter(false, false).Inc()
 			return resume()
 		}
-
-		if i.selected(percentage) {
-			delay, err := strconv.Atoi(delayMs)
-			if err != nil {
-				warnf("unable to convert provided delay %q to integer: %v", delayMs, err)
-				totalReqsCounter(false, false).Inc()
-				return resume()
-			}
-
-			if err := i.sleep(ctx, time.Duration(delay)*time.Millisecond); err != nil {
-				warnf("error when delaying request: %v", err)
-				totalReqsCounter(false, false).Inc()
-				return resume()
-			}
-			delayed = true
-		}
+	}
+	if faultConfiguration == nil {
+		totalReqsCounter(true, false).Inc()
+		return resume()
 	}
 
-	abortCode, err := headers.Lookup(ctx, FaultAbortCodeHeader)
-	if err != nil {
-		infof("error looking up header %q: %v", FaultAbortCodeHeader, err)
-	}
-	if abortCode != "" {
-		percentageHeader, err := headers.Lookup(ctx, FaultAbortPercentageHeader)
-		if err != nil {
-			infof("error looking up header %q: %v", FaultAbortPercentageHeader, err)
-		}
-		percentage, err := parsePercentage(percentageHeader)
-		if err != nil {
-			warnf("error parsing percentage header %q: %v", FaultAbortPercentageHeader, err)
+	if faultConfiguration.Delay > 0 && i.selected(faultConfiguration.DelayPercentage) {
+		if err := i.sleep(ctx, faultConfiguration.Delay); err != nil {
+			warnf("error when delaying request: %v", err)
 			totalReqsCounter(false, false).Inc()
 			return resume()
 		}
+		delayed = true
+	}
 
-		if i.selected(percentage) {
-			code, err := strconv.Atoi(abortCode)
-			if err != nil {
-				warnf("unable to convert provided abort %q to integer: %v", abortCode, err)
-				totalReqsCounter(false, false).Inc()
-				return resume()
-			}
-			if code < i.abortCodeMin || code > i.abortCodeMax {
-				warnf("provided abort code \"%d\" is outside of the valid range [%d-%d]", code, i.abortCodeMin, i.abortCodeMax)
-				totalReqsCounter(false, false).Inc()
-				return resume()
-			}
-
-			abortMessage, err := headers.Lookup(ctx, FaultAbortMessageHeader)
-			if err != nil {
-				warnf("error looking up header %q: %v", FaultAbortMessageHeader, err)
-				totalReqsCounter(false, false).Inc()
-				return resume()
-			}
-
-			totalReqsCounter(true, true).Inc()
-			return abort(code, abortMessage)
-		}
+	if faultConfiguration.AbortCode != -1 && i.selected(faultConfiguration.AbortPercentage) {
+		totalReqsCounter(true, true).Inc()
+		return abort(faultConfiguration.AbortCode, faultConfiguration.AbortMessage)
 	}
 
 	totalReqsCounter(true, false).Inc()
