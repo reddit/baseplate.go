@@ -37,7 +37,7 @@ var _ faults.Headers = &thriftHeaders{}
 func (h *thriftHeaders) LookupValues(ctx context.Context, key string) ([]string, error) {
 	header, ok := thrift.GetHeader(ctx, key)
 	if !ok {
-		return []string{}, nil
+		return nil, nil
 	}
 	return []string{header}, nil
 }

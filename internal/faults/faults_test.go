@@ -68,7 +68,7 @@ type injectTestCase struct {
 
 	faultHeader string
 
-	wantDelayMs  int
+	wantDelay    time.Duration
 	wantResponse *response
 }
 
@@ -90,7 +90,7 @@ func TestInject(t *testing.T) {
 			name:        "delay",
 			faultHeader: "a=testService.testNamespace;m=testMethod;d=1",
 
-			wantDelayMs: 1,
+			wantDelay: 1 * time.Millisecond,
 		},
 		{
 			name:        "abort",
@@ -125,7 +125,7 @@ func TestInject(t *testing.T) {
 			// All requests delayed and aborted.
 			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=100;f=1;b=test fault;F=100",
 
-			wantDelayMs: 250,
+			wantDelay: 250 * time.Millisecond,
 			wantResponse: &response{
 				code:    1,
 				message: "test fault",
@@ -136,7 +136,7 @@ func TestInject(t *testing.T) {
 			randInt:     49,
 			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=50;f=1;b=test fault;F=50",
 
-			wantDelayMs: 250,
+			wantDelay: 250 * time.Millisecond,
 			wantResponse: &response{
 				code:    1,
 				message: "test fault",
@@ -147,7 +147,7 @@ func TestInject(t *testing.T) {
 			randInt:     50,
 			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=50;f=1;b=test fault;F=50",
 
-			wantDelayMs: 0,
+			wantDelay: 0,
 		},
 		{
 			name:    "guaranteed skip percent",
@@ -156,7 +156,7 @@ func TestInject(t *testing.T) {
 			// No requests delayed or aborted.
 			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=0;f=1;b=test fault;F=0",
 
-			wantDelayMs: 0,
+			wantDelay: 0,
 		},
 		{
 			name:    "only skip delay",
@@ -165,7 +165,7 @@ func TestInject(t *testing.T) {
 			// No requests delayed; all requests aborted.
 			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=0;f=1;b=test fault;F=100",
 
-			wantDelayMs: 0,
+			wantDelay: 0,
 			wantResponse: &response{
 				code:    1,
 				message: "test fault",
@@ -175,14 +175,14 @@ func TestInject(t *testing.T) {
 			name:        "invalid header value",
 			faultHeader: "foo",
 
-			wantDelayMs: 0,
+			wantDelay: 0,
 		},
 		{
 			name:        "error while sleeping short circuits",
 			sleepErr:    true,
 			faultHeader: "a=testService.testNamespace;m=testMethod;d=1;f=1;b=test fault",
 
-			wantDelayMs: 0,
+			wantDelay: 0,
 		},
 	}
 
@@ -211,12 +211,12 @@ func TestInject(t *testing.T) {
 			injector.selected = func(percentage int) bool {
 				return tc.randInt < percentage
 			}
-			delayMs := 0
+			delay := time.Duration(0)
 			injector.sleep = func(_ context.Context, d time.Duration) error {
 				if tc.sleepErr {
 					return fmt.Errorf("context cancelled")
 				}
-				delayMs = int(d.Milliseconds())
+				delay = d
 				return nil
 			}
 
@@ -225,8 +225,8 @@ func TestInject(t *testing.T) {
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
-			if tc.wantDelayMs != delayMs {
-				t.Fatalf("expected delay of %v ms, got %v ms", tc.wantDelayMs, delayMs)
+			if tc.wantDelay != delay {
+				t.Fatalf("expected delay of %v ms, got %v ms", tc.wantDelay, delay)
 			}
 			if tc.wantResponse == nil && resp != nil {
 				t.Fatalf("expected no response, got %v", resp)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 /*
@@ -31,7 +32,7 @@ f = [Optional] Abort current outgoing request and return this response code, if 
 
 b = [Optional] Message to return with the aborted request response, if matching.
 
-	Only US-ASCII allowed, excluding semicolon <;> and comma <,>.
+	Only US-ASCII allowed, excluding semicolon <;>, comma <,>, and equal sign <=>.
 
 F = [Optional] Percentage chance to abort outgoing request, if matching.
 
@@ -46,10 +47,22 @@ Example:
 */
 const FaultHeader = "x-bp-fault"
 
+var (
+	errPercentageInvalidInt   = errors.New("provided percentage is not a valid integer")
+	errPercentageOutOfRange   = errors.New("provided percentage is outside the valid range of [0-100]")
+	errKVPairInvalid          = errors.New("invalid key-value pair")
+	errDelayInvalid           = errors.New("invalid delay value")
+	errDelayPercentageInvalid = errors.New("invalid delay percentage")
+	errAbortCodeInvalid       = errors.New("invalid abort code value")
+	errAbortCodeOutOfRange    = errors.New("provided abort code is outside the valid range")
+	errAbortPercentageInvalid = errors.New("invalid abort percentage")
+	errUnknownKey             = errors.New("unknown key")
+)
+
 type faultConfiguration struct {
 	ServerAddress   string
 	ServerMethod    string
-	DelayMs         int
+	Delay           time.Duration
 	DelayPercentage int
 	AbortCode       int
 	AbortMessage    string
@@ -62,10 +75,10 @@ func parsePercentage(percentage string) (int, error) {
 	}
 	intPercentage, err := strconv.Atoi(percentage)
 	if err != nil {
-		return 0, fmt.Errorf("%w: %w", &errPercentageInvalidInt{percentage}, err)
+		return 0, fmt.Errorf("%w: %q: %w", errPercentageInvalidInt, percentage, err)
 	}
 	if intPercentage < 0 || intPercentage > 100 {
-		return 0, &errPercentageOutOfRange{intPercentage}
+		return 0, fmt.Errorf("%w: %q", errPercentageOutOfRange, intPercentage)
 	}
 	return intPercentage, nil
 }
@@ -85,11 +98,10 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 
 	parts := strings.Split(headerValue, ";")
 	for _, part := range parts {
-		keyValue := strings.Split(part, "=")
-		if len(keyValue) != 2 {
-			return nil, &errKVPairInvalid{part}
+		key, value, ok := strings.Cut(part, "=")
+		if !ok {
+			return nil, fmt.Errorf("%w: %q", errKVPairInvalid, part)
 		}
-		key, value := keyValue[0], keyValue[1]
 		switch key {
 		case "a":
 			if value != canonicalAddress {
@@ -107,11 +119,11 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 			if err != nil {
 				return nil, fmt.Errorf("%w: %w", errDelayInvalid, err)
 			}
-			config.DelayMs = delayMs
+			config.Delay = time.Duration(delayMs) * time.Millisecond
 		case "D":
 			delayPercentage, err := parsePercentage(value)
 			if err != nil {
-				return nil, fmt.Errorf("error parsing delay percentage: %w", err)
+				return nil, fmt.Errorf("%w: %w", errDelayPercentageInvalid, err)
 			}
 			config.DelayPercentage = delayPercentage
 		case "f":
@@ -120,7 +132,7 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 				return nil, fmt.Errorf("%w: %w", errAbortCodeInvalid, err)
 			}
 			if abortCode < abortCodeMin || abortCode > abortCodeMax {
-				return nil, &errAbortCodeOutOfRange{abortCode, abortCodeMin, abortCodeMax}
+				return nil, fmt.Errorf("%w: %d [%d-%d]", errAbortCodeOutOfRange, abortCode, abortCodeMin, abortCodeMax)
 			}
 			config.AbortCode = abortCode
 		case "b":
@@ -128,11 +140,11 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 		case "F":
 			abortPercentage, err := parsePercentage(value)
 			if err != nil {
-				return nil, fmt.Errorf("error parsing abort code: %w", err)
+				return nil, fmt.Errorf("%w: %w", errAbortPercentageInvalid, err)
 			}
 			config.AbortPercentage = abortPercentage
 		default:
-			return nil, &errUnknownKey{key}
+			return nil, fmt.Errorf("%w: %q", errUnknownKey, key)
 		}
 	}
 

@@ -3,6 +3,7 @@ package faults
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -28,19 +29,19 @@ func TestParsePercentage(t *testing.T) {
 			name:       "NaN",
 			percentage: "NaN",
 			want:       0,
-			wantErr:    &errPercentageInvalidInt{"NaN"},
+			wantErr:    errPercentageInvalidInt,
 		},
 		{
 			name:       "under min",
 			percentage: "-1",
 			want:       0,
-			wantErr:    &errPercentageOutOfRange{percentage: -1},
+			wantErr:    errPercentageOutOfRange,
 		},
 		{
 			name:       "over max",
 			percentage: "101",
 			want:       0,
-			wantErr:    &errPercentageOutOfRange{percentage: 101},
+			wantErr:    errPercentageOutOfRange,
 		},
 	}
 
@@ -96,7 +97,7 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 			want: &faultConfiguration{
 				ServerAddress:   "foo",
 				ServerMethod:    "bar",
-				DelayMs:         100,
+				Delay:           100 * time.Millisecond,
 				DelayPercentage: 50,
 				AbortCode:       500,
 				AbortMessage:    "Fault injected!",
@@ -106,7 +107,7 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 		{
 			name:        "invalid key-value pair",
 			headerValue: "foo",
-			wantErr:     &errKVPairInvalid{"foo"},
+			wantErr:     errKVPairInvalid,
 		},
 		{
 			name:             "server address does not match",
@@ -129,19 +130,19 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 			name:             "invalid delay percentage",
 			headerValue:      "a=foo;D=NaN",
 			canonicalAddress: "foo",
-			wantErr:          &errPercentageInvalidInt{"NaN"},
+			wantErr:          errDelayPercentageInvalid,
 		},
 		{
 			name:             "invalid delay percentage negative",
 			headerValue:      "a=foo;D=-1",
 			canonicalAddress: "foo",
-			wantErr:          &errPercentageOutOfRange{-1},
+			wantErr:          errDelayPercentageInvalid,
 		},
 		{
 			name:             "invalid delay percentage over 100",
 			headerValue:      "a=foo;D=101",
 			canonicalAddress: "foo",
-			wantErr:          &errPercentageOutOfRange{101},
+			wantErr:          errDelayPercentageInvalid,
 		},
 		{
 			name:             "invalid abort code value",
@@ -155,7 +156,7 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 			canonicalAddress: "foo",
 			abortCodeMin:     400,
 			abortCodeMax:     599,
-			wantErr:          &errAbortCodeOutOfRange{399, 400, 599},
+			wantErr:          errAbortCodeOutOfRange,
 		},
 		{
 			name:             "invalid abort code above maximum",
@@ -163,30 +164,30 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 			canonicalAddress: "foo",
 			abortCodeMin:     400,
 			abortCodeMax:     599,
-			wantErr:          &errAbortCodeOutOfRange{600, 400, 599},
+			wantErr:          errAbortCodeOutOfRange,
 		},
 		{
 			name:             "invalid abort percentage",
 			headerValue:      "a=foo;F=NaN",
 			canonicalAddress: "foo",
-			wantErr:          &errPercentageInvalidInt{"NaN"},
+			wantErr:          errAbortPercentageInvalid,
 		},
 		{
 			name:             "invalid abort percentage negative",
 			headerValue:      "a=foo;F=-1",
 			canonicalAddress: "foo",
-			wantErr:          &errPercentageOutOfRange{-1},
+			wantErr:          errAbortPercentageInvalid,
 		},
 		{
 			name:             "invalid abort percentage over 100",
 			headerValue:      "a=foo;F=101",
 			canonicalAddress: "foo",
-			wantErr:          &errPercentageOutOfRange{101},
+			wantErr:          errAbortPercentageInvalid,
 		},
 		{
 			name:        "invalid key",
 			headerValue: "foo=bar",
-			wantErr:     &errUnknownKey{"foo"},
+			wantErr:     errUnknownKey,
 		},
 	}
 
@@ -245,12 +246,12 @@ func TestParsingFaultConfiguration(t *testing.T) {
 		{
 			name:         "single invalid",
 			headerValues: []string{"foo"},
-			wantErrs:     []error{&errKVPairInvalid{"foo"}},
+			wantErrs:     []error{errKVPairInvalid},
 		},
 		{
 			name:         "multiple invalid",
 			headerValues: []string{"foo", "bar, baz"},
-			wantErrs:     []error{&errKVPairInvalid{"foo"}, &errKVPairInvalid{"bar"}, &errKVPairInvalid{"baz"}},
+			wantErrs:     []error{errKVPairInvalid, errKVPairInvalid, errKVPairInvalid},
 		},
 		{
 			name:             "mixed validity match",
@@ -262,7 +263,7 @@ func TestParsingFaultConfiguration(t *testing.T) {
 				AbortCode:       -1,
 				AbortPercentage: 100,
 			},
-			wantErrs: []error{&errKVPairInvalid{"foo"}},
+			wantErrs: []error{errKVPairInvalid},
 		},
 	}
 
