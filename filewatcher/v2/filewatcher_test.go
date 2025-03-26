@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/reddit/baseplate.go/filewatcher/v2"
@@ -521,4 +522,90 @@ func TestParserSizeLimit(t *testing.T) {
 	if called := counter.count.Load(); called < expectedCalledMin {
 		t.Errorf("Expected log.Wrapper to be called at least %d times, actual %d", expectedCalledMin, called)
 	}
+}
+
+func TestWatcherWithSymlinks(t *testing.T) {
+	swapSlog(t, slog.New(failSlogHandler{
+		tb:      t,
+		Handler: slog.Default().Handler(),
+	}))
+
+	interval := fsEventsDelayForTests
+	writeDelay := interval * 10
+	timeout := writeDelay * 20
+
+	payload1 := []byte("Hello, world!")
+	payload2 := []byte("Bye, world!")
+	payload3 := []byte("Hello, world, again!")
+
+	dir := t.TempDir()
+	path1 := filepath.Join(dir, "foo")
+	path2 := filepath.Join(dir, "bar")
+
+	writeFile(t, path2, payload1)
+	if err := os.Symlink(path2, path1); err != nil {
+		t.Fatalf("Failed to create symlink from %q to %q: %v", path1, path2, err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	t.Cleanup(cancel)
+	data, err := filewatcher.New(
+		ctx,
+		dir,
+		filewatcher.WrapDirParser(func(dir fs.FS) (data []byte, err error) {
+			return os.ReadFile(path1)
+		}),
+		filewatcher.WithFSEventsDelay(fsEventsDelayForTests),
+		filewatcher.WithInitialReadInterval(interval),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		data.Close()
+	})
+	compareBytesData(t, data.Get(), payload1)
+
+	writeFile(t, path2, payload2)
+	// Give it some time to handle the file content change
+	time.Sleep(500 * time.Millisecond)
+	compareBytesData(t, data.Get(), payload2)
+
+	writeFile(t, path2, payload3)
+	// Give it some time to handle the file content change
+	time.Sleep(500 * time.Millisecond)
+	compareBytesData(t, data.Get(), payload3)
+}
+
+func TestFsnotify(t *testing.T) {
+	t.Skipf("Skipping because fsnotify currently has this bug, but it can be used (on linux) to test if it is fixed")
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer watcher.Close()
+
+	dir := t.TempDir()
+
+	// Create target directory
+	target := filepath.Join(dir, "target_dir")
+	os.MkdirAll(target, 0755)
+	targetFile := filepath.Join(target, "target_file")
+	os.WriteFile(targetFile, []byte("Hello, world!"), 0644)
+
+	// Create two symlinks to the target directory
+	symlink1 := filepath.Join(dir, "link1")
+	symlink2 := filepath.Join(dir, "link2")
+	os.Symlink(target, symlink1)
+	os.Symlink(target, symlink2)
+
+	// Watch both symlinks
+	watcher.Add(symlink1)
+	watcher.Add(symlink2)
+	t.Log(watcher.WatchList())
+
+	// crash occurs only when both of the following lines are run
+	watcher.Remove(symlink1)
+	watcher.Remove(symlink2)
 }

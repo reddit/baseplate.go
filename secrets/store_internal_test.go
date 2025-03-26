@@ -171,6 +171,58 @@ func TestDirRotation(t *testing.T) {
 			t.Errorf("Got secret %+v, want %+v", secret, wantSecret)
 		}
 	})
+
+	t.Run("rotate_back", func(t *testing.T) {
+		const (
+			correctKey = key1
+			wrongKey   = key2
+		)
+		if err := writer.Write(map[string]fileutil.FileProjection{
+			correctKey: content,
+		}); err != nil {
+			t.Fatalf("Failed to write initial payload: %v", err)
+		}
+		time.Sleep(sleep)
+
+		_, err := store.GetSimpleSecret(wrongKey)
+		if err == nil {
+			t.Errorf("Expected error when getting %q, got nil", wrongKey)
+		}
+
+		secret, err := store.GetSimpleSecret(correctKey)
+		if err != nil {
+			t.Fatalf("Expected no error when getting %q, got %v", correctKey, err)
+		}
+		if !reflect.DeepEqual(secret, wantSecret) {
+			t.Errorf("Got secret %+v, want %+v", secret, wantSecret)
+		}
+	})
+
+	t.Run("rotated-payload-again", func(t *testing.T) {
+		const (
+			correctKey = key2
+			wrongKey   = key1
+		)
+		if err := writer.Write(map[string]fileutil.FileProjection{
+			correctKey: content,
+		}); err != nil {
+			t.Fatalf("Failed to write rotated payload: %v", err)
+		}
+		time.Sleep(sleep)
+
+		_, err := store.GetSimpleSecret(wrongKey)
+		if err == nil {
+			t.Errorf("Expected error when getting %q, got nil", wrongKey)
+		}
+
+		secret, err := store.GetSimpleSecret(correctKey)
+		if err != nil {
+			t.Fatalf("Expected no error when getting %q, got %v", correctKey, err)
+		}
+		if !reflect.DeepEqual(secret, wantSecret) {
+			t.Errorf("Got secret %+v, want %+v", secret, wantSecret)
+		}
+	})
 }
 
 func TestDirectoryError(t *testing.T) {

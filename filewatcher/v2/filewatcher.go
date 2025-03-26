@@ -143,8 +143,13 @@ func (r *Result[T]) watcherLoop(
 		}
 		// then read all new files to watch
 		for _, path := range files {
-			if err := watcher.Add(path); err != nil {
-				slog.ErrorContext(r.ctx, "filewatcher: failed to watch file", "err", err, "path", path)
+			real, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				slog.ErrorContext(r.ctx, "filewatcher: failed to evaluate symlinks, using original name", "err", err, "path", path)
+				real = path
+			}
+			if err := watcher.Add(real); err != nil {
+				slog.ErrorContext(r.ctx, "filewatcher: failed to watch file", "err", err, "path", path, "real", real)
 			}
 		}
 	}
@@ -414,7 +419,12 @@ func New[T any](ctx context.Context, path string, parser Parser[T], options ...O
 		return nil, err
 	}
 	for _, path := range files {
-		if err := watcher.Add(path); err != nil {
+		real, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			slog.ErrorContext(ctx, "filewatcher: failed to evaluate symlinks; using original name", "err", err, "path", path)
+			real = path
+		}
+		if err := watcher.Add(real); err != nil {
 			return nil, fmt.Errorf(
 				"filewatcher: failed to watch %q: %w",
 				path,

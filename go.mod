@@ -7,7 +7,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.14.3
 	github.com/apache/thrift v0.21.0
 	github.com/avast/retry-go v3.0.0+incompatible
-	github.com/fsnotify/fsnotify v1.5.4
+	github.com/fsnotify/fsnotify v1.8.0
 	github.com/getsentry/sentry-go v0.11.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-redis/redis/v8 v8.11.5
