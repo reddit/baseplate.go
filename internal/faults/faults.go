@@ -139,6 +139,8 @@ func NewInjector[T any](clientName, callerName string, abortCodeMin, abortCodeMa
 	return i
 }
 
+// InjectParameters contains the parameters needed to match and inject a fault
+// into the outgoing request.
 type InjectParameters[T any] struct {
 	Address     string
 	Method      string
