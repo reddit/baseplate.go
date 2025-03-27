@@ -34,9 +34,9 @@ var (
 		Name: "faultbp_fault_requests_total",
 		Help: "Total count of requests seen by the fault injection middleware.",
 	}, []string{
-		clientNameLabel,
-		serviceLabel,
-		methodLabel,
+		// clientNameLabel,
+		// serviceLabel,
+		// methodLabel,
 		protocolLabel,
 		successLabel,
 		delayInjectedLabel,
@@ -145,9 +145,9 @@ func (i *Injector[T]) InjectWithAbortOverride(ctx context.Context, address, meth
 	delayed := false
 	totalReqsCounter := func(success, aborted bool) prometheus.Counter {
 		return totalRequests.WithLabelValues(
-			i.clientName,
-			address,
-			method,
+			// i.clientName,
+			// address,
+			// method,
 			i.callerName,
 			strconv.FormatBool(success),
 			strconv.FormatBool(delayed),
