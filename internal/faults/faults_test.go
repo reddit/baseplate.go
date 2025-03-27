@@ -220,7 +220,12 @@ func TestInject(t *testing.T) {
 				return nil
 			}
 
-			resp, err := injector.Inject(context.Background(), address, method, &headers, resume)
+			resp, err := injector.Inject(context.Background(), InjectParameters[*response]{
+				Address: address,
+				Method:  method,
+				Headers: &headers,
+				Resume:  resume,
+			})
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
