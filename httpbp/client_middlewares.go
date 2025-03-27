@@ -15,6 +15,7 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/reddit/baseplate.go/headerbp"
+	"github.com/reddit/baseplate.go/internal/faults"
 	"github.com/reddit/baseplate.go/secrets"
 
 	"github.com/reddit/baseplate.go/breakerbp"
@@ -467,7 +468,15 @@ func (c clientFaultMiddleware) Middleware() ClientMiddleware {
 			address := req.URL.Hostname()
 			method := strings.TrimPrefix(req.URL.Path, "/")
 			header := httpHeader(req.Header)
-			return c.injector.InjectWithAbortOverride(req.Context(), address, method, &header, resume, abort)
+			return c.injector.Inject(req.Context(),
+				faults.InjectParameters[*http.Response]{
+					Address:     address,
+					Method:      method,
+					MethodLabel: "",
+					Headers:     &header,
+					Resume:      resume,
+					Abort:       abort,
+				})
 		})
 	}
 }

@@ -21,6 +21,8 @@ import (
 const (
 	promNamespace      = "faultbp"
 	clientNameLabel    = "fault_client_name"
+	serviceLabel       = "fault_service"
+	methodLabel        = "fault_method"
 	protocolLabel      = "fault_protocol"
 	successLabel       = "fault_success"
 	delayInjectedLabel = "fault_injected_delay"
@@ -33,6 +35,8 @@ var (
 		Help: "Total count of requests seen by the fault injection middleware.",
 	}, []string{
 		clientNameLabel,
+		serviceLabel,
+		methodLabel,
 		protocolLabel,
 		successLabel,
 		delayInjectedLabel,
@@ -135,13 +139,28 @@ func NewInjector[T any](clientName, callerName string, abortCodeMin, abortCodeMa
 	return i
 }
 
-// InjectWithAbortOverride injects a fault using the provided fault function
-// on the outgoing request if it matches the header configuration.
-func (i *Injector[T]) InjectWithAbortOverride(ctx context.Context, address, method string, headers Headers, resume Resume[T], abort Abort[T]) (T, error) {
+type InjectParameters[T any] struct {
+	Address     string
+	Method      string
+	MethodLabel string
+	Headers     Headers
+	Resume      Resume[T]
+	Abort       Abort[T]
+}
+
+// Inject injects a fault using the Injector default fault function on the
+// outgoing request if it matches the header configuration.
+func (i *Injector[T]) Inject(ctx context.Context, params InjectParameters[T]) (T, error) {
+	if params.Abort == nil {
+		params.Abort = i.defaultAbort
+	}
+
 	delayed := false
 	totalReqsCounter := func(success, aborted bool) prometheus.Counter {
 		return totalRequests.WithLabelValues(
 			i.clientName,
+			params.Address,
+			params.MethodLabel,
 			i.callerName,
 			strconv.FormatBool(success),
 			strconv.FormatBool(delayed),
@@ -160,47 +179,41 @@ func (i *Injector[T]) InjectWithAbortOverride(ctx context.Context, address, meth
 		}
 	}
 
-	faultHeaderValues, err := headers.LookupValues(ctx, FaultHeader)
+	faultHeaderValues, err := params.Headers.LookupValues(ctx, FaultHeader)
 	if err != nil {
 		infof("error looking up the values of header %q: %v", FaultHeader, err)
 		totalReqsCounter(true, false).Inc()
-		return resume()
+		return params.Resume()
 	}
 
-	faultConfiguration, err := parseMatchingFaultConfiguration(faultHeaderValues, getCanonicalAddress(address), method, i.abortCodeMin, i.abortCodeMax)
+	faultConfiguration, err := parseMatchingFaultConfiguration(faultHeaderValues, getCanonicalAddress(params.Address), params.Method, i.abortCodeMin, i.abortCodeMax)
 	if err != nil {
 		warnf("error parsing fault header %q: %v", FaultHeader, err)
 
 		if faultConfiguration == nil {
 			totalReqsCounter(false, false).Inc()
-			return resume()
+			return params.Resume()
 		}
 	}
 	if faultConfiguration == nil {
 		totalReqsCounter(true, false).Inc()
-		return resume()
+		return params.Resume()
 	}
 
 	if faultConfiguration.Delay > 0 && i.selected(faultConfiguration.DelayPercentage) {
 		if err := i.sleep(ctx, faultConfiguration.Delay); err != nil {
 			warnf("error when delaying request: %v", err)
 			totalReqsCounter(false, false).Inc()
-			return resume()
+			return params.Resume()
 		}
 		delayed = true
 	}
 
 	if faultConfiguration.AbortCode != -1 && i.selected(faultConfiguration.AbortPercentage) {
 		totalReqsCounter(true, true).Inc()
-		return abort(faultConfiguration.AbortCode, faultConfiguration.AbortMessage)
+		return params.Abort(faultConfiguration.AbortCode, faultConfiguration.AbortMessage)
 	}
 
 	totalReqsCounter(true, false).Inc()
-	return resume()
-}
-
-// Inject injects a fault using the Injector default fault function on the
-// outgoing request if it matches the header configuration.
-func (i *Injector[T]) Inject(ctx context.Context, address, method string, headers Headers, resume Resume[T]) (T, error) {
-	return i.InjectWithAbortOverride(ctx, address, method, headers, resume, i.defaultAbort)
+	return params.Resume()
 }
