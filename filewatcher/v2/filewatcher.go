@@ -143,14 +143,8 @@ func (r *Result[T]) watcherLoop(
 		}
 		// then read all new files to watch
 		for _, path := range files {
-			// Evaluate any symlinks before adding to work around https://github.com/fsnotify/fsnotify/issues/652
-			real, err := filepath.EvalSymlinks(path)
-			if err != nil {
-				slog.ErrorContext(r.ctx, "filewatcher: failed to evaluate symlinks, using original name", "err", err, "path", path)
-				real = path
-			}
-			if err := watcher.Add(real); err != nil {
-				slog.ErrorContext(r.ctx, "filewatcher: failed to watch file", "err", err, "path", path, "real", real)
+			if err := watcher.Add(path); err != nil {
+				slog.ErrorContext(r.ctx, "filewatcher: failed to watch file", "err", err, "path", path)
 			}
 		}
 	}
@@ -420,13 +414,7 @@ func New[T any](ctx context.Context, path string, parser Parser[T], options ...O
 		return nil, err
 	}
 	for _, path := range files {
-		// Evaluate any symlinks before adding to work around https://github.com/fsnotify/fsnotify/issues/652
-		real, err := filepath.EvalSymlinks(path)
-		if err != nil {
-			slog.ErrorContext(ctx, "filewatcher: failed to evaluate symlinks; using original name", "err", err, "path", path)
-			real = path
-		}
-		if err := watcher.Add(real); err != nil {
+		if err := watcher.Add(path); err != nil {
 			return nil, fmt.Errorf(
 				"filewatcher: failed to watch %q: %w",
 				path,
