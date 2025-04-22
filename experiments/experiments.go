@@ -399,7 +399,7 @@ type ExperimentEvent struct {
 	// from (optional).
 	DeviceID uuid.UUID
 	// BucketingKey is the key this experiment is being randomized on (optional).
-	BucketingKey string
+	BucketingField string
 	// BucketingValue is the value for the BucketingKey (optional).
 	BucketingValue string
 	// Experiment is the experiment of the applied treatment (required).
