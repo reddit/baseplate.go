@@ -57,6 +57,26 @@ func (s *headerPropagationVerificationService) IsHealthy(ctx context.Context, _ 
 	return true, nil
 }
 
+type echoService struct{}
+
+func (s *echoService) IsHealthy(ctx context.Context, req *baseplatethrift.IsHealthyRequest) (bool, error) {
+	return true, nil
+}
+
+func TestGetServiceName(t *testing.T) {
+	downstreamProcessor := baseplatethrift.NewBaseplateServiceV2Processor(&echoService{})
+	cfg := &thriftbp.ServerConfig{Processor: downstreamProcessor}
+	actualName := thriftbp.GetThriftServiceName(cfg.Processor)
+	if got, want := actualName, "baseplate.BaseplateServiceV2"; got != want {
+		t.Errorf("got = %v, want %v", got, want)
+	}
+
+	actualName = thriftbp.GetThriftServiceName(nil)
+	if got, want := actualName, "unknown"; got != want {
+		t.Errorf("got = %v, want %v", got, want)
+	}
+}
+
 func TestHeaderPropagation(t *testing.T) {
 	store := newSecretsStore(t)
 
