@@ -81,6 +81,8 @@ type DefaultProcessorMiddlewaresArgs struct {
 // 5. PrometheusServerMiddleware
 func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) []thrift.ProcessorMiddleware {
 	return []thrift.ProcessorMiddleware{
+		// Method descriptor middleware needs to be first to support proper telemetry
+		ServerMethodDescriptorMiddleware(args.ServiceName),
 		ExtractDeadlineBudget,
 		InjectServerSpanWithArgs(MonitorServerArgs{ServiceSlug: args.ServiceName}),
 		InjectEdgeContext(args.EdgeContextImpl),
@@ -499,5 +501,23 @@ func ServerBaseplateHeadersMiddleware() thrift.ProcessorMiddleware {
 				return next.Process(ctx, seqID, in, out)
 			},
 		}
+	}
+}
+
+var injectServerMethodDescriptorLoggingOnce sync.Once
+
+// ServerMethodDescriptorMiddleware is a middleware that attaches thrift method descriptors to the context of the incoming request.
+//
+// This is used by telemetry middleware to correctly identify the current thrift service and method.
+func ServerMethodDescriptorMiddleware(serverName string) thrift.ProcessorMiddleware {
+	if provider := internalv2compat.GetV2ThriftMethodDescriptorMiddlewares().ServerMiddlewareProvider; provider != nil {
+		return provider(serverName)
+	}
+	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+		// no-op but log for once
+		injectServerMethodDescriptorLoggingOnce.Do(func() {
+			slog.Warn("thriftbp.ServerMethodDescriptorMiddleware: internalv2compat.GetV2ThriftMethodDescriptorMiddlewares().ServerMiddlewareProvider returned nil")
+		})
+		return next
 	}
 }

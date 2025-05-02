@@ -86,8 +86,9 @@ var v2Tracing struct {
 	sync.Mutex
 	enabled bool
 
-	thriftClientMiddlewareProvider ThriftClientTraceMiddlewareProvider
-	thriftServerMiddlewareProvider ThriftServerTraceMiddlewareProvider
+	thriftClientMiddlewareProvider    ThriftClientTraceMiddlewareProvider
+	thriftServerMiddlewareProvider    ThriftServerTraceMiddlewareProvider
+	thriftMethodDescriptorMiddlewares V2ThriftMethodDescriptorMiddlewares
 
 	httpClientMiddleware func(base http.RoundTripper) http.RoundTripper
 	httpServerMiddleware func(name string, next http.Handler) http.Handler
@@ -191,4 +192,21 @@ func V2TracingHTTPServerMiddleware() func(name string, next http.Handler) http.H
 	v2Tracing.Lock()
 	defer v2Tracing.Unlock()
 	return v2Tracing.httpServerMiddleware
+}
+
+type V2ThriftMethodDescriptorMiddlewares struct {
+	ServerMiddlewareProvider func(serviceName string) thrift.ProcessorMiddleware
+	ClientMiddleware         thrift.ClientMiddleware
+}
+
+func SetV2ThriftMethodDescriptorMiddlewares(middleware V2ThriftMethodDescriptorMiddlewares) {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	v2Tracing.thriftMethodDescriptorMiddlewares = middleware
+}
+
+func GetV2ThriftMethodDescriptorMiddlewares() V2ThriftMethodDescriptorMiddlewares {
+	v2Tracing.Lock()
+	defer v2Tracing.Unlock()
+	return v2Tracing.thriftMethodDescriptorMiddlewares
 }

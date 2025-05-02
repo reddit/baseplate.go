@@ -150,7 +150,10 @@ func BaseplateDefaultClientMiddlewares(args DefaultClientMiddlewareArgs) []thrif
 	if len(args.RetryOptions) == 0 {
 		args.RetryOptions = []retry.Option{retry.Attempts(1)}
 	}
+
 	middlewares := []thrift.ClientMiddleware{
+		// Method descriptor middleware needs to be first to support proper telemetry
+		ClientMethodDescriptorMiddleware(),
 		ForwardEdgeRequestContext(args.EdgeContextImpl),
 		SetClientName(args.ClientName),
 		MonitorClient(MonitorClientArgs{
@@ -480,5 +483,23 @@ func (c clientFaultMiddleware) Middleware() thrift.ClientMiddleware {
 					})
 			},
 		}
+	}
+}
+
+var clientMethodDescriptorLoggingOnce sync.Once
+
+// ClientMethodDescriptorMiddleware is a middleware that attaches thrift method descriptors to the context of the outgoing request.
+//
+// This is used by telemetry middleware to correctly identify the current thrift service and method.
+func ClientMethodDescriptorMiddleware() thrift.ClientMiddleware {
+	if mw := internalv2compat.GetV2ThriftMethodDescriptorMiddlewares().ClientMiddleware; mw != nil {
+		return mw
+	}
+	return func(next thrift.TClient) thrift.TClient {
+		// no-op but log for once
+		clientMethodDescriptorLoggingOnce.Do(func() {
+			slog.Warn("thriftbp.ClientMethodDescriptorMiddleware: internalv2compat.GetV2ThriftMethodDescriptorMiddlewares().ClientMiddleware returned nil")
+		})
+		return next
 	}
 }
