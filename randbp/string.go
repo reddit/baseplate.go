@@ -1,7 +1,8 @@
 package randbp
 
 import (
-	"math/rand"
+	randv1 "math/rand"
+	"math/rand/v2"
 )
 
 // Base64Runes are all the runes allowed in standard and url safe base64
@@ -20,17 +21,12 @@ type RandomStringArgs struct {
 	// If MinLength < 0 or MinLength >= MaxLength it will cause panic.
 	MinLength int
 
-	// Optional. If nil randbp.R will be used instead.
-	R *rand.Rand
-
 	// Optional. If empty []rune(randbp.Base64Runes) will be used instead.
 	Runes []rune
-}
 
-// The common interface between *math/rand.Rand and randbp.Rand used in
-// GenerateRandomString.
-type intner interface {
-	Intn(n int) int
+	// Deprecated: This is no longer used. We always use math/rand/v2 global
+	// PRNG.
+	R *randv1.Rand
 }
 
 // GenerateRandomString generates a random string with length
@@ -38,20 +34,14 @@ type intner interface {
 //
 // It could be used to help implement testing/quick.Generator interface.
 func GenerateRandomString(args RandomStringArgs) string {
-	var r intner
-	if args.R != nil {
-		r = args.R
-	} else {
-		r = R
-	}
 	runes := args.Runes
 	if len(runes) == 0 {
 		runes = []rune(Base64Runes)
 	}
-	n := r.Intn(args.MaxLength-args.MinLength) + args.MinLength
+	n := rand.IntN(args.MaxLength-args.MinLength) + args.MinLength
 	ret := make([]rune, n)
 	for i := range ret {
-		ret[i] = runes[r.Intn(len(runes))]
+		ret[i] = runes[rand.IntN(len(runes))]
 	}
 	return string(ret)
 }
