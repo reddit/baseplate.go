@@ -2,7 +2,7 @@ package breakerbp
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -12,11 +12,11 @@ import (
 
 	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/log"
+	"github.com/reddit/baseplate.go/randbp"
 )
 
 const (
-	promNamespace = "breakerbp"
-	nameLabel     = "breaker"
+	nameLabel = "breaker"
 )
 
 var (
@@ -25,9 +25,8 @@ var (
 	}
 
 	breakerClosed = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: promNamespace,
-		Name:      "closed",
-		Help:      "0 means the breaker is currently tripped, 1 otherwise (closed)",
+		Name: "breakerbp_closed",
+		Help: "0 means the breaker is currently tripped, 1 otherwise (closed)",
 	}, breakerLabels)
 )
 
@@ -39,7 +38,7 @@ type FailureRatioBreaker struct {
 	name              string
 	minRequestsToTrip int
 	failureThreshold  float64
-	logger            log.Wrapper
+	logContext        context.Context
 }
 
 // Config represents the configuration for a FailureRatioBreaker.
@@ -64,7 +63,15 @@ type Config struct {
 	EmitStatusMetricsInterval time.Duration `yaml:"emitStatusMetricsInterval"`
 
 	// Logger is the logger to be called when the breaker changes states.
+	//
+	// Deprecated: We always log using slog with LogContext.
 	Logger log.Wrapper `yaml:"logger"`
+
+	// LogContext is the context to be used by slog to log when breaker changes
+	// states.
+	//
+	// Optional, if not set, context.Background() will be used when logging.
+	LogContext context.Context `yaml:"-"`
 
 	// MaxRequestsHalfOpen represents he Maximum amount of requests that will be allowed through while the breaker
 	// is in half-open state. If left unset (or set to 0), exactly 1 request will be allowed through while half-open.
@@ -76,6 +83,11 @@ type Config struct {
 
 	// Timeout is the duration of the 'Open' state. After an 'Open' timeout duration has passed, the breaker enters 'half-open' state.
 	Timeout time.Duration `yaml:"timeout"`
+
+	// TimeoutJitterRatio is the jitter ratio to be applied to Timeout.
+	//
+	// Optional, default is 0.5, means the actual timeout used can be Timeout+-50%.
+	TimeoutJitterRatio *float64 `yaml:"timeoutJitterRatio"`
 }
 
 // NewFailureRatioBreaker creates a new FailureRatioBreaker with the provided configuration.
@@ -85,12 +97,37 @@ func NewFailureRatioBreaker(config Config) FailureRatioBreaker {
 		name:              config.Name,
 		minRequestsToTrip: config.MinRequestsToTrip,
 		failureThreshold:  config.FailureThreshold,
-		logger:            config.Logger,
 	}
+	if config.LogContext != nil {
+		failureBreaker.logContext = config.LogContext
+	} else {
+		failureBreaker.logContext = context.Background()
+	}
+	jitterRatio := 0.5
+	if config.TimeoutJitterRatio != nil {
+		jitterRatio = *config.TimeoutJitterRatio
+		if jitterRatio <= 0 || jitterRatio > 1 {
+			slog.WarnContext(
+				failureBreaker.logContext,
+				"Wrong breakerbp TimeoutJitterRatio config, will be normalized",
+				"name", config.Name,
+				"value", jitterRatio,
+			)
+		}
+	}
+	timeout := randbp.JitterDuration(config.Timeout, jitterRatio)
+	slog.DebugContext(
+		failureBreaker.logContext,
+		"breakerbp jittered timeout",
+		"name", config.Name,
+		"timeout", timeout,
+		"origin", config.Timeout,
+		"jitterRatio", jitterRatio,
+	)
 	settings := gobreaker.Settings{
 		Name:          config.Name,
 		Interval:      config.Interval,
-		Timeout:       config.Timeout,
+		Timeout:       timeout,
 		MaxRequests:   config.MaxRequestsHalfOpen,
 		ReadyToTrip:   failureBreaker.shouldTrip,
 		OnStateChange: failureBreaker.stateChanged,
@@ -134,8 +171,12 @@ func (cb FailureRatioBreaker) shouldTrip(counts gobreaker.Counts) bool {
 	if counts.Requests > 0 && counts.Requests >= uint32(cb.minRequestsToTrip) {
 		failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
 		if failureRatio >= cb.failureThreshold {
-			message := fmt.Sprintf("tripping circuit breaker: name=%v, counts=%v", cb.name, counts)
-			cb.logger.Log(context.Background(), message)
+			slog.WarnContext(
+				cb.logContext,
+				"tripping circuit breaker",
+				"name", cb.name,
+				"counts", counts,
+			)
 			return true
 		}
 	}
@@ -151,8 +192,13 @@ func (cb FailureRatioBreaker) stateChanged(name string, from gobreaker.State, to
 		nameLabel: cb.name,
 	}).Set(value)
 
-	message := fmt.Sprintf("circuit breaker %v state changed from %v to %v", name, from, to)
-	cb.logger.Log(context.Background(), message)
+	slog.InfoContext(
+		cb.logContext,
+		"circuit breaker state changed",
+		"name", name,
+		"from", from,
+		"to", to,
+	)
 }
 
 var (
