@@ -1,6 +1,7 @@
 package randbp
 
 import (
+	"math/rand/v2"
 	"time"
 )
 
@@ -17,7 +18,7 @@ func JitterRatio(jitter float64) float64 {
 	if jitter > 1 {
 		jitter = 1
 	}
-	return 1 - (R.Float64()*2-1)*jitter
+	return 1 - (rand.Float64()*2-1)*jitter
 }
 
 // JitterDuration applies jitter on the center time duration so the returned

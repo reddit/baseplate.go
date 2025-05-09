@@ -32,6 +32,9 @@ var readerPool = sync.Pool{
 // See the doc of Rand.Read for more details.
 // All other functions (Uint64, Float64, etc.) have comparable performance to
 // math/rand's implementations.
+//
+// NOTE: This is considered deprecated. New code should use stdlib math/rand/v2
+// instead.
 var R = New(GetSeed())
 
 // Rand embeds *math/rand.Rand.

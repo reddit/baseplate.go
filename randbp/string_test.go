@@ -24,10 +24,9 @@ const (
 
 type randomString string
 
-func (randomString) Generate(r *rand.Rand, _ int) reflect.Value {
+func (randomString) Generate(_ *rand.Rand, _ int) reflect.Value {
 	return reflect.ValueOf(randomString(randbp.GenerateRandomString(
 		randbp.RandomStringArgs{
-			R:         r,
 			MinLength: minLength,
 			MaxLength: maxLength,
 		},

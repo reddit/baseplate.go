@@ -2,6 +2,7 @@ package randbp_test
 
 import (
 	"math"
+	"math/rand/v2"
 	"testing"
 	"testing/quick"
 
@@ -11,7 +12,7 @@ import (
 func TestJitterRatio(t *testing.T) {
 	t.Run("quick", func(t *testing.T) {
 		f := func() bool {
-			jitter := randbp.R.Float64()
+			jitter := rand.Float64()
 			min := 1 - jitter
 			max := 1 + jitter
 			ratio := randbp.JitterRatio(jitter)
@@ -35,7 +36,7 @@ func TestJitterRatio(t *testing.T) {
 	t.Run("<=0", func(t *testing.T) {
 		const epsilon = 1e-9
 		f := func() bool {
-			jitter := -randbp.R.Float64()
+			jitter := -rand.Float64()
 			ratio := randbp.JitterRatio(jitter)
 			if math.Abs(1-ratio) > epsilon {
 				t.Errorf(
@@ -58,7 +59,7 @@ func TestJitterRatio(t *testing.T) {
 			max = 2
 		)
 		f := func() bool {
-			jitter := 1 + randbp.R.Float64()
+			jitter := 1 + rand.Float64()
 			ratio := randbp.JitterRatio(jitter)
 			if ratio < max && ratio > min {
 				return true
