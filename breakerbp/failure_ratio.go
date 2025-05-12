@@ -28,6 +28,11 @@ var (
 		Name: "breakerbp_closed",
 		Help: "0 means the breaker is currently tripped, 1 otherwise (closed)",
 	}, breakerLabels)
+
+	breakerTimeout = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
+		Name: "breakerbp_jittered_timeout_seconds",
+		Help: "The jittered timeout used by this breaker",
+	}, breakerLabels)
 )
 
 // FailureRatioBreaker is a circuit breaker based on gobreaker that uses a low-water-mark and
@@ -116,6 +121,9 @@ func NewFailureRatioBreaker(config Config) FailureRatioBreaker {
 		}
 	}
 	timeout := randbp.JitterDuration(config.Timeout, jitterRatio)
+	breakerTimeout.With(prometheus.Labels{
+		nameLabel: config.Name,
+	}).Set(timeout.Seconds())
 	slog.DebugContext(
 		failureBreaker.logContext,
 		"breakerbp jittered timeout",
