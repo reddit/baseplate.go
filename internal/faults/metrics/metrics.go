@@ -1,3 +1,4 @@
+// Package metrics provides prometheus metrics for fault injection operations.
 package metrics
 
 import (
