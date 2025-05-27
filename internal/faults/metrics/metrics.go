@@ -9,7 +9,6 @@ import (
 )
 
 const (
-	promNamespace      = "faultbp"
 	clientNameLabel    = "fault_client_name"
 	serviceLabel       = "fault_service"
 	methodLabel        = "fault_method"
