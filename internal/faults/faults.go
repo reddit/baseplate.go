@@ -12,36 +12,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/time/rate"
 
-	"github.com/reddit/baseplate.go/internal/prometheusbpint"
-)
-
-const (
-	promNamespace      = "faultbp"
-	clientNameLabel    = "fault_client_name"
-	serviceLabel       = "fault_service"
-	methodLabel        = "fault_method"
-	protocolLabel      = "fault_protocol"
-	successLabel       = "fault_success"
-	delayInjectedLabel = "fault_injected_delay"
-	abortInjectedLabel = "fault_injected_abort"
-)
-
-var (
-	totalRequests = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
-		Name: "faultbp_fault_requests_total",
-		Help: "Total count of requests seen by the fault injection middleware.",
-	}, []string{
-		clientNameLabel,
-		serviceLabel,
-		methodLabel,
-		protocolLabel,
-		successLabel,
-		delayInjectedLabel,
-		abortInjectedLabel,
-	})
+	faultmetrics "github.com/reddit/baseplate.go/internal/faults/metrics"
 )
 
 // Headers is an interface to be implemented by the caller to allow
@@ -158,13 +131,13 @@ func (i *Injector[T]) Inject(ctx context.Context, params InjectParameters[T]) (T
 	}
 
 	delayed := false
-	totalReqsCounter := func(success, aborted bool) prometheus.Counter {
-		return totalRequests.WithLabelValues(
+	totalReqsCounter := func(status faultmetrics.FaultStatus, aborted bool) prometheus.Counter {
+		return faultmetrics.TotalRequests.WithLabelValues(
 			i.clientName,
 			params.Address,
 			params.MethodLabel,
 			i.callerName,
-			strconv.FormatBool(success),
+			status.String(),
 			strconv.FormatBool(delayed),
 			strconv.FormatBool(aborted),
 		)
@@ -184,7 +157,7 @@ func (i *Injector[T]) Inject(ctx context.Context, params InjectParameters[T]) (T
 	faultHeaderValues, err := params.Headers.LookupValues(ctx, FaultHeader)
 	if err != nil {
 		infof("error looking up the values of header %q: %v", FaultHeader, err)
-		totalReqsCounter(true, false).Inc()
+		totalReqsCounter(faultmetrics.HeaderLookupError, false).Inc()
 		return params.Resume()
 	}
 
@@ -193,29 +166,29 @@ func (i *Injector[T]) Inject(ctx context.Context, params InjectParameters[T]) (T
 		warnf("error parsing fault header %q: %v", FaultHeader, err)
 
 		if faultConfiguration == nil {
-			totalReqsCounter(false, false).Inc()
+			totalReqsCounter(faultmetrics.ConfigParsingError, false).Inc()
 			return params.Resume()
 		}
 	}
 	if faultConfiguration == nil {
-		totalReqsCounter(true, false).Inc()
+		totalReqsCounter(faultmetrics.NoMatchingConfig, false).Inc()
 		return params.Resume()
 	}
 
 	if faultConfiguration.Delay > 0 && i.selected(faultConfiguration.DelayPercentage) {
 		if err := i.sleep(ctx, faultConfiguration.Delay); err != nil {
 			warnf("error when delaying request: %v", err)
-			totalReqsCounter(false, false).Inc()
+			totalReqsCounter(faultmetrics.DelayError, false).Inc()
 			return params.Resume()
 		}
 		delayed = true
 	}
 
 	if faultConfiguration.AbortCode != -1 && i.selected(faultConfiguration.AbortPercentage) {
-		totalReqsCounter(true, true).Inc()
+		totalReqsCounter(faultmetrics.Success, true).Inc()
 		return params.Abort(faultConfiguration.AbortCode, faultConfiguration.AbortMessage)
 	}
 
-	totalReqsCounter(true, false).Inc()
+	totalReqsCounter(faultmetrics.Success, false).Inc()
 	return params.Resume()
 }
