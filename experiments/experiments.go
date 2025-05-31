@@ -398,6 +398,10 @@ type ExperimentEvent struct {
 	// DeviceID unique identifies the device this experiment is being logged
 	// from (optional).
 	DeviceID uuid.UUID
+	// BucketingKey is the key this experiment is being randomized on (optional).
+	BucketingField string
+	// BucketingValue is the value for the BucketingKey (optional).
+	BucketingValue string
 	// Experiment is the experiment of the applied treatment (required).
 	Experiment *ExperimentConfig
 	// VariantName is the type of bucket that is being applied (required).
