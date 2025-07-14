@@ -471,6 +471,7 @@ func (c clientFaultMiddleware) Middleware() ClientMiddleware {
 			return c.injector.Inject(req.Context(),
 				faults.InjectParameters[*http.Response]{
 					Address:     address,
+					Host:        req.Host,
 					Method:      method,
 					MethodLabel: "",
 					Headers:     &header,

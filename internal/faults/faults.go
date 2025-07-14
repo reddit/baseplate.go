@@ -116,6 +116,7 @@ func NewInjector[T any](clientName, callerName string, abortCodeMin, abortCodeMa
 // into the outgoing request.
 type InjectParameters[T any] struct {
 	Address     string
+	Host        string
 	Method      string
 	MethodLabel string
 	Headers     Headers
@@ -135,6 +136,7 @@ func (i *Injector[T]) Inject(ctx context.Context, params InjectParameters[T]) (T
 		return faultmetrics.TotalRequests.WithLabelValues(
 			i.clientName,
 			params.Address,
+			params.Host,
 			params.MethodLabel,
 			i.callerName,
 			status.String(),
@@ -161,7 +163,7 @@ func (i *Injector[T]) Inject(ctx context.Context, params InjectParameters[T]) (T
 		return params.Resume()
 	}
 
-	faultConfiguration, err := parseMatchingFaultConfiguration(faultHeaderValues, getCanonicalAddress(params.Address), params.Method, i.abortCodeMin, i.abortCodeMax)
+	faultConfiguration, err := parseMatchingFaultConfiguration(faultHeaderValues, getCanonicalAddress(params.Address), params.Host, params.Method, i.abortCodeMin, i.abortCodeMax)
 	if err != nil {
 		warnf("error parsing fault header %q: %v", FaultHeader, err)
 

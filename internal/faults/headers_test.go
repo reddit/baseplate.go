@@ -63,6 +63,7 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 		name             string
 		headerValue      string
 		canonicalAddress string
+		host             string
 		method           string
 		abortCodeMin     int
 		abortCodeMax     int
@@ -90,13 +91,15 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 		},
 		{
 			name:             "full valid",
-			headerValue:      "a=foo;m=bar;d=100;D=50;f=500;b=Fault injected!;F=75",
+			headerValue:      "a=foo;h=bar;m=baz;d=100;D=50;f=500;b=Fault injected!;F=75",
 			canonicalAddress: "foo",
-			method:           "bar",
+			host:             "bar",
+			method:           "baz",
 			abortCodeMax:     599,
 			want: &faultConfiguration{
 				ServerAddress:   "foo",
-				ServerMethod:    "bar",
+				ServerHost:      "bar",
+				ServerMethod:    "baz",
 				Delay:           100 * time.Millisecond,
 				DelayPercentage: 50,
 				AbortCode:       500,
@@ -113,6 +116,17 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 			name:             "server address does not match",
 			headerValue:      "a=foo",
 			canonicalAddress: "bar",
+		},
+		{
+			name:             "host does not match",
+			headerValue:      "a=foo;h=bar",
+			canonicalAddress: "foo",
+			host:             "baz",
+		},
+		{
+			name:             "host does not match (empty)",
+			headerValue:      "a=foo;h=bar",
+			canonicalAddress: "foo",
 		},
 		{
 			name:             "method does not match",
@@ -198,7 +212,7 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := parseMatchingFaultHeader(tc.headerValue, tc.canonicalAddress, tc.method, tc.abortCodeMin, tc.abortCodeMax)
+			got, err := parseMatchingFaultHeader(tc.headerValue, tc.canonicalAddress, tc.host, tc.method, tc.abortCodeMin, tc.abortCodeMax)
 			if !errors.Is(err, tc.wantErr) {
 				t.Fatalf("expected error %v, got %v", tc.wantErr, err)
 			}
@@ -272,12 +286,13 @@ func TestParsingFaultConfiguration(t *testing.T) {
 		},
 	}
 
+	testHost := ""
 	testMethod := ""
 	testAbortCodeMin, testAbortCodeMax := 0, 0
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := parseMatchingFaultConfiguration(tc.headerValues, tc.canonicalAddress, testMethod, testAbortCodeMin, testAbortCodeMax)
+			got, err := parseMatchingFaultConfiguration(tc.headerValues, tc.canonicalAddress, testHost, testMethod, testAbortCodeMin, testAbortCodeMax)
 			for _, wantErr := range tc.wantErrs {
 				if !errors.Is(err, wantErr) {
 					t.Fatalf("expected error %v, got %v", wantErr, err)

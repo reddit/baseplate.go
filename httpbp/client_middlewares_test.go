@@ -402,6 +402,7 @@ func TestFaultInjection(t *testing.T) {
 	testCases := []struct {
 		name                 string
 		faultServerAddrMatch bool
+		host                 string
 		remainingFaultHeader string // Fault header after the address portion.
 
 		wantStatusCode int
@@ -414,7 +415,8 @@ func TestFaultInjection(t *testing.T) {
 			name: "abort",
 
 			faultServerAddrMatch: true,
-			remainingFaultHeader: "m=testMethod;f=500",
+			host:                 "testHost",
+			remainingFaultHeader: "h=testHost;m=testMethod;f=500",
 
 			wantStatusCode: http.StatusInternalServerError,
 		},
@@ -431,6 +433,14 @@ func TestFaultInjection(t *testing.T) {
 
 			faultServerAddrMatch: false,
 			remainingFaultHeader: "m=testMethod;f=500",
+
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			name: "host does not match",
+
+			faultServerAddrMatch: true,
+			remainingFaultHeader: "h=fooHost;f=500",
 
 			wantStatusCode: http.StatusOK,
 		},
@@ -479,6 +489,7 @@ func TestFaultInjection(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error when creating request: %v", err)
 			}
+			req.Host = tt.host
 
 			faultHeader := tt.remainingFaultHeader
 			if tt.faultServerAddrMatch {

@@ -402,6 +402,7 @@ func TestFaultInjectionClientMiddleware(t *testing.T) {
 		name string
 
 		faultHeader string
+		hostHeader  string
 
 		wantErr error
 	}{
@@ -413,7 +414,8 @@ func TestFaultInjectionClientMiddleware(t *testing.T) {
 			name: "abort",
 
 			// NOT_OPEN error code
-			faultHeader: "a=testService.testNamespace;m=testMethod;f=1;b=test fault",
+			faultHeader: "a=testService.testNamespace;h=testHost;m=testMethod;f=1;b=test fault",
+			hostHeader:  "testHost",
 
 			wantErr: thrift.NewTTransportException(1, "test fault"),
 		},
@@ -428,6 +430,12 @@ func TestFaultInjectionClientMiddleware(t *testing.T) {
 		{
 			name:        "service does not match",
 			faultHeader: "a=foo;m=testMethod;f=1;b=test fault",
+
+			wantErr: nil,
+		},
+		{
+			name:        "host does not match",
+			faultHeader: "a=testService.testNamespace;h=foo;m=testMethod;f=1;b=test fault",
 
 			wantErr: nil,
 		},
@@ -472,6 +480,10 @@ func TestFaultInjectionClientMiddleware(t *testing.T) {
 			}
 
 			ctx = headers.SetOnContext(ctx)
+
+			if tt.hostHeader != "" {
+				ctx = thriftbp.AddClientHeader(ctx, thriftbp.HostHeader, tt.hostHeader)
+			}
 
 			mock, _, client := initClients(impl)
 			mock.AddMockCall(

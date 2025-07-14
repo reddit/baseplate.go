@@ -27,6 +27,10 @@ import (
 	"github.com/reddit/baseplate.go/transport"
 )
 
+// HostHeader is the Thrift equivalent of the HTTP1 Host header and HTTP2 :authority pseudo-header.
+// Exposed for tests.
+const HostHeader = "thrift-hostname"
+
 // MonitorClientWrappedSlugSuffix is a suffix to be added to the service slug
 // arg of MonitorClient function, in order to distinguish from the spans that
 // are the raw client calls.
@@ -469,6 +473,11 @@ func (c clientFaultMiddleware) Middleware() thrift.ClientMiddleware {
 					return next.Call(ctx, method, args, result)
 				}
 
+				host := ""
+				if hostHeaderValue, ok := thrift.GetHeader(ctx, HostHeader); ok {
+					host = hostHeaderValue
+				}
+
 				resume := func() (thrift.ResponseMeta, error) {
 					return next.Call(ctx, method, args, result)
 				}
@@ -476,6 +485,7 @@ func (c clientFaultMiddleware) Middleware() thrift.ClientMiddleware {
 				return c.injector.Inject(ctx,
 					faults.InjectParameters[thrift.ResponseMeta]{
 						Address:     c.address,
+						Host:        host,
 						Method:      method,
 						MethodLabel: method,
 						Headers:     &thriftHeaders{},
