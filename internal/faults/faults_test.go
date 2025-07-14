@@ -9,6 +9,7 @@ import (
 
 const (
 	address      = "testService.testNamespace.svc.cluster.local:12345"
+	host         = "testHost"
 	method       = "testMethod"
 	minAbortCode = 0
 	maxAbortCode = 10
@@ -67,6 +68,7 @@ type injectTestCase struct {
 	sleepErr bool
 
 	faultHeader string
+	hostEmpty   bool
 	methodEmpty bool
 
 	wantDelay    time.Duration
@@ -89,13 +91,13 @@ func TestInject(t *testing.T) {
 		},
 		{
 			name:        "delay",
-			faultHeader: "a=testService.testNamespace;m=testMethod;d=1",
+			faultHeader: "a=testService.testNamespace;h=testHost;m=testMethod;d=1",
 
 			wantDelay: 1 * time.Millisecond,
 		},
 		{
 			name:        "abort",
-			faultHeader: "a=testService.testNamespace;m=testMethod;f=1;b=test fault",
+			faultHeader: "a=testService.testNamespace;h=testHost;m=testMethod;f=1;b=test fault",
 
 			wantResponse: &response{
 				code:    1,
@@ -104,7 +106,7 @@ func TestInject(t *testing.T) {
 		},
 		{
 			name:        "abort with multiple header values",
-			faultHeader: "a=fooService.testNamespace;f=2, a=testService.testNamespace;m=testMethod;f=1;b=test fault, a=barService.testNamespace;f=2",
+			faultHeader: "a=fooService.testNamespace;f=2, a=testService.testNamespace;h=testHost;m=testMethod;f=1;b=test fault, a=barService.testNamespace;f=2",
 
 			wantResponse: &response{
 				code:    1,
@@ -113,15 +115,24 @@ func TestInject(t *testing.T) {
 		},
 		{
 			name:        "server address does not match",
-			faultHeader: "a=fooService.testNamespace;m=testMethod;f=1;b=test fault",
+			faultHeader: "a=fooService.testNamespace;h=testHost;m=testMethod;f=1;b=test fault",
+		},
+		{
+			name:        "host does not match",
+			faultHeader: "a=testService.testNamespace;h=fooHost;m=testMethod;f=1;b=test fault",
+		},
+		{
+			name:        "host does not match (empty)",
+			faultHeader: "a=testService.testNamespace;h=testHost;m=testMethod;f=1;b=test fault",
+			hostEmpty:   true,
 		},
 		{
 			name:        "method does not match",
-			faultHeader: "a=testService.testNamespace;m=fooMethod;f=1;b=test fault",
+			faultHeader: "a=testService.testNamespace;h=testHost;m=fooMethod;f=1;b=test fault",
 		},
 		{
 			name:        "method does not match (empty)",
-			faultHeader: "a=testService.testNamespace;m=testMethod;f=1;b=test fault",
+			faultHeader: "a=testService.testNamespace;h=testHost;m=testMethod;f=1;b=test fault",
 			methodEmpty: true,
 		},
 		{
@@ -129,7 +140,7 @@ func TestInject(t *testing.T) {
 			randInt: 99, // Maximum possible integer returned by rand.Intn(100)
 
 			// All requests delayed and aborted.
-			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=100;f=1;b=test fault;F=100",
+			faultHeader: "a=testService.testNamespace;h=testHost;m=testMethod;d=250;D=100;f=1;b=test fault;F=100",
 
 			wantDelay: 250 * time.Millisecond,
 			wantResponse: &response{
@@ -140,7 +151,7 @@ func TestInject(t *testing.T) {
 		{
 			name:        "fence post below percent",
 			randInt:     49,
-			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=50;f=1;b=test fault;F=50",
+			faultHeader: "a=testService.testNamespace;h=testHost;m=testMethod;d=250;D=50;f=1;b=test fault;F=50",
 
 			wantDelay: 250 * time.Millisecond,
 			wantResponse: &response{
@@ -151,7 +162,7 @@ func TestInject(t *testing.T) {
 		{
 			name:        "fence post at percent",
 			randInt:     50,
-			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=50;f=1;b=test fault;F=50",
+			faultHeader: "a=testService.testNamespace;h=testHost;m=testMethod;d=250;D=50;f=1;b=test fault;F=50",
 
 			wantDelay: 0,
 		},
@@ -160,7 +171,7 @@ func TestInject(t *testing.T) {
 			randInt: 0, // Minimum possible integer returned by rand.Intn(100)
 
 			// No requests delayed or aborted.
-			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=0;f=1;b=test fault;F=0",
+			faultHeader: "a=testService.testNamespace;h=testHost;m=testMethod;d=250;D=0;f=1;b=test fault;F=0",
 
 			wantDelay: 0,
 		},
@@ -169,7 +180,7 @@ func TestInject(t *testing.T) {
 			randInt: 50,
 
 			// No requests delayed; all requests aborted.
-			faultHeader: "a=testService.testNamespace;m=testMethod;d=250;D=0;f=1;b=test fault;F=100",
+			faultHeader: "a=testService.testNamespace;h=testHost;m=testMethod;d=250;D=0;f=1;b=test fault;F=100",
 
 			wantDelay: 0,
 			wantResponse: &response{
@@ -186,7 +197,7 @@ func TestInject(t *testing.T) {
 		{
 			name:        "error while sleeping short circuits",
 			sleepErr:    true,
-			faultHeader: "a=testService.testNamespace;m=testMethod;d=1;f=1;b=test fault",
+			faultHeader: "a=testService.testNamespace;h=testHost;m=testMethod;d=1;f=1;b=test fault",
 
 			wantDelay: 0,
 		},
@@ -226,6 +237,11 @@ func TestInject(t *testing.T) {
 				return nil
 			}
 
+			var testHost string
+			if !tc.hostEmpty {
+				testHost = host
+			}
+
 			var testMethod string
 			if !tc.methodEmpty {
 				testMethod = method
@@ -233,6 +249,7 @@ func TestInject(t *testing.T) {
 
 			resp, err := injector.Inject(context.Background(), InjectParameters[*response]{
 				Address: address,
+				Host:    testHost,
 				Method:  testMethod,
 				Headers: &headers,
 				Resume:  resume,

@@ -16,6 +16,10 @@ a = [Required] Server address of outgoing request.
 
 	Used to determine whether the current request should have a fault injected.
 
+h = [Optional] Host/authority header of outgoing request.
+
+	Used to determine whether the current request should have a fault injected. This is most useful when the address is a proxy and the host/authority header represents the true server target.
+
 m = [Optional] Method of outgoing request.
 
 	Used to determine whether the current request should have a fault injected.
@@ -61,6 +65,7 @@ var (
 
 type faultConfiguration struct {
 	ServerAddress   string
+	ServerHost      string
 	ServerMethod    string
 	Delay           time.Duration
 	DelayPercentage int
@@ -83,7 +88,7 @@ func parsePercentage(percentage string) (int, error) {
 	return intPercentage, nil
 }
 
-func parseMatchingFaultHeader(headerValue string, canonicalAddress, method string, abortCodeMin, abortCodeMax int) (*faultConfiguration, error) {
+func parseMatchingFaultHeader(headerValue string, canonicalAddress, host, method string, abortCodeMin, abortCodeMax int) (*faultConfiguration, error) {
 	if headerValue == "" {
 		return nil, nil
 	}
@@ -109,6 +114,11 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 			}
 			addressMatched = true
 			config.ServerAddress = value
+		case "h":
+			if value != host {
+				return nil, nil
+			}
+			config.ServerHost = value
 		case "m":
 			if value != method {
 				return nil, nil
@@ -154,7 +164,7 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 	return nil, nil
 }
 
-func parseMatchingFaultConfiguration(headerValues []string, canonicalAddress, method string, abortCodeMin, abortCodeMax int) (*faultConfiguration, error) {
+func parseMatchingFaultConfiguration(headerValues []string, canonicalAddress, host, method string, abortCodeMin, abortCodeMax int) (*faultConfiguration, error) {
 	var errs []error
 	for _, headerValue := range headerValues {
 		// Additionally split combined values by comma, as per RFC 9110.
@@ -163,7 +173,7 @@ func parseMatchingFaultConfiguration(headerValues []string, canonicalAddress, me
 		for _, splitHeaderValue := range splitHeaderValues {
 			splitHeaderValue = strings.TrimSpace(splitHeaderValue)
 
-			config, err := parseMatchingFaultHeader(splitHeaderValue, canonicalAddress, method, abortCodeMin, abortCodeMax)
+			config, err := parseMatchingFaultHeader(splitHeaderValue, canonicalAddress, host, method, abortCodeMin, abortCodeMax)
 			if err != nil {
 				errs = append(errs, err)
 			} else if config != nil {

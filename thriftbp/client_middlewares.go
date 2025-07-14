@@ -469,6 +469,11 @@ func (c clientFaultMiddleware) Middleware() thrift.ClientMiddleware {
 					return next.Call(ctx, method, args, result)
 				}
 
+				var host string
+				if hostHeaderValue, ok := thrift.GetHeader(ctx, ThriftHostnameHeader); ok {
+					host = hostHeaderValue
+				}
+
 				resume := func() (thrift.ResponseMeta, error) {
 					return next.Call(ctx, method, args, result)
 				}
@@ -476,6 +481,7 @@ func (c clientFaultMiddleware) Middleware() thrift.ClientMiddleware {
 				return c.injector.Inject(ctx,
 					faults.InjectParameters[thrift.ResponseMeta]{
 						Address:     c.address,
+						Host:        host,
 						Method:      method,
 						MethodLabel: method,
 						Headers:     &thriftHeaders{},

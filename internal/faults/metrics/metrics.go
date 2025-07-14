@@ -11,6 +11,7 @@ import (
 const (
 	clientNameLabel    = "fault_client_name"
 	serviceLabel       = "fault_service"
+	hostLabel          = "fault_host"
 	methodLabel        = "fault_method"
 	protocolLabel      = "fault_protocol"
 	statusLabel        = "fault_status"
@@ -52,6 +53,7 @@ var (
 	}, []string{
 		clientNameLabel,
 		serviceLabel,
+		hostLabel,
 		methodLabel,
 		protocolLabel,
 		statusLabel,
