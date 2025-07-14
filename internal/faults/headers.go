@@ -110,7 +110,7 @@ func parseMatchingFaultHeader(headerValue string, canonicalAddress, method strin
 			addressMatched = true
 			config.ServerAddress = value
 		case "m":
-			if method != "" && value != method {
+			if value != method {
 				return nil, nil
 			}
 			config.ServerMethod = value
