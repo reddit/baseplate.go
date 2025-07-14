@@ -121,6 +121,11 @@ func TestParseMatchingFaultHeader(t *testing.T) {
 			method:           "baz",
 		},
 		{
+			name:             "method does not match (empty)",
+			headerValue:      "a=foo;m=bar",
+			canonicalAddress: "foo",
+		},
+		{
 			name:             "invalid delay value",
 			headerValue:      "a=foo;d=NaN",
 			canonicalAddress: "foo",

@@ -67,6 +67,7 @@ type injectTestCase struct {
 	sleepErr bool
 
 	faultHeader string
+	methodEmpty bool
 
 	wantDelay    time.Duration
 	wantResponse *response
@@ -117,6 +118,11 @@ func TestInject(t *testing.T) {
 		{
 			name:        "method does not match",
 			faultHeader: "a=testService.testNamespace;m=fooMethod;f=1;b=test fault",
+		},
+		{
+			name:        "method does not match (empty)",
+			faultHeader: "a=testService.testNamespace;m=testMethod;f=1;b=test fault",
+			methodEmpty: true,
 		},
 		{
 			name:    "guaranteed percent",
@@ -220,9 +226,14 @@ func TestInject(t *testing.T) {
 				return nil
 			}
 
+			var testMethod string
+			if !tc.methodEmpty {
+				testMethod = method
+			}
+
 			resp, err := injector.Inject(context.Background(), InjectParameters[*response]{
 				Address: address,
-				Method:  method,
+				Method:  testMethod,
 				Headers: &headers,
 				Resume:  resume,
 			})
