@@ -482,7 +482,7 @@ func TestFaultInjectionClientMiddleware(t *testing.T) {
 			ctx = headers.SetOnContext(ctx)
 
 			if tt.hostHeader != "" {
-				ctx = thriftbp.AddClientHeader(ctx, thriftbp.HostHeader, tt.hostHeader)
+				ctx = thriftbp.AddClientHeader(ctx, thriftbp.ThriftHostnameHeader, tt.hostHeader)
 			}
 
 			mock, _, client := initClients(impl)
