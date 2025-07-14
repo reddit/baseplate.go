@@ -286,9 +286,8 @@ func TestParsingFaultConfiguration(t *testing.T) {
 		},
 	}
 
-	testHost := ""
-	testMethod := ""
-	testAbortCodeMin, testAbortCodeMax := 0, 0
+	var testHost, testMethod string
+	var testAbortCodeMin, testAbortCodeMax int
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
