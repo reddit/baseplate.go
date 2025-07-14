@@ -469,7 +469,7 @@ func (c clientFaultMiddleware) Middleware() thrift.ClientMiddleware {
 					return next.Call(ctx, method, args, result)
 				}
 
-				host := ""
+				var host string
 				if hostHeaderValue, ok := thrift.GetHeader(ctx, ThriftHostnameHeader); ok {
 					host = hostHeaderValue
 				}
