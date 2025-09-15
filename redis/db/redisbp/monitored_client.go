@@ -1,3 +1,9 @@
+// Package redisbp creates baseplate monitored Redis clients with go-redis/v8.
+// It supports only Redis <= 6.
+//
+// Deprecated: redisbp only supports only Redis 6. Use reddit-go/redisbp
+// to support Redis 6+ clients. This package will not be supported in the
+// future.
 package redisbp
 
 import (
