@@ -10,6 +10,8 @@ import (
 )
 
 // Configuration values for the message queue.
+//
+// Deprecated: This package is in maintenance mode. Use alternative event publishing solutions.
 const (
 	// Max size in bytes for a single, serialized event.
 	MaxEventSize = 102400
@@ -27,6 +29,8 @@ const (
 var serializerPool = thrift.NewTSerializerPoolSizeFactory(MaxEventSize, thrift.NewTJSONProtocolFactory())
 
 // A Queue is an event queue.
+//
+// Deprecated: This package is in maintenance mode. Use alternative event publishing solutions.
 type Queue struct {
 	queue      mqsend.MessageQueue
 	maxTimeout time.Duration
@@ -35,6 +39,8 @@ type Queue struct {
 // The Config used to initialize an event queue.
 //
 // Can be deserialized from YAML.
+//
+// Deprecated: This package is in maintenance mode. Use alternative event publishing solutions.
 type Config struct {
 	// The name of the message queue, should not contain the "events-" prefix.
 	//
@@ -59,11 +65,15 @@ type Config struct {
 }
 
 // V2 initializes a new v2 event queue with default configurations.
+//
+// Deprecated: This package is in maintenance mode. Use alternative event publishing solutions.
 func V2() (*Queue, error) {
 	return V2WithConfig(Config{})
 }
 
 // V2WithConfig initializes a new v2 event queue.
+//
+// Deprecated: This package is in maintenance mode. Use alternative event publishing solutions.
 func V2WithConfig(cfg Config) (*Queue, error) {
 	name := cfg.Name
 	if name == "" {
@@ -93,11 +103,15 @@ func v2WithConfig(cfg Config, queue mqsend.MessageQueue) *Queue {
 // Close closes the event queue.
 //
 // After Close is called, all Put calls will return errors.
+//
+// Deprecated: This package is in maintenance mode. Use alternative event publishing solutions.
 func (q *Queue) Close() error {
 	return q.queue.Close()
 }
 
 // Put serializes and puts an event into the event queue.
+//
+// Deprecated: This package is in maintenance mode. Use alternative event publishing solutions.
 func (q *Queue) Put(ctx context.Context, event thrift.TStruct) error {
 	ctx, cancel := context.WithTimeout(ctx, q.maxTimeout)
 	defer cancel()
@@ -115,6 +129,8 @@ func (q *Queue) Put(ctx context.Context, event thrift.TStruct) error {
 // In most cases you should use Put instead.
 // This is only provided for some special cases like experiments-v2 custom
 // exposers.
+//
+// Deprecated: This package is in maintenance mode. Use alternative event publishing solutions.
 func (q *Queue) PutRaw(ctx context.Context, rawEvent []byte) error {
 	ctx, cancel := context.WithTimeout(ctx, q.maxTimeout)
 	defer cancel()
