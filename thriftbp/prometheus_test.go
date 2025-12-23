@@ -111,6 +111,72 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 	}
 }
 
+func TestReportPayloadSizeMetrics(t *testing.T) {
+	testCases := []struct {
+		name    string
+		wantErr thrift.TException
+		wantOK  bool
+	}{
+		{
+			name:    "success",
+			wantErr: nil,
+			wantOK:  true,
+		},
+		{
+			name:    "error",
+			wantErr: thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "unknown err msg"),
+			wantOK:  false,
+		},
+	}
+
+	const method = "testmethod"
+	const serverName = "testserver"
+	const proto = "header-binary"
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			serverPayloadSizeRequestBytes.Reset()
+			serverPayloadSizeResponseBytes.Reset()
+
+			payloadLabels := prometheus.Labels{
+				serverNameLabel: serverName,
+				methodLabel:     method,
+				protoLabel:      proto,
+			}
+
+			defer promtest.NewPrometheusMetricTest(t, "request payload", serverPayloadSizeRequestBytes, payloadLabels).CheckSampleCountDelta(1)
+			defer promtest.NewPrometheusMetricTest(t, "response payload", serverPayloadSizeResponseBytes, payloadLabels).CheckSampleCountDelta(1)
+
+			next := thrift.WrappedTProcessorFunction{
+				Wrapped: func(ctx context.Context, seqId int32, in, out thrift.TProtocol) (bool, thrift.TException) {
+					return tt.wantOK, tt.wantErr
+				},
+			}
+
+			// Create THeader transport and protocol to trigger payload size tracking
+			cfg := &thrift.TConfiguration{}
+			transport := thrift.NewTMemoryBuffer()
+			headerTransport := thrift.NewTHeaderTransportConf(transport, cfg)
+			headerProtocol := thrift.NewTHeaderProtocolConf(headerTransport, cfg)
+
+			middleware := ReportPayloadSizeMetricsWithArgs(ReportPayloadSizeMetricsArgs{
+				ServerName: serverName,
+				SampleRate: 0,
+			})
+
+			wrapped := middleware(method, next)
+			gotOK, gotErr := wrapped.Process(context.Background(), 1, headerProtocol, headerProtocol)
+
+			if gotOK != tt.wantOK {
+				t.Errorf("wanted %v, got %v", tt.wantOK, gotOK)
+			}
+			if gotErr != tt.wantErr {
+				t.Errorf("wanted %v, got %v", tt.wantErr, gotErr)
+			}
+		})
+	}
+}
+
 // PromClientMetricsTest keeps track of the Thrift client Prometheus metrics
 // during testing.
 type PromClientMetricsTest struct {
