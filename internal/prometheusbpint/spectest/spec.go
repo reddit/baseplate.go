@@ -180,7 +180,6 @@ func buildLabels(name, prefix, clientOrServer string) map[string]struct{} {
 //
 // active_requests metrics expect the following labels:
 //   - "method"
-
 func thriftSpecificLabels(name string) []string {
 
 	labelSuffixes := []string{"method"}
