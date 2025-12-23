@@ -163,6 +163,10 @@ func buildLabels(name, prefix, clientOrServer string) map[string]struct{} {
 }
 
 // thriftSpecificLabels returns the following labels:
+//
+// All serverside metrics expect the following labels:
+//   - "server_name" (server only)
+//
 // latency_seconds metrics expect the following labels:
 //   - "method"
 //   - "success"
@@ -176,8 +180,14 @@ func buildLabels(name, prefix, clientOrServer string) map[string]struct{} {
 //
 // active_requests metrics expect the following labels:
 //   - "method"
+
 func thriftSpecificLabels(name string) []string {
+
 	labelSuffixes := []string{"method"}
+	if strings.Contains(name, "_server_") {
+		labelSuffixes = []string{"server_name", "method"}
+	}
+
 	switch {
 	case strings.HasSuffix(name, "_latency_seconds"):
 		labelSuffixes = append(labelSuffixes, "success")
@@ -188,6 +198,7 @@ func thriftSpecificLabels(name string) []string {
 	default:
 		return nil
 	}
+
 	return labelSuffixes
 }
 
@@ -216,7 +227,7 @@ func grpcSpecificLabels(name string) []string {
 	case strings.HasSuffix(name, "_requests_total"):
 		labelSuffixes = append(labelSuffixes, "success", "code")
 	case strings.HasSuffix(name, "_active_requests"):
-		// no op
+		return labelSuffixes
 	default:
 		return nil
 	}
