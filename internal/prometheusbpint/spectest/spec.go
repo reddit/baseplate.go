@@ -226,7 +226,7 @@ func grpcSpecificLabels(name string) []string {
 	case strings.HasSuffix(name, "_requests_total"):
 		labelSuffixes = append(labelSuffixes, "success", "code")
 	case strings.HasSuffix(name, "_active_requests"):
-		return labelSuffixes
+		// no op
 	default:
 		return nil
 	}
