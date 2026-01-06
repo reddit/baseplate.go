@@ -63,6 +63,12 @@ type DefaultProcessorMiddlewaresArgs struct {
 	// runtime. So we rely on sourcing the service name used in the schema by
 	// passing an un-instrumented TProcessor to GetThriftServiceName.
 	ServiceName string
+
+	// Use v0 suffixed versions of our metrics
+	//
+	// These metrics are decoupled from v2 metrics, in that they don't need to match labelings.
+	// This enables us to augment our metrics with v2 incompatible changes
+	UseV0Metrics bool
 }
 
 // BaseplateDefaultProcessorMiddlewares returns the default processor
@@ -86,8 +92,8 @@ func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) 
 		ExtractDeadlineBudget,
 		InjectServerSpanWithArgs(MonitorServerArgs{ServiceSlug: args.ServiceName}),
 		InjectEdgeContext(args.EdgeContextImpl),
-		ReportPayloadSizeMetricsWithArgs(ReportPayloadSizeMetricsArgs{ServerName: args.ServiceName, SampleRate: 0}),
-		PrometheusServerMiddlewareWithArgs(PrometheusServerMiddlewareArgs{ServerName: args.ServiceName}),
+		ReportPayloadSizeMetricsWithArgs(ReportPayloadSizeMetricsArgs{ServerName: args.ServiceName, SampleRate: 0, UseV0Metrics: args.UseV0Metrics}),
+		PrometheusServerMiddlewareWithArgs(PrometheusServerMiddlewareArgs{ServerName: args.ServiceName, UseV0Metrics: args.UseV0Metrics}),
 		ServerBaseplateHeadersMiddleware(),
 	}
 }
