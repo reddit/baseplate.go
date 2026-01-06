@@ -312,6 +312,10 @@ type ReportPayloadSizeMetricsArgs struct {
 // The prometheus histograms are:
 //   - thriftbp_server_request_payload_size_bytes
 //   - thriftbp_server_response_payload_size_bytes
+//
+// With labels: thrift_method, thrift_proto
+//
+// When UseV0Metrics is true, emits *_v0 suffixed metrics with an additional thrift_server_name label.
 func ReportPayloadSizeMetricsWithArgs(args ReportPayloadSizeMetricsArgs) thrift.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
@@ -465,7 +469,6 @@ type PrometheusServerMiddlewareArgs struct {
 //
 // * thrift_server_active_requests gauge with labels:
 //
-//   - thrift_server_name: the name of the thrift server
 //   - thrift_method: the method of the endpoint called
 //
 // * thrift_server_latency_seconds histogram with labels above plus:
@@ -480,6 +483,8 @@ type PrometheusServerMiddlewareArgs struct {
 //     as a string if present (e.g. 404), or the empty string
 //   - thrift_baseplate_status_code: the human-readable status code, e.g.
 //     NOT_FOUND, or the empty string
+//
+// When UseV0Metrics is true, emits *_v0 suffixed metrics with an additional thrift_server_name label.
 func PrometheusServerMiddlewareWithArgs(args PrometheusServerMiddlewareArgs) thrift.ProcessorMiddleware {
 	return func(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
