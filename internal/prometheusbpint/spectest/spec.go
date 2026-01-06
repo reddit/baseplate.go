@@ -164,8 +164,8 @@ func buildLabels(name, prefix, clientOrServer string) map[string]struct{} {
 
 // thriftSpecificLabels returns the following labels:
 //
-// All serverside metrics expect the following labels:
-//   - "server_name" (server only)
+// All serverside v0 metrics expect the following labels:
+//   - "server_name" (v0 server only)
 //
 // latency_seconds metrics expect the following labels:
 //   - "method"
