@@ -183,16 +183,16 @@ func buildLabels(name, prefix, clientOrServer string) map[string]struct{} {
 func thriftSpecificLabels(name string) []string {
 
 	labelSuffixes := []string{"method"}
-	if strings.Contains(name, "_server_") {
-		labelSuffixes = []string{"server_name", "method"}
+	if strings.HasSuffix(name, "v0") {
+		labelSuffixes = append(labelSuffixes, "server_name")
 	}
 
 	switch {
-	case strings.HasSuffix(name, "_latency_seconds"):
+	case strings.Contains(name, "_latency_seconds"):
 		labelSuffixes = append(labelSuffixes, "success")
-	case strings.HasSuffix(name, "_requests_total"):
+	case strings.Contains(name, "_requests_total"):
 		labelSuffixes = append(labelSuffixes, "success", "exception_type", "baseplate_status", "baseplate_status_code")
-	case strings.HasSuffix(name, "_active_requests"):
+	case strings.Contains(name, "_active_requests"):
 		// no op
 	default:
 		return nil

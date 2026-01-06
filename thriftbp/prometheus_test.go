@@ -70,18 +70,15 @@ func TestPrometheusServerMiddleware(t *testing.T) {
 			success := prometheusbp.BoolString(tt.wantErr == nil)
 
 			activeRequestLabels := prometheus.Labels{
-				serverNameLabel: serverName,
-				methodLabel:     method,
+				methodLabel: method,
 			}
 
 			latencyLabels := prometheus.Labels{
-				serverNameLabel: serverName,
-				methodLabel:     method,
-				successLabel:    success,
+				methodLabel:  method,
+				successLabel: success,
 			}
 
 			totalRequestLabels := prometheus.Labels{
-				serverNameLabel:          serverName,
 				methodLabel:              method,
 				successLabel:             success,
 				exceptionLabel:           exceptionType,
@@ -139,9 +136,8 @@ func TestReportPayloadSizeMetrics(t *testing.T) {
 			serverPayloadSizeResponseBytes.Reset()
 
 			payloadLabels := prometheus.Labels{
-				serverNameLabel: serverName,
-				methodLabel:     method,
-				protoLabel:      proto,
+				methodLabel: method,
+				protoLabel:  proto,
 			}
 
 			defer promtest.NewPrometheusMetricTest(t, "request payload", serverPayloadSizeRequestBytes, payloadLabels).CheckSampleCountDelta(1)

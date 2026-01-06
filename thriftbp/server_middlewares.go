@@ -279,8 +279,9 @@ func ReportPayloadSizeMetrics(sampleRate float64) thrift.ProcessorMiddleware {
 
 // ReportPayloadSizeMetricsArgs are the arguments for ReportPayloadSizeMetricsWithArgs.
 type ReportPayloadSizeMetricsArgs struct {
-	ServerName string
-	SampleRate float64
+	ServerName   string
+	SampleRate   float64
+	UseV0Metrics bool
 }
 
 // ReportPayloadSizeMetricsWithArgs returns a ProcessorMiddleware that reports metrics
@@ -337,12 +338,17 @@ func ReportPayloadSizeMetricsWithArgs(args ReportPayloadSizeMetricsArgs) thrift.
 
 						proto := "header-" + tHeaderProtocol2String(protoID)
 						labels := prometheus.Labels{
-							serverNameLabel: args.ServerName,
-							methodLabel:     name,
-							protoLabel:      proto,
+							methodLabel: name,
+							protoLabel:  proto,
 						}
-						serverPayloadSizeRequestBytes.With(labels).Observe(isize)
-						serverPayloadSizeResponseBytes.With(labels).Observe(osize)
+						if args.UseV0Metrics {
+							labels[serverNameLabel] = args.ServerName
+							serverPayloadSizeRequestBytesV0.With(labels).Observe(isize)
+							serverPayloadSizeResponseBytesV0.With(labels).Observe(osize)
+						} else {
+							serverPayloadSizeRequestBytes.With(labels).Observe(isize)
+							serverPayloadSizeResponseBytes.With(labels).Observe(osize)
+						}
 					}()
 				}
 
@@ -442,7 +448,8 @@ func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) t
 
 // PrometheusServerMiddlewareArgs are the arguments for PrometheusServerMiddlewareWithArgs.
 type PrometheusServerMiddlewareArgs struct {
-	ServerName string
+	ServerName   string
+	UseV0Metrics bool
 }
 
 // PrometheusServerMiddlewareWithArgs returns middleware to track Prometheus metrics
@@ -471,45 +478,85 @@ func PrometheusServerMiddlewareWithArgs(args PrometheusServerMiddlewareArgs) thr
 	return func(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
 			start := time.Now()
-			activeRequestLabels := prometheus.Labels{
-				serverNameLabel: args.ServerName,
-				methodLabel:     method,
-			}
-			serverActiveRequests.With(activeRequestLabels).Inc()
 
-			defer func() {
-				var baseplateStatusCode, baseplateStatus string
-				exceptionTypeLabel := stringifyErrorType(err)
-				success := prometheusbp.BoolString(err == nil)
-				if err != nil {
-					var bpErr baseplateErrorCoder
-					if errors.As(err, &bpErr) {
-						code := bpErr.GetCode()
-						baseplateStatusCode = strconv.FormatInt(int64(code), 10)
-						if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
-							baseplateStatus = status
-						}
-					}
-				}
-
-				latencyLabels := prometheus.Labels{
+			if args.UseV0Metrics {
+				activeRequestLabels := prometheus.Labels{
 					serverNameLabel: args.ServerName,
 					methodLabel:     method,
-					successLabel:    success,
 				}
-				serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+				serverActiveRequestsV0.With(activeRequestLabels).Inc()
 
-				totalRequestLabels := prometheus.Labels{
-					serverNameLabel:          args.ServerName,
-					methodLabel:              method,
-					successLabel:             success,
-					exceptionLabel:           exceptionTypeLabel,
-					baseplateStatusLabel:     baseplateStatus,
-					baseplateStatusCodeLabel: baseplateStatusCode,
+				defer func() {
+					var baseplateStatusCode, baseplateStatus string
+					exceptionTypeLabel := stringifyErrorType(err)
+					success := prometheusbp.BoolString(err == nil)
+					if err != nil {
+						var bpErr baseplateErrorCoder
+						if errors.As(err, &bpErr) {
+							code := bpErr.GetCode()
+							baseplateStatusCode = strconv.FormatInt(int64(code), 10)
+							if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
+								baseplateStatus = status
+							}
+						}
+					}
+
+					latencyLabels := prometheus.Labels{
+						serverNameLabel: args.ServerName,
+						methodLabel:     method,
+						successLabel:    success,
+					}
+					serverLatencyDistributionV0.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+					totalRequestLabels := prometheus.Labels{
+						serverNameLabel:          args.ServerName,
+						methodLabel:              method,
+						successLabel:             success,
+						exceptionLabel:           exceptionTypeLabel,
+						baseplateStatusLabel:     baseplateStatus,
+						baseplateStatusCodeLabel: baseplateStatusCode,
+					}
+					serverTotalRequestsV0.With(totalRequestLabels).Inc()
+					serverActiveRequestsV0.With(activeRequestLabels).Dec()
+				}()
+			} else {
+				activeRequestLabels := prometheus.Labels{
+					methodLabel: method,
 				}
-				serverTotalRequests.With(totalRequestLabels).Inc()
-				serverActiveRequests.With(activeRequestLabels).Dec()
-			}()
+				serverActiveRequests.With(activeRequestLabels).Inc()
+
+				defer func() {
+					var baseplateStatusCode, baseplateStatus string
+					exceptionTypeLabel := stringifyErrorType(err)
+					success := prometheusbp.BoolString(err == nil)
+					if err != nil {
+						var bpErr baseplateErrorCoder
+						if errors.As(err, &bpErr) {
+							code := bpErr.GetCode()
+							baseplateStatusCode = strconv.FormatInt(int64(code), 10)
+							if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
+								baseplateStatus = status
+							}
+						}
+					}
+
+					latencyLabels := prometheus.Labels{
+						methodLabel:  method,
+						successLabel: success,
+					}
+					serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+					totalRequestLabels := prometheus.Labels{
+						methodLabel:              method,
+						successLabel:             success,
+						exceptionLabel:           exceptionTypeLabel,
+						baseplateStatusLabel:     baseplateStatus,
+						baseplateStatusCodeLabel: baseplateStatusCode,
+					}
+					serverTotalRequests.With(totalRequestLabels).Inc()
+					serverActiveRequests.With(activeRequestLabels).Dec()
+				}()
+			}
 
 			return next.Process(ctx, seqID, in, out)
 		}
