@@ -598,7 +598,7 @@ func newClient(
 			TTransport: raw,
 		}
 		if err := transport.Open(); err != nil {
-			return nil, nil, fmt.Errorf("thriftbp: error opening TSocket for new Thrift client: %w", err)
+			return nil, nil, fmt.Errorf("thriftbp: error opening TSocket to %q for new Thrift client: %w", addr, err)
 		}
 
 		return thrift.NewTStandardClient(

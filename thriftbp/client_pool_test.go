@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -300,6 +301,75 @@ func TestInitialConnectionsFallback(t *testing.T) {
 					t.Errorf("Expected no error, got: %v", err)
 				}
 			}
+		})
+	}
+}
+func TestClientPool_ConnectionError(t *testing.T) {
+	type testCase struct {
+		name        string
+		cfg         thriftbp.ClientPoolConfig
+		wantDialErr bool
+	}
+
+	run := func(t *testing.T, tc testCase) {
+		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+		t.Cleanup(cancel)
+
+		target := "target-does-not-exist:9090"
+
+		tc.cfg.ServiceSlug = "test-client"
+		tc.cfg.Addr = target
+		tc.cfg.ConnectTimeout = 50 * time.Millisecond
+		tc.cfg.SocketTimeout = 50 * time.Millisecond
+		pool, err := thriftbp.NewBaseplateClientPoolWithContext(ctx, tc.cfg)
+		if tc.wantDialErr {
+			if err == nil { // if not error
+				t.Fatalf("DialReddit: got %v, want an error", err)
+			}
+			if !strings.Contains(err.Error(), target) {
+				t.Errorf("DialReddit error: got %v, wanted error to contain %v", err, target)
+			}
+			return
+		}
+		if err != nil {
+			t.Fatalf("DialReddit: got %v, want no error", err)
+		}
+		t.Cleanup(func() {
+			pool.Close()
+		})
+
+		// otherwise we want a request error
+		client := baseplatethrift.NewBaseplateServiceV2Client(pool.TClient())
+		_, err = client.IsHealthy(ctx, &baseplatethrift.IsHealthyRequest{})
+		if err == nil { // if not error
+			t.Fatalf("Request: got %v, want an error", err)
+		}
+		if !strings.Contains(err.Error(), target) {
+			t.Errorf("Request error: got %v, wanted error to contain %v", err, target)
+		}
+	}
+
+	for _, tc := range []testCase{
+		{
+			name: "default",
+			cfg: thriftbp.ClientPoolConfig{
+				RequiredInitialConnections: 1,
+				InitialConnections:         1,
+				MaxConnections:             2,
+			},
+			wantDialErr: true,
+		},
+		{
+			name: "no required initial connections",
+			cfg: thriftbp.ClientPoolConfig{
+				RequiredInitialConnections: 0,
+				MaxConnections:             2,
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			run(t, tc)
 		})
 	}
 }
