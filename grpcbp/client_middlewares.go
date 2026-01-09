@@ -3,11 +3,15 @@ package grpcbp
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/reddit/baseplate.go/ecinterface"
@@ -190,5 +194,49 @@ func PrometheusStreamClientInterceptor(serverSlug string) grpc.StreamClientInter
 		opts ...grpc.CallOption,
 	) (_ grpc.ClientStream, err error) {
 		return nil, errors.New("PrometheusStreamClientInterceptor: not implemented")
+	}
+}
+
+// WithDefaultBlock returns a DialOption which makes callers of Dial block until the
+// underlying connection is up. Without this, Dial returns immediately and
+// connecting the server happens in background.
+//
+// If the REDDIT_RPC_CONNECTION_MODE=non-blocking env var is set the connection will
+// not block (keeping the default behavior). In non-blocking mode additional interceptors are
+// added to improve connection error messages and to set [grpc.WaitForReady] on all RPC calls.
+func WithDefaultBlock() grpc.DialOption {
+	if strings.EqualFold(os.Getenv("REDDIT_RPC_CONNECTION_MODE"), "non-blocking") {
+		return grpc.WithChainUnaryInterceptor(
+			connectionErrorInterceptor(),
+			waitForReadyInterceptor(),
+		)
+	} else {
+		return grpc.WithBlock()
+	}
+}
+
+// connectionErrorInterceptor adds additional context to connection errors.
+func connectionErrorInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		err := invoker(ctx, method, req, reply, cc, opts...)
+		if err == nil { // if no error
+			return nil
+		}
+
+		state := cc.GetState()
+		target := cc.Target()
+		switch status.Code(err) {
+		case codes.DeadlineExceeded, codes.Unavailable:
+			return fmt.Errorf("%w: Dial(%q) connection_state = %v", err, target, state)
+		}
+		return err
+	}
+}
+
+// waitForReadyInterceptor sets grpc.WaitForReady(true) on all calls.
+func waitForReadyInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		opts = append(opts, grpc.WaitForReady(true))
+		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }

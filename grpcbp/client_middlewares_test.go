@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -169,4 +170,36 @@ func drainRecorder(t *testing.T, recorder *mqsend.MockMessageQueue) []byte {
 		t.Fatalf("draining recorder: %v", err)
 	}
 	return msg
+}
+
+func TestDial_WithDefaultBlock_NonBlocking(t *testing.T) {
+	ctx := t.Context()
+	timeout := 100 * time.Millisecond
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	t.Cleanup(cancel)
+
+	t.Setenv("REDDIT_RPC_CONNECTION_MODE", "non-blocking")
+
+	start := time.Now()
+	target := "target-foo:9091"
+	conn, err := grpc.DialContext(ctx, target,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		WithDefaultBlock(),
+	)
+	if err != nil {
+		t.Fatalf("DialReddit: unexpected error %s", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewTestServiceClient(conn)
+	_, err = client.Ping(ctx, &pb.PingRequest{Value: "hello"})
+	if err == nil {
+		t.Fatalf("Request should have failed")
+	}
+	if !strings.Contains(err.Error(), target) {
+		t.Errorf("Request error: got=%v, wanted error to contain %v", err, target)
+	}
+	if elapsed := time.Since(start); elapsed < timeout {
+		t.Errorf("Request did not wait for connection to be ready, took %v with timeout %v", elapsed, timeout)
+	}
 }
