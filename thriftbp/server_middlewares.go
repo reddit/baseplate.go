@@ -63,6 +63,12 @@ type DefaultProcessorMiddlewaresArgs struct {
 	// runtime. So we rely on sourcing the service name used in the schema by
 	// passing an un-instrumented TProcessor to GetThriftServiceName.
 	ServiceName string
+
+	// Use v0 suffixed versions of our metrics
+	//
+	// These metrics are decoupled from v2 metrics, in that they don't need to match labelings.
+	// This enables us to augment our metrics with v2 incompatible changes
+	UseV0Metrics bool
 }
 
 // BaseplateDefaultProcessorMiddlewares returns the default processor
@@ -86,8 +92,8 @@ func BaseplateDefaultProcessorMiddlewares(args DefaultProcessorMiddlewaresArgs) 
 		ExtractDeadlineBudget,
 		InjectServerSpanWithArgs(MonitorServerArgs{ServiceSlug: args.ServiceName}),
 		InjectEdgeContext(args.EdgeContextImpl),
-		ReportPayloadSizeMetrics(0),
-		PrometheusServerMiddleware,
+		ReportPayloadSizeMetricsWithArgs(ReportPayloadSizeMetricsArgs{ServerName: args.ServiceName, SampleRate: 0, UseV0Metrics: args.UseV0Metrics}),
+		PrometheusServerMiddlewareWithArgs(PrometheusServerMiddlewareArgs{ServerName: args.ServiceName, UseV0Metrics: args.UseV0Metrics}),
 		ServerBaseplateHeadersMiddleware(),
 	}
 }
@@ -269,6 +275,24 @@ func AbandonCanceledRequests(name string, next thrift.TProcessorFunction) thrift
 // ReportPayloadSizeMetrics returns a ProcessorMiddleware that reports metrics
 // (histograms) of request and response payload sizes in bytes.
 //
+// Deprecated: Use ReportPayloadSizeMetricsWithArgs instead.
+func ReportPayloadSizeMetrics(sampleRate float64) thrift.ProcessorMiddleware {
+	return ReportPayloadSizeMetricsWithArgs(ReportPayloadSizeMetricsArgs{
+		ServerName: "unknown",
+		SampleRate: sampleRate,
+	})
+}
+
+// ReportPayloadSizeMetricsArgs are the arguments for ReportPayloadSizeMetricsWithArgs.
+type ReportPayloadSizeMetricsArgs struct {
+	ServerName   string
+	SampleRate   float64
+	UseV0Metrics bool
+}
+
+// ReportPayloadSizeMetricsWithArgs returns a ProcessorMiddleware that reports metrics
+// (histograms) of request and response payload sizes in bytes.
+//
 // This middleware only works on sampled requests with the given sample rate,
 // but the histograms it reports are overriding global histogram sample rate
 // with 100% sample, to avoid double sampling.
@@ -288,7 +312,11 @@ func AbandonCanceledRequests(name string, next thrift.TProcessorFunction) thrift
 // The prometheus histograms are:
 //   - thriftbp_server_request_payload_size_bytes
 //   - thriftbp_server_response_payload_size_bytes
-func ReportPayloadSizeMetrics(_ float64) thrift.ProcessorMiddleware {
+//
+// With labels: thrift_method, thrift_proto
+//
+// When UseV0Metrics is true, emits *_v0 suffixed metrics with an additional thrift_server_name label.
+func ReportPayloadSizeMetricsWithArgs(args ReportPayloadSizeMetricsArgs) thrift.ProcessorMiddleware {
 	return func(name string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
 		return thrift.WrappedTProcessorFunction{
 			Wrapped: func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (bool, thrift.TException) {
@@ -323,8 +351,14 @@ func ReportPayloadSizeMetrics(_ float64) thrift.ProcessorMiddleware {
 							methodLabel: name,
 							protoLabel:  proto,
 						}
-						serverPayloadSizeRequestBytes.With(labels).Observe(isize)
-						serverPayloadSizeResponseBytes.With(labels).Observe(osize)
+						if args.UseV0Metrics {
+							labels[serverNameLabel] = args.ServerName
+							serverPayloadSizeRequestBytesV0.With(labels).Observe(isize)
+							serverPayloadSizeResponseBytesV0.With(labels).Observe(osize)
+						} else {
+							serverPayloadSizeRequestBytes.With(labels).Observe(isize)
+							serverPayloadSizeResponseBytes.With(labels).Observe(osize)
+						}
 					}()
 				}
 
@@ -417,6 +451,20 @@ func recoverPanik(name string, next thrift.TProcessorFunction) thrift.TProcessor
 // PrometheusServerMiddleware returns middleware to track Prometheus metrics
 // specific to the Thrift service.
 //
+// Deprecated: Use PrometheusServerMiddlewareWithArgs instead.
+func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+	return PrometheusServerMiddlewareWithArgs(PrometheusServerMiddlewareArgs{ServerName: "unknown"})(method, next)
+}
+
+// PrometheusServerMiddlewareArgs are the arguments for PrometheusServerMiddlewareWithArgs.
+type PrometheusServerMiddlewareArgs struct {
+	ServerName   string
+	UseV0Metrics bool
+}
+
+// PrometheusServerMiddlewareWithArgs returns middleware to track Prometheus metrics
+// specific to the Thrift service.
+//
 // It emits the following prometheus metrics:
 //
 // * thrift_server_active_requests gauge with labels:
@@ -435,49 +483,96 @@ func recoverPanik(name string, next thrift.TProcessorFunction) thrift.TProcessor
 //     as a string if present (e.g. 404), or the empty string
 //   - thrift_baseplate_status_code: the human-readable status code, e.g.
 //     NOT_FOUND, or the empty string
-func PrometheusServerMiddleware(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
-	process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
-		start := time.Now()
-		activeRequestLabels := prometheus.Labels{
-			methodLabel: method,
-		}
-		serverActiveRequests.With(activeRequestLabels).Inc()
+//
+// When UseV0Metrics is true, emits *_v0 suffixed metrics with an additional thrift_server_name label.
+func PrometheusServerMiddlewareWithArgs(args PrometheusServerMiddlewareArgs) thrift.ProcessorMiddleware {
+	return func(method string, next thrift.TProcessorFunction) thrift.TProcessorFunction {
+		process := func(ctx context.Context, seqID int32, in, out thrift.TProtocol) (success bool, err thrift.TException) {
+			start := time.Now()
 
-		defer func() {
-			var baseplateStatusCode, baseplateStatus string
-			exceptionTypeLabel := stringifyErrorType(err)
-			success := prometheusbp.BoolString(err == nil)
-			if err != nil {
-				var bpErr baseplateErrorCoder
-				if errors.As(err, &bpErr) {
-					code := bpErr.GetCode()
-					baseplateStatusCode = strconv.FormatInt(int64(code), 10)
-					if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
-						baseplateStatus = status
-					}
+			if args.UseV0Metrics {
+				activeRequestLabels := prometheus.Labels{
+					serverNameLabel: args.ServerName,
+					methodLabel:     method,
 				}
+				serverActiveRequestsV0.With(activeRequestLabels).Inc()
+
+				defer func() {
+					var baseplateStatusCode, baseplateStatus string
+					exceptionTypeLabel := stringifyErrorType(err)
+					success := prometheusbp.BoolString(err == nil)
+					if err != nil {
+						var bpErr baseplateErrorCoder
+						if errors.As(err, &bpErr) {
+							code := bpErr.GetCode()
+							baseplateStatusCode = strconv.FormatInt(int64(code), 10)
+							if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
+								baseplateStatus = status
+							}
+						}
+					}
+
+					latencyLabels := prometheus.Labels{
+						serverNameLabel: args.ServerName,
+						methodLabel:     method,
+						successLabel:    success,
+					}
+					serverLatencyDistributionV0.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+					totalRequestLabels := prometheus.Labels{
+						serverNameLabel:          args.ServerName,
+						methodLabel:              method,
+						successLabel:             success,
+						exceptionLabel:           exceptionTypeLabel,
+						baseplateStatusLabel:     baseplateStatus,
+						baseplateStatusCodeLabel: baseplateStatusCode,
+					}
+					serverTotalRequestsV0.With(totalRequestLabels).Inc()
+					serverActiveRequestsV0.With(activeRequestLabels).Dec()
+				}()
+			} else {
+				activeRequestLabels := prometheus.Labels{
+					methodLabel: method,
+				}
+				serverActiveRequests.With(activeRequestLabels).Inc()
+
+				defer func() {
+					var baseplateStatusCode, baseplateStatus string
+					exceptionTypeLabel := stringifyErrorType(err)
+					success := prometheusbp.BoolString(err == nil)
+					if err != nil {
+						var bpErr baseplateErrorCoder
+						if errors.As(err, &bpErr) {
+							code := bpErr.GetCode()
+							baseplateStatusCode = strconv.FormatInt(int64(code), 10)
+							if status := baseplate.ErrorCode(code).String(); status != "<UNSET>" {
+								baseplateStatus = status
+							}
+						}
+					}
+
+					latencyLabels := prometheus.Labels{
+						methodLabel:  method,
+						successLabel: success,
+					}
+					serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
+
+					totalRequestLabels := prometheus.Labels{
+						methodLabel:              method,
+						successLabel:             success,
+						exceptionLabel:           exceptionTypeLabel,
+						baseplateStatusLabel:     baseplateStatus,
+						baseplateStatusCodeLabel: baseplateStatusCode,
+					}
+					serverTotalRequests.With(totalRequestLabels).Inc()
+					serverActiveRequests.With(activeRequestLabels).Dec()
+				}()
 			}
 
-			latencyLabels := prometheus.Labels{
-				methodLabel:  method,
-				successLabel: success,
-			}
-			serverLatencyDistribution.With(latencyLabels).Observe(time.Since(start).Seconds())
-
-			totalRequestLabels := prometheus.Labels{
-				methodLabel:              method,
-				successLabel:             success,
-				exceptionLabel:           exceptionTypeLabel,
-				baseplateStatusLabel:     baseplateStatus,
-				baseplateStatusCodeLabel: baseplateStatusCode,
-			}
-			serverTotalRequests.With(totalRequestLabels).Inc()
-			serverActiveRequests.With(activeRequestLabels).Dec()
-		}()
-
-		return next.Process(ctx, seqID, in, out)
+			return next.Process(ctx, seqID, in, out)
+		}
+		return thrift.WrappedTProcessorFunction{Wrapped: process}
 	}
-	return thrift.WrappedTProcessorFunction{Wrapped: process}
 }
 
 // ServerBaseplateHeadersMiddleware is a middleware that extracts baseplate headers from the incoming request and adds them to the context.

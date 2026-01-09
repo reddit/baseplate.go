@@ -22,6 +22,7 @@ const (
 	baseplateStatusLabel     = "thrift_baseplate_status"
 	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
 	clientNameLabel          = "thrift_client_name"
+	serverNameLabel          = "thrift_server_name"
 )
 
 var (
@@ -36,6 +37,18 @@ var (
 		Buckets: prometheusbp.DefaultLatencyBuckets,
 	}, serverLatencyLabels)
 
+	serverLatencyLabelsV0 = []string{
+		serverNameLabel,
+		methodLabel,
+		successLabel,
+	}
+
+	serverLatencyDistributionV0 = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "thrift_server_latency_seconds_v0",
+		Help:    "RPC latencies",
+		Buckets: prometheusbp.DefaultLatencyBuckets,
+	}, serverLatencyLabelsV0)
+
 	serverTotalRequestLabels = []string{
 		methodLabel,
 		successLabel,
@@ -49,6 +62,20 @@ var (
 		Help: "Total RPC request count",
 	}, serverTotalRequestLabels)
 
+	serverTotalRequestLabelsV0 = []string{
+		serverNameLabel,
+		methodLabel,
+		successLabel,
+		exceptionLabel,
+		baseplateStatusLabel,
+		baseplateStatusCodeLabel,
+	}
+
+	serverTotalRequestsV0 = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "thrift_server_requests_total_v0",
+		Help: "Total RPC request count",
+	}, serverTotalRequestLabelsV0)
+
 	serverActiveRequestsLabels = []string{
 		methodLabel,
 	}
@@ -57,6 +84,16 @@ var (
 		Name: "thrift_server_active_requests",
 		Help: "The number of in-flight requests being handled by the service",
 	}, serverActiveRequestsLabels)
+
+	serverActiveRequestsLabelsV0 = []string{
+		serverNameLabel,
+		methodLabel,
+	}
+
+	serverActiveRequestsV0 = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
+		Name: "thrift_server_active_requests_v0",
+		Help: "The number of in-flight requests being handled by the service",
+	}, serverActiveRequestsLabelsV0)
 )
 
 var (
@@ -140,6 +177,12 @@ var (
 		protoLabel,
 	}
 
+	serverPayloadSizeLabelsV0 = []string{
+		serverNameLabel,
+		methodLabel,
+		protoLabel,
+	}
+
 	clientPayloadSizeLabels = []string{
 		methodLabel,
 		clientNameLabel,
@@ -158,11 +201,23 @@ var (
 		Buckets: payloadSizeBuckets,
 	}, serverPayloadSizeLabels)
 
+	serverPayloadSizeRequestBytesV0 = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "thriftbp_server_request_payload_size_bytes_v0",
+		Help:    "The (approximate) size of thrift request payloads",
+		Buckets: payloadSizeBuckets,
+	}, serverPayloadSizeLabelsV0)
+
 	serverPayloadSizeResponseBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "thriftbp_server_response_payload_size_bytes",
 		Help:    "The (approximate) size of thrift response payloads",
 		Buckets: payloadSizeBuckets,
 	}, serverPayloadSizeLabels)
+
+	serverPayloadSizeResponseBytesV0 = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "thriftbp_server_response_payload_size_bytes_v0",
+		Help:    "The (approximate) size of thrift response payloads",
+		Buckets: payloadSizeBuckets,
+	}, serverPayloadSizeLabelsV0)
 
 	clientPayloadSizeRequestBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "thriftbp_client_request_payload_size_bytes",
