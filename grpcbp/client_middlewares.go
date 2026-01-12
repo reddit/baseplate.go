@@ -210,7 +210,7 @@ func WithDefaultBlock() grpc.DialOption {
 			connectionErrorInterceptor(),
 			waitForReadyInterceptor(),
 		)
-return grpc.WithBlock()
+	return grpc.WithBlock()
 }
 
 // connectionErrorInterceptor adds additional context to connection errors.
