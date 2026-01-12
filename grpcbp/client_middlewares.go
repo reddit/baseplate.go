@@ -210,6 +210,7 @@ func WithDefaultBlock() grpc.DialOption {
 			connectionErrorInterceptor(),
 			waitForReadyInterceptor(),
 		)
+	}
 	return grpc.WithBlock()
 }
 
