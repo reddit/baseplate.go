@@ -71,12 +71,10 @@ var (
 		successLabel,
 	}
 
-	latencyTimer = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: promNamespace,
-		Name:      "latency_seconds",
-		Help:      "Latency of redis operations",
-		Buckets:   prometheusbp.DefaultLatencyBuckets,
-	}, latencyLabels)
+	latencyTimer = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name: "redisbp_latency_seconds",
+		Help: "Latency of redis operations",
+	}.ToPrometheus(), latencyLabels)
 )
 
 // exporter provides an interface for Prometheus metrics.
