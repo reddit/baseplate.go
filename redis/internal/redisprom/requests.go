@@ -20,11 +20,10 @@ const (
 
 var (
 	LatencySeconds = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "redis_client_latency_seconds",
-			Help:    "latency histogram",
-			Buckets: prometheusbp.DefaultLatencyBuckets,
-		},
+		prometheusbp.HistogramOpts{
+			Name: "redis_client_latency_seconds",
+			Help: "latency histogram",
+		}.ToPrometheus(),
 		[]string{ClientNameLabel, DatabaseLabel, TypeLabel, DeploymentLabel, CommandLabel, SuccessLabel, ClusterLabel},
 	)
 	ActiveRequests = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(

@@ -6,18 +6,18 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/reddit/baseplate.go/internal/prometheusbpint"
 	"github.com/reddit/baseplate.go/internal/thriftint"
+	"github.com/reddit/baseplate.go/prometheusbp"
 )
 
 var (
 	logWriteDurationSeconds = promauto.With(prometheusbpint.GlobalRegistry).NewHistogram(
-		prometheus.HistogramOpts{
-			Name:    "baseplate_log_write_duration_seconds",
-			Help:    "Latency of log writes",
-			Buckets: []float64{
+		prometheusbp.HistogramOpts{
+			Name: "baseplate_log_write_duration_seconds",
+			Help: "Latency of log writes",
+			LegacyBuckets: []float64{
 				0.000_005,
 				0.000_010,
 				0.000_050,
@@ -31,7 +31,7 @@ var (
 				0.5,
 				1.0,
 			},
-		},
+		}.ToPrometheus(),
 	)
 )
 
