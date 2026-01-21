@@ -44,14 +44,14 @@ var (
 		Help: "HTTP server request latencies",
 	}.ToPrometheus(), serverLabels)
 
-	// hasHistClassic = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-	// 	Name:    "has_native_hist",
-	// 	Help:    "HTTP server request latencies",
-	// 	Buckets: prometheusbp.DefaultLatencyBuckets,
-	// 	ConstLabels: prometheus.Labels{
-	// 		"native": "false",
-	// 	},
-	// }, serverLabels)
+	hasHistClassic = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "has_native_hist",
+		Help:    "HTTP server request latencies",
+		Buckets: prometheusbp.DefaultLatencyBuckets,
+		ConstLabels: prometheus.Labels{
+			"native": "false",
+		},
+	}, serverLabels)
 
 	hasHistNative = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
 		Name:                            "has_native_hist",
