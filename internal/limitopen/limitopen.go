@@ -15,8 +15,6 @@ import (
 )
 
 const (
-	promNamespace = "limitopen"
-
 	pathLabel = "path"
 )
 
@@ -26,15 +24,13 @@ var (
 	}
 
 	sizeGauge = promauto.With(prometheusbpint.GlobalRegistry).NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: promNamespace,
-		Name:      "file_size_bytes",
-		Help:      "The size of the file opened by limitopen.Open",
+		Name: "limitopen_file_size_bytes",
+		Help: "The size of the file opened by limitopen.Open",
 	}, sizeLabels)
 
 	softLimitCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Name:      "softlimit_violation_total",
-		Help:      "The total number of violations of softlimit",
+		Name: "limitopen_softlimit_violation_total",
+		Help: "The total number of violations of softlimit",
 	}, sizeLabels)
 )
 

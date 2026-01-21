@@ -95,22 +95,10 @@ var (
 	}, clientActiveRequestsLabels)
 )
 
-const (
-	// Note that this is not used by the prometheus metrics defined in Baseplate
-	// spec.
-	promNamespace = "thriftbp"
-
-	subsystemServer     = "server"
-	subsystemTTLClient  = "ttl_client"
-	subsystemClientPool = "client_pool"
-)
-
 var (
 	serverConnectionsGauge = promauto.With(prometheusbpint.GlobalRegistry).NewGauge(prometheus.GaugeOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemServer,
-		Name:      "connections",
-		Help:      "The number of client connections established to the service",
+		Name: "thriftbp_server_connections",
+		Help: "The number of client connections established to the service",
 	})
 )
 
@@ -121,10 +109,8 @@ var (
 	}
 
 	ttlClientReplaceCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemTTLClient,
-		Name:      "connection_housekeeping_total",
-		Help:      "Total connection housekeeping (replacing the connection in the background) done in thrift ttlClient",
+		Name: "thriftbp_ttl_client_connection_housekeeping_total",
+		Help: "Total connection housekeeping (replacing the connection in the background) done in thrift ttlClient",
 	}, ttlClientReplaceLabels)
 )
 
