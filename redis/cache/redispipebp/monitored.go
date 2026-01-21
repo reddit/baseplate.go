@@ -20,8 +20,6 @@ import (
 )
 
 const (
-	promNamespace = "redispipebp"
-
 	labelSlug    = "redis_slug"
 	labelCommand = "redis_command"
 	labelSuccess = "redis_success"
@@ -34,12 +32,10 @@ var (
 		labelSuccess,
 	}
 
-	promHistogram = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: promNamespace,
-		Name:      "latency_seconds",
-		Help:      "Redis latency in seconds",
-		Buckets:   prometheusbp.DefaultLatencyBuckets,
-	}, labels)
+	promHistogram = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name: "redispipebp_latency_seconds",
+		Help: "Redis latency in seconds",
+	}.ToPrometheus(), labels)
 )
 
 // MonitoredSync wraps Sync methods in client spans.

@@ -306,10 +306,8 @@ type Counter interface {
 //
 //	// a global variable
 //	var tracingFailures = promauto.NewCounter(prometheus.CounterOpts{
-//	  Namespace: "myservice",
-//	  Subsystem: "tracing",
-//	  Name:      "failures_total",
-//	  Help:      "Total number of failures when sending tracing spans to the sidecar",
+//	  Name: "myservice_tracing_failures_total",
+//	  Help: "Total number of failures when sending tracing spans to the sidecar",
 //	})
 //
 //	// in main
