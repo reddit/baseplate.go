@@ -475,8 +475,8 @@ func PrometheusServerMetrics(_ string) Middleware {
 					endpointLabel: name,
 				}
 				serverLatency.With(labels).Observe(time.Since(start).Seconds())
-				hasHistNative.With(labels).Observe(time.Since(start).Seconds())
 				hasHistClassic.With(labels).Observe(time.Since(start).Seconds())
+				hasHistNative.With(labels).Observe(time.Since(start).Seconds())
 				serverRequestSize.With(labels).Observe(float64(r.ContentLength))
 				serverResponseSize.With(labels).Observe(float64(rec.bytesWritten))
 
