@@ -11,15 +11,10 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
-const (
-	promNamespace = "secrets"
-)
-
 var (
 	parserFailures = promauto.With(prometheusbpint.GlobalRegistry).NewCounter(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Name:      "parser_failure_total",
-		Help:      "Total number of secret parser failures",
+		Name: "secrets_parser_failure_total",
+		Help: "Total number of secret parser failures",
 	})
 )
 

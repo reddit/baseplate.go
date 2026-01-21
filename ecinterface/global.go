@@ -12,14 +12,9 @@ import (
 	"github.com/reddit/baseplate.go/log"
 )
 
-const (
-	promNamespace = "ecinterface"
-)
-
 var (
 	getBeforeSet = promauto.With(prometheusbpint.GlobalRegistry).NewCounter(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Name:      "get_before_set_total",
+		Name:      "ecinterface_get_before_set_total",
 		Help:      "Total number of ecinterface.Get calls before Set is called",
 	})
 )

@@ -75,7 +75,7 @@ func (opts HistogramOpts) ToPrometheus() prometheus.HistogramOpts {
 	if nativeBucketing == nil {
 		nativeBucketing = DefaultNativeHistogramBucketing
 	} else {
-		// If any fields have the zero value, replace with the default.
+		// Backfill any native histogram configs without our defaults
 		nb := *nativeBucketing // copy to avoid mutation
 		if nb.BucketFactor == 0 {
 			nb.BucketFactor = DefaultNativeHistogramBucketing.BucketFactor
