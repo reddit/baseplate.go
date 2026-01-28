@@ -39,35 +39,56 @@ var (
 		endpointLabel,
 	}
 
-	serverLatency = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "http_server_latency_seconds",
-		Help:    "HTTP server request latencies",
-		Buckets: prometheusbp.DefaultLatencyBuckets,
+	serverLatency = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name: "http_server_latency_seconds",
+		Help: "HTTP server request latencies",
+	}.ToPrometheus(), serverLabels)
+
+	hasHistClassic = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+		Name:                            "has_native_hist",
+		Help:                            "HTTP server request latencies",
+		Buckets:                         prometheusbp.DefaultLatencyBuckets,
+		NativeHistogramBucketFactor:     prometheusbp.DefaultNativeHistogramBucketFactor,
+		NativeHistogramMaxBucketNumber:  prometheusbp.DefaultNativeHistogramMaxBucketNumber,
+		NativeHistogramMinResetDuration: prometheusbp.DefaultNativeHistogramMinResetDuration,
+		ConstLabels: prometheus.Labels{
+			"native": "false-ish",
+		},
 	}, serverLabels)
 
-	serverRequestSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "http_server_request_size_bytes",
-		Help:    "Request size",
-		Buckets: payloadSizeBuckets,
+	hasHistNative = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
+		Name:                            "has_native_hist",
+		Help:                            "HTTP server request latencies",
+		NativeHistogramBucketFactor:     prometheusbp.DefaultNativeHistogramBucketFactor,
+		NativeHistogramMaxBucketNumber:  prometheusbp.DefaultNativeHistogramMaxBucketNumber,
+		NativeHistogramMinResetDuration: prometheusbp.DefaultNativeHistogramMinResetDuration,
+		ConstLabels: prometheus.Labels{
+			"native": "true-ish",
+		},
+		Buckets: []float64{1, 64, 128, 256, 512, 1024, 2048, 4096},
 	}, serverLabels)
 
-	serverResponseSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "http_server_response_size_bytes",
-		Help:    "Response size",
-		Buckets: payloadSizeBuckets,
-	}, serverLabels)
+	serverRequestSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name:          "http_server_request_size_bytes",
+		Help:          "Request size",
+		LegacyBuckets: payloadSizeBuckets,
+	}.ToPrometheus(), serverLabels)
 
-	serverTimeToWriteHeader = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "http_server_time_to_write_header_seconds",
-		Help:    "Request size",
-		Buckets: prometheusbp.DefaultLatencyBuckets,
-	}, serverLabels)
+	serverResponseSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name:          "http_server_response_size_bytes",
+		Help:          "Response size",
+		LegacyBuckets: payloadSizeBuckets,
+	}.ToPrometheus(), serverLabels)
 
-	serverTimeToFirstByte = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "http_server_time_to_first_byte_seconds",
-		Help:    "Time elapsed before first byte was sent",
-		Buckets: prometheusbp.DefaultLatencyBuckets,
-	}, serverLabels)
+	serverTimeToWriteHeader = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name: "http_server_time_to_write_header_seconds",
+		Help: "Request size",
+	}.ToPrometheus(), serverLabels)
+
+	serverTimeToFirstByte = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name: "http_server_time_to_first_byte_seconds",
+		Help: "Time elapsed before first byte was sent",
+	}.ToPrometheus(), serverLabels)
 
 	serverTotalRequestLabels = []string{
 		methodLabel,
@@ -100,11 +121,10 @@ var (
 		clientNameLabel,
 	}
 
-	clientLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "http_client_latency_seconds",
-		Help:    "HTTP client request latencies",
-		Buckets: prometheusbp.DefaultLatencyBuckets,
-	}, clientLatencyLabels)
+	clientLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name: "http_client_latency_seconds",
+		Help: "HTTP client request latencies",
+	}.ToPrometheus(), clientLatencyLabels)
 
 	clientTotalRequestLabels = []string{
 		methodLabel,

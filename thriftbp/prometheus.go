@@ -30,11 +30,10 @@ var (
 		successLabel,
 	}
 
-	serverLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "thrift_server_latency_seconds",
-		Help:    "RPC latencies",
-		Buckets: prometheusbp.DefaultLatencyBuckets,
-	}, serverLatencyLabels)
+	serverLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name: "thrift_server_latency_seconds",
+		Help: "RPC latencies",
+	}.ToPrometheus(), serverLatencyLabels)
 
 	serverTotalRequestLabels = []string{
 		methodLabel,
@@ -66,11 +65,10 @@ var (
 		clientNameLabel,
 	}
 
-	clientLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "thrift_client_latency_seconds",
-		Help:    "RPC latencies",
-		Buckets: prometheusbp.DefaultLatencyBuckets,
-	}, clientLatencyLabels)
+	clientLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name: "thrift_client_latency_seconds",
+		Help: "RPC latencies",
+	}.ToPrometheus(), clientLatencyLabels)
 
 	clientTotalRequestLabels = []string{
 		methodLabel,
@@ -97,22 +95,10 @@ var (
 	}, clientActiveRequestsLabels)
 )
 
-const (
-	// Note that this is not used by the prometheus metrics defined in Baseplate
-	// spec.
-	promNamespace = "thriftbp"
-
-	subsystemServer     = "server"
-	subsystemTTLClient  = "ttl_client"
-	subsystemClientPool = "client_pool"
-)
-
 var (
 	serverConnectionsGauge = promauto.With(prometheusbpint.GlobalRegistry).NewGauge(prometheus.GaugeOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemServer,
-		Name:      "connections",
-		Help:      "The number of client connections established to the service",
+		Name: "thriftbp_server_connections",
+		Help: "The number of client connections established to the service",
 	})
 )
 
@@ -123,10 +109,8 @@ var (
 	}
 
 	ttlClientReplaceCounter = promauto.With(prometheusbpint.GlobalRegistry).NewCounterVec(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemTTLClient,
-		Name:      "connection_housekeeping_total",
-		Help:      "Total connection housekeeping (replacing the connection in the background) done in thrift ttlClient",
+		Name: "thriftbp_ttl_client_connection_housekeeping_total",
+		Help: "Total connection housekeeping (replacing the connection in the background) done in thrift ttlClient",
 	}, ttlClientReplaceLabels)
 )
 
@@ -152,29 +136,29 @@ var (
 	// (up to ~500 KiB).
 	payloadSizeBuckets = prometheus.ExponentialBuckets(8, 2, 20)
 
-	serverPayloadSizeRequestBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "thriftbp_server_request_payload_size_bytes",
-		Help:    "The (approximate) size of thrift request payloads",
-		Buckets: payloadSizeBuckets,
-	}, serverPayloadSizeLabels)
+	serverPayloadSizeRequestBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name:          "thriftbp_server_request_payload_size_bytes",
+		Help:          "The (approximate) size of thrift request payloads",
+		LegacyBuckets: payloadSizeBuckets,
+	}.ToPrometheus(), serverPayloadSizeLabels)
 
-	serverPayloadSizeResponseBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "thriftbp_server_response_payload_size_bytes",
-		Help:    "The (approximate) size of thrift response payloads",
-		Buckets: payloadSizeBuckets,
-	}, serverPayloadSizeLabels)
+	serverPayloadSizeResponseBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name:          "thriftbp_server_response_payload_size_bytes",
+		Help:          "The (approximate) size of thrift response payloads",
+		LegacyBuckets: payloadSizeBuckets,
+	}.ToPrometheus(), serverPayloadSizeLabels)
 
-	clientPayloadSizeRequestBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "thriftbp_client_request_payload_size_bytes",
-		Help:    "The size of thrift request payloads",
-		Buckets: payloadSizeBuckets,
-	}, clientPayloadSizeLabels)
+	clientPayloadSizeRequestBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name:          "thriftbp_client_request_payload_size_bytes",
+		Help:          "The size of thrift request payloads",
+		LegacyBuckets: payloadSizeBuckets,
+	}.ToPrometheus(), clientPayloadSizeLabels)
 
-	clientPayloadSizeResponseBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "thriftbp_client_response_payload_size_bytes",
-		Help:    "The size of thrift response payloads",
-		Buckets: payloadSizeBuckets,
-	}, clientPayloadSizeLabels)
+	clientPayloadSizeResponseBytes = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name:          "thriftbp_client_response_payload_size_bytes",
+		Help:          "The size of thrift response payloads",
+		LegacyBuckets: payloadSizeBuckets,
+	}.ToPrometheus(), clientPayloadSizeLabels)
 )
 
 var (
@@ -260,13 +244,10 @@ var (
 		clientLabel,
 	}
 
-	deadlineBudgetHisto = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: promNamespace,
-		Subsystem: subsystemServer,
-		Name:      "extracted_deadline_budget_seconds",
-		Help:      "Baseplate deadline budget extracted from client set header",
-		Buckets:   prometheusbp.DefaultLatencyBuckets,
-	}, deadlineBudgetLabels)
+	deadlineBudgetHisto = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name: "thriftbp_server_extracted_deadline_budget_seconds",
+		Help: "Baseplate deadline budget extracted from client set header",
+	}.ToPrometheus(), deadlineBudgetLabels)
 )
 
 type clientPoolGaugeExporter struct {

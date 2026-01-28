@@ -33,11 +33,10 @@ var (
 		successLabel,
 	}
 
-	serverLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "grpc_server_latency_seconds",
-		Help:    "RPC latencies",
-		Buckets: prometheusbp.DefaultLatencyBuckets,
-	}, serverLatencyLabels)
+	serverLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name: "grpc_server_latency_seconds",
+		Help: "RPC latencies",
+	}.ToPrometheus(), serverLatencyLabels)
 
 	serverTotalRequestLabels = []string{
 		serviceLabel,
@@ -73,11 +72,10 @@ var (
 		clientNameLabel,
 	}
 
-	clientLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "grpc_client_latency_seconds",
-		Help:    "RPC latencies",
-		Buckets: prometheusbp.DefaultLatencyBuckets,
-	}, clientLatencyLabels)
+	clientLatencyDistribution = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name: "grpc_client_latency_seconds",
+		Help: "RPC latencies",
+	}.ToPrometheus(), clientLatencyLabels)
 
 	clientTotalRequestLabels = []string{
 		serviceLabel,

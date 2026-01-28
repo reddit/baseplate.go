@@ -5,6 +5,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/reddit/baseplate.go/internal/prometheusbpint"
+	"github.com/reddit/baseplate.go/prometheusbp"
 )
 
 const (
@@ -37,22 +38,22 @@ var (
 		headerNameLabel,
 	})
 
-	clientHeadersSentTotal = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "baseplate_client_sent_headers_total",
-		Help:    "Total number of internal headers that were automatically sent by a client",
-		Buckets: []float64{1, 4, 8, 16, 32, 64, 128},
-	}, []string{
+	clientHeadersSentTotal = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name:          "baseplate_client_sent_headers_total",
+		Help:          "Total number of internal headers that were automatically sent by a client",
+		LegacyBuckets: []float64{1, 4, 8, 16, 32, 64, 128},
+	}.ToPrometheus(), []string{
 		rpcTypeLabel,
 		serviceLabel,
 		clientNameLabel,
 		clientMethodLabel,
 	})
 
-	clientHeadersSentSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "baseplate_client_headers_sent_size_bytes",
-		Help:    "Estimated size (in bytes) of internal headers that were automatically sent by a client",
-		Buckets: []float64{1, 64, 128, 256, 512, 1024, 2048, 4096},
-	}, []string{
+	clientHeadersSentSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name:          "baseplate_client_headers_sent_size_bytes",
+		Help:          "Estimated size (in bytes) of internal headers that were automatically sent by a client",
+		LegacyBuckets: []float64{1, 64, 128, 256, 512, 1024, 2048, 4096},
+	}.ToPrometheus(), []string{
 		rpcTypeLabel,
 		serviceLabel,
 		clientNameLabel,
@@ -69,11 +70,11 @@ var (
 		headerNameLabel,
 	})
 
-	serverHeadersReceivedSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "baseplate_server_headers_received_size_bytes",
-		Help:    "Estimated size (in bytes) of internal headers that were automatically extracted by a server",
-		Buckets: []float64{1, 64, 128, 256, 512, 1024, 2048, 4096},
-	}, []string{
+	serverHeadersReceivedSize = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name:          "baseplate_server_headers_received_size_bytes",
+		Help:          "Estimated size (in bytes) of internal headers that were automatically extracted by a server",
+		LegacyBuckets: []float64{1, 64, 128, 256, 512, 1024, 2048, 4096},
+	}.ToPrometheus(), []string{
 		rpcTypeLabel,
 		serviceLabel,
 		serverMethodLabel,

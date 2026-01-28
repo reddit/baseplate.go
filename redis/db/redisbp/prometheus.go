@@ -10,9 +10,6 @@ import (
 )
 
 const (
-	promNamespace = "redisbp"
-	subsystemPool = "pool"
-
 	nameLabel    = "redis_pool"
 	commandLabel = "redis_command"
 	successLabel = "redis_success"
@@ -25,25 +22,25 @@ var (
 
 	// Counters.
 	poolHitsCounterDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(promNamespace, subsystemPool, "hits_total"),
+		"redisbp_pool_hits_total",
 		"Number of times free connection was found in the pool",
 		promLabels,
 		nil,
 	)
 	poolMissesCounterDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(promNamespace, subsystemPool, "misses_total"),
+		"redisbp_pool_misses_total",
 		"Number of times free connection was NOT found in the pool",
 		promLabels,
 		nil,
 	)
 	poolTimeoutsCounterDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(promNamespace, subsystemPool, "timeouts_total"),
+		"redisbp_pool_timeouts_total",
 		"Number of times a wait timeout occurred",
 		promLabels,
 		nil,
 	)
 	staleConnectionsCounterDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(promNamespace, subsystemPool, "stale_connections_total"),
+		"redisbp_pool_stale_connections_total",
 		"Number of stale connections removed from this redisbp pool",
 		promLabels,
 		nil,
@@ -51,13 +48,13 @@ var (
 
 	// Gauges.
 	totalConnectionsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(promNamespace, subsystemPool, "connections"),
+		"redisbp_pool_connections",
 		"Number of connections in this redisbp pool",
 		promLabels,
 		nil,
 	)
 	idleConnectionsDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(promNamespace, subsystemPool, "idle_connections"),
+		"redisbp_pool_idle_connections",
 		"Number of idle connections in this redisbp pool",
 		promLabels,
 		nil,
@@ -71,12 +68,10 @@ var (
 		successLabel,
 	}
 
-	latencyTimer = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: promNamespace,
-		Name:      "latency_seconds",
-		Help:      "Latency of redis operations",
-		Buckets:   prometheusbp.DefaultLatencyBuckets,
-	}, latencyLabels)
+	latencyTimer = promauto.With(prometheusbpint.GlobalRegistry).NewHistogramVec(prometheusbp.HistogramOpts{
+		Name: "redisbp_latency_seconds",
+		Help: "Latency of redis operations",
+	}.ToPrometheus(), latencyLabels)
 )
 
 // exporter provides an interface for Prometheus metrics.
