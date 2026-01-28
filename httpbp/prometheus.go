@@ -52,7 +52,7 @@ var (
 		NativeHistogramMaxBucketNumber:  prometheusbp.DefaultNativeHistogramMaxBucketNumber,
 		NativeHistogramMinResetDuration: prometheusbp.DefaultNativeHistogramMinResetDuration,
 		ConstLabels: prometheus.Labels{
-			"native": "false",
+			"native": "false-ish",
 		},
 	}, serverLabels)
 
@@ -63,7 +63,7 @@ var (
 		NativeHistogramMaxBucketNumber:  prometheusbp.DefaultNativeHistogramMaxBucketNumber,
 		NativeHistogramMinResetDuration: prometheusbp.DefaultNativeHistogramMinResetDuration,
 		ConstLabels: prometheus.Labels{
-			"native": "true",
+			"native": "true-ish",
 		},
 		Buckets: []float64{1, 64, 128, 256, 512, 1024, 2048, 4096},
 	}, serverLabels)
