@@ -17,7 +17,7 @@ const (
 
 	// DefaultNativeHistogramMinResetDuration is the default minimum duration between
 	// resets for native histograms.
-	DefaultNativeHistogramMinResetDuration = time.Hour
+	DefaultNativeHistogramMinResetDuration = 1 * time.Hour
 )
 
 var (
