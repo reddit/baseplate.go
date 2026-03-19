@@ -8,11 +8,11 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	thrift "github.com/apache/thrift/lib/go/thrift"
 	"log/slog"
-	"regexp"
-	"strings"
 	"time"
+	thrift "github.com/apache/thrift/lib/go/thrift"
+	"strings"
+	"regexp"
 )
 
 // (needed to ensure safety because of naive import list construction.)
@@ -23,52 +23,46 @@ var _ = fmt.Printf
 var _ = slog.Log
 var _ = time.Now
 var _ = thrift.ZERO
-
 // (needed by validator.)
 var _ = strings.Contains
 var _ = regexp.MatchString
 
-// The different types of probes supported by is_healthy endpoint.
+//The different types of probes supported by is_healthy endpoint.
 //
-// Please refer to Kubernetes' documentation for the differences between them:
-// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+//Please refer to Kubernetes' documentation for the differences between them:
+//https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 //
-// Your service should use Readiness probe as the fallback for unsupported probes.
+//Your service should use Readiness probe as the fallback for unsupported probes.
 //
-// Note that the HTTP health check could use the string names of the probes,
-// so changing the names, even without changing the numeric values,
-// is considered as breaking change and should be avoided.
+//Note that the HTTP health check could use the string names of the probes,
+//so changing the names, even without changing the numeric values,
+//is considered as breaking change and should be avoided.
+//
 type IsHealthyProbe int64
-
 const (
 	IsHealthyProbe_READINESS IsHealthyProbe = 1
-	IsHealthyProbe_LIVENESS  IsHealthyProbe = 2
-	IsHealthyProbe_STARTUP   IsHealthyProbe = 3
+	IsHealthyProbe_LIVENESS IsHealthyProbe = 2
+	IsHealthyProbe_STARTUP IsHealthyProbe = 3
 )
 
 func (p IsHealthyProbe) String() string {
 	switch p {
-	case IsHealthyProbe_READINESS:
-		return "READINESS"
-	case IsHealthyProbe_LIVENESS:
-		return "LIVENESS"
-	case IsHealthyProbe_STARTUP:
-		return "STARTUP"
+	case IsHealthyProbe_READINESS: return "READINESS"
+	case IsHealthyProbe_LIVENESS: return "LIVENESS"
+	case IsHealthyProbe_STARTUP: return "STARTUP"
 	}
 	return "<UNSET>"
 }
 
 func IsHealthyProbeFromString(s string) (IsHealthyProbe, error) {
 	switch s {
-	case "READINESS":
-		return IsHealthyProbe_READINESS, nil
-	case "LIVENESS":
-		return IsHealthyProbe_LIVENESS, nil
-	case "STARTUP":
-		return IsHealthyProbe_STARTUP, nil
+	case "READINESS": return IsHealthyProbe_READINESS, nil
+	case "LIVENESS": return IsHealthyProbe_LIVENESS, nil
+	case "STARTUP": return IsHealthyProbe_STARTUP, nil
 	}
 	return IsHealthyProbe(0), fmt.Errorf("not a valid IsHealthyProbe string")
 }
+
 
 func IsHealthyProbePtr(v IsHealthyProbe) *IsHealthyProbe { return &v }
 
@@ -101,160 +95,106 @@ func (p *IsHealthyProbe) Value() (driver.Value, error) {
 	return int64(*p), nil
 }
 
-// The integer values within this enum correspond to HTTP status codes.
+//The integer values within this enum correspond to HTTP status codes.
 //
-// HTTP layers can easily map errors to an appropriate status code.
+//HTTP layers can easily map errors to an appropriate status code.
 type ErrorCode int64
-
 const (
-	ErrorCode_BAD_REQUEST                     ErrorCode = 400
-	ErrorCode_UNAUTHORIZED                    ErrorCode = 401
-	ErrorCode_PAYMENT_REQUIRED                ErrorCode = 402
-	ErrorCode_FORBIDDEN                       ErrorCode = 403
-	ErrorCode_NOT_FOUND                       ErrorCode = 404
-	ErrorCode_CONFLICT                        ErrorCode = 409
-	ErrorCode_GONE                            ErrorCode = 410
-	ErrorCode_PRECONDITION_FAILED             ErrorCode = 412
-	ErrorCode_PAYLOAD_TOO_LARGE               ErrorCode = 413
-	ErrorCode_IM_A_TEAPOT                     ErrorCode = 418
-	ErrorCode_MISDIRECTED_REQUEST             ErrorCode = 421
-	ErrorCode_UNPROCESSABLE_ENTITY            ErrorCode = 422
-	ErrorCode_LOCKED                          ErrorCode = 423
-	ErrorCode_FAILED_DEPENDENCY               ErrorCode = 424
-	ErrorCode_TOO_EARLY                       ErrorCode = 425
-	ErrorCode_PRECONDITION_REQUIRED           ErrorCode = 428
-	ErrorCode_TOO_MANY_REQUESTS               ErrorCode = 429
+	ErrorCode_BAD_REQUEST ErrorCode = 400
+	ErrorCode_UNAUTHORIZED ErrorCode = 401
+	ErrorCode_PAYMENT_REQUIRED ErrorCode = 402
+	ErrorCode_FORBIDDEN ErrorCode = 403
+	ErrorCode_NOT_FOUND ErrorCode = 404
+	ErrorCode_CONFLICT ErrorCode = 409
+	ErrorCode_GONE ErrorCode = 410
+	ErrorCode_PRECONDITION_FAILED ErrorCode = 412
+	ErrorCode_PAYLOAD_TOO_LARGE ErrorCode = 413
+	ErrorCode_IM_A_TEAPOT ErrorCode = 418
+	ErrorCode_MISDIRECTED_REQUEST ErrorCode = 421
+	ErrorCode_UNPROCESSABLE_ENTITY ErrorCode = 422
+	ErrorCode_LOCKED ErrorCode = 423
+	ErrorCode_FAILED_DEPENDENCY ErrorCode = 424
+	ErrorCode_TOO_EARLY ErrorCode = 425
+	ErrorCode_PRECONDITION_REQUIRED ErrorCode = 428
+	ErrorCode_TOO_MANY_REQUESTS ErrorCode = 429
 	ErrorCode_REQUEST_HEADER_FIELDS_TOO_LARGE ErrorCode = 431
-	ErrorCode_UNAVAILABLE_FOR_LEGAL_REASONS   ErrorCode = 451
-	ErrorCode_INTERNAL_SERVER_ERROR           ErrorCode = 500
-	ErrorCode_NOT_IMPLEMENTED                 ErrorCode = 501
-	ErrorCode_BAD_GATEWAY                     ErrorCode = 502
-	ErrorCode_SERVICE_UNAVAILABLE             ErrorCode = 503
-	ErrorCode_TIMEOUT                         ErrorCode = 504
-	ErrorCode_INSUFFICIENT_STORAGE            ErrorCode = 507
-	ErrorCode_LOOP_DETECTED                   ErrorCode = 508
-	ErrorCode_USER_DEFINED                    ErrorCode = 1000
+	ErrorCode_UNAVAILABLE_FOR_LEGAL_REASONS ErrorCode = 451
+	ErrorCode_INTERNAL_SERVER_ERROR ErrorCode = 500
+	ErrorCode_NOT_IMPLEMENTED ErrorCode = 501
+	ErrorCode_BAD_GATEWAY ErrorCode = 502
+	ErrorCode_SERVICE_UNAVAILABLE ErrorCode = 503
+	ErrorCode_TIMEOUT ErrorCode = 504
+	ErrorCode_INSUFFICIENT_STORAGE ErrorCode = 507
+	ErrorCode_LOOP_DETECTED ErrorCode = 508
+	ErrorCode_USER_DEFINED ErrorCode = 1000
 )
 
 func (p ErrorCode) String() string {
 	switch p {
-	case ErrorCode_BAD_REQUEST:
-		return "BAD_REQUEST"
-	case ErrorCode_UNAUTHORIZED:
-		return "UNAUTHORIZED"
-	case ErrorCode_PAYMENT_REQUIRED:
-		return "PAYMENT_REQUIRED"
-	case ErrorCode_FORBIDDEN:
-		return "FORBIDDEN"
-	case ErrorCode_NOT_FOUND:
-		return "NOT_FOUND"
-	case ErrorCode_CONFLICT:
-		return "CONFLICT"
-	case ErrorCode_GONE:
-		return "GONE"
-	case ErrorCode_PRECONDITION_FAILED:
-		return "PRECONDITION_FAILED"
-	case ErrorCode_PAYLOAD_TOO_LARGE:
-		return "PAYLOAD_TOO_LARGE"
-	case ErrorCode_IM_A_TEAPOT:
-		return "IM_A_TEAPOT"
-	case ErrorCode_MISDIRECTED_REQUEST:
-		return "MISDIRECTED_REQUEST"
-	case ErrorCode_UNPROCESSABLE_ENTITY:
-		return "UNPROCESSABLE_ENTITY"
-	case ErrorCode_LOCKED:
-		return "LOCKED"
-	case ErrorCode_FAILED_DEPENDENCY:
-		return "FAILED_DEPENDENCY"
-	case ErrorCode_TOO_EARLY:
-		return "TOO_EARLY"
-	case ErrorCode_PRECONDITION_REQUIRED:
-		return "PRECONDITION_REQUIRED"
-	case ErrorCode_TOO_MANY_REQUESTS:
-		return "TOO_MANY_REQUESTS"
-	case ErrorCode_REQUEST_HEADER_FIELDS_TOO_LARGE:
-		return "REQUEST_HEADER_FIELDS_TOO_LARGE"
-	case ErrorCode_UNAVAILABLE_FOR_LEGAL_REASONS:
-		return "UNAVAILABLE_FOR_LEGAL_REASONS"
-	case ErrorCode_INTERNAL_SERVER_ERROR:
-		return "INTERNAL_SERVER_ERROR"
-	case ErrorCode_NOT_IMPLEMENTED:
-		return "NOT_IMPLEMENTED"
-	case ErrorCode_BAD_GATEWAY:
-		return "BAD_GATEWAY"
-	case ErrorCode_SERVICE_UNAVAILABLE:
-		return "SERVICE_UNAVAILABLE"
-	case ErrorCode_TIMEOUT:
-		return "TIMEOUT"
-	case ErrorCode_INSUFFICIENT_STORAGE:
-		return "INSUFFICIENT_STORAGE"
-	case ErrorCode_LOOP_DETECTED:
-		return "LOOP_DETECTED"
-	case ErrorCode_USER_DEFINED:
-		return "USER_DEFINED"
+	case ErrorCode_BAD_REQUEST: return "BAD_REQUEST"
+	case ErrorCode_UNAUTHORIZED: return "UNAUTHORIZED"
+	case ErrorCode_PAYMENT_REQUIRED: return "PAYMENT_REQUIRED"
+	case ErrorCode_FORBIDDEN: return "FORBIDDEN"
+	case ErrorCode_NOT_FOUND: return "NOT_FOUND"
+	case ErrorCode_CONFLICT: return "CONFLICT"
+	case ErrorCode_GONE: return "GONE"
+	case ErrorCode_PRECONDITION_FAILED: return "PRECONDITION_FAILED"
+	case ErrorCode_PAYLOAD_TOO_LARGE: return "PAYLOAD_TOO_LARGE"
+	case ErrorCode_IM_A_TEAPOT: return "IM_A_TEAPOT"
+	case ErrorCode_MISDIRECTED_REQUEST: return "MISDIRECTED_REQUEST"
+	case ErrorCode_UNPROCESSABLE_ENTITY: return "UNPROCESSABLE_ENTITY"
+	case ErrorCode_LOCKED: return "LOCKED"
+	case ErrorCode_FAILED_DEPENDENCY: return "FAILED_DEPENDENCY"
+	case ErrorCode_TOO_EARLY: return "TOO_EARLY"
+	case ErrorCode_PRECONDITION_REQUIRED: return "PRECONDITION_REQUIRED"
+	case ErrorCode_TOO_MANY_REQUESTS: return "TOO_MANY_REQUESTS"
+	case ErrorCode_REQUEST_HEADER_FIELDS_TOO_LARGE: return "REQUEST_HEADER_FIELDS_TOO_LARGE"
+	case ErrorCode_UNAVAILABLE_FOR_LEGAL_REASONS: return "UNAVAILABLE_FOR_LEGAL_REASONS"
+	case ErrorCode_INTERNAL_SERVER_ERROR: return "INTERNAL_SERVER_ERROR"
+	case ErrorCode_NOT_IMPLEMENTED: return "NOT_IMPLEMENTED"
+	case ErrorCode_BAD_GATEWAY: return "BAD_GATEWAY"
+	case ErrorCode_SERVICE_UNAVAILABLE: return "SERVICE_UNAVAILABLE"
+	case ErrorCode_TIMEOUT: return "TIMEOUT"
+	case ErrorCode_INSUFFICIENT_STORAGE: return "INSUFFICIENT_STORAGE"
+	case ErrorCode_LOOP_DETECTED: return "LOOP_DETECTED"
+	case ErrorCode_USER_DEFINED: return "USER_DEFINED"
 	}
 	return "<UNSET>"
 }
 
 func ErrorCodeFromString(s string) (ErrorCode, error) {
 	switch s {
-	case "BAD_REQUEST":
-		return ErrorCode_BAD_REQUEST, nil
-	case "UNAUTHORIZED":
-		return ErrorCode_UNAUTHORIZED, nil
-	case "PAYMENT_REQUIRED":
-		return ErrorCode_PAYMENT_REQUIRED, nil
-	case "FORBIDDEN":
-		return ErrorCode_FORBIDDEN, nil
-	case "NOT_FOUND":
-		return ErrorCode_NOT_FOUND, nil
-	case "CONFLICT":
-		return ErrorCode_CONFLICT, nil
-	case "GONE":
-		return ErrorCode_GONE, nil
-	case "PRECONDITION_FAILED":
-		return ErrorCode_PRECONDITION_FAILED, nil
-	case "PAYLOAD_TOO_LARGE":
-		return ErrorCode_PAYLOAD_TOO_LARGE, nil
-	case "IM_A_TEAPOT":
-		return ErrorCode_IM_A_TEAPOT, nil
-	case "MISDIRECTED_REQUEST":
-		return ErrorCode_MISDIRECTED_REQUEST, nil
-	case "UNPROCESSABLE_ENTITY":
-		return ErrorCode_UNPROCESSABLE_ENTITY, nil
-	case "LOCKED":
-		return ErrorCode_LOCKED, nil
-	case "FAILED_DEPENDENCY":
-		return ErrorCode_FAILED_DEPENDENCY, nil
-	case "TOO_EARLY":
-		return ErrorCode_TOO_EARLY, nil
-	case "PRECONDITION_REQUIRED":
-		return ErrorCode_PRECONDITION_REQUIRED, nil
-	case "TOO_MANY_REQUESTS":
-		return ErrorCode_TOO_MANY_REQUESTS, nil
-	case "REQUEST_HEADER_FIELDS_TOO_LARGE":
-		return ErrorCode_REQUEST_HEADER_FIELDS_TOO_LARGE, nil
-	case "UNAVAILABLE_FOR_LEGAL_REASONS":
-		return ErrorCode_UNAVAILABLE_FOR_LEGAL_REASONS, nil
-	case "INTERNAL_SERVER_ERROR":
-		return ErrorCode_INTERNAL_SERVER_ERROR, nil
-	case "NOT_IMPLEMENTED":
-		return ErrorCode_NOT_IMPLEMENTED, nil
-	case "BAD_GATEWAY":
-		return ErrorCode_BAD_GATEWAY, nil
-	case "SERVICE_UNAVAILABLE":
-		return ErrorCode_SERVICE_UNAVAILABLE, nil
-	case "TIMEOUT":
-		return ErrorCode_TIMEOUT, nil
-	case "INSUFFICIENT_STORAGE":
-		return ErrorCode_INSUFFICIENT_STORAGE, nil
-	case "LOOP_DETECTED":
-		return ErrorCode_LOOP_DETECTED, nil
-	case "USER_DEFINED":
-		return ErrorCode_USER_DEFINED, nil
+	case "BAD_REQUEST": return ErrorCode_BAD_REQUEST, nil
+	case "UNAUTHORIZED": return ErrorCode_UNAUTHORIZED, nil
+	case "PAYMENT_REQUIRED": return ErrorCode_PAYMENT_REQUIRED, nil
+	case "FORBIDDEN": return ErrorCode_FORBIDDEN, nil
+	case "NOT_FOUND": return ErrorCode_NOT_FOUND, nil
+	case "CONFLICT": return ErrorCode_CONFLICT, nil
+	case "GONE": return ErrorCode_GONE, nil
+	case "PRECONDITION_FAILED": return ErrorCode_PRECONDITION_FAILED, nil
+	case "PAYLOAD_TOO_LARGE": return ErrorCode_PAYLOAD_TOO_LARGE, nil
+	case "IM_A_TEAPOT": return ErrorCode_IM_A_TEAPOT, nil
+	case "MISDIRECTED_REQUEST": return ErrorCode_MISDIRECTED_REQUEST, nil
+	case "UNPROCESSABLE_ENTITY": return ErrorCode_UNPROCESSABLE_ENTITY, nil
+	case "LOCKED": return ErrorCode_LOCKED, nil
+	case "FAILED_DEPENDENCY": return ErrorCode_FAILED_DEPENDENCY, nil
+	case "TOO_EARLY": return ErrorCode_TOO_EARLY, nil
+	case "PRECONDITION_REQUIRED": return ErrorCode_PRECONDITION_REQUIRED, nil
+	case "TOO_MANY_REQUESTS": return ErrorCode_TOO_MANY_REQUESTS, nil
+	case "REQUEST_HEADER_FIELDS_TOO_LARGE": return ErrorCode_REQUEST_HEADER_FIELDS_TOO_LARGE, nil
+	case "UNAVAILABLE_FOR_LEGAL_REASONS": return ErrorCode_UNAVAILABLE_FOR_LEGAL_REASONS, nil
+	case "INTERNAL_SERVER_ERROR": return ErrorCode_INTERNAL_SERVER_ERROR, nil
+	case "NOT_IMPLEMENTED": return ErrorCode_NOT_IMPLEMENTED, nil
+	case "BAD_GATEWAY": return ErrorCode_BAD_GATEWAY, nil
+	case "SERVICE_UNAVAILABLE": return ErrorCode_SERVICE_UNAVAILABLE, nil
+	case "TIMEOUT": return ErrorCode_TIMEOUT, nil
+	case "INSUFFICIENT_STORAGE": return ErrorCode_INSUFFICIENT_STORAGE, nil
+	case "LOOP_DETECTED": return ErrorCode_LOOP_DETECTED, nil
+	case "USER_DEFINED": return ErrorCode_USER_DEFINED, nil
 	}
 	return ErrorCode(0), fmt.Errorf("not a valid ErrorCode string")
 }
+
 
 func ErrorCodePtr(v ErrorCode) *ErrorCode { return &v }
 
@@ -287,15 +227,18 @@ func (p *ErrorCode) Value() (driver.Value, error) {
 	return int64(*p), nil
 }
 
-// An integer measuring the number of milliseconds of UTC time since epoch.
+//An integer measuring the number of milliseconds of UTC time since epoch.
+//
 type TimestampMilliseconds int64
 
 func TimestampMillisecondsPtr(v TimestampMilliseconds) *TimestampMilliseconds { return &v }
 
 // The arg struct for is_healthy endpoint.
-//
+// 
+// 
 // Attributes:
-//   - Probe
+//  - Probe
+// 
 type IsHealthyRequest struct {
 	Probe *IsHealthyProbe `thrift:"probe,1" db:"probe" json:"probe,omitempty"`
 }
@@ -321,6 +264,7 @@ func (p *IsHealthyRequest) Read(ctx context.Context, iprot thrift.TProtocol) err
 	if _, err := iprot.ReadStructBegin(ctx); err != nil {
 		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
 	}
+
 
 	for {
 		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin(ctx)
@@ -371,9 +315,7 @@ func (p *IsHealthyRequest) Write(ctx context.Context, oprot thrift.TProtocol) er
 		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
 	}
 	if p != nil {
-		if err := p.writeField1(ctx, oprot); err != nil {
-			return err
-		}
+		if err := p.writeField1(ctx, oprot); err != nil { return err }
 	}
 	if err := oprot.WriteFieldStop(ctx); err != nil {
 		return thrift.PrependError("write field stop error: ", err)
@@ -409,9 +351,7 @@ func (p *IsHealthyRequest) Equals(other *IsHealthyRequest) bool {
 		if p.Probe == nil || other.Probe == nil {
 			return false
 		}
-		if (*p.Probe) != (*other.Probe) {
-			return false
-		}
+		if (*p.Probe) != (*other.Probe) { return false }
 	}
 	return true
 }
@@ -428,7 +368,7 @@ func (p *IsHealthyRequest) LogValue() slog.Value {
 		return slog.AnyValue(nil)
 	}
 	v := thrift.SlogTStructWrapper{
-		Type:  "*baseplate.IsHealthyRequest",
+		Type: "*baseplate.IsHealthyRequest",
 		Value: p,
 	}
 	return slog.AnyValue(v)
@@ -441,39 +381,35 @@ func (p *IsHealthyRequest) Validate() error {
 }
 
 // Attributes:
-//   - Code: A code describing the general nature of the error.
-//
+//  - Code: A code describing the general nature of the error.
 // This should be specified for all errors. This field uses
 // the i32 type instead of the ErrorCode type in order to give
 // developers an escape hatch to define their own error codes.
 // Developers should do their best to avoid defining a custom
 // error code. Developers should use a value higher than 1000
 // when defining custom codes.
-//   - Message: A human-readable error message. It should both explain the error
-//
+//  - Message: A human-readable error message. It should both explain the error
 // and offer an actionable resolution to it, if applicable. It should
 // be safe to desplay this message in a user-facing client.
-//   - Details: A map of additional error information. This is most useful
-//
+//  - Details: A map of additional error information. This is most useful
 // when there is a validation error. The server may use this map
 // to return multiple errors. This should be safe for clients to
 // display. Example:
-//
-//	   {
-//	       "post.title": "This field is too long.",
-//	       "post.kind": "This field is required."
-//	   }
-//	- Retryable: Server could choose to set this field to true to explicitly indicate
-//
+//     {
+//         "post.title": "This field is too long.",
+//         "post.kind": "This field is required."
+//     }
+//  - Retryable: Server could choose to set this field to true to explicitly indicate
 // that client shall retry this request, and false to explicitly indicate that
 // client shall not retry this request. Unset means that it's up to the client
 // to decide (using other information, for example the code) whether to retry
 // this request.
+// 
 type Error struct {
-	Code      *int32            `thrift:"code,1" db:"code" json:"code,omitempty"`
-	Message   *string           `thrift:"message,2" db:"message" json:"message,omitempty"`
-	Details   map[string]string `thrift:"details,3" db:"details" json:"details,omitempty"`
-	Retryable *bool             `thrift:"retryable,4" db:"retryable" json:"retryable,omitempty"`
+	Code *int32 `thrift:"code,1" db:"code" json:"code,omitempty"`
+	Message *string `thrift:"message,2" db:"message" json:"message,omitempty"`
+	Details map[string]string `thrift:"details,3" db:"details" json:"details,omitempty"`
+	Retryable *bool `thrift:"retryable,4" db:"retryable" json:"retryable,omitempty"`
 }
 
 func NewError() *Error {
@@ -499,6 +435,7 @@ func (p *Error) GetMessage() string {
 }
 
 var Error_Details_DEFAULT map[string]string
+
 
 func (p *Error) GetDetails() map[string]string {
 	return p.Details
@@ -533,6 +470,7 @@ func (p *Error) Read(ctx context.Context, iprot thrift.TProtocol) error {
 	if _, err := iprot.ReadStructBegin(ctx); err != nil {
 		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
 	}
+
 
 	for {
 		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin(ctx)
@@ -658,18 +596,10 @@ func (p *Error) Write(ctx context.Context, oprot thrift.TProtocol) error {
 		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
 	}
 	if p != nil {
-		if err := p.writeField1(ctx, oprot); err != nil {
-			return err
-		}
-		if err := p.writeField2(ctx, oprot); err != nil {
-			return err
-		}
-		if err := p.writeField3(ctx, oprot); err != nil {
-			return err
-		}
-		if err := p.writeField4(ctx, oprot); err != nil {
-			return err
-		}
+		if err := p.writeField1(ctx, oprot); err != nil { return err }
+		if err := p.writeField2(ctx, oprot); err != nil { return err }
+		if err := p.writeField3(ctx, oprot); err != nil { return err }
+		if err := p.writeField4(ctx, oprot); err != nil { return err }
 	}
 	if err := oprot.WriteFieldStop(ctx); err != nil {
 		return thrift.PrependError("write field stop error: ", err)
@@ -761,34 +691,24 @@ func (p *Error) Equals(other *Error) bool {
 		if p.Code == nil || other.Code == nil {
 			return false
 		}
-		if (*p.Code) != (*other.Code) {
-			return false
-		}
+		if (*p.Code) != (*other.Code) { return false }
 	}
 	if p.Message != other.Message {
 		if p.Message == nil || other.Message == nil {
 			return false
 		}
-		if (*p.Message) != (*other.Message) {
-			return false
-		}
+		if (*p.Message) != (*other.Message) { return false }
 	}
-	if len(p.Details) != len(other.Details) {
-		return false
-	}
+	if len(p.Details) != len(other.Details) { return false }
 	for k, _tgt := range p.Details {
 		_src2 := other.Details[k]
-		if _tgt != _src2 {
-			return false
-		}
+		if _tgt != _src2 { return false }
 	}
 	if p.Retryable != other.Retryable {
 		if p.Retryable == nil || other.Retryable == nil {
 			return false
 		}
-		if (*p.Retryable) != (*other.Retryable) {
-			return false
-		}
+		if (*p.Retryable) != (*other.Retryable) { return false }
 	}
 	return true
 }
@@ -815,7 +735,7 @@ func (p *Error) LogValue() slog.Value {
 		return slog.AnyValue(nil)
 	}
 	v := thrift.SlogTStructWrapper{
-		Type:  "*baseplate.Error",
+		Type: "*baseplate.Error",
 		Value: p,
 	}
 	return slog.AnyValue(v)
@@ -827,7 +747,7 @@ func (p *Error) Validate() error {
 	return nil
 }
 
-type BaseplateService interface { //The base for any baseplate-based service.
+type BaseplateService interface {	//The base for any baseplate-based service.
 	//
 	//Your service should inherit from this one so that common tools can interact
 	//with any expected interfaces.
@@ -836,24 +756,25 @@ type BaseplateService interface { //The base for any baseplate-based service.
 	//
 
 	// Return whether or not the service is healthy.
-	//
+	// 
 	// The healthchecker (baseplate.server.healthcheck) expects this endpoint to
 	// exist so it can determine your service's health.
-	//
+	// 
 	// This should return True if the service is healthy. If the service is
 	// unhealthy, it can return False or raise an exception.
-	//
+	// 
 	IsHealthy(ctx context.Context) (_r bool, _err error)
 }
 
-// The base for any baseplate-based service.
+//The base for any baseplate-based service.
 //
-// Your service should inherit from this one so that common tools can interact
-// with any expected interfaces.
+//Your service should inherit from this one so that common tools can interact
+//with any expected interfaces.
 //
-// DEPRECATED: Please migrate to BaseplateServiceV2.
+//DEPRECATED: Please migrate to BaseplateServiceV2.
+//
 type BaseplateServiceClient struct {
-	c    thrift.TClient
+	c thrift.TClient
 	meta thrift.ResponseMeta
 }
 
@@ -888,12 +809,13 @@ func (p *BaseplateServiceClient) SetLastResponseMeta_(meta thrift.ResponseMeta) 
 }
 
 // Return whether or not the service is healthy.
-//
+// 
 // The healthchecker (baseplate.server.healthcheck) expects this endpoint to
 // exist so it can determine your service's health.
-//
+// 
 // This should return True if the service is healthy. If the service is
 // unhealthy, it can return False or raise an exception.
+// 
 func (p *BaseplateServiceClient) IsHealthy(ctx context.Context) (_r bool, _err error) {
 	var _args3 BaseplateServiceIsHealthyArgs
 	var _result5 BaseplateServiceIsHealthyResult
@@ -908,7 +830,7 @@ func (p *BaseplateServiceClient) IsHealthy(ctx context.Context) (_r bool, _err e
 
 type BaseplateServiceProcessor struct {
 	processorMap map[string]thrift.TProcessorFunction
-	handler      BaseplateService
+	handler BaseplateService
 }
 
 func (p *BaseplateServiceProcessor) AddToProcessorMap(key string, processor thrift.TProcessorFunction) {
@@ -926,22 +848,20 @@ func (p *BaseplateServiceProcessor) ProcessorMap() map[string]thrift.TProcessorF
 
 func NewBaseplateServiceProcessor(handler BaseplateService) *BaseplateServiceProcessor {
 
-	self6 := &BaseplateServiceProcessor{handler: handler, processorMap: make(map[string]thrift.TProcessorFunction)}
-	self6.processorMap["is_healthy"] = &baseplateServiceProcessorIsHealthy{handler: handler}
+	self6 := &BaseplateServiceProcessor{handler:handler, processorMap:make(map[string]thrift.TProcessorFunction)}
+	self6.processorMap["is_healthy"] = &baseplateServiceProcessorIsHealthy{handler:handler}
 	return self6
 }
 
 func (p *BaseplateServiceProcessor) Process(ctx context.Context, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
 	name, _, seqId, err2 := iprot.ReadMessageBegin(ctx)
-	if err2 != nil {
-		return false, thrift.WrapTException(err2)
-	}
+	if err2 != nil { return false, thrift.WrapTException(err2) }
 	if processor, ok := p.GetProcessorFunction(name); ok {
 		return processor.Process(ctx, seqId, iprot, oprot)
 	}
 	iprot.Skip(ctx, thrift.STRUCT)
 	iprot.ReadMessageEnd(ctx)
-	x7 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function "+name)
+	x7 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function " + name)
 	oprot.WriteMessageBegin(ctx, name, thrift.EXCEPTION, seqId)
 	x7.Write(ctx, oprot)
 	oprot.WriteMessageEnd(ctx)
@@ -1005,7 +925,7 @@ func (p *baseplateServiceProcessorIsHealthy) Process(ctx context.Context, seqId 
 				return false, thrift.WrapTException(err)
 			}
 		}
-		_exc9 := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing is_healthy: "+err2.Error())
+		_exc9 := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing is_healthy: " + err2.Error())
 		if err2 := oprot.WriteMessageBegin(ctx, "is_healthy", thrift.EXCEPTION, seqId); err2 != nil {
 			_write_err8 = thrift.WrapTException(err2)
 		}
@@ -1044,6 +964,7 @@ func (p *baseplateServiceProcessorIsHealthy) Process(ctx context.Context, seqId 
 	return true, err
 }
 
+
 // HELPER FUNCTIONS AND STRUCTURES
 
 type BaseplateServiceIsHealthyArgs struct {
@@ -1057,6 +978,7 @@ func (p *BaseplateServiceIsHealthyArgs) Read(ctx context.Context, iprot thrift.T
 	if _, err := iprot.ReadStructBegin(ctx); err != nil {
 		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
 	}
+
 
 	for {
 		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin(ctx)
@@ -1106,7 +1028,7 @@ func (p *BaseplateServiceIsHealthyArgs) LogValue() slog.Value {
 		return slog.AnyValue(nil)
 	}
 	v := thrift.SlogTStructWrapper{
-		Type:  "*baseplate.BaseplateServiceIsHealthyArgs",
+		Type: "*baseplate.BaseplateServiceIsHealthyArgs",
 		Value: p,
 	}
 	return slog.AnyValue(v)
@@ -1115,7 +1037,8 @@ func (p *BaseplateServiceIsHealthyArgs) LogValue() slog.Value {
 var _ slog.LogValuer = (*BaseplateServiceIsHealthyArgs)(nil)
 
 // Attributes:
-//   - Success
+//  - Success
+// 
 type BaseplateServiceIsHealthyResult struct {
 	Success *bool `thrift:"success,0" db:"success" json:"success,omitempty"`
 }
@@ -1141,6 +1064,7 @@ func (p *BaseplateServiceIsHealthyResult) Read(ctx context.Context, iprot thrift
 	if _, err := iprot.ReadStructBegin(ctx); err != nil {
 		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
 	}
+
 
 	for {
 		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin(ctx)
@@ -1190,9 +1114,7 @@ func (p *BaseplateServiceIsHealthyResult) Write(ctx context.Context, oprot thrif
 		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
 	}
 	if p != nil {
-		if err := p.writeField0(ctx, oprot); err != nil {
-			return err
-		}
+		if err := p.writeField0(ctx, oprot); err != nil { return err }
 	}
 	if err := oprot.WriteFieldStop(ctx); err != nil {
 		return thrift.PrependError("write field stop error: ", err)
@@ -1230,7 +1152,7 @@ func (p *BaseplateServiceIsHealthyResult) LogValue() slog.Value {
 		return slog.AnyValue(nil)
 	}
 	v := thrift.SlogTStructWrapper{
-		Type:  "*baseplate.BaseplateServiceIsHealthyResult",
+		Type: "*baseplate.BaseplateServiceIsHealthyResult",
 		Value: p,
 	}
 	return slog.AnyValue(v)
@@ -1238,33 +1160,35 @@ func (p *BaseplateServiceIsHealthyResult) LogValue() slog.Value {
 
 var _ slog.LogValuer = (*BaseplateServiceIsHealthyResult)(nil)
 
-type BaseplateServiceV2 interface { //The base for any baseplate-based service.
+
+type BaseplateServiceV2 interface {	//The base for any baseplate-based service.
 	//
 	//Your service should inherit from this one so that common tools can interact
 	//with any expected interfaces.
 	//
 
 	// Return whether or not the service is healthy.
-	//
+	// 
 	// The healthchecker (baseplate.server.healthcheck) expects this endpoint to
 	// exist so it can determine your service's health.
-	//
+	// 
 	// This should return True if the service is healthy. If the service is
 	// unhealthy, it can return False or raise an exception.
-	//
-	//
+	// 
+	// 
 	// Parameters:
 	//  - Request
-	//
+	// 
 	IsHealthy(ctx context.Context, request *IsHealthyRequest) (_r bool, _err error)
 }
 
-// The base for any baseplate-based service.
+//The base for any baseplate-based service.
 //
-// Your service should inherit from this one so that common tools can interact
-// with any expected interfaces.
+//Your service should inherit from this one so that common tools can interact
+//with any expected interfaces.
+//
 type BaseplateServiceV2Client struct {
-	c    thrift.TClient
+	c thrift.TClient
 	meta thrift.ResponseMeta
 }
 
@@ -1299,15 +1223,17 @@ func (p *BaseplateServiceV2Client) SetLastResponseMeta_(meta thrift.ResponseMeta
 }
 
 // Return whether or not the service is healthy.
-//
+// 
 // The healthchecker (baseplate.server.healthcheck) expects this endpoint to
 // exist so it can determine your service's health.
-//
+// 
 // This should return True if the service is healthy. If the service is
 // unhealthy, it can return False or raise an exception.
-//
+// 
+// 
 // Parameters:
-//   - Request
+//  - Request
+// 
 func (p *BaseplateServiceV2Client) IsHealthy(ctx context.Context, request *IsHealthyRequest) (_r bool, _err error) {
 	var _args10 BaseplateServiceV2IsHealthyArgs
 	_args10.Request = request
@@ -1323,7 +1249,7 @@ func (p *BaseplateServiceV2Client) IsHealthy(ctx context.Context, request *IsHea
 
 type BaseplateServiceV2Processor struct {
 	processorMap map[string]thrift.TProcessorFunction
-	handler      BaseplateServiceV2
+	handler BaseplateServiceV2
 }
 
 func (p *BaseplateServiceV2Processor) AddToProcessorMap(key string, processor thrift.TProcessorFunction) {
@@ -1341,22 +1267,20 @@ func (p *BaseplateServiceV2Processor) ProcessorMap() map[string]thrift.TProcesso
 
 func NewBaseplateServiceV2Processor(handler BaseplateServiceV2) *BaseplateServiceV2Processor {
 
-	self13 := &BaseplateServiceV2Processor{handler: handler, processorMap: make(map[string]thrift.TProcessorFunction)}
-	self13.processorMap["is_healthy"] = &baseplateServiceV2ProcessorIsHealthy{handler: handler}
+	self13 := &BaseplateServiceV2Processor{handler:handler, processorMap:make(map[string]thrift.TProcessorFunction)}
+	self13.processorMap["is_healthy"] = &baseplateServiceV2ProcessorIsHealthy{handler:handler}
 	return self13
 }
 
 func (p *BaseplateServiceV2Processor) Process(ctx context.Context, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
 	name, _, seqId, err2 := iprot.ReadMessageBegin(ctx)
-	if err2 != nil {
-		return false, thrift.WrapTException(err2)
-	}
+	if err2 != nil { return false, thrift.WrapTException(err2) }
 	if processor, ok := p.GetProcessorFunction(name); ok {
 		return processor.Process(ctx, seqId, iprot, oprot)
 	}
 	iprot.Skip(ctx, thrift.STRUCT)
 	iprot.ReadMessageEnd(ctx)
-	x14 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function "+name)
+	x14 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function " + name)
 	oprot.WriteMessageBegin(ctx, name, thrift.EXCEPTION, seqId)
 	x14.Write(ctx, oprot)
 	oprot.WriteMessageEnd(ctx)
@@ -1420,7 +1344,7 @@ func (p *baseplateServiceV2ProcessorIsHealthy) Process(ctx context.Context, seqI
 				return false, thrift.WrapTException(err)
 			}
 		}
-		_exc16 := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing is_healthy: "+err2.Error())
+		_exc16 := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing is_healthy: " + err2.Error())
 		if err2 := oprot.WriteMessageBegin(ctx, "is_healthy", thrift.EXCEPTION, seqId); err2 != nil {
 			_write_err15 = thrift.WrapTException(err2)
 		}
@@ -1459,10 +1383,12 @@ func (p *baseplateServiceV2ProcessorIsHealthy) Process(ctx context.Context, seqI
 	return true, err
 }
 
+
 // HELPER FUNCTIONS AND STRUCTURES
 
 // Attributes:
-//   - Request
+//  - Request
+// 
 type BaseplateServiceV2IsHealthyArgs struct {
 	Request *IsHealthyRequest `thrift:"request,1" db:"request" json:"request"`
 }
@@ -1488,6 +1414,7 @@ func (p *BaseplateServiceV2IsHealthyArgs) Read(ctx context.Context, iprot thrift
 	if _, err := iprot.ReadStructBegin(ctx); err != nil {
 		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
 	}
+
 
 	for {
 		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin(ctx)
@@ -1536,9 +1463,7 @@ func (p *BaseplateServiceV2IsHealthyArgs) Write(ctx context.Context, oprot thrif
 		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
 	}
 	if p != nil {
-		if err := p.writeField1(ctx, oprot); err != nil {
-			return err
-		}
+		if err := p.writeField1(ctx, oprot); err != nil { return err }
 	}
 	if err := oprot.WriteFieldStop(ctx); err != nil {
 		return thrift.PrependError("write field stop error: ", err)
@@ -1574,7 +1499,7 @@ func (p *BaseplateServiceV2IsHealthyArgs) LogValue() slog.Value {
 		return slog.AnyValue(nil)
 	}
 	v := thrift.SlogTStructWrapper{
-		Type:  "*baseplate.BaseplateServiceV2IsHealthyArgs",
+		Type: "*baseplate.BaseplateServiceV2IsHealthyArgs",
 		Value: p,
 	}
 	return slog.AnyValue(v)
@@ -1583,7 +1508,8 @@ func (p *BaseplateServiceV2IsHealthyArgs) LogValue() slog.Value {
 var _ slog.LogValuer = (*BaseplateServiceV2IsHealthyArgs)(nil)
 
 // Attributes:
-//   - Success
+//  - Success
+// 
 type BaseplateServiceV2IsHealthyResult struct {
 	Success *bool `thrift:"success,0" db:"success" json:"success,omitempty"`
 }
@@ -1609,6 +1535,7 @@ func (p *BaseplateServiceV2IsHealthyResult) Read(ctx context.Context, iprot thri
 	if _, err := iprot.ReadStructBegin(ctx); err != nil {
 		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
 	}
+
 
 	for {
 		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin(ctx)
@@ -1658,9 +1585,7 @@ func (p *BaseplateServiceV2IsHealthyResult) Write(ctx context.Context, oprot thr
 		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
 	}
 	if p != nil {
-		if err := p.writeField0(ctx, oprot); err != nil {
-			return err
-		}
+		if err := p.writeField0(ctx, oprot); err != nil { return err }
 	}
 	if err := oprot.WriteFieldStop(ctx); err != nil {
 		return thrift.PrependError("write field stop error: ", err)
@@ -1698,10 +1623,12 @@ func (p *BaseplateServiceV2IsHealthyResult) LogValue() slog.Value {
 		return slog.AnyValue(nil)
 	}
 	v := thrift.SlogTStructWrapper{
-		Type:  "*baseplate.BaseplateServiceV2IsHealthyResult",
+		Type: "*baseplate.BaseplateServiceV2IsHealthyResult",
 		Value: p,
 	}
 	return slog.AnyValue(v)
 }
 
 var _ slog.LogValuer = (*BaseplateServiceV2IsHealthyResult)(nil)
+
+
