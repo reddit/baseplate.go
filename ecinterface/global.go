@@ -14,8 +14,8 @@ import (
 
 var (
 	getBeforeSet = promauto.With(prometheusbpint.GlobalRegistry).NewCounter(prometheus.CounterOpts{
-		Name:      "ecinterface_get_before_set_total",
-		Help:      "Total number of ecinterface.Get calls before Set is called",
+		Name: "ecinterface_get_before_set_total",
+		Help: "Total number of ecinterface.Get calls before Set is called",
 	})
 )
 
