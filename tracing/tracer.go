@@ -85,7 +85,7 @@ type Tracer struct {
 // and the error will be logged if logger is non-nil.
 func InitGlobalTracer(cfg Config) error {
 	if internalv2compat.V2TracingEnabled() {
-		cfg.Logger.Log(context.Background(), `v2 tracing is enabled; skipping v0 tracer configuration`)
+		log.Info(`v2 tracing is enabled; skipping v0 tracer configuration`)
 		return nil
 	}
 	var tracer Tracer
