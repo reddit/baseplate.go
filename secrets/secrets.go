@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,9 +30,93 @@ func (s Secret) IsEmpty() bool {
 	return len(s) == 0
 }
 
-// CSIFile represents the raw parsed object of a file made by the Vault CSI provider
+// CSIFile represents the raw parsed object of a file made by the Vault CSI
+// provider. The shape mirrors the Vault HTTP API envelope.
+//
+// The Secret field holds the user-visible secret payload. The exact wire
+// format under the top-level "data" key depends on which KV backend version
+// Vault read from:
+//
+//   - KV v1: data is the secret payload directly, e.g.
+//     {"data": {"value": "..."}}
+//   - KV v2: data has an extra layer of nesting, splitting the user payload
+//     from per-version metadata, e.g.
+//     {"data": {"data": {"value": "..."}, "metadata": {"version": 1, ...}}}
+//
+// UnmarshalJSON hides this distinction from callers by hoisting the inner
+// data field out of a KV v2 envelope, so Secret is always populated from the
+// user payload regardless of which backend Vault served the secret from.
 type CSIFile struct {
 	Secret GenericSecret `json:"data"`
+}
+
+// UnmarshalJSON decodes the CSI envelope and, when the payload was sourced
+// from Vault's KV v2 backend, hoists the inner "data" object up so that
+// Secret is decoded from the user-visible secret payload.
+//
+// A payload is treated as KV v2 when the top-level "data" is a JSON object
+// containing both a "data" key and a "metadata" object whose:
+//
+//   - "version" is a JSON number literal, AND
+//   - "created_time" is a non-empty JSON string literal.
+//
+// Both signals must come from Vault's KV v2 implementation; checking the
+// shapes of the metadata fields (rather than just their key names) avoids
+// misclassifying a KV v1 secret that happens to define user-level keys
+// called "data" and "metadata".
+func (c *CSIFile) UnmarshalJSON(b []byte) error {
+	var envelope struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(b, &envelope); err != nil {
+		return err
+	}
+
+	if len(envelope.Data) == 0 {
+		return nil
+	}
+
+	payload := envelope.Data
+	var probe struct {
+		Data     json.RawMessage `json:"data"`
+		Metadata struct {
+			Version     json.RawMessage `json:"version"`
+			CreatedTime json.RawMessage `json:"created_time"`
+		} `json:"metadata"`
+	}
+	if err := json.Unmarshal(payload, &probe); err == nil {
+		if len(probe.Data) > 0 &&
+			isJSONNumber(probe.Metadata.Version) &&
+			isNonEmptyJSONString(probe.Metadata.CreatedTime) {
+			payload = probe.Data
+		}
+	}
+	// If the inner Unmarshal failed, the payload is not a JSON object (string,
+	// number, array, ...). Leave it untouched; the decode into GenericSecret
+	// below will surface a useful error.
+
+	return json.Unmarshal(payload, &c.Secret)
+}
+
+// isJSONNumber reports whether b is a JSON number literal.
+//
+// We avoid encoding/json's json.Number type for this check because it accepts
+// JSON strings whose contents parse as a number (e.g. "1"), which would let a
+// caller-controlled string field masquerade as a Vault-emitted KV v2 version.
+func isJSONNumber(b []byte) bool {
+	b = bytes.TrimSpace(b)
+	if len(b) == 0 {
+		return false
+	}
+	c := b[0]
+	return c == '-' || (c >= '0' && c <= '9')
+}
+
+// isNonEmptyJSONString reports whether b is a JSON string literal with at
+// least one character of content (i.e. not "").
+func isNonEmptyJSONString(b []byte) bool {
+	b = bytes.TrimSpace(b)
+	return len(b) >= 3 && b[0] == '"' && b[len(b)-1] == '"'
 }
 
 // Secrets allows to access secrets based on their different type.
