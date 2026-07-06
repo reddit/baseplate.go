@@ -105,6 +105,34 @@ func TestInject(t *testing.T) {
 			},
 		},
 		{
+			name:        "abort with address inequality",
+			faultHeader: "a!=fooService.testNamespace;f=1;b=test fault",
+
+			wantResponse: &response{
+				code:    1,
+				message: "test fault",
+			},
+		},
+		{
+			name:        "abort with method inequality",
+			faultHeader: "a=testService.testNamespace;m!=Healthcheck;f=1;b=test fault",
+
+			wantResponse: &response{
+				code:    1,
+				message: "test fault",
+			},
+		},
+		{
+			name:        "abort with method inequality and empty method",
+			faultHeader: "a=testService.testNamespace;m!=Healthcheck;f=1;b=test fault",
+			methodEmpty: true,
+
+			wantResponse: &response{
+				code:    1,
+				message: "test fault",
+			},
+		},
+		{
 			name:        "abort with multiple header values",
 			faultHeader: "a=fooService.testNamespace;f=2, a=testService.testNamespace;h=testHost;m=testMethod;f=1;b=test fault, a=barService.testNamespace;f=2",
 
