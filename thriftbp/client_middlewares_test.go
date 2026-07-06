@@ -428,6 +428,13 @@ func TestFaultInjectionClientMiddleware(t *testing.T) {
 			wantErr: thrift.NewTTransportException(1, "test fault"),
 		},
 		{
+			name: "method inequality abort",
+
+			faultHeader: "a=testService.testNamespace;m!=Healthcheck;f=1;b=test fault",
+
+			wantErr: thrift.NewTTransportException(1, "test fault"),
+		},
+		{
 			name:        "service does not match",
 			faultHeader: "a=foo;m=testMethod;f=1;b=test fault",
 
