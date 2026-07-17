@@ -22,10 +22,12 @@ const (
 	baseplateStatusLabel     = "thrift_baseplate_status"
 	baseplateStatusCodeLabel = "thrift_baseplate_status_code"
 	clientNameLabel          = "thrift_client_name"
+	serverNameLabel          = "thrift_server_name"
 )
 
 var (
 	serverLatencyLabels = []string{
+		serverNameLabel,
 		methodLabel,
 		successLabel,
 	}
@@ -36,6 +38,7 @@ var (
 	}.ToPrometheus(), serverLatencyLabels)
 
 	serverTotalRequestLabels = []string{
+		serverNameLabel,
 		methodLabel,
 		successLabel,
 		exceptionLabel,
@@ -49,6 +52,7 @@ var (
 	}, serverTotalRequestLabels)
 
 	serverActiveRequestsLabels = []string{
+		serverNameLabel,
 		methodLabel,
 	}
 
@@ -120,6 +124,7 @@ const (
 
 var (
 	serverPayloadSizeLabels = []string{
+		serverNameLabel,
 		methodLabel,
 		protoLabel,
 	}
