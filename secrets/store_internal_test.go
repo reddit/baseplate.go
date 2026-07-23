@@ -225,6 +225,71 @@ func TestDirRotation(t *testing.T) {
 	})
 }
 
+// TestDirRotation_KVv2 mirrors TestDirRotation's initial-payload flow but
+// the on-disk secret is wrapped in Vault's KV v2 envelope. The library
+// should hide the v1/v2 distinction from callers: walkCSIDirectory and
+// secretsValidate must succeed and produce the same SimpleSecret.
+func TestDirRotation_KVv2(t *testing.T) {
+	const (
+		delay = 50 * time.Millisecond
+		key   = "secrets/foo"
+
+		// Same secret payload as TestDirRotation's apiKey, but the inner
+		// "data" object is now wrapped in a KV v2 envelope:
+		//
+		//   {"data": {"data": {<payload>}, "metadata": {<v2 metadata>}}}
+		apiKey = `
+{
+  "request_id": "1afc3036-2282-d483-c2d4-6d483efdf16c",
+  "lease_id": "",
+  "lease_duration": 2764800,
+  "renewable": false,
+  "data": {
+    "data": {
+      "type": "simple",
+      "value": "Y2RvVXhNMVdsTXJma3BDaHRGZ0dPYkVGSg==",
+      "encoding": "base64"
+    },
+    "metadata": {
+      "version": 1,
+      "created_time": "2024-01-01T00:00:00Z",
+      "destroyed": false,
+      "deletion_time": "",
+      "custom_metadata": null
+    }
+  },
+  "warnings": null
+}
+`
+	)
+	wantSecret := SimpleSecret{Value: Secret("cdoUxM1WlMrfkpChtFgGObEFJ")}
+
+	dir := t.TempDir()
+	writer, err := fileutil.NewAtomicWriter(dir, "")
+	if err != nil {
+		t.Fatalf("Failed to create k8s atomic writer: %v", err)
+	}
+	if err := writer.Write(map[string]fileutil.FileProjection{
+		key: {Data: []byte(apiKey), Mode: 0777},
+	}); err != nil {
+		t.Fatalf("Failed to write v2 payload: %v", err)
+	}
+
+	store, err := newStore(context.Background(), delay, dir, log.TestWrapper(t))
+	if err != nil {
+		t.Fatalf("Failed to create secrets store: %v", err)
+	}
+	t.Cleanup(func() { store.Close() })
+
+	secret, err := store.GetSimpleSecret(key)
+	if err != nil {
+		t.Fatalf("GetSimpleSecret(%q): %v", key, err)
+	}
+	if !reflect.DeepEqual(secret, wantSecret) {
+		t.Errorf("Got secret %+v, want %+v", secret, wantSecret)
+	}
+}
+
 func TestDirectoryError(t *testing.T) {
 	dir := t.TempDir()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)

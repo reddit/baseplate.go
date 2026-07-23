@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
@@ -237,6 +238,160 @@ func TestSecretsWrongType(t *testing.T) {
 			}
 			if _, err := tt.function(secrets); !errors.Is(err, tt.expectedError) {
 				t.Fatalf("expected error %v, actual: %v", tt.expectedError, err)
+			}
+		})
+	}
+}
+
+// TestCSIFile_UnmarshalJSON exercises CSIFile's KV v1/v2 envelope handling.
+//
+// Mirrors the matching test in github.snooguts.net/reddit-go/secretsbp's
+// internal/vaultcsi package, adapted to assert on the decoded GenericSecret
+// (which is what CSIFile exposes) rather than the raw payload bytes.
+func TestCSIFile_UnmarshalJSON(t *testing.T) {
+	// populatedSecret is the GenericSecret callers see when v1/v2 detection
+	// works correctly: the user payload is decoded into our typed fields.
+	populatedSecret := GenericSecret{
+		Type:     "simple",
+		Value:    "abc",
+		Encoding: IdentityEncoding,
+	}
+
+	tests := []struct {
+		name    string
+		input   string
+		want    GenericSecret
+		wantErr bool
+	}{
+		{
+			name: "KV v1 envelope: user payload decoded",
+			input: `{
+				"request_id": "req-1",
+				"lease_id": "lease-1",
+				"lease_duration": 3600,
+				"renewable": true,
+				"data": {"type": "simple", "value": "abc", "encoding": "identity"},
+				"warnings": ["heads up"]
+			}`,
+			want: populatedSecret,
+		},
+		{
+			name: "KV v2 envelope: inner data hoisted, metadata dropped",
+			input: `{
+				"request_id": "req-2",
+				"lease_duration": 60,
+				"data": {
+					"data": {"type": "simple", "value": "abc", "encoding": "identity"},
+					"metadata": {
+						"version": 7,
+						"created_time": "2024-01-01T00:00:00Z",
+						"destroyed": false,
+						"deletion_time": "",
+						"custom_metadata": null
+					}
+				}
+			}`,
+			want: populatedSecret,
+		},
+		{
+			name: "v2-shaped but metadata.version missing: treated as v1",
+			input: `{"data": {
+				"data": {"type": "simple", "value": "abc"},
+				"metadata": {"created_time": "2024-01-01T00:00:00Z"}
+			}}`,
+			// Outer payload is decoded as GenericSecret; none of its fields
+			// match "data" or "metadata", so the result is zero-valued. A
+			// non-zero result here would mean v2 detection misfired.
+			want: GenericSecret{},
+		},
+		{
+			name: "v2-shaped but metadata.version is a string: treated as v1",
+			input: `{"data": {
+				"data": {"type": "simple", "value": "abc"},
+				"metadata": {"version": "7", "created_time": "2024-01-01T00:00:00Z"}
+			}}`,
+			want: GenericSecret{},
+		},
+		{
+			name: "v2-shaped but metadata.created_time missing: treated as v1",
+			input: `{"data": {
+				"data": {"type": "simple", "value": "abc"},
+				"metadata": {"version": 1}
+			}}`,
+			want: GenericSecret{},
+		},
+		{
+			name: "v2-shaped but metadata.created_time is empty string: treated as v1",
+			input: `{"data": {
+				"data": {"type": "simple", "value": "abc"},
+				"metadata": {"version": 1, "created_time": ""}
+			}}`,
+			want: GenericSecret{},
+		},
+		{
+			name: "v2-shaped but metadata.created_time is a number: treated as v1",
+			input: `{"data": {
+				"data": {"type": "simple", "value": "abc"},
+				"metadata": {"version": 1, "created_time": 1700000000}
+			}}`,
+			want: GenericSecret{},
+		},
+		{
+			name: "v2-shaped but metadata is not an object: treated as v1",
+			input: `{"data": {
+				"data": {"type": "simple", "value": "abc"},
+				"metadata": "version 1"
+			}}`,
+			want: GenericSecret{},
+		},
+		{
+			name: "v2 with negative metadata.version: still treated as v2",
+			input: `{"data": {
+				"data": {"type": "simple", "value": "abc", "encoding": "identity"},
+				"metadata": {"version": -1, "created_time": "2024-01-01T00:00:00Z"}
+			}}`,
+			want: populatedSecret,
+		},
+		{
+			name:    "data is a JSON string: error, no panic",
+			input:   `{"data": "just-a-string"}`,
+			wantErr: true,
+		},
+		{
+			name:    "data is a JSON array: error, no panic",
+			input:   `{"data": [1, 2, 3]}`,
+			wantErr: true,
+		},
+		{
+			name:    "data is a JSON number: error, no panic",
+			input:   `{"data": 42}`,
+			wantErr: true,
+		},
+		{
+			name:  "no data field: zero secret, no error",
+			input: `{"request_id": "req-3"}`,
+			want:  GenericSecret{},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got CSIFile
+			err := json.Unmarshal([]byte(tt.input), &got)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got nil; secret=%+v", got.Secret)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(got.Secret, tt.want) {
+				t.Fatalf("Secret mismatch:\n got: %+v\nwant: %+v", got.Secret, tt.want)
 			}
 		})
 	}

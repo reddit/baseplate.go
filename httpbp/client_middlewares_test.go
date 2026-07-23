@@ -429,6 +429,14 @@ func TestFaultInjection(t *testing.T) {
 			wantStatusCode: http.StatusInternalServerError,
 		},
 		{
+			name: "method inequality abort",
+
+			faultServerAddrMatch: true,
+			remainingFaultHeader: "m!=Healthcheck;f=500",
+
+			wantStatusCode: http.StatusInternalServerError,
+		},
+		{
 			name: "service does not match",
 
 			faultServerAddrMatch: false,
