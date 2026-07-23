@@ -24,7 +24,7 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/sys v0.45.0
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
-	google.golang.org/grpc v1.79.3
+	google.golang.org/grpc v1.82.1
 	gopkg.in/yaml.v2 v2.4.0
 	sigs.k8s.io/secrets-store-csi-driver v1.3.3
 )
@@ -64,7 +64,7 @@ require (
 	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
-	google.golang.org/protobuf v1.36.10 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 	k8s.io/apimachinery v0.25.0 // indirect
 	k8s.io/klog/v2 v2.80.1 // indirect
 )
