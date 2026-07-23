@@ -120,14 +120,11 @@ func setupClient(t *testing.T, l *bufconn.Listener, opts ...grpc.DialOption) *gr
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}, opts...)
 
-	// create connection to be used by gRPC client
-	conn, err := grpc.DialContext(
-		context.Background(),
-		"bufnet",
-		opts...,
-	)
+	// passthrough:// is required: NewClient defaults to dns resolver, but bufconn
+	// needs passthrough so the target is passed to WithContextDialer without resolution
+	conn, err := grpc.NewClient("passthrough://bufnet", opts...)
 	if err != nil {
-		t.Fatalf("DialContext: %v", err)
+		t.Fatalf("NewClient: %v", err)
 	}
 	t.Cleanup(func() {
 		err := conn.Close()
