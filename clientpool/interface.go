@@ -28,3 +28,9 @@ type Pool interface {
 	NumAllocated() int32
 	IsExhausted() bool
 }
+
+// Discarder is optionally implemented by pools that can discard a checked-out
+// client without synchronously replacing it.
+type Discarder interface {
+	Discard(Client) error
+}

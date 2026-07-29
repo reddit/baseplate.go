@@ -228,7 +228,9 @@ func TestRetry(t *testing.T) {
 	if err == nil {
 		t.Error("expected an error, got nil")
 	}
-	const expected = 1
+	// The context deadline closes the leased connection and is returned as the
+	// call error, so the context error filter must prevent another attempt.
+	const expected = 0
 	if c.count != expected {
 		t.Errorf("expected middleware to trigger a retry %d times, got %d", expected, c.count)
 	}
