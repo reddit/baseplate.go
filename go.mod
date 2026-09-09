@@ -24,7 +24,7 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/sys v0.45.0
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
-	google.golang.org/grpc v1.82.1
+	google.golang.org/grpc v1.83.1
 	gopkg.in/yaml.v2 v2.4.0
 	sigs.k8s.io/secrets-store-csi-driver v1.3.3
 )
