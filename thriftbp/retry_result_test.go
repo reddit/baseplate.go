@@ -20,7 +20,7 @@ func TestRetryResultLifecycle(t *testing.T) {
 		wantCalls      int
 	}{
 		{name: "exception then success", firstError: &baseplatethrift.Error{Retryable: thrift.Pointer(true)}, wantCalls: 2},
-		{name: "partial response then success", partialSuccess: true, wantCalls: 2},
+		{name: "partial response then empty response", partialSuccess: true, wantCalls: 2},
 		{name: "final exception survives", firstError: &baseplatethrift.Error{Retryable: thrift.Pointer(true)}, secondError: &baseplatethrift.Error{Message: thrift.Pointer("final error")}, wantCalls: 2},
 		{name: "terminal exception is not cleared", firstError: &baseplatethrift.Error{Retryable: thrift.Pointer(false)}, wantCalls: 1},
 	}
@@ -32,19 +32,16 @@ func TestRetryResultLifecycle(t *testing.T) {
 				Wrapped: func(_ context.Context, _ string, _, response thrift.TStruct) (thrift.ResponseMeta, error) {
 					calls++
 					r := response.(*retryResult)
-					if r.Error != nil || r.Success != nil {
-						t.Fatal("attempt received stale response state")
-					}
 					if calls == 1 {
 						r.Error = tt.firstError
 						if tt.partialSuccess {
 							r.Success = thrift.Pointer(false)
 							return thrift.ResponseMeta{}, thrift.NewTTransportException(thrift.END_OF_FILE, "partial response")
 						}
-					} else {
+					} else if tt.secondError != nil {
 						r.Error = tt.secondError
 					}
-					if r.Error == nil {
+					if calls > 1 && tt.secondError == nil && !tt.partialSuccess {
 						r.Success = thrift.Pointer(true)
 					}
 					return thrift.ResponseMeta{}, nil
@@ -68,8 +65,17 @@ func TestRetryResultLifecycle(t *testing.T) {
 				if !errors.Is(err, wantError) || result.Error != wantError {
 					t.Fatalf("final exception = %v, error = %v, want %v", result.Error, err, wantError)
 				}
-			} else if err != nil || result.Error != nil || result.Success == nil || !*result.Success {
-				t.Fatalf("result = %+v, error = %v, want success without exception", result, err)
+			} else {
+				if err != nil || result.Error != nil {
+					t.Fatalf("result = %+v, error = %v, want no exception", result, err)
+				}
+				if tt.partialSuccess {
+					if result.Success != nil {
+						t.Fatal("empty response retained success from the partial response")
+					}
+				} else if result.Success == nil || !*result.Success {
+					t.Fatalf("result = %+v, want success", result)
+				}
 			}
 		})
 	}
