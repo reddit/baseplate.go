@@ -14,11 +14,13 @@ import (
 func TestRetryResultLifecycle(t *testing.T) {
 	tests := []struct {
 		name           string
+		initialError   *baseplatethrift.Error
 		firstError     *baseplatethrift.Error
 		partialSuccess bool
 		secondError    *baseplatethrift.Error
 		wantCalls      int
 	}{
+		{name: "success with reused result", initialError: &baseplatethrift.Error{Retryable: thrift.Pointer(true)}, wantCalls: 1},
 		{name: "exception then success", firstError: &baseplatethrift.Error{Retryable: thrift.Pointer(true)}, wantCalls: 2},
 		{name: "partial response then empty response", partialSuccess: true, wantCalls: 2},
 		{name: "final exception survives", firstError: &baseplatethrift.Error{Retryable: thrift.Pointer(true)}, secondError: &baseplatethrift.Error{Message: thrift.Pointer("final error")}, wantCalls: 2},
@@ -26,14 +28,16 @@ func TestRetryResultLifecycle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var result retryResult
+			result := retryResult{Error: tt.initialError}
 			calls := 0
 			client := thrift.WrapClient(thrift.WrappedTClient{
 				Wrapped: func(_ context.Context, _ string, _, response thrift.TStruct) (thrift.ResponseMeta, error) {
 					calls++
 					r := response.(*retryResult)
 					if calls == 1 {
-						r.Error = tt.firstError
+						if tt.firstError != nil {
+							r.Error = tt.firstError
+						}
 						if tt.partialSuccess {
 							r.Success = thrift.Pointer(false)
 							return thrift.ResponseMeta{}, thrift.NewTTransportException(thrift.END_OF_FILE, "partial response")
@@ -41,7 +45,7 @@ func TestRetryResultLifecycle(t *testing.T) {
 					} else if tt.secondError != nil {
 						r.Error = tt.secondError
 					}
-					if calls > 1 && tt.secondError == nil && !tt.partialSuccess {
+					if (calls > 1 || tt.firstError == nil) && tt.secondError == nil && !tt.partialSuccess {
 						r.Success = thrift.Pointer(true)
 					}
 					return thrift.ResponseMeta{}, nil
