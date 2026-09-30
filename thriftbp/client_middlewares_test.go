@@ -189,6 +189,36 @@ func (c *counter) onRetry(n uint, err error) {
 }
 
 func TestRetry(t *testing.T) {
+	t.Run("successful response after exception", func(t *testing.T) {
+		result := &struct {
+			thrift.TStruct
+			Success *bool
+			Error   *baseplatethrift.Error
+		}{}
+		calls := 0
+		client := thriftbp.Retry(retry.Attempts(2), retry.Delay(0))(thrift.WrappedTClient{
+			Wrapped: func(context.Context, string, thrift.TStruct, thrift.TStruct) (thrift.ResponseMeta, error) {
+				calls++
+				if calls == 1 {
+					result.Error = &baseplatethrift.Error{Retryable: thrift.BoolPtr(true)}
+				} else {
+					result.Success = thrift.BoolPtr(true)
+				}
+				return thrift.ResponseMeta{}, nil
+			},
+		})
+		_, err := client.Call(context.Background(), method, nil, result)
+		if err != nil {
+			t.Fatalf("retry returned error: %v", err)
+		}
+		if result.Success == nil || !*result.Success {
+			t.Fatalf("success = %v, want true", result.Success)
+		}
+		if calls != 2 {
+			t.Errorf("calls = %d, want 2", calls)
+		}
+	})
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

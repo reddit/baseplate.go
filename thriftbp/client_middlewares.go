@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"reflect"
 	"slices"
 	"strconv"
 	"sync"
@@ -295,9 +296,15 @@ func Retry(defaults ...retry.Option) thrift.ClientMiddleware {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 				var lastMeta thrift.ResponseMeta
+				firstAttempt := true
+				value := reflect.Indirect(reflect.ValueOf(result))
 				return lastMeta, retrybp.Do(
 					ctx,
 					func() error {
+						if !firstAttempt && value.Kind() == reflect.Struct && value.CanSet() {
+							value.SetZero()
+						}
+						firstAttempt = false
 						var err error
 						lastMeta, err = next.Call(ctx, method, args, result)
 						return getClientError(result, err)
