@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"reflect"
 	"slices"
 	"strconv"
 	"sync"
@@ -289,15 +290,22 @@ func getClientError(result thrift.TStruct, err error) error {
 }
 
 // Retry returns a thrift.ClientMiddleware that can be used to automatically
-// retry thrift requests.
+// retry thrift requests. It clears the generated result struct before each
+// retry because decoding a response does not clear fields absent from the wire.
 func Retry(defaults ...retry.Option) thrift.ClientMiddleware {
 	return func(next thrift.TClient) thrift.TClient {
 		return thrift.WrappedTClient{
 			Wrapped: func(ctx context.Context, method string, args, result thrift.TStruct) (thrift.ResponseMeta, error) {
 				var lastMeta thrift.ResponseMeta
+				resultValue := reflect.Indirect(reflect.ValueOf(result))
+				attempted := false
 				return lastMeta, retrybp.Do(
 					ctx,
 					func() error {
+						if attempted && resultValue.Kind() == reflect.Struct && resultValue.CanSet() {
+							resultValue.SetZero()
+						}
+						attempted = true
 						var err error
 						lastMeta, err = next.Call(ctx, method, args, result)
 						return getClientError(result, err)
