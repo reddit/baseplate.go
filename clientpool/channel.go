@@ -19,6 +19,7 @@ type channelPool struct {
 
 // Make sure channelPool implements Pool interface.
 var _ Pool = (*channelPool)(nil)
+var _ Discarder = (*channelPool)(nil)
 
 // NewChannelPool creates a new client pool implemented via channel.
 func NewChannelPool(ctx context.Context, requiredInitialClients, bestEffortInitialClients, maxClients int, opener ClientOpener) (_ Pool, err error) {
@@ -157,6 +158,18 @@ func (cp *channelPool) Release(c Client) error {
 		// Pool is full, just close it instead.
 		return c.Close()
 	}
+}
+
+// Discard closes a checked-out client and removes it from the pool without
+// synchronously opening a replacement. A later Get will open a new client if
+// no idle client is available.
+func (cp *channelPool) Discard(c Client) error {
+	if c == nil {
+		return nil
+	}
+
+	defer cp.numActive.Add(-1)
+	return c.Close()
 }
 
 // Close closes the pool, and all allocated clients.

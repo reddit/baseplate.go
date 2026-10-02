@@ -8,6 +8,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/apache/thrift/lib/go/thrift"
@@ -135,12 +136,13 @@ type ClientPoolConfig struct {
 	// In most cases, you would want ConnectTimeout to be short, because if you
 	// have problem connecting to the upstream you want to fail fast.
 	//
-	// For SocketTimeout, the value you should set depends on whether you set a
-	// deadline to the context object to the client call functions or not.
-	// If ALL your client calls will have a context object with a deadline
-	// attached, then it's recommended to set SocketTimeout to a short value,
-	// as this is the max overhead the client call will take over the set
-	// deadline, in case the server is not-responding.
+	// The pool enforces a client call's absolute context deadline by closing its
+	// leased connection to interrupt any in-flight socket read or write. This is
+	// needed even with framed transports: although the server buffers a complete
+	// frame before flushing it, the client receives that frame over a byte stream
+	// and can still stall while reading partway through it.
+	//
+	// SocketTimeout is a fallback for calls without a context deadline.
 	// But if you don't always have a deadline attached to your client calls,
 	// then SocketTimeout needs to be at least your upstream service's p99 latency
 	// SLA. If it's shorter than that you are gonna close connections and fail
@@ -648,24 +650,76 @@ func (p *clientPool) pooledCall(ctx context.Context, method string, args, result
 	if err != nil {
 		return thrift.ResponseMeta{}, PoolError{Cause: err}
 	}
+
+	var (
+		closeOnce sync.Once
+		closeErr  error
+	)
+	closeClient := func() {
+		closeOnce.Do(func() {
+			closeErr = client.Close()
+		})
+	}
+	cancelCloseDone := make(chan struct{})
+	stopCancelClose := context.AfterFunc(ctx, func() {
+		closeClient()
+		close(cancelCloseDone)
+	})
+
 	defer func() {
+		canceled := false
+		if !stopCancelClose() {
+			// The cancellation callback started, so wait until it has finished
+			// closing the connection before releasing the client to the pool.
+			<-cancelCloseDone
+		}
+		if cause := context.Cause(ctx); cause != nil {
+			err = cause
+			canceled = true
+		}
+
 		if shouldCloseConnection(err) {
 			clientPoolClosedConnectionsCounter.With(prometheus.Labels{
 				"thrift_pool": p.slug,
 			}).Inc()
-			if e := client.Close(); e != nil {
+			closeClient()
+			if closeErr != nil {
 				log.C(ctx).Errorw(
 					"Failed to close client",
 					"pool", p.slug,
 					"origErr", err,
-					"closeErr", e,
+					"closeErr", closeErr,
 				)
 			}
 		}
-		p.releaseClient(client)
+		if canceled {
+			p.discardClient(client)
+		} else {
+			p.releaseClient(client)
+		}
 	}()
 
 	return client.Call(ctx, method, args, result)
+}
+
+func (p *clientPool) discardClient(c Client) {
+	discarder, ok := p.Pool.(clientpool.Discarder)
+	if !ok {
+		// Custom Pool implementations predating clientpool.Discarder retain the
+		// old Release behavior. The built-in channel pool always implements it.
+		p.releaseClient(c)
+		return
+	}
+	if err := discarder.Discard(c); err != nil {
+		log.Errorw(
+			"Failed to discard client from pool",
+			"pool", p.slug,
+			"err", err,
+		)
+		clientPoolReleaseErrorCounter.With(prometheus.Labels{
+			"thrift_pool": p.slug,
+		}).Inc()
+	}
 }
 
 func (p *clientPool) getClient() (_ Client, err error) {

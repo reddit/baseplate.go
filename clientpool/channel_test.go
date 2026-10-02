@@ -113,3 +113,49 @@ func TestChannelPoolWithOpenerFailure(t *testing.T) {
 		},
 	)
 }
+
+func TestChannelPoolDiscardDoesNotOpenReplacement(t *testing.T) {
+	var openerCalled atomic.Int32
+	opener := func() (clientpool.Client, error) {
+		openerCalled.Add(1)
+		return &testClient{}, nil
+	}
+
+	pool, err := clientpool.NewChannelPool(context.Background(), 1, 1, 1, opener)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := pool.Close(); err != nil {
+			t.Errorf("pool.Close returned error: %v", err)
+		}
+	})
+
+	c, err := pool.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	discarder := pool.(clientpool.Discarder)
+	if err := discarder.Discard(c); err != nil {
+		t.Fatalf("Discard returned error: %v", err)
+	}
+
+	if got := openerCalled.Load(); got != 1 {
+		t.Errorf("opener calls after Discard = %d, want 1", got)
+	}
+	if c.IsOpen() {
+		t.Error("Discard did not close the client")
+	}
+	checkActiveAndAllocated(t, pool, 0, 0)
+
+	newClient, err := pool.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := openerCalled.Load(); got != 2 {
+		t.Errorf("opener calls after next Get = %d, want 2", got)
+	}
+	if err := pool.Release(newClient); err != nil {
+		t.Fatalf("pool.Release returned error: %v", err)
+	}
+}

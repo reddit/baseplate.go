@@ -1,7 +1,9 @@
 package thriftbp
 
 import (
+	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -235,5 +237,99 @@ func TestCountingDelegateTransport(t *testing.T) {
 	}
 	if written != want {
 		t.Errorf("After reset: Written %d bytes want %d", written, want)
+	}
+}
+
+type closeInterruptTransport struct {
+	thrift.TTransport
+
+	closed     chan struct{}
+	closeOnce  sync.Once
+	closeCalls atomic.Int32
+}
+
+func (t *closeInterruptTransport) Close() error {
+	t.closeCalls.Add(1)
+	t.closeOnce.Do(func() {
+		close(t.closed)
+	})
+	return nil
+}
+
+type closeInterruptClient struct {
+	started   chan struct{}
+	transport *closeInterruptTransport
+}
+
+func (c *closeInterruptClient) Call(
+	context.Context,
+	string,
+	thrift.TStruct,
+	thrift.TStruct,
+) (thrift.ResponseMeta, error) {
+	close(c.started)
+	<-c.transport.closed
+	return thrift.ResponseMeta{}, errors.New("transport closed")
+}
+
+func TestTTLClientCloseInterruptsCall(t *testing.T) {
+	transport := &closeInterruptTransport{
+		TTransport: thrift.NewTMemoryBuffer(),
+		closed:     make(chan struct{}),
+	}
+	inner := &closeInterruptClient{
+		started:   make(chan struct{}),
+		transport: transport,
+	}
+	client, err := newTTLClient(
+		func() (thrift.TClient, *countingDelegateTransport, error) {
+			return inner, &countingDelegateTransport{TTransport: transport}, nil
+		},
+		-1,
+		0,
+		"",
+	)
+	if err != nil {
+		t.Fatalf("newTTLClient returned error: %v", err)
+	}
+
+	callDone := make(chan error, 1)
+	go func() {
+		_, err := client.Call(context.Background(), "method", nil, nil)
+		callDone <- err
+	}()
+	<-inner.started
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- client.Close()
+	}()
+
+	select {
+	case err := <-callDone:
+		if err == nil {
+			t.Fatal("Call returned nil error after its transport was closed")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Close did not interrupt the in-flight Call")
+	}
+
+	select {
+	case err := <-closeDone:
+		if err != nil {
+			t.Fatalf("Close returned error: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Close did not finish after the in-flight Call returned")
+	}
+
+	if err := client.Close(); err != nil {
+		t.Fatalf("second Close returned error: %v", err)
+	}
+	if client.IsOpen() {
+		t.Error("closed client reported itself as reusable")
+	}
+	if got := transport.closeCalls.Load(); got != 1 {
+		t.Errorf("underlying transport Close calls = %d, want 1", got)
 	}
 }

@@ -2,6 +2,7 @@ package thriftbp
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -50,21 +51,44 @@ type ttlClient struct {
 
 	// state guarded by lock (buffer-1 channel)
 	state chan *ttlClientState
+
+	// Close needs to be able to close the transport used by Call without
+	// waiting for Call to release state. Closing that transport is what
+	// interrupts an in-flight socket read.
+	activeTransportMu sync.Mutex
+	activeTransport   *countingDelegateTransport
+	closing           atomic.Bool
+	closeOnce         sync.Once
+	closeErr          error
 }
 
 // Close implements Client interface.
 //
 // It calls underlying TTransport's Close function.
 func (c *ttlClient) Close() error {
-	state := <-c.state
-	defer func() {
-		c.state <- state
-	}()
-	state.closed = true
-	if state.timer != nil {
-		state.timer.Stop()
-	}
-	return state.transport.Close()
+	c.closeOnce.Do(func() {
+		c.closing.Store(true)
+
+		c.activeTransportMu.Lock()
+		activeTransport := c.activeTransport
+		if activeTransport != nil {
+			c.closeErr = activeTransport.Close()
+		}
+		c.activeTransportMu.Unlock()
+
+		state := <-c.state
+		defer func() {
+			c.state <- state
+		}()
+		state.closed = true
+		if state.timer != nil {
+			state.timer.Stop()
+		}
+		if state.transport != activeTransport {
+			c.closeErr = state.transport.Close()
+		}
+	})
+	return c.closeErr
 }
 
 func (c *ttlClient) Call(ctx context.Context, method string, args, result thrift.TStruct) (_ thrift.ResponseMeta, err error) {
@@ -83,6 +107,23 @@ func (c *ttlClient) Call(ctx context.Context, method string, args, result thrift
 		clientPayloadSizeRequestBytes.With(labels).Observe(float64(written))
 		clientPayloadSizeResponseBytes.With(labels).Observe(float64(read))
 	}()
+
+	c.activeTransportMu.Lock()
+	if c.closing.Load() {
+		c.activeTransportMu.Unlock()
+		return thrift.ResponseMeta{}, thrift.NewTTransportException(
+			thrift.NOT_OPEN,
+			"thriftbp: client is closed",
+		)
+	}
+	c.activeTransport = state.transport
+	c.activeTransportMu.Unlock()
+	defer func() {
+		c.activeTransportMu.Lock()
+		c.activeTransport = nil
+		c.activeTransportMu.Unlock()
+	}()
+
 	return state.client.Call(ctx, method, args, result)
 }
 
@@ -93,11 +134,15 @@ func (c *ttlClient) Call(ctx context.Context, method string, args, result thrift
 // Otherwise it checks TTL,
 // returns false if TTL has passed and also close the underlying TTransport.
 func (c *ttlClient) IsOpen() bool {
+	if c.closing.Load() {
+		return false
+	}
+
 	state := <-c.state
 	defer func() {
 		c.state <- state
 	}()
-	if !state.transport.IsOpen() {
+	if state.closed || !state.transport.IsOpen() {
 		return false
 	}
 	if !state.expiration.IsZero() && time.Now().After(state.expiration) {
@@ -126,7 +171,7 @@ func (c *ttlClient) refresh() {
 	defer func() {
 		c.state <- state
 	}()
-	if state.closed {
+	if state.closed || c.closing.Load() {
 		// If Close was called after we entered this function,
 		// close the newly created connection and return early.
 		transport.Close()
