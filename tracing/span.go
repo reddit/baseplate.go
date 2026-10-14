@@ -11,6 +11,8 @@ import (
 	"github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
 
+	//lint:ignore SA1019 This library is internal only, not actually deprecated
+	"github.com/reddit/baseplate.go/internalv2compat"
 	"github.com/reddit/baseplate.go/log"
 )
 
@@ -92,8 +94,13 @@ func newSpan(tracer *Tracer, name string, spanType SpanType) *Span {
 }
 
 // Span defines a tracing span.
+// When v2 interoperability is enabled, legacy server helpers return a Span that
+// runs the legacy hooks and delegates tracing operations to the real v2 span.
 type Span struct {
 	trace *trace
+	// A v2 span owns export when this Span is a compatibility wrapper. Legacy
+	// metadata and hooks are retained, but no second Zipkin span is published.
+	delegate opentracing.Span
 
 	hooks    []interface{}
 	spanType SpanType
@@ -190,14 +197,22 @@ func (s *Span) AddHooks(hooks ...interface{}) {
 }
 
 // SetDebug sets or unsets the debug flag of this Span.
+// In v2 compatibility mode this records the debug annotation, but does not
+// change the sampling decision already made by the v2 tracer.
 func (s *Span) SetDebug(v bool) {
 	s.trace.setDebug(v)
+	if s.delegate != nil {
+		s.delegate.SetTag(ZipkinBinaryAnnotationKeyDebug, v)
+	}
 }
 
 // SetTag sets a binary tag annotation and calls all OnSetTag Hooks
 // registered to the Span.
 func (s *Span) SetTag(key string, value interface{}) opentracing.Span {
 	s.trace.setTag(key, value)
+	if s.delegate != nil {
+		s.delegate.SetTag(key, value)
+	}
 	for _, h := range s.hooks {
 		if hook, ok := h.(SetSpanTagHook); ok {
 			if err := hook.OnSetTag(s, key, value); err != nil {
@@ -212,6 +227,9 @@ func (s *Span) SetTag(key string, value interface{}) opentracing.Span {
 // Hooks registered to the Span.
 func (s *Span) AddCounter(key string, delta float64) {
 	s.trace.addCounter(key, delta)
+	if s.delegate != nil {
+		s.delegate.SetTag(counterKeyPrefix+key, s.trace.counters[key])
+	}
 	for _, h := range s.hooks {
 		if hook, ok := h.(AddSpanCounterHook); ok {
 			if err := hook.OnAddCounter(s, key, delta); err != nil {
@@ -261,6 +279,8 @@ func (s Span) initChildSpan(child *Span) {
 // Stop stops the Span, calls all registered OnPreStop Hooks,
 // serializes the Span,
 // and sends the serialized Span to a back-end that records the Span.
+// In v2 compatibility mode it finishes the delegated span instead of publishing
+// another span through the legacy recorder.
 //
 // In most cases FinishWithOptions should be used instead,
 // which calls Stop and auto logs the error returned by Stop.
@@ -276,6 +296,16 @@ func (s *Span) Stop(ctx context.Context, err error) error {
 	}
 	if s.trace.stop.IsZero() {
 		s.trace.stop = time.Now()
+	}
+	if s.delegate != nil {
+		if err != nil {
+			s.delegate.SetTag(ZipkinBinaryAnnotationKeyError, true)
+		}
+		if s.spanType == SpanTypeServer && errors.Is(err, context.DeadlineExceeded) {
+			s.delegate.SetTag(ZipkinBinaryAnnotationKeyTimeOut, true)
+		}
+		s.delegate.FinishWithOptions(opentracing.FinishOptions{FinishTime: s.trace.stop})
+		return nil
 	}
 	return s.trace.publish(ctx)
 }
@@ -307,21 +337,30 @@ func (s Span) getHub() *sentry.Hub {
 
 // ForeachBaggageItem implements opentracing.SpanContext.
 //
-// We don't support any extra baggage items, so it's a noop.
-func (s *Span) ForeachBaggageItem(handler func(k, v string) bool) {}
+// Legacy spans do not support baggage; v2 wrappers delegate to their real span.
+func (s *Span) ForeachBaggageItem(handler func(k, v string) bool) {
+	if s.delegate != nil {
+		s.delegate.Context().ForeachBaggageItem(handler)
+	}
+}
 
 // SetBaggageItem implements opentracing.Span.
 //
-// As we don't support any extra baggage items,
-// it's a noop and just returns self.
+// Legacy spans ignore baggage; v2 wrappers delegate to their real span.
 func (s *Span) SetBaggageItem(restrictedKey, value string) opentracing.Span {
+	if s.delegate != nil {
+		s.delegate.SetBaggageItem(restrictedKey, value)
+	}
 	return s
 }
 
 // BaggageItem implements opentracing.Span.
 //
-// As we don't support any extra baggage items, it always returns empty string.
+// It returns an empty string for legacy spans and delegates for v2 wrappers.
 func (s *Span) BaggageItem(restrictedKey string) string {
+	if s.delegate != nil {
+		return s.delegate.BaggageItem(restrictedKey)
+	}
 	return ""
 }
 
@@ -373,52 +412,97 @@ func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
 
 // Context implements opentracing.Span.
 //
-// It returns self as opentracing.SpanContext.
+// It returns self for legacy spans, or the underlying context for v2 wrappers.
 func (s *Span) Context() opentracing.SpanContext {
+	if s.delegate != nil {
+		return s.delegate.Context()
+	}
 	return s
 }
 
 // SetOperationName implements opentracing.Span.
 func (s *Span) SetOperationName(operationName string) opentracing.Span {
 	s.trace.name = operationName
+	if s.delegate != nil {
+		s.delegate.SetOperationName(operationName)
+	}
 	return s
 }
 
 // Tracer implements opentracing.Span.
 func (s *Span) Tracer() opentracing.Tracer {
+	if s.delegate != nil {
+		return s.delegate.Tracer()
+	}
 	return s.trace.tracer
 }
 
 // LogFields implements opentracing.Span.
 //
-// In this implementation it's a no-op.
-func (s *Span) LogFields(fields ...otlog.Field) {}
+// It is a no-op for legacy spans and delegates for v2 wrappers.
+func (s *Span) LogFields(fields ...otlog.Field) {
+	if s.delegate != nil {
+		s.delegate.LogFields(fields...)
+	}
+}
 
 // LogKV implements opentracing.Span.
 //
-// In this implementation it's a no-op.
-func (s *Span) LogKV(alternatingKeyValues ...interface{}) {}
+// It is a no-op for legacy spans and delegates for v2 wrappers.
+func (s *Span) LogKV(alternatingKeyValues ...interface{}) {
+	if s.delegate != nil {
+		s.delegate.LogKV(alternatingKeyValues...)
+	}
+}
 
 // LogEvent implements opentracing.Span.
 //
-// it's deprecated in the interface and is a no-op here.
-func (s *Span) LogEvent(event string) {}
+// It is deprecated in the interface. Legacy spans ignore it; v2 wrappers delegate.
+func (s *Span) LogEvent(event string) {
+	if s.delegate != nil {
+		s.delegate.LogFields(otlog.Event(event))
+	}
+}
 
 // LogEventWithPayload implements opentracing.Span.
 //
-// it's deprecated in the interface and is a noop here.
-func (s *Span) LogEventWithPayload(event string, payload interface{}) {}
+// It is deprecated in the interface. Legacy spans ignore it; v2 wrappers delegate.
+func (s *Span) LogEventWithPayload(event string, payload interface{}) {
+	if s.delegate != nil {
+		s.delegate.LogFields(otlog.Event(event), otlog.Object("payload", payload))
+	}
+}
 
 // Log implements opentracing.Span.
 //
-// it's deprecated in the interface and is a no-op here.
-func (s *Span) Log(data opentracing.LogData) {}
+// It is deprecated in the interface. Legacy spans ignore it; v2 wrappers delegate.
+func (s *Span) Log(data opentracing.LogData) {
+	if s.delegate != nil {
+		//lint:ignore SA1019 Preserve the timestamp of this legacy API when forwarding.
+		s.delegate.Log(data)
+	}
+}
 
 // StartTopLevelServerSpan initializes a new, top level server span.
 //
 // This span will have a new TraceID and will be sampled based on your configured
 // sample rate.
+// When v2 interoperability is configured, the v2 tracer owns sampling and export;
+// finishing the returned Span still invokes the registered legacy server hooks.
 func StartTopLevelServerSpan(ctx context.Context, name string) (context.Context, *Span) {
+	if provider := internalv2compat.V2TracingServerSpanProvider(); provider != nil {
+		ctx, v2 := provider(ctx, name)
+		span := newSpan(nil, name, SpanTypeServer)
+		span.delegate = v2.Span
+		span.trace.traceID = v2.TraceID
+		span.trace.spanID = v2.SpanID
+		span.trace.parentID = v2.ParentID
+		span.trace.sampled = v2.Sampled
+		span.trace.start = v2.StartTime
+		onCreateServerSpan(span)
+		span.onStart()
+		return log.Attach(ctx, log.AttachArgs{TraceID: span.TraceID()}), span
+	}
 	otSpan, ctx := opentracing.StartSpanFromContext(
 		ctx,
 		name,
