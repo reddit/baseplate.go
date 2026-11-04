@@ -238,7 +238,10 @@ func TestServeClosers(t *testing.T) {
 	defer store.Close()
 
 	bp := baseplate.NewTestBaseplate(baseplate.NewTestBaseplateArgs{
-		Config:          baseplate.Config{StopTimeout: testTimeout},
+		Config: baseplate.Config{
+			StopTimeout: testTimeout,
+			StopDelay:   -1,
+		},
 		Store:           store,
 		EdgeContextImpl: ecinterface.Mock(),
 	})
@@ -266,7 +269,9 @@ func TestServeClosers(t *testing.T) {
 
 	time.Sleep(time.Millisecond)
 	p.Signal(os.Interrupt)
-	<-ch
+	if err := <-ch; err != nil {
+		t.Fatalf("Serve returned an unexpected error: %v", err)
+	}
 
 	if got := pre.get(); len(got) != 1 {
 		t.Fatalf("Unexpected number of PreShutdown calls: expected 1, got %v", len(got))
